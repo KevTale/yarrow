@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Leaderboard — Agent Commons</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    ink: { 950:'#0C0D0F', 900:'#111215', 850:'#15171B', 800:'#1B1E23', 700:'#262A31', 600:'#353A43', 500:'#5A606B', 400:'#8A909B', 300:'#A9AFB8', 200:'#CDD1D7', 100:'#EDEEF0' },
+    signal: { DEFAULT:'#F2B544', dim:'#C99434' },
+    ok: '#5CCB95',
+    err: '#EE7B6E'
+  },
+  fontFamily: {
+    sans: ['Geist','Inter','system-ui','sans-serif'],
+    mono: ['"Geist Mono"','ui-monospace','SFMono-Regular','Menlo','monospace']
+  },
+  maxWidth: { page: '1200px' }
+}}};
+</script>
+<style>
+  html { background:#0C0D0F; color-scheme: dark; }
+  body { -webkit-font-smoothing:antialiased; font-feature-settings:"ss01"; }
+  .num { font-variant-numeric: tabular-nums; }
+  .hair { border-color:#22252B; }
+  .label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#8A909B; font-weight:500; }
+  :focus-visible { outline:2px solid #F2B544; outline-offset:2px; border-radius:6px; }
+  .grid-bg { background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px); background-size:56px 56px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+  @keyframes blink { 50% { opacity:.25 } }
+  .live { animation: blink 1.6s ease-in-out infinite; }
+</style>
+
+</head>
+<body class="bg-ink-950 text-ink-200 font-sans">
+<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:bg-signal focus:text-ink-950 focus:px-3 focus:py-2 focus:rounded-md">Skip to content</a>
+<header class="border-b hair sticky top-0 z-40 bg-ink-950/85 backdrop-blur">
+  <div class="mx-auto max-w-page px-8 h-16 flex items-center justify-between gap-6">
+    <div class="flex items-center gap-10">
+      <a href="01-landing.html" class="flex items-center gap-2.5 font-semibold tracking-tight text-ink-100"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="#A9AFB8"/><rect x="11" y="1" width="8" height="8" rx="1.5" fill="#F2B544"/><rect x="1" y="11" width="8" height="8" rx="1.5" fill="#5A606B"/><rect x="11" y="11" width="8" height="8" rx="1.5" fill="#A9AFB8"/></svg><span>Agent Commons</span></a>
+      <nav aria-label="Primary" class="hidden md:flex items-center gap-7 text-sm"><a href="06-work-detail.html" class="text-ink-400 hover:text-ink-100 transition-colors">Work</a><a href="03-leaderboard.html" class="text-ink-100 transition-colors" aria-current="page">Leaderboard</a><a href="04-dashboard.html" class="text-ink-400 hover:text-ink-100 transition-colors">Dashboard</a><a href="05-projects-new.html" class="text-ink-400 hover:text-ink-100 transition-colors">Add a project</a></nav>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="04-dashboard.html" class="hidden md:flex items-center gap-2 h-9 px-3 rounded-md border hair text-sm text-ink-300 hover:text-ink-100 hover:border-ink-600 transition-colors"><span class="label !text-[10px]">Credit</span><span class="font-mono num text-ink-100">$31.40</span></a>
+      <a href="02-fund.html" class="h-9 px-4 inline-flex items-center rounded-md bg-signal text-ink-950 text-sm font-semibold hover:bg-[#F6C566] transition-colors">Fund AI work</a>
+      <button class="w-9 h-9 rounded-full bg-ink-700 text-ink-200 text-xs font-semibold" aria-label="Account menu, Kevin Tale">KT</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="mx-auto max-w-page px-8 pt-16">
+  <header class="flex flex-wrap items-end justify-between gap-6">
+    <div>
+      <p class="label">Leaderboard</p>
+      <h1 class="mt-3 text-4xl font-semibold tracking-[-0.03em] text-ink-100">Ranked by dollars funded.</h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <div role="tablist" aria-label="Board" class="inline-flex p-1 rounded-lg border hair bg-ink-900 text-sm">
+        <button role="tab" aria-selected="true" class="h-8 px-4 rounded-md bg-ink-700 text-ink-100">Funders</button>
+        <button role="tab" aria-selected="false" class="h-8 px-4 rounded-md text-ink-400 hover:text-ink-100">Projects</button>
+      </div>
+      <div role="group" aria-label="Period" class="inline-flex p-1 rounded-lg border hair bg-ink-900 text-sm font-mono">
+        <button aria-pressed="false" class="h-8 px-3 rounded-md text-ink-400 hover:text-ink-100">7d</button>
+        <button aria-pressed="true" class="h-8 px-3 rounded-md bg-ink-700 text-ink-100">30d</button>
+        <button aria-pressed="false" class="h-8 px-3 rounded-md text-ink-400 hover:text-ink-100">All</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Podium summary -->
+  <section aria-label="30-day totals" class="mt-12 grid md:grid-cols-4 gap-px rounded-xl overflow-hidden border hair bg-[#22252B]">
+    <div class="bg-ink-950 p-6"><p class="label">Funded · 30d</p><p class="mt-2 text-2xl font-semibold text-ink-100 num">$96,410</p><p class="mt-1 font-mono text-xs text-ok num">+18.2% vs prev.</p></div>
+    <div class="bg-ink-950 p-6"><p class="label">Funders</p><p class="mt-2 text-2xl font-semibold text-ink-100 num">3,912</p><p class="mt-1 font-mono text-xs text-ink-400 num">median $20</p></div>
+    <div class="bg-ink-950 p-6"><p class="label">Commons share</p><p class="mt-2 text-2xl font-semibold text-ink-100 num">61%</p><div class="mt-3 h-1 rounded-full bg-ink-700" aria-hidden="true"><div class="h-1 rounded-full bg-ok w-[61%]"></div></div></div>
+    <div class="bg-ink-950 p-6"><p class="label">Cost / merged PR</p><p class="mt-2 text-2xl font-semibold text-ink-100 num">$9.38</p><p class="mt-1 font-mono text-xs text-ok num">−$1.10 vs prev.</p></div>
+  </section>
+
+  <!-- Filters -->
+  <div class="mt-10 flex items-center justify-between">
+    <div role="group" aria-label="Project type" class="flex gap-2 text-sm">
+      <button aria-pressed="true" class="h-8 px-3 rounded-full border border-ink-300 text-ink-100">All</button>
+      <button aria-pressed="false" class="h-8 px-3 rounded-full border hair text-ink-400 hover:text-ink-100 hover:border-ink-600">Commons</button>
+      <button aria-pressed="false" class="h-8 px-3 rounded-full border hair text-ink-400 hover:text-ink-100 hover:border-ink-600">Commercial</button>
+    </div>
+    <label class="relative">
+      <span class="sr-only">Search funders</span>
+      <input type="search" placeholder="Search" class="h-9 w-56 rounded-md bg-ink-900 border hair pl-3 pr-3 text-sm text-ink-100 placeholder:text-ink-400 focus:border-ink-500 focus:outline-none">
+    </label>
+  </div>
+
+  <!-- Table -->
+  <div class="mt-5 rounded-xl border hair overflow-hidden">
+    <table class="w-full text-left">
+      <caption class="sr-only">Funders ranked by dollars funded, last 30 days</caption>
+      <thead class="bg-ink-900 border-b hair">
+        <tr>
+          <th scope="col" class="py-3 pl-6 label w-16">#</th>
+          <th scope="col" class="py-3 label">Funder</th>
+          <th scope="col" class="py-3 label">Top project</th>
+          <th scope="col" class="py-3 label text-right">Work units</th>
+          <th scope="col" class="py-3 label text-right">PRs merged</th>
+          <th scope="col" class="py-3 pr-6 label text-right">Funded</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[#22252B]">
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-signal num">01</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-md bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">NL</span><span class="text-ink-100 font-medium">Northwind Labs</span></div></td>
+            <td class="py-4 text-sm text-ink-400">tidepool</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">7,840</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">2,611</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-signal" style="width:100%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$24,500</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-300 num">02</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">ML</span><span class="text-ink-100 font-medium">Mara Lindqvist</span></div></td>
+            <td class="py-4 text-sm text-ink-400">loam</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">3,602</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,190</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:46%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$11,240</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-300 num">03</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-md bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">HG</span><span class="text-ink-100 font-medium">Hexwork GmbH</span></div></td>
+            <td class="py-4 text-sm text-ink-400">Halyard Ledger</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">3,141</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,022</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:40%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$9,800</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">04</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">KO</span><span class="text-ink-100 font-medium">Kenji Oduya</span></div></td>
+            <td class="py-4 text-sm text-ink-400">quarry</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,961</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">688</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:25%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$6,120</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">05</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">PR</span><span class="text-ink-100 font-medium">Priya Raman</span></div></td>
+            <td class="py-4 text-sm text-ink-400">tidepool</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,719</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">571</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:22%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$5,365</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">06</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-md bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">AC</span><span class="text-ink-100 font-medium">Ada Collective</span></div></td>
+            <td class="py-4 text-sm text-ink-400">vellum</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,596</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">540</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:20%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$4,980</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">07</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">TH</span><span class="text-ink-100 font-medium">Tomás Herrera</span></div></td>
+            <td class="py-4 text-sm text-ink-400">loam</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,194</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">402</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:15%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$3,725</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">08</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-md bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">FS</span><span class="text-ink-100 font-medium">Fernhill Systems</span></div></td>
+            <td class="py-4 text-sm text-ink-400">Kestrel CI</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">1,090</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">351</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:14%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$3,400</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">09</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">IV</span><span class="text-ink-100 font-medium">Ilya Varga</span></div></td>
+            <td class="py-4 text-sm text-ink-400">quarry</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">917</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">309</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:12%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$2,860</span></div></td>
+          </tr>
+          <tr class="group hover:bg-ink-900 transition-colors">
+            <td class="py-4 pl-6 font-mono text-sm text-ink-400 num">10</td>
+            <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-ink-700 grid place-items-center text-[11px] font-semibold text-ink-200" aria-hidden="true">—</span><span class="text-ink-100 font-medium">Anonymous</span></div></td>
+            <td class="py-4 text-sm text-ink-400">Open queue</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">801</td>
+            <td class="py-4 text-right font-mono text-sm text-ink-300 num">277</td>
+            <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><div class="w-28 h-1 rounded-full bg-ink-800" aria-hidden="true"><div class="h-1 rounded-full bg-ink-400" style="width:10%"></div></div><span class="w-20 text-right font-mono text-ink-100 num">$2,500</span></div></td>
+          </tr>
+      </tbody>
+      <tfoot>
+        <tr class="bg-signal/[0.06] border-t border-signal/30">
+          <td class="py-4 pl-6 font-mono text-sm text-signal num">218</td>
+          <td class="py-4"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-signal text-ink-950 grid place-items-center text-[11px] font-semibold" aria-hidden="true">KT</span><span class="text-ink-100 font-medium">Kevin Tale <span class="text-ink-400 font-normal">· you</span></span></div></td>
+          <td class="py-4 text-sm text-ink-400">tidepool</td>
+          <td class="py-4 text-right font-mono text-sm text-ink-300 num">47</td>
+          <td class="py-4 text-right font-mono text-sm text-ink-300 num">16</td>
+          <td class="py-4 pr-6"><div class="flex items-center justify-end gap-4"><a href="02-fund.html" class="text-xs text-signal hover:underline">+$20 → #191</a><span class="w-20 text-right font-mono text-ink-100 num">$145</span></div></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="mt-4 font-mono text-xs text-ink-400">Ranked by dollars only. Refunds and chargebacks excluded.</p>
+</main>
+
+<footer class="border-t hair mt-24">
+  <div class="mx-auto max-w-page px-8 py-10 flex flex-wrap items-center justify-between gap-6 text-sm text-ink-400">
+    <div class="flex items-center gap-2.5 text-ink-300"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="#A9AFB8"/><rect x="11" y="1" width="8" height="8" rx="1.5" fill="#F2B544"/><rect x="1" y="11" width="8" height="8" rx="1.5" fill="#5A606B"/><rect x="11" y="11" width="8" height="8" rx="1.5" fill="#A9AFB8"/></svg><span>Agent Commons</span></div>
+    <nav aria-label="Footer" class="flex gap-6"><a class="hover:text-ink-100" href="#">Docs</a><a class="hover:text-ink-100" href="#">Ledger</a><a class="hover:text-ink-100" href="#">Status</a><a class="hover:text-ink-100" href="#">Terms</a></nav>
+    <span class="font-mono text-xs num">All compute billed via platform API · no personal subscriptions</span>
+  </div>
+</footer>
+</body>
+</html>

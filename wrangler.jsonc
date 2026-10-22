@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agent-commons-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-05",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "agent-commons-web" },
+  ],
+  "queues": {
+    "producers": [{ "binding": "WORK_QUEUE", "queue": "agent-commons-work" }],
+  },
+  "observability": { "enabled": true },
+}

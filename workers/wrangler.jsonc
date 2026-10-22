@@ -1,0 +1,25 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "agent-commons-brain",
+  "main": "./brain.ts",
+  "compatibility_date": "2026-10-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "workflows": [
+    {
+      "name": "agent-commons-workflow",
+      "binding": "WORKFLOW",
+      "class_name": "AgentWorkWorkflow",
+    },
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "agent-commons-work",
+        "max_batch_size": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "agent-commons-dead-letter",
+      },
+    ],
+  },
+  "observability": { "enabled": true },
+}

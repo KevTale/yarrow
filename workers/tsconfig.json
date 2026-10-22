@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "exclude": ["node_modules", ".worker-build", ".wrangler"],
+  "include": [
+    "./**/*.ts",
+    "../src/core/**/*.ts",
+    "../src/db/**/*.ts",
+    "../src/runner/**/*.ts"
+  ]
+}

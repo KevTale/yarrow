@@ -1,0 +1,10 @@
+node_modules
+.next
+.open-next
+.worker-build
+.wrangler
+pnpm-lock.yaml
+docs/mvp
+drizzle/meta
+test-results
+playwright-report

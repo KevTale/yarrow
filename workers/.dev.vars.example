@@ -1,0 +1,3 @@
+# Optional: leave unset to exercise the zero-cost stub Workflow.
+# Use only a local/test Supabase database when testing ledger mutations.
+DATABASE_URL=

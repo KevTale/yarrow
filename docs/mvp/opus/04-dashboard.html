@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Dashboard — Agent Commons</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    ink: { 950:'#0C0D0F', 900:'#111215', 850:'#15171B', 800:'#1B1E23', 700:'#262A31', 600:'#353A43', 500:'#5A606B', 400:'#8A909B', 300:'#A9AFB8', 200:'#CDD1D7', 100:'#EDEEF0' },
+    signal: { DEFAULT:'#F2B544', dim:'#C99434' },
+    ok: '#5CCB95',
+    err: '#EE7B6E'
+  },
+  fontFamily: {
+    sans: ['Geist','Inter','system-ui','sans-serif'],
+    mono: ['"Geist Mono"','ui-monospace','SFMono-Regular','Menlo','monospace']
+  },
+  maxWidth: { page: '1200px' }
+}}};
+</script>
+<style>
+  html { background:#0C0D0F; color-scheme: dark; }
+  body { -webkit-font-smoothing:antialiased; font-feature-settings:"ss01"; }
+  .num { font-variant-numeric: tabular-nums; }
+  .hair { border-color:#22252B; }
+  .label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#8A909B; font-weight:500; }
+  :focus-visible { outline:2px solid #F2B544; outline-offset:2px; border-radius:6px; }
+  .grid-bg { background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px); background-size:56px 56px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+  @keyframes blink { 50% { opacity:.25 } }
+  .live { animation: blink 1.6s ease-in-out infinite; }
+</style>
+
+</head>
+<body class="bg-ink-950 text-ink-200 font-sans">
+<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:bg-signal focus:text-ink-950 focus:px-3 focus:py-2 focus:rounded-md">Skip to content</a>
+<header class="border-b hair sticky top-0 z-40 bg-ink-950/85 backdrop-blur">
+  <div class="mx-auto max-w-page px-8 h-16 flex items-center justify-between gap-6">
+    <div class="flex items-center gap-10">
+      <a href="01-landing.html" class="flex items-center gap-2.5 font-semibold tracking-tight text-ink-100"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="#A9AFB8"/><rect x="11" y="1" width="8" height="8" rx="1.5" fill="#F2B544"/><rect x="1" y="11" width="8" height="8" rx="1.5" fill="#5A606B"/><rect x="11" y="11" width="8" height="8" rx="1.5" fill="#A9AFB8"/></svg><span>Agent Commons</span></a>
+      <nav aria-label="Primary" class="hidden md:flex items-center gap-7 text-sm"><a href="06-work-detail.html" class="text-ink-400 hover:text-ink-100 transition-colors">Work</a><a href="03-leaderboard.html" class="text-ink-400 hover:text-ink-100 transition-colors">Leaderboard</a><a href="04-dashboard.html" class="text-ink-100 transition-colors" aria-current="page">Dashboard</a><a href="05-projects-new.html" class="text-ink-400 hover:text-ink-100 transition-colors">Add a project</a></nav>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="04-dashboard.html" class="hidden md:flex items-center gap-2 h-9 px-3 rounded-md border hair text-sm text-ink-300 hover:text-ink-100 hover:border-ink-600 transition-colors"><span class="label !text-[10px]">Credit</span><span class="font-mono num text-ink-100">$31.40</span></a>
+      <a href="02-fund.html" class="h-9 px-4 inline-flex items-center rounded-md bg-signal text-ink-950 text-sm font-semibold hover:bg-[#F6C566] transition-colors">Fund AI work</a>
+      <button class="w-9 h-9 rounded-full bg-ink-700 text-ink-200 text-xs font-semibold" aria-label="Account menu, Kevin Tale">KT</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="mx-auto max-w-page px-8 pt-16">
+  <header class="flex flex-wrap items-end justify-between gap-6">
+    <div>
+      <p class="label">Dashboard</p>
+      <h1 class="mt-3 text-4xl font-semibold tracking-[-0.03em] text-ink-100">Kevin Tale</h1>
+    </div>
+    <div class="flex gap-3">
+      <a href="05-projects-new.html" class="h-10 px-4 inline-flex items-center rounded-lg border border-ink-600 text-sm text-ink-100 hover:bg-ink-800 transition-colors">Add a project</a>
+      <a href="02-fund.html" class="h-10 px-4 inline-flex items-center rounded-lg bg-signal text-sm font-semibold text-ink-950 hover:bg-[#F6C566] transition-colors">Fund AI work</a>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <section aria-label="Your totals" class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-px rounded-xl overflow-hidden border hair bg-[#22252B]">
+    <div class="bg-ink-950 p-6"><p class="label">Funded</p><p class="mt-2 text-3xl font-semibold tracking-tight text-ink-100 num">$145</p><p class="mt-1 font-mono text-xs text-ink-400">Rank #218</p></div>
+    <div class="bg-ink-950 p-6"><p class="label">Credit left</p><p class="mt-2 text-3xl font-semibold tracking-tight text-ink-100 num">$31.40</p><div class="mt-3 h-1 rounded-full bg-ink-700" aria-hidden="true"><div class="h-1 rounded-full bg-signal w-[22%]"></div></div></div>
+    <div class="bg-ink-950 p-6"><p class="label">Work units</p><p class="mt-2 text-3xl font-semibold tracking-tight text-ink-100 num">47</p><p class="mt-1 font-mono text-xs text-ink-400 num">avg $2.42</p></div>
+    <div class="bg-ink-950 p-6">
+      <p class="label">Outcomes</p>
+      <p class="mt-2 text-3xl font-semibold tracking-tight text-ink-100 num">16 <span class="text-base font-normal text-ink-400">merged</span></p>
+      <div class="mt-3 flex h-1 rounded-full overflow-hidden" aria-label="16 merged, 9 open, 11 abstained, 11 running"><div class="bg-ok w-[34%]"></div><div class="bg-ink-300 w-[19%]"></div><div class="bg-ink-500 w-[24%]"></div><div class="bg-signal w-[23%]"></div></div>
+    </div>
+  </section>
+
+  <div class="mt-10 grid grid-cols-12 gap-10">
+    <!-- Left -->
+    <div class="col-span-12 lg:col-span-8 space-y-10">
+      <section aria-labelledby="spend" class="rounded-xl border hair bg-ink-900 p-6">
+        <div class="flex items-baseline justify-between">
+          <h2 id="spend" class="text-ink-100 font-medium">Compute spent · 30d</h2>
+          <p class="font-mono text-sm text-ink-100 num">$57.10</p>
+        </div>
+        <div class="mt-6 h-36 flex items-end gap-1.5" role="img" aria-label="Daily compute spend over the last 30 days, peak $5.30"><div class="group flex-1 h-full flex items-end" title="Day 1: $0.40"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:8%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 2: $1.20"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:23%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 3: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 4: $2.10"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:40%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 5: $3.40"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:64%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 6: $0.80"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:15%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 7: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 8: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 9: $1.90"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:36%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 10: $2.60"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:49%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 11: $4.10"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:77%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 12: $3.00"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:57%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 13: $0.60"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:11%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 14: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 15: $1.10"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:21%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 16: $2.20"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:42%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 17: $5.30"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:100%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 18: $4.40"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:83%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 19: $1.00"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:19%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 20: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 21: $0.00"><div class="w-full rounded-sm bg-ink-700 transition-colors" style="height:2%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 22: $2.80"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:53%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 23: $3.60"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:68%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 24: $2.00"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:38%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 25: $1.50"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:28%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 26: $0.70"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:13%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 27: $3.90"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:74%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 28: $4.80"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:91%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 29: $2.40"><div class="w-full rounded-sm bg-ink-500 group-hover:bg-ink-300 transition-colors" style="height:45%"></div></div><div class="group flex-1 h-full flex items-end" title="Day 30: $1.30"><div class="w-full rounded-sm bg-signal transition-colors" style="height:25%"></div></div></div>
+        <div class="mt-3 flex justify-between font-mono text-[11px] text-ink-400"><span>Sep 6</span><span>Sep 20</span><span>Today</span></div>
+      </section>
+
+      <section aria-labelledby="activity">
+        <div class="flex items-end justify-between">
+          <h2 id="activity" class="text-ink-100 font-medium">Work you funded</h2>
+          <div role="group" aria-label="Filter" class="flex gap-1 text-xs">
+            <button aria-pressed="true" class="h-7 px-2.5 rounded-md bg-ink-800 text-ink-100">All</button>
+            <button aria-pressed="false" class="h-7 px-2.5 rounded-md text-ink-400 hover:text-ink-100">Running</button>
+            <button aria-pressed="false" class="h-7 px-2.5 rounded-md text-ink-400 hover:text-ink-100">Abstained</button>
+          </div>
+        </div>
+        <ul class="mt-4 rounded-xl border hair divide-y divide-[#22252B] overflow-hidden">
+          <li><a href="06-work-detail.html" class="grid grid-cols-12 items-center gap-4 px-5 py-4 hover:bg-ink-900 transition-colors">
+            <span class="col-span-2"><span class="inline-flex items-center gap-1.5 text-xs font-medium text-ok"><span class="w-1.5 h-1.5 rounded-full bg-ok"></span>PR open</span></span>
+            <span class="col-span-6 min-w-0"><span class="block truncate text-ink-100">Pool drain leaks sockets on SIGTERM</span><span class="block font-mono text-xs text-ink-400">tidepool #4821 → PR #4907</span></span>
+            <span class="col-span-2 text-right font-mono text-xs text-ink-400">14 min</span>
+            <span class="col-span-2 text-right font-mono text-sm text-ink-100 num">$3.42</span>
+          </a></li>
+          <li><a href="06-work-detail.html" class="grid grid-cols-12 items-center gap-4 px-5 py-4 hover:bg-ink-900 transition-colors">
+            <span class="col-span-2"><span class="inline-flex items-center gap-1.5 text-xs font-medium text-signal"><span class="w-1.5 h-1.5 rounded-full bg-signal live"></span>Running</span></span>
+            <span class="col-span-6 min-w-0"><span class="block truncate text-ink-100">Support zstd for artifact uploads</span><span class="block font-mono text-xs text-ink-400">loam #1290 · run 2/3</span></span>
+            <span class="col-span-2 text-right font-mono text-xs text-ink-400">now</span>
+            <span class="col-span-2 text-right font-mono text-sm text-ink-300 num">$1.06</span>
+          </a></li>
+          <li><a href="06-work-detail.html" class="grid grid-cols-12 items-center gap-4 px-5 py-4 hover:bg-ink-900 transition-colors">
+            <span class="col-span-2"><span class="inline-flex items-center gap-1.5 text-xs font-medium text-ok"><span class="w-1.5 h-1.5 rounded-full bg-ok"></span>Merged</span></span>
+            <span class="col-span-6 min-w-0"><span class="block truncate text-ink-100">Idempotency keys ignored on invoice retries</span><span class="block font-mono text-xs text-ink-400">Halyard Ledger HAL-2214 → PR #918</span></span>
+            <span class="col-span-2 text-right font-mono text-xs text-ink-400">3 h</span>
+            <span class="col-span-2 text-right font-mono text-sm text-ink-100 num">$4.87</span>
+          </a></li>
+          <li><a href="06-work-detail.html" class="grid grid-cols-12 items-center gap-4 px-5 py-4 hover:bg-ink-900 transition-colors">
+            <span class="col-span-2"><span class="inline-flex items-center gap-1.5 text-xs font-medium text-ink-300"><span class="w-1.5 h-1.5 rounded-full border border-ink-300"></span>Abstained</span></span>
+            <span class="col-span-6 min-w-0"><span class="block truncate text-ink-100">Redesign query planner cost model</span><span class="block font-mono text-xs text-ink-400">quarry #377 · scope too broad</span></span>
+            <span class="col-span-2 text-right font-mono text-xs text-ink-400">5 h</span>
+            <span class="col-span-2 text-right font-mono text-sm text-ink-300 num">$0.41</span>
+          </a></li>
+          <li><a href="06-work-detail.html" class="grid grid-cols-12 items-center gap-4 px-5 py-4 hover:bg-ink-900 transition-colors">
+            <span class="col-span-2"><span class="inline-flex items-center gap-1.5 text-xs font-medium text-ok"><span class="w-1.5 h-1.5 rounded-full bg-ok"></span>Merged</span></span>
+            <span class="col-span-6 min-w-0"><span class="block truncate text-ink-100">Flaky test: retry_backoff_respects_jitter</span><span class="block font-mono text-xs text-ink-400">Kestrel CI KCI-781 → PR #2043</span></span>
+            <span class="col-span-2 text-right font-mono text-xs text-ink-400">yesterday</span>
+            <span class="col-span-2 text-right font-mono text-sm text-ink-100 num">$1.12</span>
+          </a></li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- Right -->
+    <aside class="col-span-12 lg:col-span-4 space-y-10">
+      <section aria-labelledby="mine">
+        <h2 id="mine" class="text-ink-100 font-medium">Your projects</h2>
+        <div class="mt-4 rounded-xl border hair bg-ink-900 p-5">
+          <div class="flex items-start justify-between">
+            <div><p class="text-ink-100 font-medium">Sillage API</p><p class="font-mono text-xs text-ink-400">sillage-io/api · Jira SIL</p></div>
+            <span class="text-[11px] font-medium px-2 py-1 rounded border border-ink-600 text-ink-300">Commercial</span>
+          </div>
+          <dl class="mt-5 grid grid-cols-3 gap-3 font-mono text-sm num">
+            <div><dt class="label !text-[10px]">Queue</dt><dd class="mt-1 text-ink-100">14</dd></div>
+            <div><dt class="label !text-[10px]">PRs</dt><dd class="mt-1 text-ink-100">22</dd></div>
+            <div><dt class="label !text-[10px]">Merge</dt><dd class="mt-1 text-ink-100">71%</dd></div>
+          </dl>
+          <div class="mt-5 pt-4 border-t hair flex items-center justify-between text-sm">
+            <span class="text-ink-400">Pool <span class="font-mono text-ink-200 num">$212.60</span></span>
+            <a href="#" class="text-ink-300 hover:text-ink-100">Settings →</a>
+          </div>
+        </div>
+        <a href="05-projects-new.html" class="mt-3 flex items-center justify-center h-14 rounded-xl border border-dashed border-ink-600 text-sm text-ink-400 hover:text-ink-100 hover:border-ink-400 transition-colors">+ Add a project</a>
+      </section>
+
+      <section aria-labelledby="ledger">
+        <h2 id="ledger" class="text-ink-100 font-medium">Ledger</h2>
+        <ul class="mt-4 space-y-3 font-mono text-sm num">
+          <li class="flex justify-between"><span class="text-ink-400">Oct 2 · Builder pack</span><span class="text-ok">+$20.00</span></li>
+          <li class="flex justify-between"><span class="text-ink-400">Sep 24 · Sprint pack</span><span class="text-ok">+$100.00</span></li>
+          <li class="flex justify-between"><span class="text-ink-400">Sep 11 · Builder pack</span><span class="text-ok">+$20.00</span></li>
+          <li class="flex justify-between"><span class="text-ink-400">Sep 3 · Starter pack</span><span class="text-ok">+$5.00</span></li>
+          <li class="flex justify-between pt-3 border-t hair"><span class="text-ink-400">Compute used</span><span class="text-ink-200">−$113.60</span></li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<footer class="border-t hair mt-24">
+  <div class="mx-auto max-w-page px-8 py-10 flex flex-wrap items-center justify-between gap-6 text-sm text-ink-400">
+    <div class="flex items-center gap-2.5 text-ink-300"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="#A9AFB8"/><rect x="11" y="1" width="8" height="8" rx="1.5" fill="#F2B544"/><rect x="1" y="11" width="8" height="8" rx="1.5" fill="#5A606B"/><rect x="11" y="11" width="8" height="8" rx="1.5" fill="#A9AFB8"/></svg><span>Agent Commons</span></div>
+    <nav aria-label="Footer" class="flex gap-6"><a class="hover:text-ink-100" href="#">Docs</a><a class="hover:text-ink-100" href="#">Ledger</a><a class="hover:text-ink-100" href="#">Status</a><a class="hover:text-ink-100" href="#">Terms</a></nav>
+    <span class="font-mono text-xs num">All compute billed via platform API · no personal subscriptions</span>
+  </div>
+</footer>
+</body>
+</html>
