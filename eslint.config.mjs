@@ -1,17 +1,30 @@
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import reactHooks from "eslint-plugin-react-hooks";
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
 
 export default defineConfig([
-  ...nextVitals,
-  ...nextTs,
   globalIgnores([
-    ".next/**",
-    ".open-next/**",
-    "**/.worker-build/**",
+    "dist/**",
     "**/.wrangler/**",
-    "next-env.d.ts",
+    "**/.worker-build/**",
+    "src/routeTree.gen.ts",
     "playwright-report/**",
     "test-results/**",
   ]),
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);

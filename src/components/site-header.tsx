@@ -1,7 +1,4 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -21,20 +18,22 @@ export function Brand() {
   );
 }
 
-export function SiteHeader() {
-  const path = usePathname();
+const links = [
+  { to: "/work", label: "Work" },
+  { to: "/showcase", label: "Projects" },
+  { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/projects/new", label: "Add a project" },
+  { to: "/dashboard", label: "My activity" },
+] as const;
+
+export function SiteHeader({ signedIn }: { signedIn: boolean }) {
+  const path = useRouterState({ select: (state) => state.location.pathname });
   const [open, setOpen] = useState(false);
-  const links = [
-    { href: "/work", label: "Work" },
-    { href: "/leaderboard", label: "Leaderboard" },
-    { href: "/projects/new", label: "Add a project" },
-    { href: "/dashboard", label: "My activity" },
-  ];
   return (
     <header className="site-header">
       <div className="container header-inner">
         <Link
-          href="/"
+          to="/"
           aria-label="Agent Commons home"
           onClick={() => setOpen(false)}
         >
@@ -47,9 +46,9 @@ export function SiteHeader() {
         >
           {links.map((link) => (
             <Link
-              key={link.href}
-              href={link.href}
-              aria-current={path.startsWith(link.href) ? "page" : undefined}
+              key={link.to}
+              to={link.to}
+              aria-current={path.startsWith(link.to) ? "page" : undefined}
               onClick={() => setOpen(false)}
             >
               {link.label}
@@ -57,10 +56,16 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="header-actions">
-          <Link href="/sign-in" className="sign-in">
-            Sign in
-          </Link>
-          <Link href="/fund" className="button button-primary button-small">
+          {signedIn ? (
+            <a href="/auth/sign-out" className="sign-in">
+              Sign out
+            </a>
+          ) : (
+            <Link to="/sign-in" className="sign-in">
+              Sign in
+            </Link>
+          )}
+          <Link to="/fund" className="button button-primary button-small">
             Fund AI work <ArrowUpRight size={14} />
           </Link>
           <button

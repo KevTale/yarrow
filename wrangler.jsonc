@@ -1,15 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // The shop: UI, auth, Stripe and tracker webhooks, sponsor and owner dashboards.
   "name": "agent-commons-web",
-  "main": ".open-next/worker.js",
+  "main": "@tanstack/react-start/server-entry",
   "compatibility_date": "2026-10-05",
-  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  "services": [
-    { "binding": "WORKER_SELF_REFERENCE", "service": "agent-commons-web" },
-  ],
-  "queues": {
-    "producers": [{ "binding": "WORK_QUEUE", "queue": "agent-commons-work" }],
-  },
+  "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "upload_source_maps": true,
+  // Public values only. Secrets (DATABASE_URL, STRIPE_*, GITHUB_APP_*, tracker
+  // OAuth secrets, TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put`
+  // and, locally, in .dev.vars.
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
+    // Publishable by design (browser-safe). RLS denies it every table.
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
+    "GITHUB_APP_SLUG": "agent-commons",
+  },
 }
