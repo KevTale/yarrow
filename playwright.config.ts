@@ -20,8 +20,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      "node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3100",
+    // Serves the production build in the Workers runtime (run `pnpm build` first).
+    command: "pnpm exec vite preview --host 127.0.0.1 --port 3100 --strictPort",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 60000,

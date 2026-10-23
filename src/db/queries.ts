@@ -244,7 +244,6 @@ export async function runDetail(
     .select({
       type: events.type,
       at: events.createdAt,
-      payload: events.payload,
     })
     .from(events)
     .where(eq(events.agentRunId, runId))

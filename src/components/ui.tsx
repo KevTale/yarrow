@@ -1,23 +1,7 @@
 import type { ReactNode } from "react";
-import type { Pool } from "@/core/forms";
-import type { WorkStatus } from "@/lib/demo-data";
-
-export function PoolBadge({ pool }: { pool: Pool }) {
-  return (
-    <span className={`badge pool-${pool}`}>
-      {pool === "commons" ? "Commons" : "Commercial"}
-    </span>
-  );
-}
-
-export function StatusBadge({ status }: { status: WorkStatus }) {
-  return (
-    <span className={`status status-${status.toLowerCase().replace(" ", "-")}`}>
-      <span className="status-dot" aria-hidden="true" />
-      {status}
-    </span>
-  );
-}
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, Github } from "lucide-react";
+import { sponsorNames, type RunSponsor } from "@/core/attribution";
 
 export function PageHeading({
   eyebrow,
@@ -27,7 +11,7 @@ export function PageHeading({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   children?: ReactNode;
 }) {
   return (
@@ -35,7 +19,7 @@ export function PageHeading({
       <div>
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
-        <p className="muted">{description}</p>
+        {description && <p className="muted">{description}</p>}
       </div>
       {children}
     </header>
@@ -60,12 +44,143 @@ export function StatGrid({
   );
 }
 
-export function DemoNotice({ children }: { children?: ReactNode }) {
+type RunLike = {
+  status: "running" | "completed" | "abstained";
+  outcome: "pull_request" | "abstained" | null;
+  phase?: string | null;
+};
+
+const statusLabel: Record<string, string> = {
+  running: "Running",
+  completed: "PR delivered",
+  abstained: "Abstained",
+};
+
+export function RunStatus({ run }: { run: RunLike }) {
+  const css =
+    run.status === "running"
+      ? "status-running"
+      : run.status === "completed"
+        ? "status-merged"
+        : "status-abstained";
   return (
-    <p className="demo-notice">
-      <span className="demo-dot" aria-hidden="true" />
-      {children ??
-        "Demo workspace · sample data, no real payments or agent activity."}
-    </p>
+    <span className={`status ${css}`}>
+      <span className="status-dot" aria-hidden="true" />
+      {run.status === "running" && run.phase
+        ? capitalize(run.phase)
+        : statusLabel[run.status]}
+    </span>
   );
+}
+
+export function TicketStatus({ status }: { status: string }) {
+  const css =
+    status === "running"
+      ? "status-running"
+      : status === "delivered" || status === "closed"
+        ? "status-merged"
+        : status === "abstained"
+          ? "status-abstained"
+          : "";
+  return (
+    <span className={`status ${css}`}>
+      <span className="status-dot" aria-hidden="true" />
+      {capitalize(status)}
+    </span>
+  );
+}
+
+export function VisibilityBadge({
+  visibility,
+}: {
+  visibility: "public" | "listed" | "hidden";
+}) {
+  const label = { public: "Public", listed: "Listed", hidden: "Hidden" };
+  return (
+    <span
+      className={`badge ${visibility === "public" ? "pool-commons" : "pool-commercial"}`}
+    >
+      {label[visibility]}
+    </span>
+  );
+}
+
+export function SponsorLine({ sponsors }: { sponsors: RunSponsor[] }) {
+  const names = sponsorNames(sponsors);
+  return names ? (
+    <span className="muted small">Sponsored by {names}</span>
+  ) : null;
+}
+
+export function EmptyState({
+  title,
+  children,
+}: {
+  title: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <strong>{title}</strong>
+      {children && <p className="muted">{children}</p>}
+    </div>
+  );
+}
+
+export function NotConfigured({ what = "The database" }: { what?: string }) {
+  return (
+    <EmptyState title="Not connected yet">
+      {what} is not configured on this deployment. Live data appears here once
+      it is connected.
+    </EmptyState>
+  );
+}
+
+export function SignInPrompt({
+  next,
+  reason,
+}: {
+  next: string;
+  reason: string;
+}) {
+  return (
+    <div className="sign-in-card">
+      <p className="eyebrow">SIGN IN</p>
+      <h2>{reason}</h2>
+      <p className="muted">
+        One account for sponsors and builders, with GitHub.
+      </p>
+      <a
+        className="button button-primary"
+        href={`/auth/github?next=${encodeURIComponent(next)}`}
+      >
+        <Github size={16} /> Continue with GitHub
+      </a>
+      <Link to="/" className="text-link">
+        Back to Agent Commons <ArrowRight size={14} />
+      </Link>
+    </div>
+  );
+}
+
+export function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
+}
+
+export function timeAgo(value: Date | string | null): string {
+  if (!value) return "";
+  const seconds = Math.round((Date.now() - new Date(value).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
+  return `${Math.floor(seconds / 86400)} d ago`;
+}
+
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }

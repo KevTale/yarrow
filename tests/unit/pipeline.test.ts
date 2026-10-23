@@ -106,7 +106,7 @@ function fakeProviders() {
         })),
       });
     const download = url.match(/\/v1\/files\/file_(.+)\/content$/);
-    if (download) return new Response(outputs[download[1]!]);
+    if (download) return new Response(outputs[download[1]!] as BodyInit);
     // OpenAI Agents
     if (url === "https://api.openai.com/v1/agents/sessions")
       return json({ id: "rev_1", status: "in_progress" });

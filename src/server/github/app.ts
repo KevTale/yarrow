@@ -15,7 +15,7 @@ function base64url(bytes: ArrayBuffer | Uint8Array): string {
     .replace(/=+$/, "");
 }
 
-function pemBody(pem: string): Uint8Array {
+function pemBody(pem: string): Uint8Array<ArrayBuffer> {
   const base64 = pem
     .replace(/-----BEGIN [^-]+-----/, "")
     .replace(/-----END [^-]+-----/, "")
@@ -38,7 +38,7 @@ function derLength(length: number): number[] {
  * GitHub issues PKCS#1 keys ("BEGIN RSA PRIVATE KEY"); WebCrypto only
  * imports PKCS#8. Wrap the PKCS#1 structure in a PKCS#8 PrivateKeyInfo.
  */
-export function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array {
+export function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array<ArrayBuffer> {
   const algorithm = [
     0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
     0x01, 0x05, 0x00,

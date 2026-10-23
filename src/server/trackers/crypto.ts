@@ -3,7 +3,7 @@
  * base64 (TOKEN_ENCRYPTION_KEY). Output: base64(iv || ciphertext).
  */
 async function importKey(keyBase64: string): Promise<CryptoKey> {
-  let raw: Uint8Array;
+  let raw: Uint8Array<ArrayBuffer>;
   try {
     raw = Uint8Array.from(atob(keyBase64), (char) => char.charCodeAt(0));
   } catch {

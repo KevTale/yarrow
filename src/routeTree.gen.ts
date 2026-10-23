@@ -8,61 +8,467 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as FundRouteImport } from './routes/fund'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as ShowcaseRouteImport } from './routes/showcase'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as WorkRouteImport } from './routes/work'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AuthGithubRouteImport } from './routes/auth/github'
+import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
+import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
+import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as ProjectsNewRouteImport } from './routes/projects/new'
+import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
+import { Route as SponsorFiltersRouteImport } from './routes/sponsor/filters'
+import { Route as ApiWebhooksGithubRouteImport } from './routes/api/webhooks/github'
+import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
+import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integrations/$tracker.callback'
+import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integrations/$tracker.connect'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FundRoute = FundRouteImport.update({
+  id: '/fund',
+  path: '/fund',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShowcaseRoute = ShowcaseRouteImport.update({
+  id: '/showcase',
+  path: '/showcase',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkRoute = WorkRouteImport.update({
+  id: '/work',
+  path: '/work',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthGithubRoute = AuthGithubRouteImport.update({
+  id: '/auth/github',
+  path: '/auth/github',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignOutRoute = AuthSignOutRouteImport.update({
+  id: '/auth/sign-out',
+  path: '/auth/sign-out',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EvidenceSplatRoute = EvidenceSplatRouteImport.update({
+  id: '/evidence/$',
+  path: '/evidence/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsTrelloCallbackRoute =
+  IntegrationsTrelloCallbackRouteImport.update({
+    id: '/integrations/trello-callback',
+    path: '/integrations/trello-callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsNewRoute = ProjectsNewRouteImport.update({
+  id: '/projects/new',
+  path: '/projects/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RunsRunIdRoute = RunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SponsorFiltersRoute = SponsorFiltersRouteImport.update({
+  id: '/sponsor/filters',
+  path: '/sponsor/filters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksGithubRoute = ApiWebhooksGithubRouteImport.update({
+  id: '/api/webhooks/github',
+  path: '/api/webhooks/github',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
+  id: '/api/webhooks/stripe',
+  path: '/api/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsTrackerCallbackRoute =
+  IntegrationsTrackerCallbackRouteImport.update({
+    id: '/integrations/$tracker/callback',
+    path: '/integrations/$tracker/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsTrackerConnectRoute =
+  IntegrationsTrackerConnectRouteImport.update({
+    id: '/integrations/$tracker/connect',
+    path: '/integrations/$tracker/connect',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
+  '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/fund': typeof FundRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/showcase': typeof ShowcaseRoute
+  '/sign-in': typeof SignInRoute
+  '/work': typeof WorkRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/github': typeof AuthGithubRoute
+  '/auth/sign-out': typeof AuthSignOutRoute
+  '/evidence/$': typeof EvidenceSplatRoute
+  '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/new': typeof ProjectsNewRoute
+  '/runs/$runId': typeof RunsRunIdRoute
+  '/sponsor/filters': typeof SponsorFiltersRoute
+  '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
+  '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
+  '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/fund': typeof FundRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/showcase': typeof ShowcaseRoute
+  '/sign-in': typeof SignInRoute
+  '/work': typeof WorkRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/github': typeof AuthGithubRoute
+  '/auth/sign-out': typeof AuthSignOutRoute
+  '/evidence/$': typeof EvidenceSplatRoute
+  '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/new': typeof ProjectsNewRoute
+  '/runs/$runId': typeof RunsRunIdRoute
+  '/sponsor/filters': typeof SponsorFiltersRoute
+  '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
+  '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/fund': typeof FundRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/showcase': typeof ShowcaseRoute
+  '/sign-in': typeof SignInRoute
+  '/work': typeof WorkRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/github': typeof AuthGithubRoute
+  '/auth/sign-out': typeof AuthSignOutRoute
+  '/evidence/$': typeof EvidenceSplatRoute
+  '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/new': typeof ProjectsNewRoute
+  '/runs/$runId': typeof RunsRunIdRoute
+  '/sponsor/filters': typeof SponsorFiltersRoute
+  '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
+  '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
+  '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/";
-  id: "__root__" | "/";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/fund'
+    | '/leaderboard'
+    | '/showcase'
+    | '/sign-in'
+    | '/work'
+    | '/auth/callback'
+    | '/auth/github'
+    | '/auth/sign-out'
+    | '/evidence/$'
+    | '/integrations/trello-callback'
+    | '/projects/$projectId'
+    | '/projects/new'
+    | '/runs/$runId'
+    | '/sponsor/filters'
+    | '/api/webhooks/github'
+    | '/api/webhooks/stripe'
+    | '/integrations/$tracker/callback'
+    | '/integrations/$tracker/connect'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/dashboard'
+    | '/fund'
+    | '/leaderboard'
+    | '/showcase'
+    | '/sign-in'
+    | '/work'
+    | '/auth/callback'
+    | '/auth/github'
+    | '/auth/sign-out'
+    | '/evidence/$'
+    | '/integrations/trello-callback'
+    | '/projects/$projectId'
+    | '/projects/new'
+    | '/runs/$runId'
+    | '/sponsor/filters'
+    | '/api/webhooks/github'
+    | '/api/webhooks/stripe'
+    | '/integrations/$tracker/callback'
+    | '/integrations/$tracker/connect'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/fund'
+    | '/leaderboard'
+    | '/showcase'
+    | '/sign-in'
+    | '/work'
+    | '/auth/callback'
+    | '/auth/github'
+    | '/auth/sign-out'
+    | '/evidence/$'
+    | '/integrations/trello-callback'
+    | '/projects/$projectId'
+    | '/projects/new'
+    | '/runs/$runId'
+    | '/sponsor/filters'
+    | '/api/webhooks/github'
+    | '/api/webhooks/stripe'
+    | '/integrations/$tracker/callback'
+    | '/integrations/$tracker/connect'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
+  IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  FundRoute: typeof FundRoute
+  LeaderboardRoute: typeof LeaderboardRoute
+  ShowcaseRoute: typeof ShowcaseRoute
+  SignInRoute: typeof SignInRoute
+  WorkRoute: typeof WorkRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthGithubRoute: typeof AuthGithubRoute
+  AuthSignOutRoute: typeof AuthSignOutRoute
+  EvidenceSplatRoute: typeof EvidenceSplatRoute
+  IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsNewRoute: typeof ProjectsNewRoute
+  RunsRunIdRoute: typeof RunsRunIdRoute
+  SponsorFiltersRoute: typeof SponsorFiltersRoute
+  ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
+  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
+  IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
+  IntegrationsTrackerConnectRoute: typeof IntegrationsTrackerConnectRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fund': {
+      id: '/fund'
+      path: '/fund'
+      fullPath: '/fund'
+      preLoaderRoute: typeof FundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/showcase': {
+      id: '/showcase'
+      path: '/showcase'
+      fullPath: '/showcase'
+      preLoaderRoute: typeof ShowcaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work': {
+      id: '/work'
+      path: '/work'
+      fullPath: '/work'
+      preLoaderRoute: typeof WorkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/github': {
+      id: '/auth/github'
+      path: '/auth/github'
+      fullPath: '/auth/github'
+      preLoaderRoute: typeof AuthGithubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/sign-out': {
+      id: '/auth/sign-out'
+      path: '/auth/sign-out'
+      fullPath: '/auth/sign-out'
+      preLoaderRoute: typeof AuthSignOutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/evidence/$': {
+      id: '/evidence/$'
+      path: '/evidence/$'
+      fullPath: '/evidence/$'
+      preLoaderRoute: typeof EvidenceSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/trello-callback': {
+      id: '/integrations/trello-callback'
+      path: '/integrations/trello-callback'
+      fullPath: '/integrations/trello-callback'
+      preLoaderRoute: typeof IntegrationsTrelloCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/new': {
+      id: '/projects/new'
+      path: '/projects/new'
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof ProjectsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/runs/$runId': {
+      id: '/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof RunsRunIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sponsor/filters': {
+      id: '/sponsor/filters'
+      path: '/sponsor/filters'
+      fullPath: '/sponsor/filters'
+      preLoaderRoute: typeof SponsorFiltersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/github': {
+      id: '/api/webhooks/github'
+      path: '/api/webhooks/github'
+      fullPath: '/api/webhooks/github'
+      preLoaderRoute: typeof ApiWebhooksGithubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/stripe': {
+      id: '/api/webhooks/stripe'
+      path: '/api/webhooks/stripe'
+      fullPath: '/api/webhooks/stripe'
+      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/$tracker/callback': {
+      id: '/integrations/$tracker/callback'
+      path: '/integrations/$tracker/callback'
+      fullPath: '/integrations/$tracker/callback'
+      preLoaderRoute: typeof IntegrationsTrackerCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/$tracker/connect': {
+      id: '/integrations/$tracker/connect'
+      path: '/integrations/$tracker/connect'
+      fullPath: '/integrations/$tracker/connect'
+      preLoaderRoute: typeof IntegrationsTrackerConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-};
+  DashboardRoute: DashboardRoute,
+  FundRoute: FundRoute,
+  LeaderboardRoute: LeaderboardRoute,
+  ShowcaseRoute: ShowcaseRoute,
+  SignInRoute: SignInRoute,
+  WorkRoute: WorkRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AuthGithubRoute: AuthGithubRoute,
+  AuthSignOutRoute: AuthSignOutRoute,
+  EvidenceSplatRoute: EvidenceSplatRoute,
+  IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsNewRoute: ProjectsNewRoute,
+  RunsRunIdRoute: RunsRunIdRoute,
+  SponsorFiltersRoute: SponsorFiltersRoute,
+  ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,
+  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
+  IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,
+  IntegrationsTrackerConnectRoute: IntegrationsTrackerConnectRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

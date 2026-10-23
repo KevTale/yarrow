@@ -23,7 +23,8 @@
     "brain:check": "wrangler deploy --dry-run --config workers/wrangler.jsonc --outdir .worker-build",
     "brain:deploy": "wrangler deploy --config workers/wrangler.jsonc",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "bootstrap:anthropic": "tsx scripts/bootstrap-anthropic.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -56,6 +57,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.2",

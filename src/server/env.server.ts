@@ -28,6 +28,10 @@ export interface AppEnv {
   TRELLO_API_SECRET?: string;
   /** 32 random bytes, base64. Encrypts tracker OAuth tokens at rest. */
   TOKEN_ENCRYPTION_KEY?: string;
+  /** Writes owners' test secrets to Managed Agents vaults (never to our DB). */
+  ANTHROPIC_API_KEY?: string;
+  /** R2 bucket with run evidence (screenshots, video). Optional. */
+  EVIDENCE?: R2Bucket;
 }
 
 export function appEnv(): AppEnv {
