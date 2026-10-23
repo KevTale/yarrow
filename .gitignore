@@ -1,6 +1,4 @@
 node_modules/
-.next/
-.open-next/
 .wrangler/
 .worker-build/
 .env*

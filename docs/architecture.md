@@ -1,83 +1,61 @@
 # Architecture
 
-Les décisions de [BUILD.md](mvp/BUILD.md) priment sur les propositions historiques de la synthèse. Ce document décrit l'architecture **cible**. Les points où le code diffère encore sont signalés par **[actuel]**.
+[BUILD.md](mvp/BUILD.md) fait foi pour les décisions. Ce document décrit comment le code les applique.
 
 ```mermaid
 flowchart LR
-  UI[Next.js / OpenNext Worker] -->|producteur à brancher après auth| Q[Cloudflare Queue]
-  Q --> B[Brain Worker]
-  B --> W[Cloudflare Workflow]
-  W -->|choix work unit + reserve| DB[(Supabase Postgres / Drizzle)]
-  W --> R[Runner.execute]
-  R --> C[ClaudeManagedAgentsRunner<br/>implémente]
-  R --> O[OpenAIAgentsRunner<br/>relit]
-  C -. clé API plateforme .-> MA[Claude Managed Agents<br/>Opus 5.5 high + sandbox Anthropic]
-  O -. clé API plateforme .-> AA[OpenAI Agents API<br/>Astra + sandbox OpenAI]
-  MA -->|patch + captures/vidéo| W
-  AA -->|review| W
-  W -->|captures/vidéo| R2[(Cloudflare R2)]
-  W -->|branche + PR draft + Sponsored by| GH[GitHub App]
-  W -->|Result + debit + release| DB
+  UI[Boutique<br/>TanStack Start Worker] --> DB[(Supabase Postgres)]
+  GH[GitHub App] -->|webhooks : issues, commentaires, PR| UI
+  ST[Stripe] -->|webhooks : paiements, remboursements| UI
+  C[Cron cerveau<br/>chaque minute] -->|choix + réservation| DB
+  C --> W[Workflow d'un run]
+  T[Linear / Jira / Trello] <-->|polling 5 min, commentaires| C
+  W -->|implémente| MA[Claude Managed Agents<br/>Opus 5.5 high]
+  W -->|relit| AA[OpenAI Agents API<br/>Astra]
+  W -->|captures, vidéo| R2[(R2)]
+  W -->|commit, PR draft, review| GH
+  W -->|débit, résultat| DB
 ```
 
-## Frontières
+## Boutique (`wrangler.jsonc`)
 
-- **Boutique :** App Router, UI, futures sessions Supabase Auth, checkout Stripe et webhooks. `wrangler.jsonc` déclare le Worker OpenNext et le binding producteur `WORK_QUEUE`. Les routes de démonstration ne publient aucun message.
-- **Cerveau :** `workers/brain.ts` consomme les messages et crée une instance Workflow avec un `runId` stable. Le Workflow :
-  - choisit la work unit ;
-  - réserve le budget ;
-  - fait implémenter le ticket par Claude, puis relire par OpenAI ;
-  - ouvre la PR ;
-  - enregistre le résultat et libère le reste.
+- **TanStack Start** sur Cloudflare Workers. Les pages lisent la base via des server functions (`src/functions/`). La base n'est jamais exposée au navigateur.
+- **Auth :** Supabase Auth avec GitHub uniquement (`src/server/auth*.server.ts`). Le login GitHub sert aussi à rattacher les installations de la GitHub App au bon compte.
+- **Paiements :** Stripe Checkout, puis webhook signé et idempotent. Le crédit n'est écrit qu'à réception du webhook, avec les frais Stripe réels lus dans la balance transaction. Un retour de checkout ne vaut jamais preuve de paiement.
+- **GitHub :** le webhook rattache les repos installés, crée ou met à jour les tickets portant le label `agent-commons`, enregistre les demandes de correction `@agent-commons` (membres du repo uniquement) et le merge ou la fermeture des PR.
+- **Trackers :** OAuth pour Linear et Jira, jeton utilisateur pour Trello. Les jetons sont chiffrés en AES-GCM (`TOKEN_ENCRYPTION_KEY`).
+- **Secrets de test des projets :** écrits directement dans un vault Managed Agents. La base ne garde que leur nom et leur identifiant chez le fournisseur.
 
-  Les messages invalides épuisent les retries avant la dead-letter queue. Aucun endpoint HTTP public ne déclenche un run.
+## Cerveau (`workers/brain.ts`)
 
-- **Atelier :** la plateforme n'héberge **aucun** environnement d'exécution.
-  - Chaque adaptateur démarre une session chez le fournisseur avec la clé API de la plateforme :
-    - Claude Managed Agents (bêta, harness Claude Code) ;
-    - OpenAI Agents API (bêta, harness Codex), avec une sandbox hébergée par chaque fournisseur.
-  - La session reçoit :
-    - le ticket ;
-    - un jeton GitHub App **en lecture seule**, éphémère et limité au repo du run ;
-    - la configuration de lancement du projet ;
-    - les secrets de test, via le vault du fournisseur : l'agent ne voit jamais les valeurs.
-  - Elle renvoie un patch, un résumé, des captures et une vidéo quand c'est pertinent, ou bien une abstention motivée.
-  - **[actuel]** Seul `src/runner/cloudflare-sandbox-runner.ts` existe : un stub qui s'abstient (`sandbox_not_configured`) à coût nul, sans appel réseau ni LLM.
-- **Livraison :** seul le cerveau écrit sur GitHub, via la GitHub App installée par le porteur de projet. Il crée la branche, le commit et une **PR draft**. Le corps de la PR se termine par :
-  `Sponsored by <sponsors> via [Agent Commons](<URL du run>)`.
+Un Worker avec un cron chaque minute :
 
-  Les noms viennent des contributions qui ont financé le run. Un sponsor anonyme apparaît comme « an anonymous sponsor ». Pour Jira, le cerveau commente le ticket avec le lien de la PR.
+1. **Dispatch** (`src/core/queue.ts`) : FIFO dans un compte, tour de rôle entre comptes (le moins récemment servi d'abord), au plus 5 runs en parallèle par compte. Chaque run choisi est réservé dans Postgres, puis un Workflow est créé avec le `runId` comme identifiant.
+2. **Reprise** : un run resté en cours sans Workflow vivant est relancé.
+3. **Trackers** : toutes les 5 minutes, synchronisation des tickets Linear, Jira et Trello. Un ticket abandonné n'est remis en file que si son contenu change ou s'il est re-tagué.
 
-- **Fournisseurs :** uniquement des comptes **API** de la plateforme (Anthropic Console, OpenAI Platform), crédités avec l'argent des sponsors.
-  - Jamais d'abonnement grand public, ni celui de la plateforme ni celui des sponsors.
-  - La plateforme ne détient ni ne déclenche jamais d'identifiants claude.ai ou ChatGPT.
-  - Le produit n'utilise pas les noms « Claude Code » ou « Codex » comme marque.
+`DISPATCH=off` coupe la distribution sans interrompre les runs en cours.
 
-## Choix du travail
+## Un run (`AgentWorkWorkflow` + `src/runner/pipeline.ts`)
 
-- **Rotation gratuite :** elle se fait **par compte (organisation)**, pas par projet. À chaque cycle, on prend le compte éligible servi le moins récemment, puis son plus ancien ticket autorisé : label `agent-commons` sur GitHub, ou l'équivalent dans Linear, Jira ou Trello.
-- **Rôles fixes :** Opus 5.5 (effort élevé) implémente, Astra relit, systématiquement. Les modèles sont configurés côté serveur.
-- **Pipeline :**
-  1. contrôle des règles d'usage ;
-  2. implémentation, tests et lint. Si Opus juge le ticket flou, Astra le relit : s'il le juge flou lui aussi, un commentaire demande des précisions sur le ticket, et le run se termine en abstention `ticket_unclear` ;
-  3. review par Astra, puis **un tour de correction** par Opus ;
-  4. captures et vidéo si le changement est visible et que l'app peut tourner ;
-  5. une seule PR, lisible en deux minutes, ou une abstention.
-- **Contributions :** une contribution ne peut financer un run que si le projet est dans le périmètre du sponsor :
-  - en mode `all_except`, tous les projets sauf les catégories et projets exclus ;
-  - en mode `only`, uniquement les projets cochés.
+Chaque étape est un `step` durable : un redémarrage reprend là où il s'était arrêté, sans relancer ce qui est fait.
 
-  Les projets cachés sont exclus, sauf si le sponsor les a explicitement acceptés. Un sponsor sans profil suit les réglages par défaut : `all_except`, sans projets cachés. Les stacks ciblées, si le sponsor en a choisi, doivent croiser celles du projet.
+1. **Préparation :** environnement Managed Agents propre au projet (paquets, commandes de lancement, accès réseau), créé au premier run puis réutilisé. Les secrets de test sont déjà dans le vault du projet.
+2. **Implémentation :** une session Claude reçoit le ticket et un jeton GitHub App **en lecture seule**, limité au repo. L'agent écrit ses changements dans un fichier de sortie, avec ses captures et sa vidéo s'il a pu lancer l'app. Il ne pousse jamais.
+3. **Ticket flou :** si Claude répond « unclear », Astra relit le ticket. S'il est d'accord, la plateforme commente le ticket avec les questions, et le run se termine en abstention `ticket_unclear`. Sinon, Claude repart avec la lecture d'Astra.
+4. **Review :** Astra relit le patch dans sa propre sandbox. Seuls les commentaires `blocking` déclenchent l'unique tour de correction, suivi d'une seconde review.
+5. **Livraison :** le cerveau commit via la GitHub App, ouvre la PR draft (ou met à jour la même PR pour une correction) et publie la review finale d'Astra. Il commente aussi le ticket Linear, Jira ou Trello.
+6. **Règlement :** le coût réel est débité. Toute erreur termine le run en abstention, avec le coût déjà consommé.
 
-  **[actuel]** La base est alignée. Les formulaires et l'UI de démonstration utilisent encore `commons` / `commercial`.
+Seul le cerveau écrit sur GitHub. Les sessions ne reçoivent jamais de jeton en écriture.
 
-## Deux modes du Workflow
+## Coût d'un run
 
-Sans `DATABASE_URL`, une étape durable renvoie `{ mode: "stub", ledger: "not_connected", result }`. Aucune réservation fictive n'est présentée comme persistée.
+- **Claude :** Managed Agents donne le coût de la session lui-même (`usage.list_cost`, en cents) : tokens au prix public, recherches web et $0.08 par heure de sandbox.
+- **OpenAI :** l'Agents API ne donne que les tokens de chaque tour, pas de montant. Le coût est calculé avec les prix publics d'Astra (`src/runner/openai.ts`), plus le conteneur. Trois écarts mineurs, à la charge de la plateforme : les écritures de cache, les requêtes de plus de 272K tokens et les reviews de plus de 20 minutes.
+- **Pas de plafond.** Un run réserve d'abord $10, puis réserve davantage à chaque étape si besoin (`reserveMore`). Si les contributions ne suffisent plus, le reste est enregistré en `uncoveredCents` et absorbé par la plateforme.
 
-Avec `DATABASE_URL`, il faut que des projets, des contributions réglées et des work units autorisées existent déjà. Le Workflow utilise alors le vrai ledger PostgreSQL avant et après le runner. Avec le stub actuel, une réservation de 800 cents est suivie d'un débit de 0 et d'une libération de 800 cents. Ne pas renseigner une base de production pour cette démonstration.
-
-## Ledger
+## Ledger (`src/db/ledger.ts`)
 
 ```mermaid
 erDiagram
@@ -89,67 +67,19 @@ erDiagram
   CONTRIBUTION ||--o{ RUN_FUNDING : funds
   AGENT_RUN ||--o| RESULT : produces
   CONTRIBUTION ||--o{ LEDGER_ENTRY : traces
-  AGENT_RUN ||--o{ LEDGER_ENTRY : reserves_and_settles
   SPONSOR_PROFILE ||--o{ SPONSOR_PROJECT_SELECTION : filters
 ```
 
-- **Montants et crédit**
-  - USD uniquement, montants entiers en cents. `available = credit - reserved - debited`.
-  - Crédit d'une contribution = montant payé HT − frais Stripe réels (lus dans la balance transaction du webhook) − 10 % de marge sur le montant HT.
-  - TVA via Stripe Tax : prix TTC pour les particuliers de l'UE, autoliquidation pour les entreprises de l'UE ayant un numéro de TVA.
-  - Packs de $10, $25 et $100, ou montant libre entre $10 et $1 000. **[actuel]** Packs $5 / $20 / $100, sans montant libre.
-- **Coût d'un run :** tokens + temps de sandbox ou de conteneur, d'après les données d'usage du fournisseur, converti en cents.
-- **Réservation atomique :**
-  - verrou de la work unit, puis des contributions éligibles ;
-  - contrôles : autorisation, projet non suspendu, statut de la work unit (`queued` pour une implémentation, `delivered` pour une correction) et périmètre du sponsor ;
-  - un run peut être financé par **plusieurs contributions**, l'argent le plus ancien d'abord (`run_fundings`) ;
-  - le budget initial est une estimation, **pas un plafond**. `reserveMore` ajoute des réservations en cours de run, numérotées pour ne jamais réserver deux fois ;
-  - à la clôture, le coût réel au-delà de toutes les réservations est enregistré en `uncoveredCents`, absorbé par la plateforme.
-- **Idempotence :** le `runId` et les clés d'idempotence des écritures empêchent un second débit après une redélivrance. Un résultat différent pour un run déjà réglé est rejeté.
-- **Résultats :**
-  - Un résultat contient soit une URL de PR et des preuves, soit un motif d'abstention codifié (`ticket_unclear`, `policy_violation`, `provider_error`…).
-  - Une abstention consomme le compute réellement utilisé.
-  - La clôture écrit `debit` et `release` pour chaque contribution, dans la même transaction.
-  - Une work unit a **une seule PR**. Les corrections mettent à jour la même PR. Le merge ou le refus (avec sa raison) est enregistré pour les métriques.
-- **Réservations :** `reservedCents` sur un run conserve le total réservé pour l'audit. Sur une contribution, il ne représente que les réservations encore ouvertes.
-- **Événements :** chaque action du ledger écrit un événement (`run.started`, `run.reserved_more`, `run.finished`, `pull_request.merged`, `pull_request.closed`) dans la même transaction.
-- **Leaderboard :**
-  - Classé par **compute consommé** (somme des débits).
-  - Exclus : crédits promo, remboursements et sponsors anonymes.
-  - Le crédit payé mais non consommé est affiché comme « committed », sans compter dans le rang.
-  - Les PR mergées sont une métrique distincte.
-  - **[actuel]** La requête `sponsorLeaderboard` est alignée. L'UI affiche encore des fixtures signalées comme exemples.
-- **Accès :** RLS activée sur toutes les tables, sans policy publique dans le scaffold. Seule une connexion serveur disposant des permissions requises peut les utiliser. Pas d'accès direct depuis le navigateur.
+- **Crédit d'une contribution :** montant HT − frais Stripe réels − 10 % de marge sur le HT (5 % pour les sponsors fondateurs). `available = credit − reserved − debited`, en cents USD.
+- **Réservation atomique :** verrou de la work unit puis des contributions éligibles, dans le périmètre du sponsor (`all_except` / `only`, catégories, stacks, projets cachés en opt-in). Un run peut être financé par plusieurs contributions, la plus ancienne d'abord.
+- **Idempotence :** chaque écriture a une clé d'idempotence, et un run réglé ne peut pas l'être une seconde fois avec un autre résultat.
+- **Événements :** chaque action du ledger écrit un événement dans la même transaction (`run.started`, `run.finished`, `pull_request.merged`…), pour les métriques.
+- **Leaderboard :** classé par compute consommé. Crédits promo, remboursements et sponsors anonymes exclus. Le crédit restant est affiché comme « committed ».
+- **Accès :** RLS sur toutes les tables, sans policy. Seuls les Workers, via `DATABASE_URL`, lisent et écrivent.
 
-## Avant d'activer du travail payant
+## Références
 
-1. Supabase Auth, contrôles de propriété des ressources et identité stable pour le leaderboard.
-2. Stripe :
-   - prix et montant libre validés côté serveur ;
-   - checkout authentifié ;
-   - webhooks signés et dédupliqués ;
-   - écriture `credit` transactionnelle à partir des frais réels ;
-   - politique de remboursement.
-
-   Un retour de checkout n'est jamais une preuve de paiement.
-
-3. GitHub App à permissions limitées : jetons en lecture seule pour les sessions, écriture réservée au cerveau, et vérification des labels. Jira OAuth sur un site dédié, avec validation de l'autorisation des tickets et lien vers la PR.
-4. Producteur Queue après un intake autorisé, avec outbox transactionnelle ou réconciliation, pour ne pas perdre de message entre Postgres et Queue.
-5. Adaptateurs Managed Agents et Agents API :
-   - plafond de durée et de coût par session, et arrêt effectif ;
-   - mesure du coût réel ;
-   - exécution des tests ;
-   - dossier de preuve.
-6. Idempotence durable de l'exécution et réconciliation des runs interrompus.
-   - Les retries du step d'exécution sont à zéro en attendant.
-   - Une erreur après réservation conserve celle-ci pour réconciliation : ne pas libérer aveuglément un montant dont le coût réel est inconnu.
-
-## Références techniques
-
-- [OpenNext pour Cloudflare : configuration](https://opennext.js.org/cloudflare/get-started)
-- [Cloudflare Workflows : API Workers](https://developers.cloudflare.com/workflows/build/workers-api/)
-- [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview)
-- [OpenAI Agents API](https://developers.openai.com/api/docs/guides/agents-api/overview)
-- [Claude Code : conditions d'usage et authentification](https://code.claude.com/docs/en/legal-and-compliance)
-
-Les versions effectivement validées sont verrouillées dans `pnpm-lock.yaml`.
+- [TanStack Start sur Cloudflare](https://developers.cloudflare.com/workers/framework-guides/web-apps/tanstack-start/)
+- [Cloudflare Workflows](https://developers.cloudflare.com/workflows/)
+- [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) et [budgets de session](https://platform.claude.com/docs/en/managed-agents/budgets)
+- [OpenAI Agents API](https://developers.openai.com/api/docs/guides/agents-api/overview) et [tarifs](https://developers.openai.com/api/docs/pricing)

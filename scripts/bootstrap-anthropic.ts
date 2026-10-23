@@ -1,15 +1,17 @@
 /**
  * One-time setup of the Claude Managed Agents resources used by the brain.
  *
- *   ANTHROPIC_API_KEY=sk-ant-... pnpm bootstrap:anthropic
+ *   pnpm bootstrap:anthropic   # reads ANTHROPIC_API_KEY from the shell or .env
  *
  * Prints ANTHROPIC_AGENT_ID and ANTHROPIC_ENVIRONMENT_ID to store as brain
  * secrets. Run it again after changing the implementer prompt: it creates a
  * new agent, and the brain uses whichever ID you configure.
  */
+import { existsSync } from "node:fs";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
 import { IMPLEMENTER_SYSTEM } from "../src/runner/prompts";
 
+if (existsSync(".env")) process.loadEnvFile(".env");
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
   console.error("Set ANTHROPIC_API_KEY (a platform Console API key).");

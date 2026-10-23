@@ -1,9 +1,32 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Agent Commons
 
-# This is NOT the Next.js you know
+Sponsors fund AI compute; builders get their tagged tickets turned into draft PRs. [docs/mvp/BUILD.md](docs/mvp/BUILD.md) is the source of truth for product decisions: read it before changing behavior, and update it when a decision changes.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## Stack
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+- **Web (`src/`):** TanStack Start (file routes in `src/routes/`, server functions in `src/functions/`) on Cloudflare Workers via `@cloudflare/vite-plugin`. `src/routeTree.gen.ts` is generated: never edit it.
+- **Brain (`workers/brain.ts`):** cron dispatcher + one durable Workflow per run. Claude Managed Agents implements, the OpenAI Agents API reviews (`src/runner/`).
+- **Data:** Supabase Postgres through Drizzle (`src/db/`), server-side only. Every table has RLS with no policy. Amounts are integer USD cents.
+- **Shared rules:** `src/core/` (pricing, packs, queue, contracts) has no I/O and runs in both Workers.
 
-<!-- END:nextjs-agent-rules -->
+These libraries move fast. Check the installed version in `node_modules` before relying on an API from memory.
+
+## Commands
+
+```bash
+pnpm dev            # web on :3000
+pnpm check          # lint, typecheck (web + brain), unit tests, build
+pnpm test:e2e       # Playwright on the production build (run pnpm build first)
+pnpm db:generate    # new Drizzle migration after editing src/db/schema.ts
+```
+
+Unit tests run real SQL on PGlite (`tests/unit/helpers/pglite.ts`); provider APIs are mocked from their docs.
+
+## Rules
+
+- Never write "donation" or "don": sponsors **fund compute**.
+- Platform API keys only. Never use, store or trigger a Claude, ChatGPT or other consumer subscription.
+- Never store project secrets: only references to the provider vault.
+- Test or staging credentials only in `.env` / `.dev.vars`; never production, never in chat or commits.
+- The only GitHub write path is the brain through the GitHub App. Sandboxes get read-only tokens.
+- Ledger writes are idempotent and transactional (`src/db/ledger.ts`); keep it that way.

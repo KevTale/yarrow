@@ -17,15 +17,25 @@ export interface InlineFile {
   data: string;
 }
 
-/** Token prices in cents per million tokens (configurable, list prices). */
+/**
+ * The Agents API reports tokens per turn, never a dollar amount, so the cost
+ * of a review is tokens × list price. Prices in cents per million tokens.
+ */
 export interface TokenRates {
   inputCentsPerMTok: number;
   cachedInputCentsPerMTok: number;
   outputCentsPerMTok: number;
-  /** Flat estimate for the hosted container of one session. */
+  /** Hosted container: 1 GB, billed per 20-minute block. */
   sandboxCentsPerSession: number;
 }
 
+/**
+ * gpt-6-astra list prices, checked on 2026-10-06 against
+ * https://developers.openai.com/api/docs/pricing. Known gaps, all small and
+ * absorbed by the platform: turns don't expose cache writes ($12.50 instead
+ * of $10), nor requests over 272K input tokens (2× input, 1.5× output), and
+ * a review is counted as one 20-minute container block.
+ */
 export const defaultReviewerRates: TokenRates = {
   inputCentsPerMTok: 1_000,
   cachedInputCentsPerMTok: 100,

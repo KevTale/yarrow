@@ -43,7 +43,7 @@ export interface BrainEnv {
   APP_URL: string;
   DATABASE_URL?: string;
   ANTHROPIC_API_KEY?: string;
-  /** Created once by scripts/bootstrap-anthropic.mjs. */
+  /** Created once by scripts/bootstrap-anthropic.ts. */
   ANTHROPIC_AGENT_ID?: string;
   ANTHROPIC_ENVIRONMENT_ID?: string;
   OPENAI_API_KEY?: string;

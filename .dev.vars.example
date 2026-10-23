@@ -1,1 +1,36 @@
-NEXTJS_ENV=development
+# Copy to .dev.vars: secrets of the web Worker for `pnpm dev`. Public values
+# (APP_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GITHUB_APP_SLUG) are in
+# wrangler.jsonc. In production, set each one with `wrangler secret put NAME`.
+# Every integration is optional: a missing secret disables that feature only.
+# Test or staging values only, never production.
+
+# Supabase > Connect > Transaction pooler (port 6543).
+DATABASE_URL=
+
+# Stripe test mode. Webhook endpoint: <APP_URL>/api/webhooks/stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+# "on" once Stripe Tax is set up in the Stripe dashboard.
+STRIPE_TAX=
+
+# GitHub App. Webhook endpoint: <APP_URL>/api/webhooks/github
+# Private key: the PEM on one line, newlines written as \n.
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_APP_WEBHOOK_SECRET=
+
+# Tracker OAuth apps. Callback: <APP_URL>/integrations/<linear|jira>/callback
+LINEAR_CLIENT_ID=
+LINEAR_CLIENT_SECRET=
+JIRA_CLIENT_ID=
+JIRA_CLIENT_SECRET=
+# trello.com/power-ups/admin. Trello returns to <APP_URL>/integrations/trello-callback
+TRELLO_API_KEY=
+TRELLO_API_SECRET=
+
+# 32 random bytes, base64. Same value in workers/.dev.vars.
+#   node -e "console.log(crypto.randomBytes(32).toString('base64'))"
+TOKEN_ENCRYPTION_KEY=
+
+# Writes project owners' test secrets to Managed Agents vaults.
+ANTHROPIC_API_KEY=

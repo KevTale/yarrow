@@ -21,7 +21,6 @@ export interface AppEnv {
   GITHUB_APP_WEBHOOK_SECRET?: string;
   LINEAR_CLIENT_ID?: string;
   LINEAR_CLIENT_SECRET?: string;
-  LINEAR_WEBHOOK_SECRET?: string;
   JIRA_CLIENT_ID?: string;
   JIRA_CLIENT_SECRET?: string;
   TRELLO_API_KEY?: string;

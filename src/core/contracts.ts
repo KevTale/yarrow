@@ -32,7 +32,6 @@ export const abstentionReasonSchema = z.enum([
   "ticket_unclear",
   "policy_violation",
   "provider_error",
-  "sandbox_not_configured",
   "other",
 ]);
 export type AbstentionReason = z.infer<typeof abstentionReasonSchema>;
@@ -73,8 +72,3 @@ export const runResultSchema = z.discriminatedUnion("outcome", [
   }),
 ]);
 export type RunResult = z.input<typeof runResultSchema>;
-
-/** The execution boundary. Never execute repository code inside a Worker. */
-export interface Runner {
-  execute(run: RunRequest): Promise<RunResult>;
-}

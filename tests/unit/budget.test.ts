@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { available, reserve, settle } from "../../src/core/budget";
-import { CloudflareSandboxRunner } from "../../src/runner/cloudflare-sandbox-runner";
 
 describe("compute budget", () => {
   const credit = { creditCents: 2000, reservedCents: 0, debitedCents: 0 };
@@ -29,22 +28,6 @@ describe("compute budget", () => {
       creditCents: 2000,
       reservedCents: 500,
       debitedCents: 342,
-    });
-  });
-});
-
-describe("runner stub", () => {
-  it("abstains at zero cost", async () => {
-    const result = await new CloudflareSandboxRunner().execute({
-      runId: crypto.randomUUID(),
-      workUnitId: crypto.randomUUID(),
-      kind: "implementation",
-      budgetCents: 800,
-    });
-    expect(result).toMatchObject({
-      outcome: "abstained",
-      reason: "sandbox_not_configured",
-      actualCostCents: 0,
     });
   });
 });

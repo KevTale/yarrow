@@ -22,11 +22,11 @@ Agent Commons is for **people who build software**: SaaS, games, tools, open sou
 
 ## Architecture (locked)
 
-- **Shop:** Next.js + OpenNext on Cloudflare Workers. It handles the UI, auth, Stripe, webhooks and the ledger.
-- **Brain:** Cloudflare Workflows and/or Queues, with Postgres as the source of truth. It covers work unit selection, reserve/debit/release and PR creation.
-- **Hands:** provider-hosted agents behind `interface Runner { execute(run): Promise<RunResult> }`:
-  - `ClaudeManagedAgentsRunner` **implements**: Claude Managed Agents (beta), Claude Code harness, Anthropic-hosted sandbox.
-  - `OpenAIAgentsRunner` **reviews**: OpenAI Agents API (beta), Codex harness, OpenAI-hosted sandbox.
+- **Shop:** TanStack Start on Cloudflare Workers. It handles the UI, auth, Stripe, webhooks and the dashboards.
+- **Brain:** a Cloudflare Worker with a cron dispatcher (every minute) and one durable Workflow per run, with Postgres as the source of truth. It covers work unit selection, reserve/debit/release and PR creation.
+- **Hands:** provider-hosted agents, driven step by step by the run Workflow (`RunPipeline`):
+  - **implements:** Claude Managed Agents (beta), Claude Code harness, Anthropic-hosted sandbox.
+  - **reviews:** OpenAI Agents API (beta), Codex harness, OpenAI-hosted sandbox.
 - **Provider accounts:** platform-owned **API** accounts with prepaid credits. Never a consumer subscription (Claude Pro/Max, ChatGPT Plus/Pro).
 - **Branding:** do not name the product or features after "Claude Code" or "Codex". "Powered by Claude" or "uses OpenAI models" is fine.
 - **DB:** Supabase + Drizzle.

@@ -1,21 +1,16 @@
-# Vérifications de livraison — 2026-10-05
+# Vérifications — 2026-10-06
 
-Exécutées localement avec Node 22.23.3 et pnpm 12.6.0. Aucun service distant ni secret utilisé.
+Exécutées localement avec Node 24 et pnpm 12.9, sans secret ni service distant.
 
-| Vérification                     | Résultat                                                                                                        |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `pnpm install --frozen-lockfile` | Réussite                                                                                                        |
-| `pnpm lint`                      | Réussite                                                                                                        |
-| `pnpm typecheck`                 | Réussite pour l'app et le Worker                                                                                |
-| `pnpm test`                      | 15 tests réussis, dont 8 sur les migrations et transactions PostgreSQL via PGlite                               |
-| `pnpm build`                     | Build Next.js réussi                                                                                            |
-| `pnpm test:e2e`                  | 12 tests réussis : 6 parcours en desktop, les mêmes en mobile                                                   |
-| `pnpm cf:build`                  | Bundle OpenNext généré dans `.open-next/worker.js`                                                              |
-| `pnpm brain:check`               | Bundle Worker valide en dry-run Wrangler                                                                        |
-| `pnpm cf:preview --port 8788`    | Landing, Fund, leaderboard, projet, activité et work detail répondent en 200 dans workerd                       |
-| Checkout dans workerd            | Réponse demo, `charged: false`, aucune contribution créée                                                       |
-| Workflow local                   | Instance `smoke-stub` terminée ; abstention `sandbox_not_configured`, coût 0, ledger explicitement non connecté |
+| Vérification       | Résultat                                                      |
+| ------------------ | ------------------------------------------------------------- |
+| `pnpm lint`        | Réussite                                                      |
+| `pnpm typecheck`   | Réussite pour la boutique et le cerveau                       |
+| `pnpm test`        | 65 tests réussis sur 8 fichiers, avec vrai SQL via PGlite     |
+| `pnpm build`       | Build de production réussi                                    |
+| `pnpm test:e2e`    | 10 tests réussis : 5 parcours en desktop, les mêmes en mobile |
+| `pnpm brain:check` | Bundle du cerveau valide en dry-run Wrangler                  |
 
-Vérification visuelle de la landing en 1440 px et 390 px, sans débordement horizontal ni erreur JavaScript. Les tests couvrent le choix de pack/pool, la recherche et les filtres du leaderboard, le brouillon de projet conservé après rechargement, l'abstention et les endpoints qui refusent les événements non implémentés.
+La migration est appliquée sur le projet Supabase, dont les seules alertes sont « RLS activée sans policy », voulues.
 
-Ces vérifications ne valident pas de paiement Stripe réel, d'authentification Supabase, de synchronisation GitHub/Jira, de container Sandbox ou d'exécution LLM : ces intégrations sont des stubs explicitement documentés dans le [README](../README.md).
+Ce qui n'est **pas** encore vérifié en conditions réelles, faute de clés : les appels à Claude Managed Agents, à l'Agents API d'OpenAI, à Stripe, à la GitHub App et aux trois trackers. Les tests les simulent d'après leur documentation. Les deux API d'agents sont en bêta : le premier vrai run servira de validation.

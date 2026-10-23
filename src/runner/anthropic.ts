@@ -21,7 +21,12 @@ export interface SessionFile {
   mime_type?: string;
 }
 
-/** `usage.list_cost` is reported in whole cents; accept the shapes we may get. */
+/**
+ * The provider prices the session itself (tokens at list price, web searches,
+ * $0.08 per running hour) and reports `usage.list_cost` in whole US cents,
+ * like `max_list_cost`: `{ amount: "53", currency: "USD" }`. A bare number or
+ * string is accepted too while the API is in beta.
+ */
 export function listCostCents(session: ManagedSession): number {
   const cost = session.usage?.list_cost;
   if (typeof cost === "number") return Math.ceil(cost);

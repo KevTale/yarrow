@@ -1,3 +1,25 @@
-# Optional: leave unset to exercise the zero-cost stub Workflow.
-# Use only a local/test Supabase database when testing ledger mutations.
+# Copy to workers/.dev.vars: secrets of the brain Worker for `pnpm brain:dev`.
+# In production: `wrangler secret put NAME --config workers/wrangler.jsonc`.
+# Test or staging values only, never production.
+
 DATABASE_URL=
+
+# Platform API keys, never subscriptions.
+ANTHROPIC_API_KEY=
+# Printed by `pnpm bootstrap:anthropic`.
+ANTHROPIC_AGENT_ID=
+ANTHROPIC_ENVIRONMENT_ID=
+OPENAI_API_KEY=
+
+# Same GitHub App as the web Worker.
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=
+
+# Tracker sync and ticket comments. Same values as the web Worker.
+TOKEN_ENCRYPTION_KEY=
+LINEAR_CLIENT_ID=
+LINEAR_CLIENT_SECRET=
+JIRA_CLIENT_ID=
+JIRA_CLIENT_SECRET=
+TRELLO_API_KEY=
+TRELLO_API_SECRET=
