@@ -13,6 +13,7 @@ import {
   index,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import type { StoredArtifact, StoredReview } from "../core/review";
 
 export const visibilityEnum = pgEnum("visibility", [
   "public",
@@ -101,7 +102,10 @@ export const projects = pgTable(
       .default(sql`'{}'`)
       .notNull(),
     repository: text("repository").notNull(), // owner/name on GitHub.
+    // Stable across repository renames; webhooks are matched on it.
+    githubRepositoryId: text("github_repository_id"),
     githubInstallationId: text("github_installation_id"),
+    defaultBranch: text("default_branch").default("main").notNull(),
     authorizationLabel: text("authorization_label")
       .default("agent-commons")
       .notNull(),
@@ -110,8 +114,54 @@ export const projects = pgTable(
   },
   (t) => [
     unique("project_repository").on(t.repository),
+    unique("project_github_repository").on(t.githubRepositoryId),
     index("projects_account").on(t.accountId),
   ],
+).enableRLS();
+
+/** An OAuth connection to Linear, Jira or Trello. Tokens are AES-GCM encrypted. */
+export const trackerConnections = pgTable(
+  "tracker_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id),
+    tracker: trackerEnum("tracker").notNull(),
+    // Linear organization, Jira cloud site, or Trello member.
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    encryptedAccessToken: text("encrypted_access_token").notNull(),
+    encryptedRefreshToken: text("encrypted_refresh_token"),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("tracker_connection_external").on(
+      t.accountId,
+      t.tracker,
+      t.externalId,
+    ),
+    check("tracker_not_github", sql`${t.tracker} <> 'github'`),
+  ],
+).enableRLS();
+
+/** Maps a tracker board (Linear team, Jira project, Trello board) to a repo. */
+export const trackerBoards = pgTable(
+  "tracker_boards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => trackerConnections.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    externalBoardId: text("external_board_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique("tracker_board_external").on(t.connectionId, t.externalBoardId)],
 ).enableRLS();
 
 /** How to run the app in the provider sandbox, for screenshots and video. Optional. */
@@ -197,6 +247,11 @@ export const contributions = pgTable(
       .default("pending")
       .notNull(),
     stripeCheckoutId: text("stripe_checkout_id").unique(),
+    stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+    // EU consumers consent to immediate start and waive the 14-day withdrawal right.
+    withdrawalWaiverAt: timestamp("withdrawal_waiver_at", {
+      withTimezone: true,
+    }),
     // amount = tax + Stripe fee + margin + credit (credit is the remainder).
     amountCents: integer("amount_cents").notNull(),
     taxCents: integer("tax_cents").default(0).notNull(),
@@ -233,8 +288,12 @@ export const workUnits = pgTable(
       .notNull()
       .references(() => projects.id),
     source: trackerEnum("source").notNull(),
+    // Set for Linear, Jira and Trello tickets; NULL for GitHub issues.
+    boardId: uuid("board_id").references(() => trackerBoards.id),
     externalId: text("external_id").notNull(),
     title: text("title").notNull(),
+    // Snapshot for triage and moderation. Runs re-read the live ticket.
+    body: text("body").default("").notNull(),
     url: text("url").notNull(),
     authorized: boolean("authorized").default(false).notNull(),
     status: workStatusEnum("status").default("queued").notNull(),
@@ -259,6 +318,8 @@ export const pullRequests = pgTable(
       .unique()
       .references(() => workUnits.id),
     url: text("url").notNull().unique(),
+    number: integer("number").notNull(),
+    branch: text("branch").notNull(),
     state: pullRequestStateEnum("state").default("open").notNull(),
     rejectionReason: text("rejection_reason"),
     openedAt: timestamp("opened_at", { withTimezone: true })
@@ -285,6 +346,8 @@ export const agentRuns = pgTable(
     // The correction request text, posted by the owner on the PR.
     instruction: text("instruction"),
     status: runStatusEnum("status").default("running").notNull(),
+    // Live progress for run pages: implementing, reviewing, fixing, delivering.
+    phase: text("phase"),
     reservedCents: integer("reserved_cents").default(0).notNull(), // Total, kept for audit.
     debitedCents: integer("debited_cents").default(0).notNull(),
     // Actual cost beyond every reservation. There is no cap: the platform absorbs it.
@@ -305,6 +368,42 @@ export const agentRuns = pgTable(
     ),
     index("runs_per_work_unit").on(t.workUnitId),
     index("runs_status").on(t.status),
+  ],
+).enableRLS();
+
+export const correctionStatusEnum = pgEnum("correction_status", [
+  "queued",
+  "dispatched",
+  "cancelled",
+]);
+
+/**
+ * `@agent-commons <request>` comments on a delivered PR. Unlimited, queued
+ * like any ticket (FIFO in the account, no priority).
+ */
+export const correctionRequests = pgTable(
+  "correction_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workUnitId: uuid("work_unit_id")
+      .notNull()
+      .references(() => workUnits.id),
+    instruction: text("instruction").notNull(),
+    requestedBy: text("requested_by").notNull(), // GitHub login.
+    // The PR comment ID: webhook redeliveries never queue a request twice.
+    externalCommentId: text("external_comment_id").notNull().unique(),
+    status: correctionStatusEnum("status").default("queued").notNull(),
+    agentRunId: uuid("agent_run_id").references(() => agentRuns.id),
+    queuedAt: timestamp("queued_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    check(
+      "correction_dispatch",
+      sql`(${t.status} = 'dispatched') = (${t.agentRunId} IS NOT NULL)`,
+    ),
+    index("corrections_queue").on(t.status, t.queuedAt),
   ],
 ).enableRLS();
 
@@ -344,6 +443,10 @@ export const results = pgTable(
     pullRequestUrl: text("pull_request_url"),
     abstentionReason: text("abstention_reason"),
     evidence: jsonb("evidence").$type<string[]>().default([]).notNull(),
+    // The reviewer's final review, as published on the PR.
+    review: jsonb("review").$type<StoredReview | null>(),
+    // Screenshots and video stored in R2, by object key.
+    artifacts: jsonb("artifacts").$type<StoredArtifact[]>().default([]).notNull(),
     createdAt: createdAt(),
   },
   (t) => [

@@ -15,6 +15,7 @@ import { recordEvent, type Transaction } from "./events";
 import {
   agentRuns,
   contributions,
+  correctionRequests,
   ledgerEntries,
   projects,
   pullRequests,
@@ -100,8 +101,32 @@ export class PostgresLedger {
         throw new Error("Project is suspended");
       if (run.kind === "implementation" && work.status !== "queued")
         throw new Error("Work unit is not queued");
-      if (run.kind === "correction" && work.status !== "delivered")
-        throw new Error("Corrections need a delivered pull request");
+      if (run.kind === "correction") {
+        if (work.status !== "delivered")
+          throw new Error("Corrections need a delivered pull request");
+        const [busy] = await tx
+          .select({ id: agentRuns.id })
+          .from(agentRuns)
+          .where(
+            and(
+              eq(agentRuns.workUnitId, work.id),
+              eq(agentRuns.status, "running"),
+            ),
+          );
+        if (busy) throw new Error("Another run is in progress on this work unit");
+        const [request] = await tx
+          .select()
+          .from(correctionRequests)
+          .where(eq(correctionRequests.id, run.correctionRequestId!))
+          .for("update");
+        if (
+          !request ||
+          request.workUnitId !== work.id ||
+          request.status !== "queued" ||
+          request.instruction !== run.instruction
+        )
+          throw new Error("Correction request is not queued");
+      }
       await tx.insert(agentRuns).values({
         id: run.runId,
         workUnitId: run.workUnitId,
@@ -123,6 +148,11 @@ export class PostgresLedger {
           .update(workUnits)
           .set({ status: "running" })
           .where(eq(workUnits.id, work.id));
+      else
+        await tx
+          .update(correctionRequests)
+          .set({ status: "dispatched", agentRunId: run.runId })
+          .where(eq(correctionRequests.id, run.correctionRequestId!));
       await recordEvent(tx, {
         type: "run.started",
         accountId: project.accountId,
@@ -272,6 +302,8 @@ export class PostgresLedger {
           result.outcome === "pull_request" ? result.pullRequestUrl : null,
         abstentionReason: result.outcome === "abstained" ? result.reason : null,
         evidence: result.evidence,
+        review: result.review ?? null,
+        artifacts: result.artifacts,
       });
       if (result.outcome === "pull_request") {
         const [pullRequest] = await tx
@@ -284,6 +316,8 @@ export class PostgresLedger {
           await tx.insert(pullRequests).values({
             workUnitId: run.workUnitId,
             url: result.pullRequestUrl,
+            number: result.pullRequestNumber,
+            branch: result.branch,
           });
       }
       if (run.kind === "implementation")
@@ -307,6 +341,14 @@ export class PostgresLedger {
         },
       });
     });
+  }
+
+  /** Live progress shown on the run page. */
+  async setPhase(runId: string, phase: string): Promise<void> {
+    await this.db
+      .update(agentRuns)
+      .set({ phase })
+      .where(and(eq(agentRuns.id, runId), eq(agentRuns.status, "running")));
   }
 
   /** Called from the GitHub webhook when the owner merges or closes the PR. */

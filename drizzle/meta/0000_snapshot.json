@@ -1,5 +1,5 @@
 {
-  "id": "1db45981-68e1-415a-96d6-b05edf48ddf4",
+  "id": "66e50a22-1e77-444a-86b6-26e4ec9cf149",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -136,6 +136,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'running'"
+        },
+        "phase": {
+          "name": "phase",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "reserved_cents": {
           "name": "reserved_cents",
@@ -285,6 +291,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "stripe_payment_intent_id": {
+          "name": "stripe_payment_intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_waiver_at": {
+          "name": "withdrawal_waiver_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "amount_cents": {
           "name": "amount_cents",
           "type": "integer",
@@ -387,6 +405,13 @@
           "columns": [
             "stripe_checkout_id"
           ]
+        },
+        "contributions_stripe_payment_intent_id_unique": {
+          "name": "contributions_stripe_payment_intent_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stripe_payment_intent_id"
+          ]
         }
       },
       "policies": {},
@@ -402,6 +427,133 @@
         "settled_before_spend": {
           "name": "settled_before_spend",
           "value": "\"contributions\".\"payment_status\" = 'settled' OR (\"contributions\".\"reserved_cents\" = 0 AND \"contributions\".\"debited_cents\" = 0)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.correction_requests": {
+      "name": "correction_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "work_unit_id": {
+          "name": "work_unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instruction": {
+          "name": "instruction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_comment_id": {
+          "name": "external_comment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "correction_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "agent_run_id": {
+          "name": "agent_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "queued_at": {
+          "name": "queued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "corrections_queue": {
+          "name": "corrections_queue",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "queued_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "correction_requests_work_unit_id_work_units_id_fk": {
+          "name": "correction_requests_work_unit_id_work_units_id_fk",
+          "tableFrom": "correction_requests",
+          "tableTo": "work_units",
+          "columnsFrom": [
+            "work_unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "correction_requests_agent_run_id_agent_runs_id_fk": {
+          "name": "correction_requests_agent_run_id_agent_runs_id_fk",
+          "tableFrom": "correction_requests",
+          "tableTo": "agent_runs",
+          "columnsFrom": [
+            "agent_run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "correction_requests_external_comment_id_unique": {
+          "name": "correction_requests_external_comment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "external_comment_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "correction_dispatch": {
+          "name": "correction_dispatch",
+          "value": "(\"correction_requests\".\"status\" = 'dispatched') = (\"correction_requests\".\"agent_run_id\" IS NOT NULL)"
         }
       },
       "isRLSEnabled": true
@@ -838,11 +990,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "github_repository_id": {
+          "name": "github_repository_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "github_installation_id": {
           "name": "github_installation_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "default_branch": {
+          "name": "default_branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'main'"
         },
         "authorization_label": {
           "name": "authorization_label",
@@ -905,6 +1070,13 @@
           "columns": [
             "repository"
           ]
+        },
+        "project_github_repository": {
+          "name": "project_github_repository",
+          "nullsNotDistinct": false,
+          "columns": [
+            "github_repository_id"
+          ]
         }
       },
       "policies": {},
@@ -930,6 +1102,18 @@
         },
         "url": {
           "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "branch": {
+          "name": "branch",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1048,6 +1232,19 @@
         },
         "evidence": {
           "name": "evidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "review": {
+          "name": "review",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "artifacts": {
+          "name": "artifacts",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -1326,6 +1523,192 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.tracker_boards": {
+      "name": "tracker_boards",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "connection_id": {
+          "name": "connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_board_id": {
+          "name": "external_board_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tracker_boards_connection_id_tracker_connections_id_fk": {
+          "name": "tracker_boards_connection_id_tracker_connections_id_fk",
+          "tableFrom": "tracker_boards",
+          "tableTo": "tracker_connections",
+          "columnsFrom": [
+            "connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tracker_boards_project_id_projects_id_fk": {
+          "name": "tracker_boards_project_id_projects_id_fk",
+          "tableFrom": "tracker_boards",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tracker_board_external": {
+          "name": "tracker_board_external",
+          "nullsNotDistinct": false,
+          "columns": [
+            "connection_id",
+            "external_board_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.tracker_connections": {
+      "name": "tracker_connections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tracker": {
+          "name": "tracker",
+          "type": "tracker",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "encrypted_access_token": {
+          "name": "encrypted_access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "encrypted_refresh_token": {
+          "name": "encrypted_refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_expires_at": {
+          "name": "token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tracker_connections_account_id_accounts_id_fk": {
+          "name": "tracker_connections_account_id_accounts_id_fk",
+          "tableFrom": "tracker_connections",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tracker_connection_external": {
+          "name": "tracker_connection_external",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "tracker",
+            "external_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tracker_not_github": {
+          "name": "tracker_not_github",
+          "value": "\"tracker_connections\".\"tracker\" <> 'github'"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.work_units": {
       "name": "work_units",
       "schema": "",
@@ -1350,6 +1733,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "board_id": {
+          "name": "board_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "external_id": {
           "name": "external_id",
           "type": "text",
@@ -1361,6 +1750,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "url": {
           "name": "url",
@@ -1434,6 +1830,19 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "work_units_board_id_tracker_boards_id_fk": {
+          "name": "work_units_board_id_tracker_boards_id_fk",
+          "tableFrom": "work_units",
+          "tableTo": "tracker_boards",
+          "columnsFrom": [
+            "board_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1454,6 +1863,15 @@
     }
   },
   "enums": {
+    "public.correction_status": {
+      "name": "correction_status",
+      "schema": "public",
+      "values": [
+        "queued",
+        "dispatched",
+        "cancelled"
+      ]
+    },
     "public.credit_source": {
       "name": "credit_source",
       "schema": "public",

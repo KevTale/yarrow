@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { available, reserve, settle } from "../../src/core/budget";
-import { checkoutSchema, projectSchema } from "../../src/core/forms";
 import { CloudflareSandboxRunner } from "../../src/runner/cloudflare-sandbox-runner";
 
 describe("compute budget", () => {
@@ -32,14 +31,10 @@ describe("compute budget", () => {
       debitedCents: 342,
     });
   });
-  it("validates only monetary fields on a database row", () => {
-    const row = { ...credit, id: "contribution" };
-    expect(available(row)).toBe(2000);
-  });
 });
 
-describe("integration boundaries", () => {
-  it("the runner stub abstains at zero cost", async () => {
+describe("runner stub", () => {
+  it("abstains at zero cost", async () => {
     const result = await new CloudflareSandboxRunner().execute({
       runId: crypto.randomUUID(),
       workUnitId: crypto.randomUUID(),
@@ -51,50 +46,5 @@ describe("integration boundaries", () => {
       reason: "sandbox_not_configured",
       actualCostCents: 0,
     });
-  });
-  it("does not let a checkout cross pool boundaries or choose arbitrary prices", () => {
-    expect(
-      checkoutSchema.safeParse({
-        packId: "builder",
-        pool: "commons",
-        projectId: "halyard",
-        visibility: "public",
-      }).success,
-    ).toBe(false);
-    expect(
-      checkoutSchema.safeParse({
-        packId: "free",
-        pool: "commons",
-        projectId: null,
-        visibility: "public",
-      }).success,
-    ).toBe(false);
-  });
-  it("requires a dedicated Jira site and a bounded project budget", () => {
-    const draft = {
-      name: "Demo",
-      repository: "owner/repo",
-      pool: "commons",
-      authorizationLabel: "agent-ok",
-      jiraSite: "demo.atlassian.net",
-      jiraJql: "",
-      capCents: 800,
-      draftPullRequests: true,
-      requirePassingTests: true,
-    };
-    expect(projectSchema.safeParse(draft).success).toBe(true);
-    expect(
-      projectSchema.safeParse({ ...draft, jiraSite: "ecoagile.atlassian.net" })
-        .success,
-    ).toBe(false);
-    expect(
-      projectSchema.safeParse({
-        ...draft,
-        repository: "owner/repo; echo token",
-      }).success,
-    ).toBe(false);
-    expect(projectSchema.safeParse({ ...draft, capCents: 5001 }).success).toBe(
-      false,
-    );
   });
 });

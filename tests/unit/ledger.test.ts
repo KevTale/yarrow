@@ -31,6 +31,8 @@ const delivered: RunResult = {
   actualCostCents: 342,
   summary: "Fixed the issue",
   pullRequestUrl,
+  pullRequestNumber: 2,
+  branch: "agent-commons/issue-1",
   evidence: ["tests: passed", "review: approved"],
 };
 function run(overrides: Partial<RunRequest> = {}): RunRequest {
@@ -77,7 +79,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`TRUNCATE events, ledger_entries, results, run_fundings, agent_runs, pull_requests, work_units, contributions, sponsor_project_selections, sponsor_profiles, project_secrets, project_run_configs, projects, account_members, accounts CASCADE`,
+    sql`TRUNCATE events, ledger_entries, results, run_fundings, correction_requests, agent_runs, pull_requests, work_units, tracker_boards, tracker_connections, contributions, sponsor_project_selections, sponsor_profiles, project_secrets, project_run_configs, projects, account_members, accounts CASCADE`,
   );
   await db.insert(schema.accounts).values({ id: accountId, name: "Acme" });
   await db.insert(schema.projects).values({
@@ -164,28 +166,42 @@ describe("reserve and settle", () => {
     });
   });
 
-  it("runs corrections on the same pull request, with no extra status change", async () => {
+  it("runs queued corrections on the same pull request, one at a time", async () => {
+    async function request(instruction: string) {
+      const [row] = await db
+        .insert(schema.correctionRequests)
+        .values({
+          workUnitId,
+          instruction,
+          requestedBy: "owner",
+          externalCommentId: crypto.randomUUID(),
+        })
+        .returning();
+      return run({
+        kind: "correction",
+        instruction,
+        correctionRequestId: row!.id,
+      });
+    }
     const first = run();
     await ledger.reserve(first);
     await ledger.settle(first.runId, delivered);
     await expect(ledger.reserve(run({ kind: "correction" }))).rejects.toThrow();
-    const correction = run({
-      kind: "correction",
-      instruction: "Rename the button",
-    });
+    const correction = await request("Rename the button");
+    const busy = await request("Also the title");
     await ledger.reserve(correction);
-    await ledger.settle(correction.runId, {
-      ...delivered,
-      actualCostCents: 120,
-    });
+    await expect(ledger.reserve(busy)).rejects.toThrow("in progress");
+    expect(
+      (await db.select().from(schema.correctionRequests)).map((row) => row.status).sort(),
+    ).toEqual(["dispatched", "queued"]);
+    await ledger.settle(correction.runId, { ...delivered, actualCostCents: 120 });
     expect(await db.select().from(schema.pullRequests)).toHaveLength(1);
     expect((await db.select().from(schema.workUnits))[0]!.status).toBe(
       "delivered",
     );
-    const other = run({ kind: "correction", instruction: "Again" });
-    await ledger.reserve(other);
+    await ledger.reserve(busy);
     await expect(
-      ledger.settle(other.runId, {
+      ledger.settle(busy.runId, {
         ...delivered,
         pullRequestUrl: "https://github.com/test/repo/pull/3",
       }),

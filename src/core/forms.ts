@@ -1,61 +1,98 @@
 import { z } from "zod";
+import { amountCentsSchema } from "./packs";
 
-/**
- * Legacy UI-only concept. The database has a single pool with sponsor filters;
- * the forms and demo pages drop commons/commercial in the UI step.
- */
-export const poolSchema = z.enum(["commons", "commercial"]);
-export type Pool = z.infer<typeof poolSchema>;
+/** Project categories, declared by owners and used by sponsors to opt out. */
+export const categories = [
+  "saas",
+  "developer-tools",
+  "open-source",
+  "game",
+  "ai",
+  "mobile",
+  "e-commerce",
+  "fintech",
+  "crypto",
+  "education",
+  "health",
+  "research",
+  "other",
+] as const;
+export const categorySchema = z.enum(categories);
 
-export const checkoutSchema = z
-  .object({
-    packId: z.enum(["starter", "builder", "sprint"]),
-    pool: poolSchema,
-    projectId: z.enum(["tidepool", "halyard", "loam", "kestrel"]).nullable(),
-    visibility: z.enum(["public", "anonymous"]),
-  })
-  .superRefine((data, context) => {
-    const projects = {
-      tidepool: "commons",
-      halyard: "commercial",
-      loam: "commons",
-      kestrel: "commercial",
-    };
-    if (data.projectId && projects[data.projectId] !== data.pool)
-      context.addIssue({
-        code: "custom",
-        message: "Project and pool must match",
-        path: ["projectId"],
-      });
-  });
+export const visibilitySchema = z.enum(["public", "listed", "hidden"]);
+export type Visibility = z.infer<typeof visibilitySchema>;
 
-export const projectSchema = z.object({
+const tag = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9.+#-]{0,31}$/, "Use short lowercase tags");
+
+export const repositorySchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/,
+    "Use owner/repository",
+  );
+
+export const projectFormSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  repository: z
+  description: z.string().trim().max(500),
+  productUrl: z.union([z.literal(""), z.url().max(300)]),
+  repository: repositorySchema,
+  visibility: visibilitySchema,
+  categories: z.array(categorySchema).min(1).max(5),
+  stacks: z.array(tag).max(12),
+  authorizationLabel: z
     .string()
     .trim()
-    .regex(
-      /^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9_.-]+$/,
-      "Use owner/repository",
-    ),
-  pool: poolSchema,
-  authorizationLabel: z.string().trim().min(1).max(50),
-  jiraSite: z.union([
-    z.literal(""),
-    z
-      .string()
-      .regex(
-        /^[a-z0-9-]+\.atlassian\.net$/,
-        "Use a dedicated .atlassian.net site",
-      )
-      .refine(
-        (value) => !value.includes("ecoagile"),
-        "Use a dedicated demo Jira site",
-      ),
-  ]),
-  jiraJql: z.string().trim().max(500),
-  capCents: z.number().int().min(100).max(5000),
-  draftPullRequests: z.literal(true),
-  requirePassingTests: z.literal(true),
+    .min(1)
+    .max(50)
+    .regex(/^[^,]+$/, "One label"),
 });
-export type ProjectDraft = z.infer<typeof projectSchema>;
+export type ProjectForm = z.infer<typeof projectFormSchema>;
+
+const command = z.string().trim().max(500);
+const envKey = /^[A-Z_][A-Z0-9_]*$/;
+
+/** How to run the app for screenshots and video. Non-secret values only. */
+export const runConfigSchema = z.object({
+  setupCommand: command,
+  seedCommand: command,
+  startCommand: command,
+  appPort: z.number().int().min(1).max(65535).nullable(),
+  env: z
+    .record(z.string().regex(envKey), z.string().max(2000))
+    .refine((env) => Object.keys(env).length <= 50, "Too many variables"),
+});
+export type RunConfig = z.infer<typeof runConfigSchema>;
+
+/** A test or staging secret. The value goes to the provider vault, never to our DB. */
+export const projectSecretSchema = z.object({
+  name: z.string().regex(envKey, "Use UPPER_SNAKE_CASE"),
+  value: z.string().min(1).max(4000),
+  allowedHost: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Use a host like api.stripe.com"),
+});
+
+export const sponsorFiltersSchema = z.object({
+  publicName: z.string().trim().min(2).max(60).nullable(),
+  mode: z.enum(["all_except", "only"]),
+  includeHidden: z.boolean(),
+  excludedCategories: z.array(categorySchema).max(categories.length),
+  requiredStacks: z.array(tag).max(20),
+  selectedProjectIds: z.array(z.uuid()).max(500),
+});
+export type SponsorFilters = z.infer<typeof sponsorFiltersSchema>;
+
+export const checkoutSchema = z.object({
+  amountCents: amountCentsSchema,
+  // Compute starts immediately: EU consumers waive the 14-day withdrawal right.
+  withdrawalWaiver: z.literal(true, {
+    error: "Please confirm that compute starts immediately.",
+  }),
+});

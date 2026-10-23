@@ -4,9 +4,23 @@ import { events } from "./schema";
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type EventType =
+  | "account.created"
+  | "project.created"
+  | "project.updated"
+  | "project.github_linked"
+  | "project.suspended"
+  | "tracker.connected"
+  | "sponsor.filters_updated"
+  | "contribution.created"
+  | "contribution.settled"
+  | "contribution.refunded"
+  | "work_unit.queued"
+  | "work_unit.unqueued"
+  | "correction.requested"
   | "run.started"
   | "run.reserved_more"
   | "run.finished"
+  | "run.failed"
   | "pull_request.merged"
   | "pull_request.closed";
 

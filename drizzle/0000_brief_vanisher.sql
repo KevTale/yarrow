@@ -1,3 +1,4 @@
+CREATE TYPE "public"."correction_status" AS ENUM('queued', 'dispatched', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."credit_source" AS ENUM('stripe', 'promo');--> statement-breakpoint
 CREATE TYPE "public"."ledger_kind" AS ENUM('credit', 'reserve', 'debit', 'release');--> statement-breakpoint
 CREATE TYPE "public"."member_role" AS ENUM('owner', 'member');--> statement-breakpoint
@@ -32,6 +33,7 @@ CREATE TABLE "agent_runs" (
 	"kind" "run_kind" DEFAULT 'implementation' NOT NULL,
 	"instruction" text,
 	"status" "run_status" DEFAULT 'running' NOT NULL,
+	"phase" text,
 	"reserved_cents" integer DEFAULT 0 NOT NULL,
 	"debited_cents" integer DEFAULT 0 NOT NULL,
 	"uncovered_cents" integer DEFAULT 0 NOT NULL,
@@ -50,6 +52,8 @@ CREATE TABLE "contributions" (
 	"source" "credit_source" DEFAULT 'stripe' NOT NULL,
 	"payment_status" "payment_status" DEFAULT 'pending' NOT NULL,
 	"stripe_checkout_id" text,
+	"stripe_payment_intent_id" text,
+	"withdrawal_waiver_at" timestamp with time zone,
 	"amount_cents" integer NOT NULL,
 	"tax_cents" integer DEFAULT 0 NOT NULL,
 	"fee_cents" integer DEFAULT 0 NOT NULL,
@@ -59,12 +63,27 @@ CREATE TABLE "contributions" (
 	"debited_cents" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "contributions_stripe_checkout_id_unique" UNIQUE("stripe_checkout_id"),
+	CONSTRAINT "contributions_stripe_payment_intent_id_unique" UNIQUE("stripe_payment_intent_id"),
 	CONSTRAINT "valid_credit" CHECK ("contributions"."amount_cents" >= 0 AND "contributions"."tax_cents" >= 0 AND "contributions"."fee_cents" >= 0 AND "contributions"."margin_cents" >= 0 AND "contributions"."credit_cents" >= 0 AND "contributions"."reserved_cents" >= 0 AND "contributions"."debited_cents" >= 0 AND "contributions"."reserved_cents" + "contributions"."debited_cents" <= "contributions"."credit_cents"),
 	CONSTRAINT "stripe_breakdown" CHECK ("contributions"."source" <> 'stripe' OR "contributions"."tax_cents" + "contributions"."fee_cents" + "contributions"."margin_cents" + "contributions"."credit_cents" <= "contributions"."amount_cents"),
 	CONSTRAINT "settled_before_spend" CHECK ("contributions"."payment_status" = 'settled' OR ("contributions"."reserved_cents" = 0 AND "contributions"."debited_cents" = 0))
 );
 --> statement-breakpoint
 ALTER TABLE "contributions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "correction_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"work_unit_id" uuid NOT NULL,
+	"instruction" text NOT NULL,
+	"requested_by" text NOT NULL,
+	"external_comment_id" text NOT NULL,
+	"status" "correction_status" DEFAULT 'queued' NOT NULL,
+	"agent_run_id" uuid,
+	"queued_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "correction_requests_external_comment_id_unique" UNIQUE("external_comment_id"),
+	CONSTRAINT "correction_dispatch" CHECK (("correction_requests"."status" = 'dispatched') = ("correction_requests"."agent_run_id" IS NOT NULL))
+);
+--> statement-breakpoint
+ALTER TABLE "correction_requests" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"type" text NOT NULL,
@@ -124,11 +143,14 @@ CREATE TABLE "projects" (
 	"categories" text[] DEFAULT '{}' NOT NULL,
 	"stacks" text[] DEFAULT '{}' NOT NULL,
 	"repository" text NOT NULL,
+	"github_repository_id" text,
 	"github_installation_id" text,
+	"default_branch" text DEFAULT 'main' NOT NULL,
 	"authorization_label" text DEFAULT 'agent-commons' NOT NULL,
 	"suspended_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "project_repository" UNIQUE("repository")
+	CONSTRAINT "project_repository" UNIQUE("repository"),
+	CONSTRAINT "project_github_repository" UNIQUE("github_repository_id")
 );
 --> statement-breakpoint
 ALTER TABLE "projects" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -136,6 +158,8 @@ CREATE TABLE "pull_requests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"work_unit_id" uuid NOT NULL,
 	"url" text NOT NULL,
+	"number" integer NOT NULL,
+	"branch" text NOT NULL,
 	"state" "pull_request_state" DEFAULT 'open' NOT NULL,
 	"rejection_reason" text,
 	"opened_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -154,6 +178,8 @@ CREATE TABLE "results" (
 	"pull_request_url" text,
 	"abstention_reason" text,
 	"evidence" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"review" jsonb,
+	"artifacts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "results_agent_run_id_unique" UNIQUE("agent_run_id"),
 	CONSTRAINT "outcome_evidence" CHECK (("results"."outcome" = 'pull_request' AND "results"."pull_request_url" IS NOT NULL AND "results"."abstention_reason" IS NULL) OR ("results"."outcome" = 'abstained' AND "results"."abstention_reason" IS NOT NULL AND "results"."pull_request_url" IS NULL))
@@ -190,12 +216,40 @@ CREATE TABLE "sponsor_project_selections" (
 );
 --> statement-breakpoint
 ALTER TABLE "sponsor_project_selections" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "tracker_boards" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"connection_id" uuid NOT NULL,
+	"project_id" uuid NOT NULL,
+	"external_board_id" text NOT NULL,
+	"name" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tracker_board_external" UNIQUE("connection_id","external_board_id")
+);
+--> statement-breakpoint
+ALTER TABLE "tracker_boards" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "tracker_connections" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"account_id" uuid NOT NULL,
+	"tracker" "tracker" NOT NULL,
+	"external_id" text NOT NULL,
+	"name" text NOT NULL,
+	"encrypted_access_token" text NOT NULL,
+	"encrypted_refresh_token" text,
+	"token_expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tracker_connection_external" UNIQUE("account_id","tracker","external_id"),
+	CONSTRAINT "tracker_not_github" CHECK ("tracker_connections"."tracker" <> 'github')
+);
+--> statement-breakpoint
+ALTER TABLE "tracker_connections" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "work_units" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
 	"source" "tracker" NOT NULL,
+	"board_id" uuid,
 	"external_id" text NOT NULL,
 	"title" text NOT NULL,
+	"body" text DEFAULT '' NOT NULL,
 	"url" text NOT NULL,
 	"authorized" boolean DEFAULT false NOT NULL,
 	"status" "work_status" DEFAULT 'queued' NOT NULL,
@@ -207,6 +261,8 @@ CREATE TABLE "work_units" (
 ALTER TABLE "work_units" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "account_members" ADD CONSTRAINT "account_members_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agent_runs" ADD CONSTRAINT "agent_runs_work_unit_id_work_units_id_fk" FOREIGN KEY ("work_unit_id") REFERENCES "public"."work_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "correction_requests" ADD CONSTRAINT "correction_requests_work_unit_id_work_units_id_fk" FOREIGN KEY ("work_unit_id") REFERENCES "public"."work_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "correction_requests" ADD CONSTRAINT "correction_requests_agent_run_id_agent_runs_id_fk" FOREIGN KEY ("agent_run_id") REFERENCES "public"."agent_runs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ledger_entries" ADD CONSTRAINT "ledger_entries_contribution_id_contributions_id_fk" FOREIGN KEY ("contribution_id") REFERENCES "public"."contributions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ledger_entries" ADD CONSTRAINT "ledger_entries_agent_run_id_agent_runs_id_fk" FOREIGN KEY ("agent_run_id") REFERENCES "public"."agent_runs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_run_configs" ADD CONSTRAINT "project_run_configs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -218,11 +274,16 @@ ALTER TABLE "run_fundings" ADD CONSTRAINT "run_fundings_agent_run_id_agent_runs_
 ALTER TABLE "run_fundings" ADD CONSTRAINT "run_fundings_contribution_id_contributions_id_fk" FOREIGN KEY ("contribution_id") REFERENCES "public"."contributions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sponsor_project_selections" ADD CONSTRAINT "sponsor_project_selections_user_id_sponsor_profiles_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."sponsor_profiles"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sponsor_project_selections" ADD CONSTRAINT "sponsor_project_selections_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tracker_boards" ADD CONSTRAINT "tracker_boards_connection_id_tracker_connections_id_fk" FOREIGN KEY ("connection_id") REFERENCES "public"."tracker_connections"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tracker_boards" ADD CONSTRAINT "tracker_boards_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tracker_connections" ADD CONSTRAINT "tracker_connections_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "work_units" ADD CONSTRAINT "work_units_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "work_units" ADD CONSTRAINT "work_units_board_id_tracker_boards_id_fk" FOREIGN KEY ("board_id") REFERENCES "public"."tracker_boards"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "runs_per_work_unit" ON "agent_runs" USING btree ("work_unit_id");--> statement-breakpoint
 CREATE INDEX "runs_status" ON "agent_runs" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "contributions_user" ON "contributions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "contributions_spendable" ON "contributions" USING btree ("payment_status","created_at");--> statement-breakpoint
+CREATE INDEX "corrections_queue" ON "correction_requests" USING btree ("status","queued_at");--> statement-breakpoint
 CREATE INDEX "events_type_time" ON "events" USING btree ("type","created_at");--> statement-breakpoint
 CREATE INDEX "ledger_contribution" ON "ledger_entries" USING btree ("contribution_id");--> statement-breakpoint
 CREATE INDEX "ledger_run" ON "ledger_entries" USING btree ("agent_run_id");--> statement-breakpoint

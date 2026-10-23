@@ -1,0 +1,310 @@
+import { describe, expect, it } from "vitest";
+import {
+  assistedByTrailer,
+  pullRequestFooter,
+  sponsorNames,
+} from "../../src/core/attribution";
+import {
+  checkoutSchema,
+  projectFormSchema,
+  projectSecretSchema,
+  runConfigSchema,
+  sponsorFiltersSchema,
+} from "../../src/core/forms";
+import { amountCentsSchema, money } from "../../src/core/packs";
+import { defaultPipelineRoles } from "../../src/core/pipeline";
+import {
+  estimateBreakdown,
+  marginCents,
+  settleBreakdown,
+} from "../../src/core/pricing";
+import { planDispatch, type DispatchCandidate } from "../../src/core/queue";
+import { blockingComments, reviewBody } from "../../src/core/review";
+
+describe("pricing", () => {
+  it("takes 10% of the amount excluding VAT, 5% for founding sponsors", () => {
+    expect(marginCents(10_000, false)).toBe(1_000);
+    expect(marginCents(10_000, true)).toBe(500);
+  });
+  it("settles with the real Stripe fee and tax", () => {
+    expect(
+      settleBreakdown({
+        amountCents: 10_000,
+        taxCents: 0,
+        feeCents: 320,
+        founding: false,
+      }),
+    ).toEqual({
+      amountCents: 10_000,
+      taxCents: 0,
+      feeCents: 320,
+      marginCents: 1_000,
+      creditCents: 8_680,
+    });
+    // A French consumer: $100 VAT-inclusive.
+    expect(
+      settleBreakdown({
+        amountCents: 10_000,
+        taxCents: 1_667,
+        feeCents: 320,
+        founding: false,
+      }),
+    ).toMatchObject({ marginCents: 833, creditCents: 7_180 });
+  });
+  it("estimates the brief's examples at checkout", () => {
+    expect(estimateBreakdown(10_000).creditCents).toBe(8_680);
+    expect(estimateBreakdown(10_000, { vatRateBps: 2000 })).toMatchObject({
+      taxCents: 1_667,
+      creditCents: 7_180,
+    });
+    expect(estimateBreakdown(1_000).creditCents).toBe(841);
+  });
+  it("never produces negative credit or accepts bad input", () => {
+    expect(
+      settleBreakdown({
+        amountCents: 100,
+        taxCents: 0,
+        feeCents: 500,
+        founding: false,
+      }).creditCents,
+    ).toBe(0);
+    expect(() =>
+      settleBreakdown({
+        amountCents: 100,
+        taxCents: 200,
+        feeCents: 0,
+        founding: false,
+      }),
+    ).toThrow();
+    expect(() => marginCents(10.5, false)).toThrow();
+  });
+});
+
+describe("amounts and forms", () => {
+  it("accepts whole dollars from $10 to $1,000", () => {
+    expect(amountCentsSchema.safeParse(1_000).success).toBe(true);
+    expect(amountCentsSchema.safeParse(100_000).success).toBe(true);
+    expect(amountCentsSchema.safeParse(900).success).toBe(false);
+    expect(amountCentsSchema.safeParse(100_100).success).toBe(false);
+    expect(amountCentsSchema.safeParse(1_050).success).toBe(false);
+    expect(money(8_680)).toBe("$86.80");
+  });
+  it("requires the withdrawal waiver at checkout", () => {
+    expect(
+      checkoutSchema.safeParse({ amountCents: 2_500, withdrawalWaiver: true })
+        .success,
+    ).toBe(true);
+    expect(
+      checkoutSchema.safeParse({ amountCents: 2_500, withdrawalWaiver: false })
+        .success,
+    ).toBe(false);
+  });
+  const project = {
+    name: "Halyard",
+    description: "Billing API",
+    productUrl: "https://halyard.dev",
+    repository: "halyard/ledger",
+    visibility: "listed",
+    categories: ["saas"],
+    stacks: ["Supabase", "nextjs"],
+    authorizationLabel: "agent-commons",
+  };
+  it("validates projects and normalizes stacks", () => {
+    const parsed = projectFormSchema.parse(project);
+    expect(parsed.stacks).toEqual(["supabase", "nextjs"]);
+    for (const bad of [
+      { repository: "halyard/ledger; rm -rf" },
+      { categories: [] },
+      { categories: ["casino"] },
+      { visibility: "secret" },
+      { productUrl: "not a url" },
+    ])
+      expect(projectFormSchema.safeParse({ ...project, ...bad }).success).toBe(
+        false,
+      );
+  });
+  it("keeps secrets out of the run config and validates secret hosts", () => {
+    expect(
+      runConfigSchema.safeParse({
+        setupCommand: "pnpm install",
+        seedCommand: "",
+        startCommand: "pnpm dev",
+        appPort: 3000,
+        env: { NODE_ENV: "development" },
+      }).success,
+    ).toBe(true);
+    expect(
+      runConfigSchema.safeParse({
+        setupCommand: "",
+        seedCommand: "",
+        startCommand: "",
+        appPort: null,
+        env: { "bad key": "x" },
+      }).success,
+    ).toBe(false);
+    expect(
+      projectSecretSchema.safeParse({
+        name: "STRIPE_KEY",
+        value: "sk_test_x",
+        allowedHost: "api.stripe.com",
+      }).success,
+    ).toBe(true);
+    expect(
+      projectSecretSchema.safeParse({
+        name: "STRIPE_KEY",
+        value: "x",
+        allowedHost: "https://api.stripe.com/v1",
+      }).success,
+    ).toBe(false);
+  });
+  it("validates sponsor filters", () => {
+    expect(
+      sponsorFiltersSchema.safeParse({
+        publicName: "Northwind",
+        mode: "only",
+        includeHidden: false,
+        excludedCategories: ["crypto"],
+        requiredStacks: ["supabase"],
+        selectedProjectIds: [crypto.randomUUID()],
+      }).success,
+    ).toBe(true);
+    expect(
+      sponsorFiltersSchema.safeParse({
+        publicName: null,
+        mode: "everything",
+        includeHidden: false,
+        excludedCategories: [],
+        requiredStacks: [],
+        selectedProjectIds: [],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("dispatch planning", () => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 9, 6, 0, minutes));
+  function candidate(
+    accountId: string,
+    minutes: number,
+    workUnitId = `${accountId}-${minutes}`,
+    kind: DispatchCandidate["kind"] = "implementation",
+  ): DispatchCandidate {
+    return {
+      kind,
+      id: `${kind}-${workUnitId}-${minutes}`,
+      workUnitId,
+      accountId,
+      queuedAt: at(minutes),
+    };
+  }
+  const state = {
+    runningByAccount: new Map<string, number>(),
+    lastServedAt: new Map<string, Date>(),
+    busyWorkUnits: new Set<string>(),
+    perAccountLimit: 5,
+    globalLimit: 100,
+  };
+
+  it("behaves like FIFO when there is room for everything", () => {
+    const plan = planDispatch(
+      [candidate("a", 3), candidate("a", 1), candidate("b", 2)],
+      state,
+    );
+    expect(plan).toHaveLength(3);
+  });
+  it("rotates between accounts so a big backlog cannot starve others", () => {
+    const big = Array.from({ length: 20 }, (_, i) => candidate("big", i));
+    const plan = planDispatch([...big, candidate("marie", 30)], {
+      ...state,
+      globalLimit: 3,
+    });
+    expect(plan.map((item) => item.accountId)).toEqual([
+      "big",
+      "marie",
+      "big",
+    ]);
+    expect(plan[0]!.queuedAt).toEqual(at(0));
+  });
+  it("serves the least recently served account first", () => {
+    const plan = planDispatch([candidate("a", 1), candidate("b", 2)], {
+      ...state,
+      lastServedAt: new Map([["a", at(50)]]),
+      globalLimit: 1,
+    });
+    expect(plan[0]!.accountId).toBe("b");
+  });
+  it("respects the per-account concurrency limit", () => {
+    const plan = planDispatch(
+      Array.from({ length: 10 }, (_, i) => candidate("a", i)),
+      { ...state, runningByAccount: new Map([["a", 3]]) },
+    );
+    expect(plan).toHaveLength(2);
+  });
+  it("never starts two runs on the same work unit", () => {
+    const plan = planDispatch(
+      [
+        candidate("a", 1, "wu-1", "correction"),
+        candidate("a", 2, "wu-1", "correction"),
+        candidate("a", 3, "wu-2", "correction"),
+      ],
+      { ...state, busyWorkUnits: new Set(["wu-2"]) },
+    );
+    expect(plan.map((item) => item.queuedAt)).toEqual([at(1)]);
+  });
+});
+
+describe("attribution", () => {
+  it("names sponsors and merges anonymous ones", () => {
+    expect(sponsorNames([])).toBeNull();
+    expect(sponsorNames([{ name: "Northwind" }])).toBe("Northwind");
+    expect(
+      sponsorNames([
+        { name: "Northwind" },
+        { name: "Mara" },
+        { name: null },
+        { name: "Northwind" },
+      ]),
+    ).toBe("Northwind, Mara and an anonymous sponsor");
+    expect(sponsorNames([{ name: null }, { name: null }])).toBe(
+      "2 anonymous sponsors",
+    );
+  });
+  it("writes the PR footer and the commit trailer from the brief", () => {
+    const footer = pullRequestFooter({
+      roles: defaultPipelineRoles,
+      sponsors: [{ name: "Northwind" }],
+      runUrl: "https://agentcommons.dev/runs/1",
+    });
+    expect(footer).toContain(
+      "Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra",
+    );
+    expect(footer).toContain(
+      "Sponsored by Northwind via [Agent Commons](https://agentcommons.dev/runs/1)",
+    );
+    expect(assistedByTrailer(defaultPipelineRoles)).toBe(
+      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Agent Commons)",
+    );
+  });
+});
+
+describe("review", () => {
+  const review = {
+    reviewer: "openai-astra",
+    rounds: 2,
+    summary: "Solid change.",
+    comments: [
+      { severity: "blocking" as const, path: "a.ts", line: 3, body: "Null check" },
+      { severity: "nit" as const, body: "Typo in the title" },
+    ],
+  };
+  it("only blocking comments trigger the fix round", () => {
+    expect(blockingComments(review)).toHaveLength(1);
+  });
+  it("summarizes the review for GitHub", () => {
+    const body = reviewBody(review, "OpenAI Astra");
+    expect(body).toContain("Code review by OpenAI Astra");
+    expect(body).toContain("after one fix round");
+    expect(body).toContain("1 blocking, 1 nit");
+    expect(body).toContain("**Nit:** Typo in the title");
+  });
+});

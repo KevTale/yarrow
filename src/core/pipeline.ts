@@ -11,3 +11,18 @@ export const defaultPipelineRoles: PipelineRoles = {
   implementer: "claude-opus-5-5:high",
   reviewer: "openai-astra",
 };
+
+/** Initial reservation per run. An estimate, not a cap: runs top up as they spend. */
+export const INITIAL_RESERVATION_CENTS = 1_000;
+
+const displayNames: Record<string, string> = {
+  "claude-opus-5-5:high": "Claude Opus 5.5",
+  "claude-opus-5-5": "Claude Opus 5.5",
+  "openai-astra": "OpenAI Astra",
+  "gpt-6-astra": "OpenAI Astra",
+};
+
+/** Factual attribution ("Implemented by Claude Opus 5.5"), never product branding. */
+export function modelDisplayName(id: string): string {
+  return displayNames[id] ?? id;
+}
