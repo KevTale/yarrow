@@ -16,6 +16,8 @@
     "./**/*.ts",
     "../src/core/**/*.ts",
     "../src/db/**/*.ts",
-    "../src/runner/**/*.ts"
+    "../src/runner/**/*.ts",
+    "../src/server/github/**/*.ts",
+    "../src/server/trackers/**/*.ts"
   ]
 }

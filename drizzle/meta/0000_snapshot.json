@@ -1,5 +1,5 @@
 {
-  "id": "00c0dff9-33c8-4cbc-8818-a05c6ae79b82",
+  "id": "20140193-a4b6-413c-8b74-dc8078cd1f0d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -830,6 +830,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "anthropic_environment_id": {
+          "name": "anthropic_environment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anthropic_vault_id": {
+          "name": "anthropic_vault_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "updated_at": {
           "name": "updated_at",

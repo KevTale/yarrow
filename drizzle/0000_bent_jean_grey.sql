@@ -119,6 +119,8 @@ CREATE TABLE "project_run_configs" (
 	"start_command" text,
 	"app_port" integer,
 	"env" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"anthropic_environment_id" text,
+	"anthropic_vault_id" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { ProjectForm, RunConfig } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
+import { setAnthropicResources } from "./runs";
 import { projectRunConfigs, projectSecrets, projects } from "./schema";
 
 export class DuplicateProjectError extends Error {
@@ -189,6 +190,8 @@ export async function recordSecretReference(
         allowedHost: secret.allowedHost,
       },
     });
+  // The sandbox environment's allowed hosts derive from the secrets.
+  await setAnthropicResources(db, projectId, { environmentId: null });
 }
 
 export async function deleteSecretReference(
@@ -205,6 +208,8 @@ export async function deleteSecretReference(
       ),
     )
     .returning({ credentialId: projectSecrets.providerCredentialId });
+  if (deleted)
+    await setAnthropicResources(db, projectId, { environmentId: null });
   return deleted?.credentialId ?? null;
 }
 

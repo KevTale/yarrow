@@ -131,8 +131,13 @@ export async function staleRunningRuns(db: Database, olderThan: Date) {
       kind: agentRuns.kind,
       instruction: agentRuns.instruction,
       reservedCents: agentRuns.reservedCents,
+      correctionRequestId: correctionRequests.id,
     })
     .from(agentRuns)
+    .leftJoin(
+      correctionRequests,
+      eq(correctionRequests.agentRunId, agentRuns.id),
+    )
     .where(
       and(eq(agentRuns.status, "running"), lt(agentRuns.createdAt, olderThan)),
     );

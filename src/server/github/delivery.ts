@@ -115,17 +115,28 @@ export async function commitChanges(
   return commit.sha;
 }
 
+/** Opens the draft PR, or returns the one already open for `head` (retry-safe). */
 export async function openDraftPullRequest(
   client: GitHubClient,
   { owner, repo }: Repository,
   input: { head: string; base: string; title: string; body: string },
 ): Promise<{ number: number; url: string }> {
-  const pull = await client.request<{ number: number; html_url: string }>(
-    "POST",
-    `/repos/${owner}/${repo}/pulls`,
-    { ...input, draft: true, maintainer_can_modify: true },
-  );
-  return { number: pull.number, url: pull.html_url };
+  try {
+    const pull = await client.request<{ number: number; html_url: string }>(
+      "POST",
+      `/repos/${owner}/${repo}/pulls`,
+      { ...input, draft: true, maintainer_can_modify: true },
+    );
+    return { number: pull.number, url: pull.html_url };
+  } catch (error) {
+    if (!(error instanceof GitHubError) || error.status !== 422) throw error;
+    const open = await client.request<{ number: number; html_url: string }[]>(
+      "GET",
+      `/repos/${owner}/${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${input.head}`)}`,
+    );
+    if (!open[0]) throw error;
+    return { number: open[0].number, url: open[0].html_url };
+  }
 }
 
 export interface InlineComment {

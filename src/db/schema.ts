@@ -179,6 +179,10 @@ export const projectRunConfigs = pgTable("project_run_configs", {
   appPort: integer("app_port"),
   // Non-secret development variables only. Secrets live in project_secrets.
   env: jsonb("env").$type<Record<string, string>>().default({}).notNull(),
+  // Managed Agents resources for this project, created on first use. The
+  // environment is reset when the secrets (and so the allowed hosts) change.
+  anthropicEnvironmentId: text("anthropic_environment_id"),
+  anthropicVaultId: text("anthropic_vault_id"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

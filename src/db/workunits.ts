@@ -76,13 +76,16 @@ export async function upsertTicket(
             .from(pullRequests)
             .where(eq(pullRequests.workUnitId, existing.id))
         : [];
-    const waiting =
-      ["queued", "abstained"].includes(existing.status) ||
-      (existing.status === "closed" && !shipped);
+    // Tickets are re-read on every sync: an abstained ticket only comes back
+    // when the owner changed it, otherwise it would burn money in a loop.
+    const contentChanged =
+      existing.title !== ticket.title || existing.body !== ticket.body;
     const requeue =
       eligible &&
-      waiting &&
-      (!existing.authorized || existing.status !== "queued");
+      ((existing.status === "queued" && !existing.authorized) ||
+        (existing.status === "abstained" &&
+          (contentChanged || !existing.authorized)) ||
+        (existing.status === "closed" && !shipped));
     await tx
       .update(workUnits)
       .set({

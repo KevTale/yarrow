@@ -143,10 +143,14 @@ describe("tickets", () => {
     [unit] = await raw.select().from(schema.workUnits);
     expect(unit!.status).toBe("running");
   });
-  it("requeues an abstained ticket once the owner edits it", async () => {
+  it("requeues an abstained ticket only once the owner edits it", async () => {
     const { projectId } = await setupProject();
     await upsertTicket(db, { projectId, ...ticket() });
     await raw.update(schema.workUnits).set({ status: "abstained" });
+    // The next sync sees the same ticket: it must not run again.
+    expect((await upsertTicket(db, { projectId, ...ticket() })).queued).toBe(
+      false,
+    );
     const edited = await upsertTicket(db, {
       projectId,
       ...ticket({ body: "Repro: export with zero rows." }),
