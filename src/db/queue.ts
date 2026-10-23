@@ -82,24 +82,20 @@ export async function loadDispatch(
     );
   return {
     candidates: [
-      ...implementations.map(
-        (row): DispatchCandidate => ({
-          kind: "implementation",
-          id: row.workUnitId,
-          workUnitId: row.workUnitId,
-          accountId: row.accountId,
-          queuedAt: row.queuedAt,
-        }),
-      ),
-      ...corrections.map(
-        (row): DispatchCandidate => ({
-          kind: "correction",
-          id: row.id,
-          workUnitId: row.workUnitId,
-          accountId: row.accountId,
-          queuedAt: row.queuedAt,
-        }),
-      ),
+      ...implementations.map((row): DispatchCandidate => ({
+        kind: "implementation",
+        id: row.workUnitId,
+        workUnitId: row.workUnitId,
+        accountId: row.accountId,
+        queuedAt: row.queuedAt,
+      })),
+      ...corrections.map((row): DispatchCandidate => ({
+        kind: "correction",
+        id: row.id,
+        workUnitId: row.workUnitId,
+        accountId: row.accountId,
+        queuedAt: row.queuedAt,
+      })),
     ],
     state: {
       runningByAccount,
@@ -138,9 +134,6 @@ export async function staleRunningRuns(db: Database, olderThan: Date) {
     })
     .from(agentRuns)
     .where(
-      and(
-        eq(agentRuns.status, "running"),
-        lt(agentRuns.createdAt, olderThan),
-      ),
+      and(eq(agentRuns.status, "running"), lt(agentRuns.createdAt, olderThan)),
     );
 }

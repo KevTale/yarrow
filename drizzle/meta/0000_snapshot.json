@@ -1,5 +1,5 @@
 {
-  "id": "66e50a22-1e77-444a-86b6-26e4ec9cf149",
+  "id": "d1607b56-937b-41f7-a6d5-60d98aa986b9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -19,6 +19,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "github_login": {
+          "name": "github_login",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "role": {
           "name": "role",

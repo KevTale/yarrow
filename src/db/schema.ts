@@ -76,6 +76,8 @@ export const accountMembers = pgTable(
       .notNull()
       .references(() => accounts.id),
     userId: uuid("user_id").notNull(), // Supabase auth user ID (GitHub login).
+    // Matched against the GitHub App installer before linking repositories.
+    githubLogin: text("github_login"),
     role: memberRoleEnum("role").default("member").notNull(),
     createdAt: createdAt(),
   },
@@ -161,7 +163,9 @@ export const trackerBoards = pgTable(
     name: text("name").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [unique("tracker_board_external").on(t.connectionId, t.externalBoardId)],
+  (t) => [
+    unique("tracker_board_external").on(t.connectionId, t.externalBoardId),
+  ],
 ).enableRLS();
 
 /** How to run the app in the provider sandbox, for screenshots and video. Optional. */
@@ -446,7 +450,10 @@ export const results = pgTable(
     // The reviewer's final review, as published on the PR.
     review: jsonb("review").$type<StoredReview | null>(),
     // Screenshots and video stored in R2, by object key.
-    artifacts: jsonb("artifacts").$type<StoredArtifact[]>().default([]).notNull(),
+    artifacts: jsonb("artifacts")
+      .$type<StoredArtifact[]>()
+      .default([])
+      .notNull(),
     createdAt: createdAt(),
   },
   (t) => [

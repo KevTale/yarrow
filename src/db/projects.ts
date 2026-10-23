@@ -100,7 +100,10 @@ export async function linkGithubRepositories(
   db: Database,
   installationId: string,
   repositories: { fullName: string; id: string; defaultBranch?: string }[],
+  /** Only projects of these accounts may be linked: the installer's. */
+  accountIds?: string[],
 ): Promise<string[]> {
+  if (accountIds && accountIds.length === 0) return [];
   const linked: string[] = [];
   for (const repository of repositories) {
     const rows = await db
@@ -113,7 +116,10 @@ export async function linkGithubRepositories(
           : {}),
       })
       .where(
-        sql`lower(${projects.repository}) = lower(${repository.fullName}) or ${projects.githubRepositoryId} = ${repository.id}`,
+        and(
+          sql`(lower(${projects.repository}) = lower(${repository.fullName}) or ${projects.githubRepositoryId} = ${repository.id})`,
+          accountIds ? inArray(projects.accountId, accountIds) : undefined,
+        ),
       )
       .returning({ id: projects.id, repository: projects.repository });
     for (const row of rows) {
@@ -145,10 +151,7 @@ export async function unlinkGithubRepositories(
         inArray(projects.githubRepositoryId, repositoryIds),
       )
     : eq(projects.githubInstallationId, installationId);
-  await db
-    .update(projects)
-    .set({ githubInstallationId: null })
-    .where(scope);
+  await db.update(projects).set({ githubInstallationId: null }).where(scope);
 }
 
 export async function saveRunConfig(
@@ -196,7 +199,10 @@ export async function deleteSecretReference(
   const [deleted] = await db
     .delete(projectSecrets)
     .where(
-      and(eq(projectSecrets.projectId, projectId), eq(projectSecrets.name, name)),
+      and(
+        eq(projectSecrets.projectId, projectId),
+        eq(projectSecrets.name, name),
+      ),
     )
     .returning({ credentialId: projectSecrets.providerCredentialId });
   return deleted?.credentialId ?? null;

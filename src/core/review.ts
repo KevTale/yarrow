@@ -50,7 +50,9 @@ export function reviewBody(review: StoredReview, reviewerName: string): string {
       const count = review.comments.filter(
         (comment) => comment.severity === severity,
       ).length;
-      return count > 0 ? `${count} ${severityLabel[severity].toLowerCase()}` : null;
+      return count > 0
+        ? `${count} ${severityLabel[severity].toLowerCase()}`
+        : null;
     })
     .filter(Boolean);
   const lines = [

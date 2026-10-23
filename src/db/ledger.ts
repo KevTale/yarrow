@@ -113,7 +113,8 @@ export class PostgresLedger {
               eq(agentRuns.status, "running"),
             ),
           );
-        if (busy) throw new Error("Another run is in progress on this work unit");
+        if (busy)
+          throw new Error("Another run is in progress on this work unit");
         const [request] = await tx
           .select()
           .from(correctionRequests)

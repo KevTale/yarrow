@@ -218,11 +218,7 @@ describe("dispatch planning", () => {
       ...state,
       globalLimit: 3,
     });
-    expect(plan.map((item) => item.accountId)).toEqual([
-      "big",
-      "marie",
-      "big",
-    ]);
+    expect(plan.map((item) => item.accountId)).toEqual(["big", "marie", "big"]);
     expect(plan[0]!.queuedAt).toEqual(at(0));
   });
   it("serves the least recently served account first", () => {
@@ -293,7 +289,12 @@ describe("review", () => {
     rounds: 2,
     summary: "Solid change.",
     comments: [
-      { severity: "blocking" as const, path: "a.ts", line: 3, body: "Null check" },
+      {
+        severity: "blocking" as const,
+        path: "a.ts",
+        line: 3,
+        body: "Null check",
+      },
       { severity: "nit" as const, body: "Typo in the title" },
     ],
   };

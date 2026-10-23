@@ -80,7 +80,9 @@ export async function upsertTicket(
       ["queued", "abstained"].includes(existing.status) ||
       (existing.status === "closed" && !shipped);
     const requeue =
-      eligible && waiting && (!existing.authorized || existing.status !== "queued");
+      eligible &&
+      waiting &&
+      (!existing.authorized || existing.status !== "queued");
     await tx
       .update(workUnits)
       .set({

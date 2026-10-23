@@ -192,9 +192,14 @@ describe("reserve and settle", () => {
     await ledger.reserve(correction);
     await expect(ledger.reserve(busy)).rejects.toThrow("in progress");
     expect(
-      (await db.select().from(schema.correctionRequests)).map((row) => row.status).sort(),
+      (await db.select().from(schema.correctionRequests))
+        .map((row) => row.status)
+        .sort(),
     ).toEqual(["dispatched", "queued"]);
-    await ledger.settle(correction.runId, { ...delivered, actualCostCents: 120 });
+    await ledger.settle(correction.runId, {
+      ...delivered,
+      actualCostCents: 120,
+    });
     expect(await db.select().from(schema.pullRequests)).toHaveLength(1);
     expect((await db.select().from(schema.workUnits))[0]!.status).toBe(
       "delivered",

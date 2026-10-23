@@ -14,6 +14,7 @@ CREATE TYPE "public"."work_status" AS ENUM('queued', 'running', 'delivered', 'ab
 CREATE TABLE "account_members" (
 	"account_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
+	"github_login" text,
 	"role" "member_role" DEFAULT 'member' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "account_members_account_id_user_id_pk" PRIMARY KEY("account_id","user_id")

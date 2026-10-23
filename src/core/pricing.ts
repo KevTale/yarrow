@@ -14,7 +14,10 @@ function cents(value: number, label: string): void {
     throw new Error(`Invalid ${label}`);
 }
 
-export function marginCents(amountExcludingTaxCents: number, founding: boolean) {
+export function marginCents(
+  amountExcludingTaxCents: number,
+  founding: boolean,
+) {
   cents(amountExcludingTaxCents, "amount");
   const bps = founding ? FOUNDING_MARGIN_BPS : PLATFORM_MARGIN_BPS;
   return Math.round((amountExcludingTaxCents * bps) / 10_000);
@@ -61,7 +64,9 @@ export function estimateBreakdown(
   cents(amountCents, "amount");
   const vat = options.vatRateBps ?? 0;
   const taxCents =
-    vat > 0 ? amountCents - Math.round((amountCents * 10_000) / (10_000 + vat)) : 0;
+    vat > 0
+      ? amountCents - Math.round((amountCents * 10_000) / (10_000 + vat))
+      : 0;
   const feeCents =
     Math.round((amountCents * ESTIMATED_FEE_BPS) / 10_000) +
     ESTIMATED_FEE_FIXED_CENTS;

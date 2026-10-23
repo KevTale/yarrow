@@ -31,10 +31,7 @@ const tag = z
 export const repositorySchema = z
   .string()
   .trim()
-  .regex(
-    /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/,
-    "Use owner/repository",
-  );
+  .regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/, "Use owner/repository");
 
 export const projectFormSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -76,7 +73,10 @@ export const projectSecretSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Use a host like api.stripe.com"),
+    .regex(
+      /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/,
+      "Use a host like api.stripe.com",
+    ),
 });
 
 export const sponsorFiltersSchema = z.object({

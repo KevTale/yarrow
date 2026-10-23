@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from "drizzle-orm";
 import type { RunSponsor } from "../core/attribution";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { Database } from "./client";
@@ -161,7 +171,9 @@ function redactRun<T extends Redactable>(row: T, member: boolean): T {
     ticketTitle: "A ticket",
     ticketUrl: "",
     pullRequestUrl: null,
-    ...(row.visibility === "hidden" ? { projectName: "A private project" } : {}),
+    ...(row.visibility === "hidden"
+      ? { projectName: "A private project" }
+      : {}),
   };
 }
 
@@ -229,7 +241,11 @@ export async function runDetail(
   const member = await isMember(db, viewerUserId, row.accountId);
   if (row.visibility === "hidden" && !member) return null;
   const timeline = await db
-    .select({ type: events.type, at: events.createdAt, payload: events.payload })
+    .select({
+      type: events.type,
+      at: events.createdAt,
+      payload: events.payload,
+    })
     .from(events)
     .where(eq(events.agentRunId, runId))
     .orderBy(asc(events.createdAt));
@@ -338,7 +354,10 @@ export async function projectForOwner(db: Database, projectId: string) {
     .from(projectRunConfigs)
     .where(eq(projectRunConfigs.projectId, projectId));
   const secrets = await db
-    .select({ name: projectSecrets.name, allowedHost: projectSecrets.allowedHost })
+    .select({
+      name: projectSecrets.name,
+      allowedHost: projectSecrets.allowedHost,
+    })
     .from(projectSecrets)
     .where(eq(projectSecrets.projectId, projectId))
     .orderBy(asc(projectSecrets.name));
@@ -367,7 +386,9 @@ export async function projectForOwner(db: Database, projectId: string) {
       pullRequestUrl: pullRequests.url,
       pullRequestState: pullRequests.state,
       pendingCorrections: sql<number>`(select count(*) from ${correctionRequests} where ${correctionRequests.workUnitId} = ${workUnits.id} and ${correctionRequests.status} = 'queued')::int`,
-      lastRunId: sql<string | null>`(select ${agentRuns.id} from ${agentRuns} where ${agentRuns.workUnitId} = ${workUnits.id} order by ${agentRuns.createdAt} desc limit 1)`,
+      lastRunId: sql<
+        string | null
+      >`(select ${agentRuns.id} from ${agentRuns} where ${agentRuns.workUnitId} = ${workUnits.id} order by ${agentRuns.createdAt} desc limit 1)`,
     })
     .from(workUnits)
     .leftJoin(pullRequests, eq(pullRequests.workUnitId, workUnits.id))

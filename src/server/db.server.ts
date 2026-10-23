@@ -6,7 +6,9 @@ import { appEnv, NotConfiguredError } from "./env.server";
  * across requests, so each call opens and closes its own connection (use
  * Hyperdrive in production to pool them).
  */
-export async function withDb<T>(work: (db: Database) => Promise<T>): Promise<T> {
+export async function withDb<T>(
+  work: (db: Database) => Promise<T>,
+): Promise<T> {
   const url = appEnv().DATABASE_URL;
   if (!url) throw new NotConfiguredError("The database (DATABASE_URL)");
   const connection = connectDatabase(url);

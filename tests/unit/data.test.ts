@@ -8,11 +8,13 @@ import {
   settleStripeContribution,
 } from "../../src/db/contributions";
 import { PostgresLedger } from "../../src/db/ledger";
+import { createProject, linkGithubRepositories } from "../../src/db/projects";
 import {
-  createProject,
-  linkGithubRepositories,
-} from "../../src/db/projects";
-import { runDetail, showcase, sponsorDashboard, workFeed } from "../../src/db/queries";
+  runDetail,
+  showcase,
+  sponsorDashboard,
+  workFeed,
+} from "../../src/db/queries";
 import { loadDispatch } from "../../src/db/queue";
 import * as schema from "../../src/db/schema";
 import { getSponsorFilters, saveSponsorFilters } from "../../src/db/sponsors";
@@ -22,7 +24,11 @@ import { createTestDatabase } from "./helpers/pglite";
 
 const t = await createTestDatabase();
 const { db, raw } = t;
-const owner = { userId: crypto.randomUUID(), githubLogin: "marie", name: "Marie" };
+const owner = {
+  userId: crypto.randomUUID(),
+  githubLogin: "marie",
+  name: "Marie",
+};
 const sponsor = crypto.randomUUID();
 const form = {
   name: "Halyard",
@@ -53,7 +59,9 @@ beforeEach(async () => {
   await t.reset();
 });
 
-async function setupProject(visibility: "public" | "listed" | "hidden" = "public") {
+async function setupProject(
+  visibility: "public" | "listed" | "hidden" = "public",
+) {
   const accountId = await ensureAccount(db, owner);
   const projectId = await createProject(db, accountId, owner.userId, {
     ...form,
@@ -145,7 +153,10 @@ describe("tickets", () => {
     });
     expect(edited.queued).toBe(true);
     const [unit] = await raw.select().from(schema.workUnits);
-    expect(unit).toMatchObject({ status: "queued", body: "Repro: export with zero rows." });
+    expect(unit).toMatchObject({
+      status: "queued",
+      body: "Repro: export with zero rows.",
+    });
   });
 });
 
@@ -197,9 +208,7 @@ describe("Stripe contributions", () => {
       requiredStacks: [],
       selectedProjectIds: [],
     });
-    await raw
-      .update(schema.sponsorProfiles)
-      .set({ foundingSponsor: true });
+    await raw.update(schema.sponsorProfiles).set({ foundingSponsor: true });
     const id = await fund(10_000);
     const [row] = await raw
       .select()
@@ -245,7 +254,10 @@ describe("dispatch and corrections", () => {
     const { projectId, accountId } = await setupProject();
     await fund();
     const { workUnitId } = await upsertTicket(db, { projectId, ...ticket() });
-    let loaded = await loadDispatch(db, { perAccountLimit: 5, globalLimit: 10 });
+    let loaded = await loadDispatch(db, {
+      perAccountLimit: 5,
+      globalLimit: 10,
+    });
     expect(loaded.candidates).toMatchObject([
       { kind: "implementation", workUnitId, accountId },
     ]);
@@ -304,7 +316,12 @@ describe("visibility", () => {
     const { workUnitId } = await upsertTicket(db, { projectId, ...ticket() });
     const runId = crypto.randomUUID();
     const ledger = new PostgresLedger(db);
-    await ledger.reserve({ runId, workUnitId, kind: "implementation", budgetCents: 1_000 });
+    await ledger.reserve({
+      runId,
+      workUnitId,
+      kind: "implementation",
+      budgetCents: 1_000,
+    });
     await ledger.settle(runId, {
       outcome: "pull_request",
       actualCostCents: 300,
