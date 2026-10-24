@@ -220,7 +220,7 @@ export async function projectBoard(db: Database) {
 export async function mergedTotals(db: Database, now = new Date()) {
   const [row] = await db
     .select({
-      today: sql<number>`count(*) filter (where ${pullRequests.closedAt} >= ${startOfUtcDay(now)})::int`,
+      today: sql<number>`count(*) filter (where ${pullRequests.closedAt} >= ${startOfUtcDay(now).toISOString()}::timestamptz)::int`,
       all: sql<number>`count(*)::int`,
     })
     .from(pullRequests)
