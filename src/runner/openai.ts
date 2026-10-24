@@ -148,7 +148,9 @@ export class AgentsClient {
           path: file.path,
           data: file.data,
         })),
-        setup_commands: [...clone, ...(input.setupCommands ?? [])],
+        setup_commands: [...clone, ...(input.setupCommands ?? [])].map(
+          (command) => ({ command }),
+        ),
       },
       input: input.task,
     });

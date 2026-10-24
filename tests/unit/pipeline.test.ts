@@ -284,6 +284,13 @@ describe("run pipeline", async () => {
         },
       },
     });
+    // The API takes { command } objects, not strings (seen on the first live run).
+    const setup = (
+      reviewSession.body as { environment: { setup_commands: unknown[] } }
+    ).environment.setup_commands;
+    expect(setup.length).toBeGreaterThan(0);
+    for (const step of setup)
+      expect(step).toEqual({ command: expect.any(String) });
     const review = await runner.readReview(reviewerId);
     expect(runner.needsFix(review)).toBe(false);
 
