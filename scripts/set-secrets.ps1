@@ -32,7 +32,10 @@ Add GITHUB_APP_ID (Read-Host "GitHub App ID (a number)") -Web -Brain
 Add GITHUB_APP_WEBHOOK_SECRET (Read-Secret "GitHub App webhook secret") -Web
 $pem = Read-Host "Path to the GitHub App private key (.pem)"
 if ($pem) { Add GITHUB_APP_PRIVATE_KEY ((Get-Content -Raw $pem.Trim('"')).Trim()) -Web -Brain }
-Add TOKEN_ENCRYPTION_KEY (node -e "console.log(require('crypto').randomBytes(32).toString('base64'))") -Web -Brain
+# A new key makes stored tracker tokens unreadable: only on the first run.
+if ((Read-Host "Generate TOKEN_ENCRYPTION_KEY? Only on the first run (y/N)") -eq "y") {
+  Add TOKEN_ENCRYPTION_KEY (node -e "console.log(require('crypto').randomBytes(32).toString('base64'))") -Web -Brain
+}
 
 if ($webSecrets.Count) { $webSecrets | ConvertTo-Json -Compress | pnpm exec wrangler secret bulk --env $Target }
 if ($brainSecrets.Count) { $brainSecrets | ConvertTo-Json -Compress | pnpm exec wrangler secret bulk --config workers/wrangler.jsonc --env $Target }
