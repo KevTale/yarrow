@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 export function Brand() {
@@ -14,9 +14,10 @@ export function Brand() {
   );
 }
 
+/** Sections of the landing, not pages. */
 const links = [
-  { to: "/leaderboard", label: "Leaderboard" },
-  { to: "/shipped", label: "Shipped" },
+  { hash: "sponsors", label: "Leaderboard" },
+  { hash: "shipped", label: "Shipped" },
 ] as const;
 
 type HeaderViewer = {
@@ -26,7 +27,6 @@ type HeaderViewer = {
 } | null;
 
 export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
-  const path = useRouterState({ select: (state) => state.location.pathname });
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -46,13 +46,9 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
         </Link>
         <nav aria-label="Primary" className="main-nav">
           {links.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              aria-current={path.startsWith(link.to) ? "page" : undefined}
-            >
+            <a key={link.hash} href={`/#${link.hash}`}>
               {link.label}
-            </Link>
+            </a>
           ))}
         </nav>
         <div className="header-actions" ref={menu}>

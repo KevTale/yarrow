@@ -1,27 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ShippedBoards } from "@/components/boards";
-import { NotConfigured } from "@/components/ui";
-import { getBoardsFn } from "@/functions/public.functions";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** The boards live on the landing; old links land on the section. */
 export const Route = createFileRoute("/shipped")({
-  loader: () => getBoardsFn(),
-  head: () => ({ meta: [{ title: "Shipped · Yarrow" }] }),
-  component: ShippedPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/", hash: "shipped" });
+  },
 });
-
-function ShippedPage() {
-  const data = Route.useLoaderData();
-  return (
-    <main id="main" className="container page-main landing-boards">
-      {data.configured ? (
-        <ShippedBoards
-          today={data.shipped.today}
-          projects={data.shipped.projects}
-          totals={data.shipped.totals}
-        />
-      ) : (
-        <NotConfigured />
-      )}
-    </main>
-  );
-}

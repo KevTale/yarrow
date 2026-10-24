@@ -1,19 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight, Plus, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { z } from "zod";
 import { money } from "@/core/packs";
 import { getOwnerDashboardFn } from "@/functions/owner.functions";
 import { getSponsorDashboardFn } from "@/functions/sponsor.functions";
 import {
   capitalize,
-  EmptyState,
   NotConfigured,
-  PageHeading,
   RunStatus,
   SignInPrompt,
-  StatGrid,
   timeAgo,
-  VisibilityBadge,
 } from "@/components/ui";
 
 export const Route = createFileRoute("/dashboard")({
@@ -37,7 +33,7 @@ function DashboardPage() {
       <main id="main" className="container page-main">
         <SignInPrompt
           next="/dashboard"
-          reason="Your sponsoring and your projects, in one place."
+          reason="Your projects and sponsoring."
         />
       </main>
     );
@@ -47,176 +43,189 @@ function DashboardPage() {
         <NotConfigured />
       </main>
     );
-  const { dashboard, filters, viewer } = sponsor;
+  const { dashboard, filters } = sponsor;
+  const { totals } = dashboard;
+  const available =
+    totals.creditCents - totals.consumedCents - totals.reservedCents;
+
   return (
-    <main id="main" className="container page-main dashboard-layout">
-      <PageHeading
-        eyebrow="MY ACTIVITY"
-        title={`Hi ${viewer.githubLogin ?? viewer.name ?? "there"}.`}
-        description="What your money ships, and what your projects receive."
-      >
-        <div className="row">
-          <Link to="/fund" className="button button-primary button-small">
-            Fund AI work <ArrowUpRight size={14} />
-          </Link>
-          <a
-            href="/connect/github"
-            className="button button-secondary button-small"
-          >
-            <Plus size={14} /> Add a project
-          </a>
-        </div>
-      </PageHeading>
+    <main id="main" className="container dash">
+      <h1>My activity</h1>
       {search.checkout === "success" && (
         <p className="feedback" role="status">
-          Payment received. Your compute credit appears as soon as Stripe
-          confirms it, usually within a minute.
+          Payment received. Your credit appears once Stripe confirms it.
         </p>
       )}
 
-      <section className="activity-section">
-        <div className="activity-heading row spread">
-          <h2 id="sponsoring">As a sponsor</h2>
-          <Link to="/sponsor/filters" className="text-link">
-            <SlidersHorizontal size={14} /> Where my money goes
-          </Link>
-        </div>
-        <StatGrid
-          items={[
-            { label: "Paid", value: money(dashboard.totals.paidCents, false) },
-            {
-              label: "Compute credit",
-              value: money(dashboard.totals.creditCents, false),
-              detail: "After fees and margin",
-            },
-            {
-              label: "Consumed",
-              value: money(dashboard.totals.consumedCents, false),
-              detail: "Counts toward your rank",
-            },
-            {
-              label: "Available",
-              value: money(
-                dashboard.totals.creditCents -
-                  dashboard.totals.consumedCents -
-                  dashboard.totals.reservedCents,
-                false,
-              ),
-              detail: `${filters.mode === "only" ? "Selected projects only" : "Every visible project"}${filters.includeHidden ? " + hidden" : ""}`,
-            },
-          ]}
-        />
-        <p className="small muted">
-          Public name: <strong>{filters.publicName ?? "anonymous"}</strong>
-          {filters.foundingSponsor && " · Founding sponsor"}
-        </p>
-        {dashboard.fundedRuns.length === 0 ? (
-          <EmptyState title="Nothing funded yet">
-            Once your credit settles, it funds the next tickets in the queue.
-          </EmptyState>
-        ) : (
-          <ol className="work-list">
-            {dashboard.fundedRuns.map((run) => (
-              <li key={run.runId}>
-                <Link
-                  to="/runs/$runId"
-                  params={{ runId: run.runId }}
-                  className="work-row"
-                >
-                  <span className="work-row-title">
-                    <strong>{run.ticketTitle}</strong>
-                    <span className="muted small">
-                      {run.projectName} · {timeAgo(run.createdAt)}
-                    </span>
-                  </span>
-                  <span className="mono small">
-                    your share {money(run.fundedCents ?? 0)}
-                  </span>
-                  <RunStatus run={run} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-        {dashboard.contributions.length > 0 && (
-          <div className="table-wrap ledger-section">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th className="right">Paid</th>
-                  <th className="right">VAT</th>
-                  <th className="right">Fees</th>
-                  <th className="right">Margin</th>
-                  <th className="right">Credit</th>
-                  <th className="right">Consumed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.contributions.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      {new Date(row.createdAt).toLocaleDateString("en-US")}
-                    </td>
-                    <td>{capitalize(row.paymentStatus)}</td>
-                    <td className="right mono">{money(row.amountCents)}</td>
-                    <td className="right mono">{money(row.taxCents)}</td>
-                    <td className="right mono">{money(row.feeCents)}</td>
-                    <td className="right mono">{money(row.marginCents)}</td>
-                    <td className="right mono">{money(row.creditCents)}</td>
-                    <td className="right mono">{money(row.debitedCents)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="activity-section">
-        <div className="activity-heading row spread">
-          <h2 id="projects">As a builder</h2>
+      <section className="dash-section" aria-labelledby="projects">
+        <div className="dash-section-head">
+          <h2 id="projects">Projects</h2>
           <a href="/connect/github" className="text-link">
             <Plus size={14} /> Add a project
           </a>
         </div>
-        {owner.projects.length === 0 ? (
-          <EmptyState title="No project yet">
-            Connect a repository, tag tickets with <code>yarrow</code>, and
-            reviewed pull requests start arriving. It's free.
-          </EmptyState>
-        ) : (
-          <div className="project-list">
-            {owner.projects.map((project) => (
+        <div className="dash-list">
+          <div className="board-head">
+            <span>Repository</span>
+            <span>Pull requests</span>
+          </div>
+          {owner.projects.length === 0 ? (
+            <div className="dash-row dash-empty">
+              <span className="muted">No project yet</span>
+              <a
+                href="/connect/github"
+                className="button button-small button-secondary"
+              >
+                Connect GitHub
+              </a>
+            </div>
+          ) : (
+            owner.projects.map((project) => (
               <Link
                 to="/projects/$projectId"
                 params={{ projectId: project.id }}
                 key={project.id}
-                className="project-row"
+                className="dash-row"
               >
-                <span className="project-info">
-                  <strong>{project.name}</strong>
-                  <span className="mono small">{project.repository}</span>
+                <span className="dash-main">
+                  <b>{project.name}</b>
+                  <span className="dash-sub mono">
+                    {project.repository} · {capitalize(project.visibility)}
+                  </span>
                   {!project.linked && (
-                    <span className="small amber">
-                      Install the GitHub App to start
+                    <span className="dash-sub amber">
+                      Install the GitHub App
                     </span>
                   )}
                   {project.suspended && (
-                    <span className="small error">Suspended</span>
+                    <span className="dash-sub error">Suspended</span>
                   )}
                 </span>
-                <VisibilityBadge visibility={project.visibility} />
-                <span className="project-amount mono small">
-                  {project.queued} queued · {project.running} running
+                <span className="dash-figures mono">
+                  <span>
+                    {project.merged} merged · {project.delivered} in review
+                  </span>
                   <small>
-                    {project.delivered} in review · {project.merged} merged ·{" "}
+                    {project.queued} queued · {project.running} running ·{" "}
                     {project.abstained} abstained
                   </small>
                 </span>
               </Link>
-            ))}
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="dash-section" aria-labelledby="sponsoring">
+        <div className="dash-section-head">
+          <h2 id="sponsoring">Sponsoring</h2>
+          <span className="dash-actions">
+            <Link to="/sponsor/filters" className="text-link">
+              <SlidersHorizontal size={14} /> Where my money goes
+            </Link>
+            <Link to="/fund" className="text-link">
+              <Plus size={14} /> Add funds
+            </Link>
+          </span>
+        </div>
+        <dl className="dash-stats">
+          <div>
+            <dt>Paid</dt>
+            <dd>{money(totals.paidCents, false)}</dd>
+          </div>
+          <div>
+            <dt>Credit</dt>
+            <dd>{money(totals.creditCents, false)}</dd>
+          </div>
+          <div>
+            <dt>Consumed</dt>
+            <dd>{money(totals.consumedCents, false)}</dd>
+          </div>
+          <div>
+            <dt>Available</dt>
+            <dd>{money(available, false)}</dd>
+          </div>
+        </dl>
+        <p className="dash-sub">
+          Shown as <b>{filters.publicName ?? "anonymous"}</b>
+          {filters.foundingSponsor && " · Founding sponsor"} ·{" "}
+          {filters.mode === "only" ? "selected projects" : "every project"}
+          {filters.includeHidden && " + hidden"}
+        </p>
+
+        <div className="dash-list">
+          <div className="board-head">
+            <span>Funded tickets</span>
+            <span>Your share</span>
+          </div>
+          {dashboard.fundedRuns.length === 0 ? (
+            <div className="dash-row dash-empty">
+              <span className="muted">Nothing funded yet</span>
+            </div>
+          ) : (
+            dashboard.fundedRuns.map((run) => (
+              <Link
+                to="/runs/$runId"
+                params={{ runId: run.runId }}
+                key={run.runId}
+                className="dash-row"
+              >
+                <span className="dash-main">
+                  <b>{run.ticketTitle}</b>
+                  <span className="dash-sub">
+                    {run.projectName} · {timeAgo(run.createdAt)}
+                  </span>
+                </span>
+                <span className="dash-figures mono">
+                  <span>{money(run.fundedCents ?? 0)}</span>
+                  <RunStatus run={run} />
+                </span>
+              </Link>
+            ))
+          )}
+        </div>
+
+        {dashboard.contributions.length > 0 && (
+          <div className="dash-list">
+            <div className="board-head">
+              <span>Payments</span>
+            </div>
+            <div className="table-wrap dash-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th className="right">Paid</th>
+                    <th className="right">VAT</th>
+                    <th className="right">Fees</th>
+                    <th className="right">Margin</th>
+                    <th className="right">Credit</th>
+                    <th className="right">Consumed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.contributions.map((row) => (
+                    <tr key={row.id}>
+                      <td className="mono">
+                        {new Date(row.createdAt).toLocaleDateString("en-US")}
+                      </td>
+                      <td>
+                        {row.source === "promo"
+                          ? "Promo credit"
+                          : capitalize(row.paymentStatus)}
+                      </td>
+                      <td className="right mono">{money(row.amountCents)}</td>
+                      <td className="right mono">{money(row.taxCents)}</td>
+                      <td className="right mono">{money(row.feeCents)}</td>
+                      <td className="right mono">{money(row.marginCents)}</td>
+                      <td className="right mono">{money(row.creditCents)}</td>
+                      <td className="right mono">{money(row.debitedCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>

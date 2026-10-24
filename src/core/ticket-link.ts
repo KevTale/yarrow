@@ -12,13 +12,20 @@ export const ticketSources: TicketSource[] = [
     id: "jira",
     name: "Jira",
     example: "your-site.atlassian.net/browse/APP-42",
+    soon: true,
   },
   {
     id: "linear",
     name: "Linear",
     example: "linear.app/your-team/issue/ENG-42",
+    soon: true,
   },
-  { id: "trello", name: "Trello", example: "trello.com/c/AbCd1234" },
+  {
+    id: "trello",
+    name: "Trello",
+    example: "trello.com/c/AbCd1234",
+    soon: true,
+  },
   {
     id: "gitlab",
     name: "GitLab",

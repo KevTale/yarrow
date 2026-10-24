@@ -70,7 +70,7 @@ How it runs: "Get a pull request" and "Connect" go to `/connect/github` (GitHub 
    - Secrets are stored write-only and encrypted. They are injected through the providers' vault mechanisms, so the agent never sees the values. A secret can only be used for HTTP calls to allowed hosts.
    - Apps that need a database use the one preinstalled in the sandbox, with the seed.
 
-All four trackers are available at launch. Build order: GitHub Issues → Linear → Trello → Jira. Jira goes last because it is the most complex: Atlassian OAuth, site admin rights, custom fields.
+All four trackers are built. Until each has run live, the landing marks Jira, Linear and Trello as "soon" and only GitHub is offered (decided 2026-10-07). Build order: GitHub Issues → Linear → Trello → Jira. Jira goes last because it is the most complex: Atlassian OAuth, site admin rights, custom fields.
 
 Later: appear as an assignable agent in Linear and Jira, so owners can simply assign a ticket to "Yarrow".
 

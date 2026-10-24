@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { ShippedBoards, SponsorBoards } from "@/components/boards";
 import { ShipForm } from "@/components/ship-form";
 import { getBoardsFn } from "@/functions/public.functions";
 
 export const Route = createFileRoute("/")({
+  // Guests come back here from Stripe Checkout.
+  validateSearch: z.object({ checkout: z.enum(["success"]).optional() }),
   loader: () => getBoardsFn(),
   component: Landing,
 });
@@ -16,8 +19,16 @@ const empty = {
 function Landing() {
   const loaded = Route.useLoaderData();
   const boards = loaded.configured ? loaded : empty;
+  const { checkout } = Route.useSearch();
   return (
     <main id="main" className="landing">
+      {checkout === "success" && (
+        <div className="container landing-notice">
+          <p className="feedback" role="status">
+            Payment received. Your sign-in link is on its way by email.
+          </p>
+        </div>
+      )}
       <section className="landing-hero container">
         <h1>Frontier AI for free</h1>
         <p className="landing-sub">

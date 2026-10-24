@@ -8,18 +8,11 @@ export function SiteFooter() {
         <Link to="/">
           <Brand />
         </Link>
-        <nav aria-label="Footer">
-          <Link to="/leaderboard">Leaderboard</Link>
-          <Link to="/shipped">Shipped</Link>
-          <a href="/connect/github">Add a project</a>
-        </nav>
-        <span className="badge">MVP</span>
+        <span className="badge">BETA</span>
       </div>
       <div className="container footer-bottom">
         <span>Frontier AI for free.</span>
-        <span className="mono">
-          Implemented by Claude · reviewed by OpenAI · platform API compute.
-        </span>
+        <span>© 2026 Yarrow</span>
       </div>
     </footer>
   );

@@ -88,7 +88,7 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
         amountCents: data.amountCents,
         successPath: viewer
           ? "/dashboard?checkout=success#sponsoring"
-          : "/leaderboard?checkout=success",
+          : "/?checkout=success#sponsors",
       });
     });
     return { url };

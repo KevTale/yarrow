@@ -1,23 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SponsorBoards } from "@/components/boards";
-import { NotConfigured } from "@/components/ui";
-import { getBoardsFn } from "@/functions/public.functions";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** The boards live on the landing; old links land on the section. */
 export const Route = createFileRoute("/leaderboard")({
-  loader: () => getBoardsFn(),
-  head: () => ({ meta: [{ title: "Leaderboard · Yarrow" }] }),
-  component: LeaderboardPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/", hash: "sponsors" });
+  },
 });
-
-function LeaderboardPage() {
-  const data = Route.useLoaderData();
-  return (
-    <main id="main" className="container page-main landing-boards">
-      {data.configured ? (
-        <SponsorBoards today={data.sponsors.today} all={data.sponsors.all} />
-      ) : (
-        <NotConfigured />
-      )}
-    </main>
-  );
-}
