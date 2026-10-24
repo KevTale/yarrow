@@ -11,7 +11,7 @@ import {
 
 export const Route = createFileRoute("/leaderboard")({
   loader: () => getLeaderboardFn(),
-  head: () => ({ meta: [{ title: "Leaderboard · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Leaderboard · Yarrow" }] }),
   component: LeaderboardPage,
 });
 

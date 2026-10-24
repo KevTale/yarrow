@@ -157,7 +157,7 @@ export function SignInPrompt({
         <Github size={16} /> Continue with GitHub
       </a>
       <Link to="/" className="text-link">
-        Back to Agent Commons <ArrowRight size={14} />
+        Back to Yarrow <ArrowRight size={14} />
       </Link>
     </div>
   );

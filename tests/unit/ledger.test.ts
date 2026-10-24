@@ -32,7 +32,7 @@ const delivered: RunResult = {
   summary: "Fixed the issue",
   pullRequestUrl,
   pullRequestNumber: 2,
-  branch: "agent-commons/issue-1",
+  branch: "yarrow/issue-1",
   evidence: ["tests: passed", "review: approved"],
 };
 function run(overrides: Partial<RunRequest> = {}): RunRequest {

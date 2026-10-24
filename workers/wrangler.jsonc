@@ -2,13 +2,13 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   // The brain: dispatches queued tickets, runs each run as a durable
   // Workflow (Claude implements, OpenAI reviews), syncs trackers.
-  "name": "agent-commons-brain",
+  "name": "yarrow-brain",
   "main": "./brain.ts",
   "compatibility_date": "2026-10-05",
   "compatibility_flags": ["nodejs_compat"],
   "workflows": [
     {
-      "name": "agent-commons-run",
+      "name": "yarrow-run",
       "binding": "WORKFLOW",
       "class_name": "AgentWorkWorkflow",
     },
@@ -21,6 +21,6 @@
     "DISPATCH": "on",
   },
   // Enable R2 in the Cloudflare dashboard, create the bucket, then uncomment:
-  // "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "agent-commons-evidence" }],
+  // "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" }],
   "observability": { "enabled": true },
 }

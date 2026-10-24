@@ -109,7 +109,7 @@ export const projects = pgTable(
     githubInstallationId: text("github_installation_id"),
     defaultBranch: text("default_branch").default("main").notNull(),
     authorizationLabel: text("authorization_label")
-      .default("agent-commons")
+      .default("yarrow")
       .notNull(),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     createdAt: createdAt(),
@@ -386,7 +386,7 @@ export const correctionStatusEnum = pgEnum("correction_status", [
 ]);
 
 /**
- * `@agent-commons <request>` comments on a delivered PR. Unlimited, queued
+ * `@yarrow-run <request>` comments on a delivered PR. Unlimited, queued
  * like any ticket (FIFO in the account, no priority).
  */
 export const correctionRequests = pgTable(

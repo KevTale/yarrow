@@ -237,7 +237,7 @@ export class RunPipeline {
       ]),
     ];
     const environment = await this.deps.anthropic.createEnvironment({
-      name: `agent-commons-${context.project.id}`,
+      name: `yarrow-${context.project.id}`,
       allowedHosts: hosts,
     });
     await setAnthropicResources(this.deps.db, context.project.id, {
@@ -588,7 +588,7 @@ export class RunPipeline {
     if (run.ticket.source !== "github" && run.kind === "implementation")
       await this.commentOnTicket(
         run,
-        `Agent Commons opened a draft pull request for this ticket: ${pull.url}`,
+        `Yarrow opened a draft pull request for this ticket: ${pull.url}`,
       ).catch(() => undefined);
     return {
       url: pull.url,
@@ -634,7 +634,7 @@ export class RunPipeline {
 
   unclearComment(questions: string[]): string {
     return [
-      "**Agent Commons needs a few details before working on this ticket.** Both the implementer (Claude) and the reviewer (OpenAI) found it ambiguous:",
+      "**Yarrow needs a few details before working on this ticket.** Both the implementer (Claude) and the reviewer (OpenAI) found it ambiguous:",
       "",
       ...questions.map((question) => `- ${question}`),
       "",

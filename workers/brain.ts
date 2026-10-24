@@ -464,7 +464,7 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
 
 export default {
   fetch() {
-    return Response.json({ service: "agent-commons-brain", status: "ok" });
+    return Response.json({ service: "yarrow-brain", status: "ok" });
   },
   async scheduled(
     controller: ScheduledController,

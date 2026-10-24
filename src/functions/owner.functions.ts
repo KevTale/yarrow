@@ -134,7 +134,7 @@ export const addSecretFn = createServerFn({ method: "POST" })
       let vaultId = details?.runConfig?.anthropicVaultId ?? null;
       if (!vaultId) {
         vaultId = (
-          await client.createVault(`agent-commons project ${project.id}`)
+          await client.createVault(`yarrow project ${project.id}`)
         ).id;
         await setAnthropicResources(db, project.id, { vaultId });
       }

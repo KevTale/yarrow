@@ -56,7 +56,7 @@ export function reviewBody(review: StoredReview, reviewerName: string): string {
     })
     .filter(Boolean);
   const lines = [
-    `**Code review by ${reviewerName}** (Agent Commons, ${review.rounds === 1 ? "first pass" : "after one fix round"})`,
+    `**Code review by ${reviewerName}** (Yarrow, ${review.rounds === 1 ? "first pass" : "after one fix round"})`,
     "",
     review.summary,
   ];

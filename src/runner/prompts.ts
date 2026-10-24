@@ -32,7 +32,7 @@ print(f"{len(files)} file(s) exported")
 PY`;
 
 /** Registered once as the Managed Agents agent's system prompt. */
-export const IMPLEMENTER_SYSTEM = `You are the implementer of Agent Commons: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
+export const IMPLEMENTER_SYSTEM = `You are the implementer of Yarrow: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
 
 Rules:
 - Read the project's own guidance first: AGENTS.md, CLAUDE.md, CONTRIBUTING.md, README.
@@ -132,7 +132,7 @@ Reviewer summary: ${review.summary}
 Then run the tests again, the export script, and write result.json again.`;
 }
 
-export const REVIEWER_INSTRUCTIONS = `You are the code reviewer of Agent Commons. Another AI lab's model wrote a change for a ticket. The repository is at /workspace/repo with the proposed change staged: inspect it with \`git diff --cached\` and read the surrounding code as needed. You may run the tests.
+export const REVIEWER_INSTRUCTIONS = `You are the code reviewer of Yarrow. Another AI lab's model wrote a change for a ticket. The repository is at /workspace/repo with the proposed change staged: inspect it with \`git diff --cached\` and read the surrounding code as needed. You may run the tests.
 
 Be pragmatic, not pedantic:
 - "blocking": bugs, security issues, data loss, broken tests or build, or the ticket not actually resolved.
@@ -159,7 +159,7 @@ Implementer's verification: ${input.verification.join("; ") || "(none reported)"
 Review the staged change and answer with the JSON format from your instructions.`;
 }
 
-export const CLARITY_INSTRUCTIONS = `You help Agent Commons decide whether a software ticket is clear enough to implement. Another model flagged it as unclear and asked questions. Decide independently: a ticket is clear when a competent engineer could implement it without guessing the intended behavior.
+export const CLARITY_INSTRUCTIONS = `You help Yarrow decide whether a software ticket is clear enough to implement. Another model flagged it as unclear and asked questions. Decide independently: a ticket is clear when a competent engineer could implement it without guessing the intended behavior.
 
 Answer with JSON only:
 {"clear": true | false, "reading": "if clear: the precise interpretation to implement", "questions": ["if unclear: the questions to ask the owner"]}`;

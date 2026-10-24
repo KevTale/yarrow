@@ -9,7 +9,7 @@ export const runRequestSchema = z
     runId: z.uuid(),
     workUnitId: z.uuid(),
     kind: runKindSchema,
-    // The owner's `@agent-commons <request>` text on the PR. Corrections only.
+    // The owner's `@yarrow-run <request>` text on the PR. Corrections only.
     instruction: z.string().trim().min(1).max(4000).optional(),
     // The queued request this correction run consumes. Corrections only.
     correctionRequestId: z.uuid().optional(),

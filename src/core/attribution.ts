@@ -31,12 +31,12 @@ export function pullRequestFooter(input: {
   const names = sponsorNames(input.sponsors);
   const models = `Implemented by ${modelDisplayName(input.roles.implementer)} · Reviewed by ${modelDisplayName(input.roles.reviewer)}`;
   const funding = names
-    ? `Sponsored by ${names} via [Agent Commons](${input.runUrl})`
-    : `via [Agent Commons](${input.runUrl})`;
+    ? `Sponsored by ${names} via [Yarrow](${input.runUrl})`
+    : `via [Yarrow](${input.runUrl})`;
   return ["---", models, funding].join("\n");
 }
 
 /** Commit trailer. Agents never add Signed-off-by: the owner certifies at merge. */
 export function assistedByTrailer(roles: PipelineRoles): string {
-  return `Assisted-by: ${modelDisplayName(roles.implementer)}, ${modelDisplayName(roles.reviewer)} (Agent Commons)`;
+  return `Assisted-by: ${modelDisplayName(roles.implementer)}, ${modelDisplayName(roles.reviewer)} (Yarrow)`;
 }

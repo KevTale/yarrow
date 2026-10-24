@@ -121,7 +121,7 @@ export async function upsertTicket(
 }
 
 /**
- * Queues an `@agent-commons <request>` comment from a delivered PR.
+ * Queues an `@yarrow-run <request>` comment from a delivered PR.
  * Returns null when the PR is not ours or is closed.
  */
 export async function queueCorrection(

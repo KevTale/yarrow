@@ -7,7 +7,7 @@ import { projectRunConfigs, projectSecrets, projects } from "./schema";
 
 export class DuplicateProjectError extends Error {
   constructor(repository: string) {
-    super(`${repository} is already listed on Agent Commons.`);
+    super(`${repository} is already listed on Yarrow.`);
   }
 }
 

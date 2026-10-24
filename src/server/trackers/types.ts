@@ -27,12 +27,12 @@ export interface TrackerCredentials {
 }
 
 /**
- * The calls Agent Commons needs from a tracker. Tickets are synced by
+ * The calls Yarrow needs from a tracker. Tickets are synced by
  * polling (every 5 minutes from the brain): no webhook to configure.
  */
 export interface TrackerAdapter {
   name: TrackerName;
-  /** Where the owner authorizes Agent Commons. */
+  /** Where the owner authorizes Yarrow. */
   authorizeUrl(input: {
     credentials: TrackerCredentials;
     redirectUri: string;

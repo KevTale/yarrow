@@ -14,7 +14,7 @@ import { PageHeading, SignInPrompt } from "@/components/ui";
 
 export const Route = createFileRoute("/projects/new")({
   loader: () => getViewerFn(),
-  head: () => ({ meta: [{ title: "Add a project · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Add a project · Yarrow" }] }),
   component: NewProjectPage,
 });
 
@@ -85,7 +85,7 @@ function NewProjectPage() {
             <p className="eyebrow">WHAT HAPPENS NEXT</p>
             <ol className="stack small">
               <li>
-                Install the Agent Commons GitHub App on{" "}
+                Install the Yarrow GitHub App on{" "}
                 {form.repository || "your repository"}.
               </li>
               <li>
@@ -94,7 +94,7 @@ function NewProjectPage() {
               </li>
               <li>Claude implements, OpenAI reviews, a draft PR arrives.</li>
               <li>
-                Comment <code>@agent-commons …</code> on the PR to ask for a
+                Comment <code>@yarrow-run …</code> on the PR to ask for a
                 correction.
               </li>
             </ol>

@@ -64,7 +64,7 @@ function fakeGitHub(
     calls.push({ method: init.method ?? "GET", path, body });
     const json = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status });
-    if (path.includes("/git/ref/heads/agent-commons"))
+    if (path.includes("/git/ref/heads/yarrow"))
       return options.branchExists
         ? json({ object: { sha: "branch-head" } })
         : json({ message: "Not Found" }, 404);
@@ -100,7 +100,7 @@ describe("PR delivery", () => {
         { path: "old.ts", content: null },
       ],
       message:
-        "Fix export\n\nAssisted-by: Claude Opus 5.5, OpenAI Astra (Agent Commons)",
+        "Fix export\n\nAssisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
     });
     expect(sha).toBe("new-commit");
     const tree = calls.find((call) => call.path.endsWith("/git/trees"))!;
@@ -113,11 +113,11 @@ describe("PR delivery", () => {
     });
     const ref = calls.find((call) => call.path.endsWith("/git/refs"))!;
     expect(ref.body).toEqual({
-      ref: "refs/heads/agent-commons/fix-the-export-button-12345678",
+      ref: "refs/heads/yarrow/fix-the-export-button-12345678",
       sha: "new-commit",
     });
     const pull = await openDraftPullRequest(client, repository, {
-      head: "agent-commons/fix-the-export-button-12345678",
+      head: "yarrow/fix-the-export-button-12345678",
       base: "main",
       title: "Fix the export button",
       body: "…",
@@ -129,7 +129,7 @@ describe("PR delivery", () => {
     const { client, calls } = fakeGitHub({ branchExists: true });
     await commitChanges(client, repository, {
       baseBranch: "main",
-      branch: "agent-commons/fix-12345678",
+      branch: "yarrow/fix-12345678",
       files: [{ path: "a.ts", content: "x" }],
       message: "Rename",
     });
@@ -179,7 +179,7 @@ describe("GitHub webhooks", async () => {
       visibility: "public",
       categories: ["saas"],
       stacks: [],
-      authorizationLabel: "agent-commons",
+      authorizationLabel: "yarrow",
     });
   }
   const installation = (login: string) => ({
@@ -227,7 +227,7 @@ describe("GitHub webhooks", async () => {
       "issue updated",
     );
     expect(
-      await handleGitHubEvent(db, "issues", issue(["bug", "Agent-Commons"])),
+      await handleGitHubEvent(db, "issues", issue(["bug", "Yarrow"])),
     ).toBe("issue queued");
     const [unit] = await raw.select().from(schema.workUnits);
     expect(unit).toMatchObject({
@@ -263,7 +263,7 @@ describe("GitHub webhooks", async () => {
       actualCostCents: 250,
       pullRequestUrl: "https://github.com/marie/halyard/pull/6",
       pullRequestNumber: 6,
-      branch: "agent-commons/export-crashes",
+      branch: "yarrow/export-crashes",
       summary: "Fixed",
       evidence: ["tests passed"],
     });
@@ -291,21 +291,21 @@ describe("GitHub webhooks", async () => {
       await handleGitHubEvent(
         db,
         "issue_comment",
-        comment("@agent-commons fix", "NONE"),
+        comment("@yarrow-run fix", "NONE"),
       ),
     ).toBe("ignored: commenter is not a maintainer");
     expect(
       await handleGitHubEvent(
         db,
         "issue_comment",
-        comment("@agent-commons x", "OWNER", "Bot"),
+        comment("@yarrow-run x", "OWNER", "Bot"),
       ),
     ).toBe("ignored: bot comment");
     expect(
       await handleGitHubEvent(
         db,
         "issue_comment",
-        comment("@agent-commons: rename the button to Export CSV"),
+        comment("@yarrow-run: rename the button to Export CSV"),
       ),
     ).toBe("correction queued");
     const [request] = await raw.select().from(schema.correctionRequests);
@@ -326,7 +326,7 @@ describe("GitHub webhooks", async () => {
 
   it("ignores repositories that are not listed", async () => {
     expect(
-      await handleGitHubEvent(db, "issues", issue(["agent-commons"])),
+      await handleGitHubEvent(db, "issues", issue(["yarrow"])),
     ).toBe("ignored: repository not listed");
   });
 });

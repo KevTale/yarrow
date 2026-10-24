@@ -43,7 +43,7 @@ export function trelloAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       const target = new URL("https://trello.com/1/authorize");
       target.search = new URLSearchParams({
         expiration: "never",
-        name: "Agent Commons",
+        name: "Yarrow",
         scope: "read,write",
         response_type: "token",
         key: credentials.clientId,

@@ -38,7 +38,7 @@ const form = {
   visibility: "public" as const,
   categories: ["saas" as const],
   stacks: ["supabase"],
-  authorizationLabel: "agent-commons",
+  authorizationLabel: "yarrow",
 };
 const ticket = (overrides = {}) => ({
   source: "github" as const,
@@ -281,7 +281,7 @@ describe("dispatch and corrections", () => {
       actualCostCents: 300,
       pullRequestUrl: "https://github.com/halyard/ledger/pull/13",
       pullRequestNumber: 13,
-      branch: "agent-commons/12",
+      branch: "yarrow/12",
       summary: "Fixed",
       evidence: ["tests passed"],
     });
@@ -331,7 +331,7 @@ describe("visibility", () => {
       actualCostCents: 300,
       pullRequestUrl: "https://github.com/halyard/ledger/pull/13",
       pullRequestNumber: 13,
-      branch: "agent-commons/12",
+      branch: "yarrow/12",
       summary: "Fixed the export",
       evidence: ["tests passed"],
     });

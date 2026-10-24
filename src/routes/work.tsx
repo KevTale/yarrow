@@ -13,7 +13,7 @@ import {
 
 export const Route = createFileRoute("/work")({
   loader: () => getWorkFeedFn(),
-  head: () => ({ meta: [{ title: "Work · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Work · Yarrow" }] }),
   component: WorkPage,
 });
 

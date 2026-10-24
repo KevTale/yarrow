@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ALTER COLUMN "authorization_label" SET DEFAULT 'yarrow';

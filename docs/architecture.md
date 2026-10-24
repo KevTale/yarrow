@@ -22,7 +22,7 @@ flowchart LR
 - **TanStack Start** sur Cloudflare Workers. Les pages lisent la base via des server functions (`src/functions/`). La base n'est jamais exposée au navigateur.
 - **Auth :** Supabase Auth avec GitHub uniquement (`src/server/auth*.server.ts`). Le login GitHub sert aussi à rattacher les installations de la GitHub App au bon compte.
 - **Paiements :** Stripe Checkout, puis webhook signé et idempotent. Le crédit n'est écrit qu'à réception du webhook, avec les frais Stripe réels lus dans la balance transaction. Un retour de checkout ne vaut jamais preuve de paiement.
-- **GitHub :** le webhook rattache les repos installés, crée ou met à jour les tickets portant le label `agent-commons`, enregistre les demandes de correction `@agent-commons` (membres du repo uniquement) et le merge ou la fermeture des PR.
+- **GitHub :** le webhook rattache les repos installés, crée ou met à jour les tickets portant le label `yarrow`, enregistre les demandes de correction `@yarrow-run` (membres du repo uniquement) et le merge ou la fermeture des PR.
 - **Trackers :** OAuth pour Linear et Jira, jeton utilisateur pour Trello. Les jetons sont chiffrés en AES-GCM (`TOKEN_ENCRYPTION_KEY`).
 - **Secrets de test des projets :** écrits directement dans un vault Managed Agents. La base ne garde que leur nom et leur identifiant chez le fournisseur.
 

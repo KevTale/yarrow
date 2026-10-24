@@ -46,7 +46,7 @@ export interface GitHubPayload {
   pull_request?: { html_url: string; merged: boolean };
 }
 
-const MENTION = /^\s*@agent-commons\b[:,]?\s*/i;
+const MENTION = /^\s*@yarrow-run\b[:,]?\s*/i;
 const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 async function projectForRepository(
@@ -167,7 +167,7 @@ export async function handleGitHubEvent(
     });
     return queued
       ? "correction queued"
-      : "ignored: not an open Agent Commons PR";
+      : "ignored: not an open Yarrow PR";
   }
 
   if (
@@ -179,7 +179,7 @@ export async function handleGitHubEvent(
       .select({ id: pullRequests.id })
       .from(pullRequests)
       .where(eq(pullRequests.url, payload.pull_request.html_url));
-    if (!ours) return "ignored: not an Agent Commons PR";
+    if (!ours) return "ignored: not an Yarrow PR";
     await new PostgresLedger(db).closePullRequest(
       payload.pull_request.html_url,
       payload.pull_request.merged ? "merged" : "closed",

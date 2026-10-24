@@ -91,7 +91,7 @@ describe("tracker adapters", () => {
                   description: "Steps",
                   url: "https://linear.app/x/issue/ENG-12",
                   state: { type: "started" },
-                  labels: { nodes: [{ name: "Agent-Commons" }] },
+                  labels: { nodes: [{ name: "Yarrow" }] },
                 },
               ],
             },
@@ -103,16 +103,16 @@ describe("tracker adapters", () => {
       { externalId: "org", accessToken: "t" },
       { clientId: "", clientSecret: "" },
       "team-1",
-      "agent-commons",
+      "yarrow",
     );
-    expect(sent!.variables).toEqual({ team: "team-1", label: "agent-commons" });
+    expect(sent!.variables).toEqual({ team: "team-1", label: "yarrow" });
     expect(tickets).toEqual([
       {
         externalId: "uuid-1",
         title: "ENG-12 Export crashes",
         body: "Steps",
         url: "https://linear.app/x/issue/ENG-12",
-        labels: ["Agent-Commons"],
+        labels: ["Yarrow"],
         closed: false,
       },
     ]);
@@ -140,7 +140,7 @@ describe("tracker sync", async () => {
       visibility: "listed",
       categories: ["saas"],
       stacks: [],
-      authorizationLabel: "agent-commons",
+      authorizationLabel: "yarrow",
     });
     const connectionId = await saveTrackerConnection(db, {
       accountId,
@@ -164,7 +164,7 @@ describe("tracker sync", async () => {
       desc: "Add a toggle",
       shortUrl: "https://trello.com/c/abc",
       closed: false,
-      labels: labeled ? [{ name: "Agent-Commons" }] : [{ name: "later" }],
+      labels: labeled ? [{ name: "Yarrow" }] : [{ name: "later" }],
     });
     const fetcher = (async (url: string) => {
       expect(url).toContain("token=trello-token");

@@ -1,10 +1,10 @@
-# Agent Commons MVP — build brief (updated 2026-10-05)
+# Yarrow MVP — build brief (updated 2026-10-05)
 
 This brief overrides the historical options in `synthese.md`. All prices and percentages marked _(hypothesis)_ are to be calibrated after launch.
 
 ## Principle
 
-Agent Commons is for **people who build software**: SaaS, games, tools, open source or closed source.
+Yarrow is for **people who build software**: SaaS, games, tools, open source or closed source.
 - **Project owners** connect their repo and tracker. Tagged tickets get processed **for free**, funded by sponsors.
 - **Sponsors** fund the compute. In return they get visibility on the work they fund and on the leaderboard.
 - The platform picks the work unit and delivers a reviewed PR or an explicit abstention.
@@ -56,7 +56,7 @@ Run cost = tokens + sandbox/container time, measured from provider usage data an
 1. Sign up.
 2. Connect the GitHub repo through the GitHub App. Installing it requires repo admin rights, which proves control.
 3. Optionally connect a tracker and map each board to its repo. Supported trackers: GitHub Issues, Linear, Jira and Trello.
-4. Tag tickets with the platform label (`agent-commons`) or the tracker's equivalent. Only tagged tickets become work units.
+4. Tag tickets with the platform label (`yarrow`) or the tracker's equivalent. Only tagged tickets become work units.
 5. Optional, to enable screenshots and videos: describe how to run the app.
    - Setup and start commands, plus a seed.
    - Development environment variables.
@@ -66,7 +66,7 @@ Run cost = tokens + sandbox/container time, measured from provider usage data an
 
 All four trackers are available at launch. Build order: GitHub Issues → Linear → Trello → Jira. Jira goes last because it is the most complex: Atlassian OAuth, site admin rights, custom fields.
 
-Later: appear as an assignable agent in Linear and Jira, so owners can simply assign a ticket to "Agent Commons".
+Later: appear as an assignable agent in Linear and Jira, so owners can simply assign a ticket to "Yarrow".
 
 ### Visibility tiers (chosen by the owner, all free)
 
@@ -139,7 +139,7 @@ The leaderboard is the game layer on top.
 - **Global concurrency** is bounded by provider rate limits, with backoff.
 - A ticket is eligible for a sponsor's money only if its project matches that sponsor's filters.
 - **No cost cap and no platform-side safety brake per ticket.** Heavy tickets are accepted. Runaway sessions are the providers' responsibility, since their harnesses have their own safeguards. Cost per run is still recorded in metrics, so anomalies are visible.
-- **Correction requests** (`@agent-commons <request>` on the PR):
+- **Correction requests** (`@yarrow-run <request>` on the PR):
   - unlimited;
   - each one is a normal run, funded the same way and with **no priority**;
   - it updates the same PR.
@@ -189,12 +189,12 @@ Track **cost per merged PR**, **merge rate** and **rejection reasons** from day 
 - **Every PR carries attribution** in the PR body footer:
   ```
   Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra
-  Sponsored by <sponsor names> via [Agent Commons](<run URL>)
+  Sponsored by <sponsor names> via [Yarrow](<run URL>)
   ```
   - Names come from the contributions that funded the run, with each sponsor's public display name.
   - Anonymous sponsors appear as "an anonymous sponsor".
   - Naming the models is factual attribution, not product branding.
-- Commits carry an `Assisted-by: Claude Opus 5.5, OpenAI Astra (Agent Commons)` trailer.
+- Commits carry an `Assisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)` trailer.
   - Agents never add `Signed-off-by`.
   - On repos that require a DCO, the owner certifies when merging.
 - Run pages respect the project's visibility tier.
@@ -230,6 +230,17 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
   - leaderboard and showcase views.
 - **Platform:** revenue (margin), pool balance, burn rate, days of activity left in the pool.
 
+## Brand (decided 2026-10-06)
+
+- **Name: Yarrow** (the plant, _achillée millefeuille_ in French). It replaces the working name "Agent Commons" (app and GitHub repo renamed on 2026-10-06).
+  - Still to do: buy the domains (`yarrow.run` and `useyarrow.com` were free on 2026-10-06) and file the trademark.
+  - No "Yarrow" trademark was found in the EU and French software classes (9 and 42).
+- **GitHub names:** the ticket label is `yarrow`; the GitHub App slug and the correction mention are `yarrow-run`. Never `@yarrow`: that GitHub account belongs to someone else and would be notified on every request.
+- **Logo:** five small florets around a pollen heart, each floret being five petals around its own heart. A yarrow "flower" is really many tiny flowers, like a commons made of small contributions.
+- **Palette "Nuit":** night `#141714`, cream `#F5F0E3`, pollen `#E6AE38`. Avoid orange or terracotta as a brand colour: too close to Claude's.
+- **Typography:** the wordmark is "yarrow" in lowercase Jost Medium, outlined in the logo files. Jost for headings, Geist stays for UI text. Both fonts are under the OFL.
+- **Files:** `public/brand/` (logos) and the favicons, app icons and manifest at the root of `public/`, all generated by `pnpm brand:assets` from the parameters in `scripts/brand-assets.ts`. Change the parameters and rerun; never edit the files by hand.
+
 ## Company
 
 The operating entity is the founder's existing EURL. VAT setup (Stripe Tax, the EU One-Stop Shop for B2C) is to be validated with the accountant before launch.
@@ -238,7 +249,7 @@ The operating entity is the founder's existing EURL. VAT setup (Stripe Tax, the 
 
 - Never "donation" / "don".
   - In France (and in many other countries), a "don" implies a gift to a qualifying non-profit, giving the right to a tax reduction and a tax receipt.
-  - Agent Commons is a commercial platform with a margin, and sponsors get visibility in return. Calling payments "dons" would be misleading.
+  - Yarrow is a commercial platform with a margin, and sponsors get visibility in return. Calling payments "dons" would be misleading.
   - For companies, sponsoring is usually a deductible advertising expense ("parrainage"). Confirm with an accountant.
 - Use **sponsor**, **sponsoring**, **contribution** (code and ledger) and **compute credit**.
 
@@ -277,4 +288,4 @@ The operating entity is the founder's existing EURL. VAT setup (Stripe Tax, the 
 
 ## Repo
 
-Standalone GitHub `KevTale/agent-commons` (not inside saas-forge).
+Standalone GitHub `KevTale/yarrow` (not inside saas-forge).

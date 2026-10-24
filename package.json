@@ -1,5 +1,5 @@
 {
-  "name": "agent-commons",
+  "name": "yarrow",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@12.9.1",
@@ -24,10 +24,12 @@
     "brain:deploy": "wrangler deploy --config workers/wrangler.jsonc",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "bootstrap:anthropic": "tsx scripts/bootstrap-anthropic.ts"
+    "bootstrap:anthropic": "tsx scripts/bootstrap-anthropic.ts",
+    "brand:assets": "tsx scripts/brand-assets.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource/jost": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
@@ -56,6 +58,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
+    "opentype.js": "^2.0.0",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",

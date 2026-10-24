@@ -28,7 +28,7 @@ export function branchName(title: string, workUnitId: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40)
     .replace(/-+$/, "");
-  return `agent-commons/${slug || "ticket"}-${workUnitId.slice(0, 8)}`;
+  return `yarrow/${slug || "ticket"}-${workUnitId.slice(0, 8)}`;
 }
 
 async function branchHead(

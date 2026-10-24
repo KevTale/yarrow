@@ -42,7 +42,7 @@ export async function createCheckout(
           unit_amount: input.amountCents,
           tax_behavior: "inclusive",
           product_data: {
-            name: "Agent Commons compute credit",
+            name: "Yarrow compute credit",
             description:
               "Sponsoring of AI compute for builders' tickets. Non-refundable as cash once compute starts.",
           },

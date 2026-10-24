@@ -7,7 +7,7 @@ export const Route = createFileRoute("/sign-in")({
     next: z.string().optional(),
     error: z.string().optional(),
   }),
-  head: () => ({ meta: [{ title: "Sign in · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Sign in · Yarrow" }] }),
   component: SignIn,
 });
 

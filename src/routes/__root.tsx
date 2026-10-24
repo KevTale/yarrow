@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import geistSans from "@fontsource-variable/geist/index.css?url";
 import geistMono from "@fontsource-variable/geist-mono/index.css?url";
+import jost from "@fontsource/jost/500.css?url";
 import appCss from "@/styles.css?url";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -18,7 +19,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Agent Commons — Fund the compute. Ship the PR." },
+      { title: "Yarrow — Fund the compute. Ship the PR." },
       {
         name: "description",
         content:
@@ -28,8 +29,12 @@ export const Route = createRootRoute({
     links: [
       { rel: "stylesheet", href: geistSans },
       { rel: "stylesheet", href: geistMono },
+      { rel: "stylesheet", href: jost },
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   component: RootComponent,

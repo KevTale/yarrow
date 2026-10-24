@@ -66,10 +66,10 @@ function Landing() {
             </p>
           </div>
           <div className="terminal" aria-label="How a ticket ships">
-            <p className="terminal-title mono">agent-commons · run</p>
+            <p className="terminal-title mono">yarrow · run</p>
             <ol className="timeline mono">
               <li>
-                <Tag size={14} /> ticket tagged <b>agent-commons</b>
+                <Tag size={14} /> ticket tagged <b>yarrow</b>
               </li>
               <li>
                 <Zap size={14} /> sponsor money reserved, oldest first

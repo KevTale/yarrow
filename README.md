@@ -1,10 +1,10 @@
-# Agent Commons
+# Yarrow
 
 Fund the compute. Ship the PR.
 
-Agent Commons s'adresse aux gens qui construisent du logiciel : SaaS, jeux, outils, open source ou non. Des **sponsors** financent du compute IA, et des **porteurs de projets** connectent leur repo et leur tracker (GitHub Issues, Linear, Jira, Trello) pour faire traiter **gratuitement** leurs tickets tagués. Chaque ticket donne l'un de ces deux résultats :
+Yarrow s'adresse aux gens qui construisent du logiciel : SaaS, jeux, outils, open source ou non. Des **sponsors** financent du compute IA, et des **porteurs de projets** connectent leur repo et leur tracker (GitHub Issues, Linear, Jira, Trello) pour faire traiter **gratuitement** leurs tickets tagués. Chaque ticket donne l'un de ces deux résultats :
 
-- une PR draft signée `Sponsored by <sponsors> via Agent Commons` ;
+- une PR draft signée `Sponsored by <sponsors> via Yarrow` ;
 - une abstention motivée.
 
 Claude Opus 5.5 implémente via Claude Managed Agents, OpenAI Astra relit via l'Agents API d'OpenAI. Les agents tournent entièrement chez les fournisseurs : la plateforme n'héberge aucun environnement d'exécution.
@@ -68,14 +68,14 @@ Détails dans [l'architecture](docs/architecture.md).
 
 1. **Base :** la migration est déjà appliquée sur le projet Supabase. Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
 2. **Auth :** activer le provider GitHub dans Supabase Auth, avec `<APP_URL>/auth/callback` en redirection.
-3. **GitHub App** `agent-commons` :
+3. **GitHub App** `yarrow-run` :
    - permissions : Contents, Pull requests et Issues en écriture, Metadata en lecture ;
    - événements : Installation, Installation repositories, Issues, Issue comment, Pull request, Repository ;
    - webhook : `<APP_URL>/api/webhooks/github`.
 4. **Stripe :** webhook `<APP_URL>/api/webhooks/stripe` avec `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` et `charge.dispute.created`. Activer Stripe Tax puis `STRIPE_TAX=on`.
 5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme, puis `pnpm bootstrap:anthropic` pour créer l'agent Claude et son environnement. Il affiche `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`.
 6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers).
-7. **R2 :** activer R2, créer le bucket `agent-commons-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
+7. **R2 :** activer R2, créer le bucket `yarrow-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
 8. **Déploiement :** `pnpm exec wrangler login`, chaque secret avec `wrangler secret put`, puis `pnpm deploy` et `pnpm brain:deploy`.
 
 La liste complète des secrets est dans [`.dev.vars.example`](.dev.vars.example) et [`workers/.dev.vars.example`](workers/.dev.vars.example). Pour couper la distribution des runs sans rien redéployer : `DISPATCH=off` sur le cerveau.

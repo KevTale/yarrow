@@ -58,7 +58,7 @@ export function feeInUsdCents(balance: {
 export function settlementFromSession(session: PaidSession): Settlement | null {
   if (session.payment_status !== "paid") return null;
   if ((session.currency ?? "usd").toLowerCase() !== "usd")
-    throw new Error("Agent Commons only charges in USD");
+    throw new Error("Yarrow only charges in USD");
   const intent = session.payment_intent;
   if (!intent || typeof intent === "string")
     throw new Error("Expand payment_intent.latest_charge.balance_transaction");

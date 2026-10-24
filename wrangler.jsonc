@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // The shop: UI, auth, Stripe and tracker webhooks, sponsor and owner dashboards.
-  "name": "agent-commons-web",
+  "name": "yarrow-web",
   "main": "@tanstack/react-start/server-entry",
   "compatibility_date": "2026-10-05",
   "compatibility_flags": ["nodejs_compat"],
@@ -15,6 +15,6 @@
     "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
     // Publishable by design (browser-safe). RLS denies it every table.
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
-    "GITHUB_APP_SLUG": "agent-commons",
+    "GITHUB_APP_SLUG": "yarrow-run",
   },
 }

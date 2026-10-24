@@ -9,7 +9,7 @@ export const emptyProject: ProjectForm = {
   visibility: "listed",
   categories: [],
   stacks: [],
-  authorizationLabel: "agent-commons",
+  authorizationLabel: "yarrow",
 };
 
 const visibilities = [

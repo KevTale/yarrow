@@ -1,6 +1,7 @@
 :root {
   --font-geist-sans: "Geist Variable";
   --font-geist-mono: "Geist Mono Variable";
+  --font-display: "Jost";
   --bg: #0c0d0f;
   --surface: #111215;
   --elevated: #17191d;
@@ -78,8 +79,9 @@ dd {
 h1,
 h2,
 h3 {
-  font-weight: 550;
-  letter-spacing: -0.035em;
+  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.015em;
 }
 h1 {
   font-size: 42px;
@@ -258,32 +260,9 @@ svg {
   gap: 44px;
 }
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  white-space: nowrap;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-}
-.brand-period {
-  color: var(--amber);
-}
-.brand-mark {
-  display: grid;
-  grid-template-columns: repeat(2, 7px);
-  grid-template-rows: repeat(2, 7px);
-  gap: 3px;
-}
-.brand-mark i {
-  background: #a9afb8;
-  border-radius: 1px;
-}
-.brand-mark i:nth-child(2) {
-  background: var(--amber);
-}
-.brand-mark i:nth-child(3) {
-  background: #545a65;
+  display: block;
+  height: 24px;
+  width: auto;
 }
 .main-nav {
   display: flex;
@@ -430,8 +409,8 @@ svg {
 .hero h1 {
   font-size: clamp(45px, 4.5vw, 61px);
   line-height: 1.08;
-  letter-spacing: -0.055em;
-  font-weight: 550;
+  letter-spacing: -0.02em;
+  font-weight: 500;
   margin-top: 27px;
 }
 .hero h1 > span {
@@ -2046,13 +2025,7 @@ tbody tr:hover {
     gap: 10px;
   }
   .brand {
-    font-size: 14px;
-    gap: 8px;
-  }
-  .brand-mark {
-    grid-template-columns: repeat(2, 6px);
-    grid-template-rows: repeat(2, 6px);
-    gap: 2px;
+    height: 21px;
   }
   .header-actions {
     gap: 7px;

@@ -13,7 +13,7 @@ import {
 
 export const Route = createFileRoute("/sponsor/filters")({
   loader: () => getFiltersFn(),
-  head: () => ({ meta: [{ title: "Sponsor filters · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Sponsor filters · Yarrow" }] }),
   component: FiltersPage,
 });
 

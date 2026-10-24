@@ -17,7 +17,7 @@ export const Route = createFileRoute("/fund")({
     checkout: z.enum(["cancelled"]).optional(),
   }),
   loader: () => getFundContextFn(),
-  head: () => ({ meta: [{ title: "Fund AI work · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Fund AI work · Yarrow" }] }),
   component: FundPage,
 });
 

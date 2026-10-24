@@ -10,7 +10,7 @@ import {
 
 export const Route = createFileRoute("/showcase")({
   loader: () => getShowcaseFn(),
-  head: () => ({ meta: [{ title: "Projects · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Projects · Yarrow" }] }),
   component: ShowcasePage,
 });
 

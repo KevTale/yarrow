@@ -107,7 +107,7 @@ describe("amounts and forms", () => {
     visibility: "listed",
     categories: ["saas"],
     stacks: ["Supabase", "nextjs"],
-    authorizationLabel: "agent-commons",
+    authorizationLabel: "yarrow",
   };
   it("validates projects and normalizes stacks", () => {
     const parsed = projectFormSchema.parse(project);
@@ -269,16 +269,16 @@ describe("attribution", () => {
     const footer = pullRequestFooter({
       roles: defaultPipelineRoles,
       sponsors: [{ name: "Northwind" }],
-      runUrl: "https://agentcommons.dev/runs/1",
+      runUrl: "https://yarrow.run/runs/1",
     });
     expect(footer).toContain(
       "Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra",
     );
     expect(footer).toContain(
-      "Sponsored by Northwind via [Agent Commons](https://agentcommons.dev/runs/1)",
+      "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/1)",
     );
     expect(assistedByTrailer(defaultPipelineRoles)).toBe(
-      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Agent Commons)",
+      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
     );
   });
 });

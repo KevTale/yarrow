@@ -14,7 +14,7 @@ import {
 export const Route = createFileRoute("/runs/$runId")({
   loader: ({ params }) => getRunFn({ data: { runId: params.runId } }),
   head: ({ loaderData }) => ({
-    meta: [{ title: `${loaderData?.ticketTitle ?? "Run"} · Agent Commons` }],
+    meta: [{ title: `${loaderData?.ticketTitle ?? "Run"} · Yarrow` }],
   }),
   component: RunPage,
   notFoundComponent: () => (

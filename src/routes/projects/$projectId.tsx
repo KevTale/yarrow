@@ -39,7 +39,7 @@ export const Route = createFileRoute("/projects/$projectId")({
   }),
   loader: ({ params }) =>
     getProjectFn({ data: { projectId: params.projectId } }),
-  head: () => ({ meta: [{ title: "Project · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "Project · Yarrow" }] }),
   component: ProjectPage,
 });
 

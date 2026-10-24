@@ -73,7 +73,7 @@ function fakeProviders() {
         body: "Steps…",
         html_url: "https://github.com/marie/halyard/issues/5",
       });
-    if (url.includes("/git/ref/heads/agent-commons"))
+    if (url.includes("/git/ref/heads/yarrow"))
       return json({ message: "Not Found" }, 404);
     if (url.includes("/git/ref/heads/main"))
       return json({ object: { sha: "base" } });
@@ -165,7 +165,7 @@ describe("run pipeline", async () => {
       visibility: "public",
       categories: ["saas"],
       stacks: [],
-      authorizationLabel: "agent-commons",
+      authorizationLabel: "yarrow",
     });
     await linkGithubRepositories(db, "42", [
       { fullName: "marie/halyard", id: "999" },
@@ -220,7 +220,7 @@ describe("run pipeline", async () => {
       github: { appId: "1", privateKey: pem },
       trackers: {},
       evidence: { put: async (key) => stored.push(key) },
-      appUrl: "https://agentcommons.dev",
+      appUrl: "https://yarrow.run",
       roles: defaultPipelineRoles,
       anthropicAgentId: "agent_1",
       defaultEnvironmentId: "env_1",
@@ -234,7 +234,7 @@ describe("run pipeline", async () => {
       baseBranch: "main",
       checkoutBranch: "main",
       environmentId: "env_1",
-      workBranch: expect.stringMatching(/^agent-commons\/export-crashes-/),
+      workBranch: expect.stringMatching(/^yarrow\/export-crashes-/),
     });
     expect(run.ticket.body).toContain("@marie: Happens on Safari too.");
 
@@ -306,11 +306,11 @@ describe("run pipeline", async () => {
       "Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra",
     );
     expect(body).toContain(
-      "Sponsored by Northwind via [Agent Commons](https://agentcommons.dev/runs/",
+      "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/",
     );
     const commit = calls.find((call) => call.url.endsWith("/git/commits"))!;
     expect((commit.body as { message: string }).message).toContain(
-      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Agent Commons)",
+      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
     );
     const reviewPost = calls.find((call) => call.url.endsWith("/reviews"))!;
     expect(reviewPost.body).toMatchObject({

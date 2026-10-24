@@ -1,4 +1,4 @@
-# Agent Commons
+# Yarrow
 
 Sponsors fund AI compute; builders get their tagged tickets turned into draft PRs. [docs/mvp/BUILD.md](docs/mvp/BUILD.md) is the source of truth for product decisions: read it before changing behavior, and update it when a decision changes.
 

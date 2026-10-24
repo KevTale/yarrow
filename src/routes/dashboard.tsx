@@ -25,7 +25,7 @@ export const Route = createFileRoute("/dashboard")({
     ]);
     return { sponsor, owner };
   },
-  head: () => ({ meta: [{ title: "My activity · Agent Commons" }] }),
+  head: () => ({ meta: [{ title: "My activity · Yarrow" }] }),
   component: DashboardPage,
 });
 
@@ -183,7 +183,7 @@ function DashboardPage() {
         </div>
         {owner.projects.length === 0 ? (
           <EmptyState title="No project yet">
-            Connect a repository, tag tickets with <code>agent-commons</code>,
+            Connect a repository, tag tickets with <code>yarrow</code>,
             and reviewed pull requests start arriving. It's free.
           </EmptyState>
         ) : (

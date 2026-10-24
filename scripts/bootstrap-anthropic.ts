@@ -19,13 +19,13 @@ if (!apiKey) {
 }
 const client = new ManagedAgentsClient(apiKey);
 const agent = await client.createAgent({
-  name: "Agent Commons implementer",
+  name: "Yarrow implementer",
   model: process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5",
   effort: process.env.ANTHROPIC_EFFORT ?? "high",
   system: IMPLEMENTER_SYSTEM,
 });
 const environment = await client.createEnvironment({
-  name: "agent-commons-default",
+  name: "yarrow-default",
   allowedHosts: [
     "cdn.playwright.dev",
     "playwright.download.prss.microsoft.com",
