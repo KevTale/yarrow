@@ -87,7 +87,8 @@ export function lastAssistantText(items: Item[]): string | null {
 export class AgentsClient {
   constructor(
     private readonly apiKey: string,
-    private readonly fetcher: Fetch = fetch,
+    // Wrapped: Workers reject fetch called as a method ("Illegal invocation").
+    private readonly fetcher: Fetch = (input, init) => fetch(input, init),
   ) {}
 
   private async call<T>(

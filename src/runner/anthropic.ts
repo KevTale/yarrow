@@ -39,7 +39,8 @@ export function listCostCents(session: ManagedSession): number {
 export class ManagedAgentsClient {
   constructor(
     private readonly apiKey: string,
-    private readonly fetcher: Fetch = fetch,
+    // Wrapped: Workers reject fetch called as a method ("Illegal invocation").
+    private readonly fetcher: Fetch = (input, init) => fetch(input, init),
   ) {}
 
   private async call<T>(

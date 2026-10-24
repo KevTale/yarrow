@@ -110,7 +110,8 @@ export type Fetch = typeof fetch;
 export class GitHubClient {
   constructor(
     private readonly token: string,
-    private readonly fetcher: Fetch = fetch,
+    // Wrapped: Workers reject fetch called as a method ("Illegal invocation").
+    private readonly fetcher: Fetch = (input, init) => fetch(input, init),
   ) {}
 
   async request<T>(
@@ -158,7 +159,7 @@ export async function installationToken(
   credentials: AppCredentials,
   installationId: string,
   scope: { repositoryIds?: number[]; permissions?: TokenPermissions } = {},
-  fetcher: Fetch = fetch,
+  fetcher: Fetch = (input, init) => fetch(input, init),
 ): Promise<{ token: string; expiresAt: string }> {
   const jwt = await createAppJwt(credentials.appId, credentials.privateKey);
   const result = await new GitHubClient(jwt, fetcher).request<{
