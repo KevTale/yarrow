@@ -11,7 +11,7 @@ export function SiteFooter() {
         <nav aria-label="Footer">
           <Link to="/leaderboard">Leaderboard</Link>
           <Link to="/shipped">Shipped</Link>
-          <Link to="/projects/new">Add a project</Link>
+          <a href="/connect/github">Add a project</a>
         </nav>
         <span className="badge">MVP</span>
       </div>

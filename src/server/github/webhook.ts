@@ -3,6 +3,7 @@ import { accountIdsForGithubLogin } from "../../db/accounts";
 import type { Database } from "../../db/client";
 import { PostgresLedger } from "../../db/ledger";
 import {
+  createProjectsFromInstallation,
   linkGithubRepositories,
   unlinkGithubRepositories,
 } from "../../db/projects";
@@ -17,6 +18,7 @@ interface GitHubUser {
 interface GitHubRepository {
   id: number;
   full_name: string;
+  private?: boolean;
   default_branch?: string;
 }
 interface GitHubIssue {
@@ -62,6 +64,43 @@ async function projectForRepository(
 }
 
 /**
+ * Installed repositories: the installer's existing projects get linked, the
+ * others become new projects in the installer's account. GitHub signs the
+ * payload, so `sender` really is who installed (repo admin rights).
+ */
+async function addRepositories(
+  db: Database,
+  installationId: string,
+  sender: GitHubUser | undefined,
+  repositories: GitHubRepository[],
+): Promise<{ linked: number; created: number }> {
+  const accounts = sender
+    ? await accountIdsForGithubLogin(db, sender.login)
+    : [];
+  if (accounts.length === 0) return { linked: 0, created: 0 };
+  const linked = await linkGithubRepositories(
+    db,
+    installationId,
+    repositories.map((repository) => ({
+      fullName: repository.full_name,
+      id: String(repository.id),
+    })),
+    accounts,
+  );
+  const created = await createProjectsFromInstallation(
+    db,
+    accounts[0]!,
+    installationId,
+    repositories.map((repository) => ({
+      id: String(repository.id),
+      fullName: repository.full_name,
+      private: repository.private ?? true,
+    })),
+  );
+  return { linked: linked.length, created: created.length };
+}
+
+/**
  * Applies one verified GitHub App webhook. Returns a short description for
  * logs. Unknown events and repositories are ignored, never errors.
  */
@@ -80,19 +119,13 @@ export async function handleGitHubEvent(
       return "installation removed";
     }
     if (payload.action === "created" || payload.action === "unsuspend") {
-      const accounts = payload.sender
-        ? await accountIdsForGithubLogin(db, payload.sender.login)
-        : [];
-      const linked = await linkGithubRepositories(
+      const { linked, created } = await addRepositories(
         db,
         installationId,
-        (payload.repositories ?? []).map((repository) => ({
-          fullName: repository.full_name,
-          id: String(repository.id),
-        })),
-        accounts,
+        payload.sender,
+        payload.repositories ?? [],
       );
-      return `installation linked ${linked.length} project(s)`;
+      return `installation linked ${linked} project(s), created ${created}`;
     }
   }
 
@@ -102,19 +135,13 @@ export async function handleGitHubEvent(
     );
     if (removed.length > 0)
       await unlinkGithubRepositories(db, installationId, removed);
-    const accounts = payload.sender
-      ? await accountIdsForGithubLogin(db, payload.sender.login)
-      : [];
-    const linked = await linkGithubRepositories(
+    const { linked, created } = await addRepositories(
       db,
       installationId,
-      (payload.repositories_added ?? []).map((repository) => ({
-        fullName: repository.full_name,
-        id: String(repository.id),
-      })),
-      accounts,
+      payload.sender,
+      payload.repositories_added ?? [],
     );
-    return `repositories updated: +${linked.length} -${removed.length}`;
+    return `repositories updated: +${linked + created} -${removed.length}`;
   }
 
   if (event === "repository" && payload.action === "renamed") {

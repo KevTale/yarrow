@@ -206,10 +206,10 @@ describe("GitHub webhooks", async () => {
     const projectId = await listed();
     expect(
       await handleGitHubEvent(db, "installation", installation("mallory")),
-    ).toBe("installation linked 0 project(s)");
+    ).toBe("installation linked 0 project(s), created 0");
     expect(
       await handleGitHubEvent(db, "installation", installation("marie")),
-    ).toBe("installation linked 1 project(s)");
+    ).toBe("installation linked 1 project(s), created 0");
     const [project] = await raw
       .select()
       .from(schema.projects)
@@ -325,8 +325,8 @@ describe("GitHub webhooks", async () => {
   });
 
   it("ignores repositories that are not listed", async () => {
-    expect(
-      await handleGitHubEvent(db, "issues", issue(["yarrow"])),
-    ).toBe("ignored: repository not listed");
+    expect(await handleGitHubEvent(db, "issues", issue(["yarrow"]))).toBe(
+      "ignored: repository not listed",
+    );
   });
 });

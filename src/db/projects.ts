@@ -3,7 +3,12 @@ import type { ProjectForm, RunConfig } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import { setAnthropicResources } from "./runs";
-import { projectRunConfigs, projectSecrets, projects } from "./schema";
+import {
+  githubTasks,
+  projectRunConfigs,
+  projectSecrets,
+  projects,
+} from "./schema";
 
 export class DuplicateProjectError extends Error {
   constructor(repository: string) {
@@ -139,6 +144,58 @@ export async function linkGithubRepositories(
     }
   }
   return linked;
+}
+
+/**
+ * One project per newly installed repository, owned by the installer's
+ * account (decided 2026-10-06: nothing typed that the repo already says).
+ * Repositories already listed anywhere are skipped. The brain then reads
+ * the repo details and creates the label (setup_project task).
+ */
+export async function createProjectsFromInstallation(
+  db: Database,
+  accountId: string,
+  installationId: string,
+  repositories: { id: string; fullName: string; private: boolean }[],
+): Promise<string[]> {
+  const created: string[] = [];
+  for (const repository of repositories) {
+    const id = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          sql`(lower(${projects.repository}) = lower(${repository.fullName}) or ${projects.githubRepositoryId} = ${repository.id})`,
+        );
+      if (existing) return null;
+      const [project] = await tx
+        .insert(projects)
+        .values({
+          accountId,
+          name: repository.fullName.split("/")[1] ?? repository.fullName,
+          repository: repository.fullName,
+          githubRepositoryId: repository.id,
+          githubInstallationId: installationId,
+          // Private code stays private: only the name and description show.
+          visibility: repository.private ? "listed" : "public",
+        })
+        .onConflictDoNothing()
+        .returning({ id: projects.id });
+      if (!project) return null;
+      await tx
+        .insert(githubTasks)
+        .values({ projectId: project.id, kind: "setup_project" });
+      await recordEvent(tx, {
+        type: "project.created",
+        accountId,
+        projectId: project.id,
+        payload: { from: "github_install", private: repository.private },
+      });
+      return project.id;
+    });
+    if (id) created.push(id);
+  }
+  return created;
 }
 
 export async function unlinkGithubRepositories(

@@ -19,6 +19,7 @@ import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { agentRuns } from "../src/db/schema";
+import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
   loadDispatch,
@@ -486,6 +487,20 @@ export default {
           "dispatch",
           await dispatch(env).catch((error) => [describe(error)]),
         );
+        if (
+          env.DATABASE_URL &&
+          env.GITHUB_APP_ID &&
+          env.GITHUB_APP_PRIVATE_KEY
+        ) {
+          const credentials = {
+            appId: env.GITHUB_APP_ID,
+            privateKey: env.GITHUB_APP_PRIVATE_KEY,
+          };
+          const log = await withDb(env, (db) =>
+            runGithubTasks(db, credentials),
+          ).catch((error) => [describe(error)]);
+          if (log.length > 0) console.log("github tasks", log);
+        }
         if (
           new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0 &&
           env.DATABASE_URL

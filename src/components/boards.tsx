@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RunSponsor } from "@/core/attribution";
@@ -387,7 +386,7 @@ export function ShippedBoards({
           </ol>
           {projects.length === 0 && (
             <p className="board-empty">
-              <Link to="/projects/new">Add your project</Link>
+              <a href="/connect/github">Add your project</a>
             </p>
           )}
         </div>

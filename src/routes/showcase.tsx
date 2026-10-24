@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { getShowcaseFn } from "@/functions/public.functions";
 import {
@@ -23,9 +23,9 @@ function ShowcasePage() {
         title="Builders shipping with sponsored compute."
         description="Public projects show their code and pull requests. Listed projects show the product only. Hidden projects never appear here."
       >
-        <Link to="/projects/new" className="button button-secondary">
+        <a href="/connect/github" className="button button-secondary">
           Add yours <ArrowUpRight size={16} />
-        </Link>
+        </a>
       </PageHeading>
       {!data.configured ? (
         <NotConfigured />

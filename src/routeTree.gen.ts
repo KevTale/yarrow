@@ -21,6 +21,8 @@ import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
 import { Route as AuthGithubRouteImport } from './routes/auth/github'
 import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
+import { Route as ConnectDoneRouteImport } from './routes/connect/done'
+import { Route as ConnectGithubRouteImport } from './routes/connect/github'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
 import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
 import { Route as OutSponsorIdRouteImport } from './routes/out/$sponsorId'
@@ -91,6 +93,16 @@ const AuthGithubRoute = AuthGithubRouteImport.update({
 const AuthSignOutRoute = AuthSignOutRouteImport.update({
   id: '/auth/sign-out',
   path: '/auth/sign-out',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectDoneRoute = ConnectDoneRouteImport.update({
+  id: '/connect/done',
+  path: '/connect/done',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectGithubRoute = ConnectGithubRouteImport.update({
+  id: '/connect/github',
+  path: '/connect/github',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EvidenceSplatRoute = EvidenceSplatRouteImport.update({
@@ -165,6 +177,8 @@ export interface FileRoutesByFullPath {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
+  '/connect/done': typeof ConnectDoneRoute
+  '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
@@ -190,6 +204,8 @@ export interface FileRoutesByTo {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
+  '/connect/done': typeof ConnectDoneRoute
+  '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
@@ -216,6 +232,8 @@ export interface FileRoutesById {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
+  '/connect/done': typeof ConnectDoneRoute
+  '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
@@ -243,6 +261,8 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
+    | '/connect/done'
+    | '/connect/github'
     | '/evidence/$'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
@@ -268,6 +288,8 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
+    | '/connect/done'
+    | '/connect/github'
     | '/evidence/$'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
@@ -293,6 +315,8 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
+    | '/connect/done'
+    | '/connect/github'
     | '/evidence/$'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
@@ -319,6 +343,8 @@ export interface RootRouteChildren {
   AuthConfirmRoute: typeof AuthConfirmRoute
   AuthGithubRoute: typeof AuthGithubRoute
   AuthSignOutRoute: typeof AuthSignOutRoute
+  ConnectDoneRoute: typeof ConnectDoneRoute
+  ConnectGithubRoute: typeof ConnectGithubRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
   IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
   OutSponsorIdRoute: typeof OutSponsorIdRoute
@@ -418,6 +444,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignOutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connect/done': {
+      id: '/connect/done'
+      path: '/connect/done'
+      fullPath: '/connect/done'
+      preLoaderRoute: typeof ConnectDoneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/github': {
+      id: '/connect/github'
+      path: '/connect/github'
+      fullPath: '/connect/github'
+      preLoaderRoute: typeof ConnectGithubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evidence/$': {
       id: '/evidence/$'
       path: '/evidence/$'
@@ -511,6 +551,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthConfirmRoute: AuthConfirmRoute,
   AuthGithubRoute: AuthGithubRoute,
   AuthSignOutRoute: AuthSignOutRoute,
+  ConnectDoneRoute: ConnectDoneRoute,
+  ConnectGithubRoute: ConnectGithubRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,
   IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,
   OutSponsorIdRoute: OutSponsorIdRoute,

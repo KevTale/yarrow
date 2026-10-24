@@ -59,12 +59,12 @@ function DashboardPage() {
           <Link to="/fund" className="button button-primary button-small">
             Fund AI work <ArrowUpRight size={14} />
           </Link>
-          <Link
-            to="/projects/new"
+          <a
+            href="/connect/github"
             className="button button-secondary button-small"
           >
             <Plus size={14} /> Add a project
-          </Link>
+          </a>
         </div>
       </PageHeading>
       {search.checkout === "success" && (
@@ -177,14 +177,14 @@ function DashboardPage() {
       <section className="activity-section">
         <div className="activity-heading row spread">
           <h2 id="projects">As a builder</h2>
-          <Link to="/projects/new" className="text-link">
+          <a href="/connect/github" className="text-link">
             <Plus size={14} /> Add a project
-          </Link>
+          </a>
         </div>
         {owner.projects.length === 0 ? (
           <EmptyState title="No project yet">
-            Connect a repository, tag tickets with <code>yarrow</code>,
-            and reviewed pull requests start arriving. It's free.
+            Connect a repository, tag tickets with <code>yarrow</code>, and
+            reviewed pull requests start arriving. It's free.
           </EmptyState>
         ) : (
           <div className="project-list">

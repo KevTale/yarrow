@@ -59,6 +59,8 @@ Least friction first (decided 2026-10-06): one "Connect GitHub" from the landing
 1. Sign in with GitHub, then install the GitHub App on the chosen repositories ("all" or a selection, private ones included). Installing requires repo admin rights, which proves control.
 2. One project per selected repository is created automatically: name, description, languages and default branch come from the repo. Every other field is optional and editable later.
 3. Yarrow creates the `yarrow` label on each repository.
+
+How it runs: "Get a pull request" and "Connect" go to `/connect/github` (GitHub sign-in, then the App install; the pasted ticket waits in a short-lived cookie). The signed `installation` webhook creates the projects in the installer's account: public repos are Public, private repos are Listed, repositories already on Yarrow are skipped. GitHub then returns the owner to the App's Setup URL, `/connect/done`, which queues the pasted ticket once its repository is connected. GitHub writes (creating the label, labeling the pasted ticket) are `github_tasks` carried out by the brain's cron; labeling the ticket is the owner's authorization, and the issues webhook queues it. Repo description, homepage, default branch and top languages fill only the fields the owner left empty.
 4. Optionally connect a tracker and map each board to its repo. Supported trackers: GitHub Issues, Linear, Jira and Trello.
 5. Tag tickets with the platform label (`yarrow`) or the tracker's equivalent. Only tagged tickets become work units.
 6. Optional, to enable screenshots and videos: describe how to run the app.

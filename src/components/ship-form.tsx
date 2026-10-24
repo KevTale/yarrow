@@ -15,15 +15,17 @@ const dots: Record<TicketSource["id"], string> = {
   azure: "#5d9cec",
 };
 
-/** Where a ticket or a whole backlog goes to be connected. */
+/** Code lives on GitHub: every source starts with the GitHub connection. */
 function connectUrl(
+  source: TicketSource,
   link: { repository?: string; issue?: number } | null,
 ): string {
   const params = new URLSearchParams();
+  if (source.id !== "github") params.set("source", source.id);
   if (link?.repository) params.set("repository", link.repository);
   if (link?.issue) params.set("issue", String(link.issue));
   const query = params.toString();
-  return `/projects/new${query ? `?${query}` : ""}`;
+  return `/connect/github${query ? `?${query}` : ""}`;
 }
 
 /** The hero form: paste a ticket link, or connect the whole backlog. */
@@ -59,7 +61,7 @@ export function ShipForm() {
     if (!link || link.source.id !== source.id)
       return setHint(`This doesn't look like a ${source.name} link.`);
     setBusy(true);
-    window.location.href = connectUrl(link);
+    window.location.href = connectUrl(source, link);
   }
 
   return (
@@ -164,7 +166,7 @@ export function ShipForm() {
         ) : (
           <a
             className="button button-small button-secondary"
-            href={connectUrl(null)}
+            href={connectUrl(source, null)}
           >
             Connect {source.name}
           </a>

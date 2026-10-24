@@ -518,3 +518,33 @@ export const events = pgTable(
     index("events_type_time").on(t.type, t.createdAt),
   ],
 ).enableRLS();
+
+export const githubTaskKindEnum = pgEnum("github_task_kind", [
+  "setup_project",
+  "label_issue",
+]);
+
+/**
+ * GitHub writes requested by the web app (create the label, label a pasted
+ * ticket) and carried out by the brain, the only GitHub write path.
+ */
+export const githubTasks = pgTable(
+  "github_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    kind: githubTaskKindEnum("kind").notNull(),
+    // 0 for project tasks, so one row per (project, kind, issue).
+    issueNumber: integer("issue_number").default(0).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("github_task_once").on(t.projectId, t.kind, t.issueNumber),
+    index("github_tasks_pending").on(t.doneAt, t.createdAt),
+  ],
+).enableRLS();
