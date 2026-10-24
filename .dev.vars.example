@@ -1,6 +1,6 @@
 # Copy to .dev.vars: secrets of the web Worker for `pnpm dev`. Public values
 # (APP_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GITHUB_APP_SLUG) are in
-# wrangler.jsonc. In production, set each one with `wrangler secret put NAME`.
+# wrangler.jsonc. Deployed: `wrangler secret put NAME --env dev|production`.
 # Every integration is optional: a missing secret disables that feature only.
 # Test or staging values only, never production.
 

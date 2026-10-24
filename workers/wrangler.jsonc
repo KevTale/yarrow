@@ -2,13 +2,15 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   // The brain: dispatches queued tickets, runs each run as a durable
   // Workflow (Claude implements, OpenAI reviews), syncs trackers.
-  "name": "yarrow-brain",
+  // Top level: `pnpm brain:dev` on this machine. `env.dev` and
+  // `env.production` are deployed by .github/workflows/deploy.yml.
+  "name": "yarrow-brain-local",
   "main": "./brain.ts",
   "compatibility_date": "2026-10-05",
   "compatibility_flags": ["nodejs_compat"],
   "workflows": [
     {
-      "name": "yarrow-run",
+      "name": "yarrow-run-local",
       "binding": "WORKFLOW",
       "class_name": "AgentWorkWorkflow",
     },
@@ -20,7 +22,47 @@
     "OPENAI_REVIEW_MODEL": "gpt-6-astra",
     "DISPATCH": "on",
   },
-  // Enable R2 in the Cloudflare dashboard, create the bucket, then uncomment:
+  // Enable R2 in the Cloudflare dashboard, create the bucket, then uncomment
+  // here and in each environment:
   // "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" }],
   "observability": { "enabled": true },
+  // Bindings and vars are not inherited: each environment repeats them.
+  "env": {
+    // Paired with dev.yarrow.run, deployed on every push to main.
+    "dev": {
+      "name": "yarrow-brain-dev",
+      "workers_dev": false,
+      "workflows": [
+        {
+          "name": "yarrow-run-dev",
+          "binding": "WORKFLOW",
+          "class_name": "AgentWorkWorkflow",
+        },
+      ],
+      "triggers": { "crons": ["* * * * *"] },
+      "vars": {
+        "APP_URL": "https://dev.yarrow.run",
+        "OPENAI_REVIEW_MODEL": "gpt-6-astra",
+        "DISPATCH": "on",
+      },
+    },
+    // Paired with yarrow.run, deployed on every push to the prod branch.
+    "production": {
+      "name": "yarrow-brain",
+      "workers_dev": false,
+      "workflows": [
+        {
+          "name": "yarrow-run",
+          "binding": "WORKFLOW",
+          "class_name": "AgentWorkWorkflow",
+        },
+      ],
+      "triggers": { "crons": ["* * * * *"] },
+      "vars": {
+        "APP_URL": "https://yarrow.run",
+        "OPENAI_REVIEW_MODEL": "gpt-6-astra",
+        "DISPATCH": "on",
+      },
+    },
+  },
 }

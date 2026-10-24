@@ -1,20 +1,51 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // The shop: UI, auth, Stripe and tracker webhooks, sponsor and owner dashboards.
-  "name": "yarrow-web",
+  // Top level: `pnpm dev` on this machine. `env.dev` and `env.production` are
+  // deployed by .github/workflows/deploy.yml; CLOUDFLARE_ENV picks one at build.
+  "name": "yarrow-web-local",
   "main": "@tanstack/react-start/server-entry",
   "compatibility_date": "2026-10-05",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "upload_source_maps": true,
-  // Public values only. Secrets (DATABASE_URL, STRIPE_*, GITHUB_APP_*, tracker
-  // OAuth secrets, TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put`
+  // Public values only, repeated in each environment (vars are not inherited).
+  // Secrets (DATABASE_URL, STRIPE_*, GITHUB_APP_*, tracker OAuth secrets,
+  // TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put NAME --env <env>`
   // and, locally, in .dev.vars.
   "vars": {
     "APP_URL": "http://localhost:3000",
+    // The dev Supabase project, shared by local and dev.yarrow.run.
     "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
     // Publishable by design (browser-safe). RLS denies it every table.
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
-    "GITHUB_APP_SLUG": "yarrow-run",
+    "GITHUB_APP_SLUG": "yarrow-run-dev",
+  },
+  "env": {
+    // dev.yarrow.run, deployed on every push to main.
+    "dev": {
+      "name": "yarrow-web-dev",
+      "routes": [{ "pattern": "dev.yarrow.run", "custom_domain": true }],
+      "workers_dev": false,
+      "vars": {
+        "APP_URL": "https://dev.yarrow.run",
+        "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
+        "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
+        "GITHUB_APP_SLUG": "yarrow-run-dev",
+      },
+    },
+    // yarrow.run, deployed on every push to the prod branch. The Supabase
+    // values come from the prod project, not created yet.
+    "production": {
+      "name": "yarrow-web",
+      "routes": [{ "pattern": "yarrow.run", "custom_domain": true }],
+      "workers_dev": false,
+      "vars": {
+        "APP_URL": "https://yarrow.run",
+        "SUPABASE_URL": "",
+        "SUPABASE_PUBLISHABLE_KEY": "",
+        "GITHUB_APP_SLUG": "yarrow-run",
+      },
+    },
   },
 }

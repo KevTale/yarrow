@@ -1,0 +1,39 @@
+# main → dev.yarrow.run, prod → yarrow.run. Both Workers (web + brain) of the
+# target environment are deployed after lint, typecheck and unit tests pass.
+# Runtime secrets live in Cloudflare (`wrangler secret put NAME --env <env>`);
+# this workflow only needs CLOUDFLARE_API_TOKEN, a repository secret.
+name: Deploy
+
+on:
+  push:
+    branches: [main, prod]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ github.ref_name == 'prod' && 'prod' || 'dev' }}
+      CLOUDFLARE_ACCOUNT_ID: 354c8db962fb6bf7eaf358c09b3403ab
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: pnpm deploy:$TARGET
+      - name: No Cloudflare token
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::warning::CLOUDFLARE_API_TOKEN is not set, nothing was deployed."

@@ -30,6 +30,7 @@ Yarrow is for **people who build software**: SaaS, games, tools, open source or 
 - **Provider accounts:** platform-owned **API** accounts with prepaid credits. Never a consumer subscription (Claude Pro/Max, ChatGPT Plus/Pro).
 - **Branding:** do not name the product or features after "Claude Code" or "Codex". "Powered by Claude" or "uses OpenAI models" is fine.
 - **DB:** Supabase + Drizzle.
+- **Environments:** local and `dev.yarrow.run` share the dev Supabase project, Stripe test mode and the `yarrow-run-dev` GitHub App; `yarrow.run` has its own Supabase project and the `yarrow-run` App. Every push to `main` deploys dev, every push to `prod` deploys prod (GitHub Actions).
 - **Design:** Opus dark ledger mockups (amber accent).
 - **Out of the architecture:** Cloudflare Sandbox runner, Docker/Hetzner pool and OpenRouter.
 
@@ -235,7 +236,7 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
 - **Name: Yarrow** (the plant, _achillée millefeuille_ in French). It replaces the working name "Agent Commons" (app and GitHub repo renamed on 2026-10-06).
   - Still to do: buy the domains (`yarrow.run` and `useyarrow.com` were free on 2026-10-06) and file the trademark.
   - No "Yarrow" trademark was found in the EU and French software classes (9 and 42).
-- **GitHub names:** the ticket label is `yarrow`; the GitHub App slug and the correction mention are `yarrow-run`. Never `@yarrow`: that GitHub account belongs to someone else and would be notified on every request.
+- **GitHub names:** the ticket label is `yarrow`; the correction mention is `@yarrow-run`, also the prod GitHub App slug (`yarrow-run-dev` in dev). Never `@yarrow`: that GitHub account belongs to someone else and would be notified on every request.
 - **Logo:** five small florets around a pollen heart, each floret being five petals around its own heart. A yarrow "flower" is really many tiny flowers, like a commons made of small contributions.
 - **Palette "Nuit":** night `#141714`, cream `#F5F0E3`, pollen `#E6AE38`. Avoid orange or terracotta as a brand colour: too close to Claude's.
 - **Typography:** the wordmark is "yarrow" in lowercase Jost Medium, outlined in the logo files. Jost for headings, Geist stays for UI text. Both fonts are under the OFL.
@@ -243,7 +244,11 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
 
 ## Company
 
-The operating entity is the founder's existing EURL. VAT setup (Stripe Tax, the EU One-Stop Shop for B2C) is to be validated with the accountant before launch.
+The operating entity is the founder's existing EURL, subject to VAT. Before switching Stripe to live payments, configure Stripe Tax:
+- French VAT (20%) by default; VAT is due when the sponsor pays, not when the credit is consumed.
+- EU businesses with a VAT number: reverse charge ("autoliquidation", no VAT on the invoice).
+- EU individuals: French VAT until cross-border sales to individuals pass €10,000 a year, then the customer's country VAT through the One-Stop Shop (OSS). This depends on whether sponsoring counts as an electronically supplied service: the one point worth a professional opinion.
+- A compliant invoice for every payment.
 
 ## Terminology
 

@@ -62,13 +62,28 @@ Deux Workers Cloudflare :
 
 Détails dans [l'architecture](docs/architecture.md).
 
+## Environnements
+
+| | Adresse | Déploiement | Supabase | GitHub App |
+|---|---|---|---|---|
+| **local** | `localhost:3000` | `pnpm dev`, `pnpm brain:dev` | dev | `yarrow-run-dev` |
+| **dev** | `dev.yarrow.run` | chaque push sur `main` | dev | `yarrow-run-dev` |
+| **prod** | `yarrow.run` | chaque push sur `prod` (`git push origin main:prod`) | prod (à créer) | `yarrow-run` |
+
+Le workflow [`deploy.yml`](.github/workflows/deploy.yml) lance lint, typecheck et tests, puis `pnpm deploy:dev` ou `pnpm deploy:prod` (boutique et cerveau). Il lui faut un seul secret de dépôt, `CLOUDFLARE_API_TOKEN` (modèle « Edit Cloudflare Workers », avec la zone `yarrow.run`). Les valeurs publiques de chaque environnement sont dans `wrangler.jsonc` et `workers/wrangler.jsonc` ; les secrets se posent une fois par environnement :
+
+```bash
+pnpm exec wrangler secret put NOM --env dev                                 # boutique
+pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # cerveau
+```
+
 ## Mise en ligne
 
-À faire une fois, avec des comptes de test d'abord :
+À faire une fois par environnement, en commençant par dev :
 
-1. **Base :** la migration est déjà appliquée sur le projet Supabase. Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
+1. **Base :** les migrations sont appliquées sur le projet Supabase de dev. Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
 2. **Auth :** activer le provider GitHub dans Supabase Auth, avec `<APP_URL>/auth/callback` en redirection.
-3. **GitHub App** `yarrow-run` :
+3. **GitHub App** (`yarrow-run-dev` pour dev et le local, `yarrow-run` pour la prod) :
    - permissions : Contents, Pull requests et Issues en écriture, Metadata en lecture ;
    - événements : Installation, Installation repositories, Issues, Issue comment, Pull request, Repository ;
    - webhook : `<APP_URL>/api/webhooks/github`.
@@ -76,7 +91,7 @@ Détails dans [l'architecture](docs/architecture.md).
 5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme, puis `pnpm bootstrap:anthropic` pour créer l'agent Claude et son environnement. Il affiche `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`.
 6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers).
 7. **R2 :** activer R2, créer le bucket `yarrow-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
-8. **Déploiement :** `pnpm exec wrangler login`, chaque secret avec `wrangler secret put`, puis `pnpm deploy` et `pnpm brain:deploy`.
+8. **Secrets :** chaque secret avec `wrangler secret put` (voir [Environnements](#environnements)), puis un push sur la branche de l'environnement.
 
 La liste complète des secrets est dans [`.dev.vars.example`](.dev.vars.example) et [`workers/.dev.vars.example`](workers/.dev.vars.example). Pour couper la distribution des runs sans rien redéployer : `DISPATCH=off` sur le cerveau.
 

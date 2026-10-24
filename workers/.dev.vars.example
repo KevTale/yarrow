@@ -1,5 +1,5 @@
 # Copy to workers/.dev.vars: secrets of the brain Worker for `pnpm brain:dev`.
-# In production: `wrangler secret put NAME --config workers/wrangler.jsonc`.
+# Deployed: `wrangler secret put NAME --config workers/wrangler.jsonc --env dev|production`.
 # Test or staging values only, never production.
 
 DATABASE_URL=
