@@ -309,3 +309,34 @@ describe("review", () => {
     expect(body).toContain("**Nit:** Typo in the title");
   });
 });
+
+describe("ticket links", () => {
+  it("recognises each source and reads GitHub repositories and issues", async () => {
+    const { parseTicketLink } = await import("../../src/core/ticket-link");
+    expect(
+      parseTicketLink("https://github.com/KevTale/yarrow-testbench/issues/1"),
+    ).toMatchObject({
+      source: { id: "github" },
+      repository: "KevTale/yarrow-testbench",
+      issue: 1,
+    });
+    expect(parseTicketLink("github.com/acme/app")).toMatchObject({
+      repository: "acme/app",
+    });
+    expect(parseTicketLink("github.com/acme/app")!.issue).toBeUndefined();
+    expect(parseTicketLink("acme.atlassian.net/browse/APP-42")!.source.id).toBe(
+      "jira",
+    );
+    expect(
+      parseTicketLink("https://linear.app/acme/issue/ENG-7")!.source.id,
+    ).toBe("linear");
+    expect(parseTicketLink("trello.com/c/AbCd1234")!.source.id).toBe("trello");
+    expect(
+      parseTicketLink("gitlab.com/acme/app/-/issues/3")!.source,
+    ).toMatchObject({ id: "gitlab", soon: true });
+    expect(
+      parseTicketLink("dev.azure.com/acme/app/_workitems/edit/9")!.source.id,
+    ).toBe("azure");
+    expect(parseTicketLink("example.com/ticket/1")).toBeNull();
+  });
+});

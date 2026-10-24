@@ -108,9 +108,7 @@ export const projects = pgTable(
     githubRepositoryId: text("github_repository_id"),
     githubInstallationId: text("github_installation_id"),
     defaultBranch: text("default_branch").default("main").notNull(),
-    authorizationLabel: text("authorization_label")
-      .default("yarrow")
-      .notNull(),
+    authorizationLabel: text("authorization_label").default("yarrow").notNull(),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -213,6 +211,12 @@ export const projectSecrets = pgTable(
 export const sponsorProfiles = pgTable("sponsor_profiles", {
   userId: uuid("user_id").primaryKey(),
   publicName: text("public_name"), // NULL means anonymous, never expose userId.
+  // Shown on the leaderboards. publicId is what public URLs carry (/out/<id>).
+  publicId: uuid("public_id").defaultRandom().notNull().unique(),
+  tagline: text("tagline"),
+  description: text("description"),
+  websiteUrl: text("website_url"),
+  logoUrl: text("logo_url"),
   mode: sponsorModeEnum("mode").default("all_except").notNull(),
   includeHidden: boolean("include_hidden").default(false).notNull(),
   excludedCategories: text("excluded_categories")

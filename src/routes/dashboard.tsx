@@ -76,7 +76,7 @@ function DashboardPage() {
 
       <section className="activity-section">
         <div className="activity-heading row spread">
-          <h2>As a sponsor</h2>
+          <h2 id="sponsoring">As a sponsor</h2>
           <Link to="/sponsor/filters" className="text-link">
             <SlidersHorizontal size={14} /> Where my money goes
           </Link>
@@ -176,7 +176,7 @@ function DashboardPage() {
 
       <section className="activity-section">
         <div className="activity-heading row spread">
-          <h2>As a builder</h2>
+          <h2 id="projects">As a builder</h2>
           <Link to="/projects/new" className="text-link">
             <Plus size={14} /> Add a project
           </Link>

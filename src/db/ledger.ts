@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, sql } from "drizzle-orm";
+import { and, asc, eq, like, sql } from "drizzle-orm";
 import {
   reserve as reserveBalance,
   settle as settleBalance,
@@ -454,39 +454,4 @@ function sameResult(
     existing.abstentionReason ===
       (result.outcome === "abstained" ? result.reason : null)
   );
-}
-
-/**
- * Public sponsor ranking: compute actually consumed from paid, settled Stripe
- * money. Promo credit, refunds and anonymous sponsors never appear. Paid but
- * not yet consumed credit is shown as "committed" and never counts toward rank.
- */
-export function sponsorLeaderboard(db: Database) {
-  const consumed = sql<number>`sum(${contributions.debitedCents})::int`;
-  return db
-    .select({
-      name: sponsorProfiles.publicName,
-      foundingSponsor: sponsorProfiles.foundingSponsor,
-      consumedCents: consumed,
-      committedCents: sql<number>`sum(${contributions.creditCents} - ${contributions.debitedCents})::int`,
-    })
-    .from(contributions)
-    .innerJoin(
-      sponsorProfiles,
-      eq(sponsorProfiles.userId, contributions.userId),
-    )
-    .where(
-      and(
-        eq(contributions.source, "stripe"),
-        eq(contributions.paymentStatus, "settled"),
-        sql`${sponsorProfiles.publicName} is not null`,
-      ),
-    )
-    .groupBy(
-      sponsorProfiles.userId,
-      sponsorProfiles.publicName,
-      sponsorProfiles.foundingSponsor,
-    )
-    .orderBy(desc(consumed))
-    .limit(100);
 }

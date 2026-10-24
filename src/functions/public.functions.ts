@@ -1,29 +1,34 @@
 import { notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { sponsorLeaderboard } from "@/db/ledger";
-import { homeStats, runDetail, showcase, workFeed } from "@/db/queries";
+import {
+  mergedToday,
+  mergedTotals,
+  projectBoard,
+  sponsorBoard,
+} from "@/db/boards";
+import { runDetail, showcase, workFeed } from "@/db/queries";
 import { getViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 
-export const getHomeFn = createServerFn({ method: "GET" }).handler(async () => {
-  if (!databaseConfigured()) return { configured: false as const };
-  return withDb(async (db) => ({
-    configured: true as const,
-    stats: await homeStats(db),
-    feed: await workFeed(db, 6),
-    leaders: (await sponsorLeaderboard(db)).slice(0, 5),
-    projects: (await showcase(db)).slice(0, 5),
-  }));
-});
-
-export const getLeaderboardFn = createServerFn({ method: "GET" }).handler(
+/** Both sponsor boards and both shipped boards: the landing and its pages. */
+export const getBoardsFn = createServerFn({ method: "GET" }).handler(
   async () => {
     if (!databaseConfigured()) return { configured: false as const };
-    return withDb(async (db) => ({
-      configured: true as const,
-      leaders: await sponsorLeaderboard(db),
-    }));
+    return withDb(async (db) => {
+      const [today, all, merged, projects, totals] = await Promise.all([
+        sponsorBoard(db, "today"),
+        sponsorBoard(db, "all"),
+        mergedToday(db),
+        projectBoard(db),
+        mergedTotals(db),
+      ]);
+      return {
+        configured: true as const,
+        sponsors: { today, all },
+        shipped: { today: merged, projects, totals },
+      };
+    });
   },
 );
 

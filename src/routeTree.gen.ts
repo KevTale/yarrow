@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FundRouteImport } from './routes/fund'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as ShippedRouteImport } from './routes/shipped'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as WorkRouteImport } from './routes/work'
@@ -21,6 +22,7 @@ import { Route as AuthGithubRouteImport } from './routes/auth/github'
 import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
 import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
+import { Route as OutSponsorIdRouteImport } from './routes/out/$sponsorId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
@@ -48,6 +50,11 @@ const FundRoute = FundRouteImport.update({
 const LeaderboardRoute = LeaderboardRouteImport.update({
   id: '/leaderboard',
   path: '/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShippedRoute = ShippedRouteImport.update({
+  id: '/shipped',
+  path: '/shipped',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShowcaseRoute = ShowcaseRouteImport.update({
@@ -91,6 +98,11 @@ const IntegrationsTrelloCallbackRoute =
     path: '/integrations/trello-callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const OutSponsorIdRoute = OutSponsorIdRouteImport.update({
+  id: '/out/$sponsorId',
+  path: '/out/$sponsorId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
@@ -139,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
@@ -147,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -161,6 +175,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
@@ -169,6 +184,7 @@ export interface FileRoutesByTo {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -184,6 +200,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
@@ -192,6 +209,7 @@ export interface FileRoutesById {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
+  '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -208,6 +226,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/shipped'
     | '/showcase'
     | '/sign-in'
     | '/work'
@@ -216,6 +235,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/evidence/$'
     | '/integrations/trello-callback'
+    | '/out/$sponsorId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -230,6 +250,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/shipped'
     | '/showcase'
     | '/sign-in'
     | '/work'
@@ -238,6 +259,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/evidence/$'
     | '/integrations/trello-callback'
+    | '/out/$sponsorId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -252,6 +274,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/shipped'
     | '/showcase'
     | '/sign-in'
     | '/work'
@@ -260,6 +283,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/evidence/$'
     | '/integrations/trello-callback'
+    | '/out/$sponsorId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -275,6 +299,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FundRoute: typeof FundRoute
   LeaderboardRoute: typeof LeaderboardRoute
+  ShippedRoute: typeof ShippedRoute
   ShowcaseRoute: typeof ShowcaseRoute
   SignInRoute: typeof SignInRoute
   WorkRoute: typeof WorkRoute
@@ -283,6 +308,7 @@ export interface RootRouteChildren {
   AuthSignOutRoute: typeof AuthSignOutRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
   IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
+  OutSponsorIdRoute: typeof OutSponsorIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
@@ -321,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/leaderboard'
       fullPath: '/leaderboard'
       preLoaderRoute: typeof LeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipped': {
+      id: '/shipped'
+      path: '/shipped'
+      fullPath: '/shipped'
+      preLoaderRoute: typeof ShippedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/showcase': {
@@ -377,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations/trello-callback'
       fullPath: '/integrations/trello-callback'
       preLoaderRoute: typeof IntegrationsTrelloCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/out/$sponsorId': {
+      id: '/out/$sponsorId'
+      path: '/out/$sponsorId'
+      fullPath: '/out/$sponsorId'
+      preLoaderRoute: typeof OutSponsorIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId': {
@@ -443,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FundRoute: FundRoute,
   LeaderboardRoute: LeaderboardRoute,
+  ShippedRoute: ShippedRoute,
   ShowcaseRoute: ShowcaseRoute,
   SignInRoute: SignInRoute,
   WorkRoute: WorkRoute,
@@ -451,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignOutRoute: AuthSignOutRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,
   IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,
+  OutSponsorIdRoute: OutSponsorIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   RunsRunIdRoute: RunsRunIdRoute,

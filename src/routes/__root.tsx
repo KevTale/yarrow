@@ -19,7 +19,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Yarrow — Fund the compute. Ship the PR." },
+      { title: "Yarrow — Frontier AI for free" },
       {
         name: "description",
         content:
@@ -48,7 +48,7 @@ function RootComponent() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <SiteHeader signedIn={Boolean(viewer)} />
+      <SiteHeader viewer={viewer} />
       <Outlet />
       <SiteFooter />
     </>

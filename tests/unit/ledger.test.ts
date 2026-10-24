@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from "vitest";
-import { PostgresLedger, sponsorLeaderboard } from "../../src/db/ledger";
+import { PostgresLedger } from "../../src/db/ledger";
 import type { Database } from "../../src/db/client";
 import * as schema from "../../src/db/schema";
 import type { RunRequest, RunResult } from "../../src/core/contracts";
@@ -364,35 +364,6 @@ describe("pull request lifecycle", () => {
       .from(schema.events)
       .where(eq(schema.events.type, "pull_request.merged"));
     expect(merged).toHaveLength(1);
-  });
-});
-
-describe("sponsor leaderboard", () => {
-  it("ranks by consumed compute and shows committed credit separately", async () => {
-    const request = run();
-    await ledger.reserve(request);
-    await ledger.settle(request.runId, delivered);
-    const anonymous = crypto.randomUUID();
-    await db
-      .insert(schema.sponsorProfiles)
-      .values([{ userId: anonymous, publicName: null }]);
-    await addContribution({ userId: anonymous, debitedCents: 900 });
-    await addContribution({
-      userId: sponsorId,
-      source: "promo",
-      amountCents: 0,
-      creditCents: 99900,
-    });
-    await addContribution({ userId: sponsorId, paymentStatus: "pending" });
-    await addContribution({ userId: sponsorId, paymentStatus: "refunded" });
-    expect(await sponsorLeaderboard(db as unknown as Database)).toEqual([
-      {
-        name: "Test sponsor",
-        foundingSponsor: false,
-        consumedCents: 342,
-        committedCents: 1658,
-      },
-    ]);
   });
 });
 
