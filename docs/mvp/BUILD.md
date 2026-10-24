@@ -54,11 +54,14 @@ Run cost = tokens + sandbox/container time, measured from provider usage data an
 
 ### Onboarding
 
-1. Sign up.
-2. Connect the GitHub repo through the GitHub App. Installing it requires repo admin rights, which proves control.
-3. Optionally connect a tracker and map each board to its repo. Supported trackers: GitHub Issues, Linear, Jira and Trello.
-4. Tag tickets with the platform label (`yarrow`) or the tracker's equivalent. Only tagged tickets become work units.
-5. Optional, to enable screenshots and videos: describe how to run the app.
+Least friction first (decided 2026-10-06): one "Connect GitHub" from the landing, nothing typed that the repo already says.
+
+1. Sign in with GitHub, then install the GitHub App on the chosen repositories ("all" or a selection, private ones included). Installing requires repo admin rights, which proves control.
+2. One project per selected repository is created automatically: name, description, languages and default branch come from the repo. Every other field is optional and editable later.
+3. Yarrow creates the `yarrow` label on each repository.
+4. Optionally connect a tracker and map each board to its repo. Supported trackers: GitHub Issues, Linear, Jira and Trello.
+5. Tag tickets with the platform label (`yarrow`) or the tracker's equivalent. Only tagged tickets become work units.
+6. Optional, to enable screenshots and videos: describe how to run the app.
    - Setup and start commands, plus a seed.
    - Development environment variables.
    - **Test or staging secrets only, never production.**
@@ -272,7 +275,7 @@ The operating entity is the founder's existing EURL, subject to VAT. Before swit
 - Screenshots and video when the app can run in the sandbox. Project run configuration and test secrets.
 - Trust & safety basics.
 - PR or abstention, with sponsor attribution, and correction requests on the PR.
-- GitHub login (Supabase Auth).
+- Login: GitHub for builders (Supabase Auth). Sponsors never need GitHub: Stripe Checkout collects the email, and the account is reached through an email sign-in link (decided 2026-10-06).
 - Event log and metrics from day one.
 - `Contribution → AgentRun → WorkUnit → Result` with reserve/debit/release.
 
