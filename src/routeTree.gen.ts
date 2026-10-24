@@ -13,9 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as FundRouteImport } from './routes/fund'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ShippedRouteImport } from './routes/shipped'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WorkRouteImport } from './routes/work'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
@@ -55,6 +58,16 @@ const LeaderboardRoute = LeaderboardRouteImport.update({
   path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShippedRoute = ShippedRouteImport.update({
   id: '/shipped',
   path: '/shipped',
@@ -68,6 +81,11 @@ const ShowcaseRoute = ShowcaseRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkRoute = WorkRouteImport.update({
@@ -169,9 +187,12 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/legal': typeof LegalRoute
+  '/privacy': typeof PrivacyRoute
   '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -196,9 +217,12 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/legal': typeof LegalRoute
+  '/privacy': typeof PrivacyRoute
   '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -224,9 +248,12 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/fund': typeof FundRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/legal': typeof LegalRoute
+  '/privacy': typeof PrivacyRoute
   '/shipped': typeof ShippedRoute
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -253,9 +280,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/legal'
+    | '/privacy'
     | '/shipped'
     | '/showcase'
     | '/sign-in'
+    | '/terms'
     | '/work'
     | '/auth/callback'
     | '/auth/confirm'
@@ -280,9 +310,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/legal'
+    | '/privacy'
     | '/shipped'
     | '/showcase'
     | '/sign-in'
+    | '/terms'
     | '/work'
     | '/auth/callback'
     | '/auth/confirm'
@@ -307,9 +340,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fund'
     | '/leaderboard'
+    | '/legal'
+    | '/privacy'
     | '/shipped'
     | '/showcase'
     | '/sign-in'
+    | '/terms'
     | '/work'
     | '/auth/callback'
     | '/auth/confirm'
@@ -335,9 +371,12 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FundRoute: typeof FundRoute
   LeaderboardRoute: typeof LeaderboardRoute
+  LegalRoute: typeof LegalRoute
+  PrivacyRoute: typeof PrivacyRoute
   ShippedRoute: typeof ShippedRoute
   ShowcaseRoute: typeof ShowcaseRoute
   SignInRoute: typeof SignInRoute
+  TermsRoute: typeof TermsRoute
   WorkRoute: typeof WorkRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
@@ -388,6 +427,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shipped': {
       id: '/shipped'
       path: '/shipped'
@@ -407,6 +460,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/work': {
@@ -543,9 +603,12 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FundRoute: FundRoute,
   LeaderboardRoute: LeaderboardRoute,
+  LegalRoute: LegalRoute,
+  PrivacyRoute: PrivacyRoute,
   ShippedRoute: ShippedRoute,
   ShowcaseRoute: ShowcaseRoute,
   SignInRoute: SignInRoute,
+  TermsRoute: TermsRoute,
   WorkRoute: WorkRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthConfirmRoute: AuthConfirmRoute,

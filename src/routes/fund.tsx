@@ -252,7 +252,11 @@ function FundPage() {
                 onChange={(event) => setWaiver(event.target.checked)}
               />
               <span>
-                I ask for compute to start immediately and acknowledge that I
+                I accept the{" "}
+                <a href="/terms" className="text-link" target="_blank">
+                  Terms
+                </a>
+                , ask for compute to start immediately and acknowledge that I
                 lose my 14-day withdrawal right once it starts. Compute credit
                 is not refundable as cash.
               </span>

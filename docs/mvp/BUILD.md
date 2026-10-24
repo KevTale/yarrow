@@ -252,7 +252,7 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
 
 ## Company
 
-The operating entity is the founder's existing EURL, subject to VAT. Before switching Stripe to live payments, configure Stripe Tax:
+The operating entity is the founder's existing EURL, TOTEM (RCS Nanterre 881 263 503), subject to VAT. A dedicated company with its own address and email may replace it if Yarrow ships. Legal notice, Terms and Privacy live at /legal, /terms and /privacy (drafted 2026-10-07; to have reviewed before live payments, and a consumer mediator to name). Before switching Stripe to live payments, configure Stripe Tax:
 - French VAT (20%) by default; VAT is due when the sponsor pays, not when the credit is consumed.
 - EU businesses with a VAT number: reverse charge ("autoliquidation", no VAT on the invoice).
 - EU individuals: French VAT until cross-border sales to individuals pass €10,000 a year, then the customer's country VAT through the One-Stop Shop (OSS). This depends on whether sponsoring counts as an electronically supplied service: the one point worth a professional opinion.

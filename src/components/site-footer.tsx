@@ -12,7 +12,12 @@ export function SiteFooter() {
       </div>
       <div className="container footer-bottom">
         <span>Frontier AI for free.</span>
-        <span>© 2026 Yarrow</span>
+        <nav aria-label="Legal" className="footer-legal">
+          <Link to="/legal">Legal notice</Link>
+          <Link to="/terms">Terms</Link>
+          <Link to="/privacy">Privacy</Link>
+          <span>© 2026 Yarrow</span>
+        </nav>
       </div>
     </footer>
   );

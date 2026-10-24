@@ -3291,3 +3291,50 @@ a.dash-row:hover {
 .landing-notice {
   margin-top: 24px;
 }
+
+/* ---------- Legal pages ---------- */
+.legal {
+  max-width: 760px;
+  display: grid;
+  gap: 16px;
+  padding-block: 64px 24px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--secondary);
+}
+.legal h1 {
+  font-size: clamp(36px, 5vw, 48px);
+  color: var(--text);
+}
+.legal h2 {
+  font-size: 20px;
+  color: var(--text);
+  margin-top: 16px;
+}
+.legal-updated {
+  font-size: 12px;
+  color: var(--muted);
+}
+.legal ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+  list-style: disc;
+}
+.legal a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.legal b {
+  color: var(--text);
+  font-weight: 500;
+}
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.footer-legal a:hover {
+  color: var(--text);
+}
