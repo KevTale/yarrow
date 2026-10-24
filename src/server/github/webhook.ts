@@ -165,9 +165,7 @@ export async function handleGitHubEvent(
       requestedBy: comment.user.login,
       externalCommentId: String(comment.id),
     });
-    return queued
-      ? "correction queued"
-      : "ignored: not an open Yarrow PR";
+    return queued ? "correction queued" : "ignored: not an open Yarrow PR";
   }
 
   if (

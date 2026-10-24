@@ -278,7 +278,7 @@ The operating entity is the founder's existing EURL, subject to VAT. Before swit
 - Screenshots and video when the app can run in the sandbox. Project run configuration and test secrets.
 - Trust & safety basics.
 - PR or abstention, with sponsor attribution, and correction requests on the PR.
-- Login: GitHub for builders (Supabase Auth). Sponsors never need GitHub: Stripe Checkout collects the email, and the account is reached through an email sign-in link (decided 2026-10-06).
+- Login: GitHub for builders (Supabase Auth). Sponsors never need GitHub: Stripe Checkout collects the email, and the account is reached through an email sign-in link (decided 2026-10-06). A guest payment is held by a placeholder sponsor (`sponsor_profiles.guest`) with the Stripe-verified email; the webhook emails a sign-in link, payments from the same email share one board row, and signing in with that email (link or GitHub) moves them to the account. The Supabase "Magic Link" template points to `/auth/confirm?token_hash=…` so the link works on any device.
 - Event log and metrics from day one.
 - `Contribution → AgentRun → WorkUnit → Result` with reserve/debit/release.
 

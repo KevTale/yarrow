@@ -6,6 +6,7 @@ import {
 } from "../../src/core/attribution";
 import {
   checkoutSchema,
+  sponsorProfileSchema,
   projectFormSchema,
   projectSecretSchema,
   runConfigSchema,
@@ -90,14 +91,51 @@ describe("amounts and forms", () => {
     expect(money(8_680)).toBe("$86.80");
   });
   it("requires the withdrawal waiver at checkout", () => {
+    const profile = {
+      publicName: null,
+      tagline: null,
+      description: null,
+      websiteUrl: null,
+    };
     expect(
-      checkoutSchema.safeParse({ amountCents: 2_500, withdrawalWaiver: true })
-        .success,
+      checkoutSchema.safeParse({
+        amountCents: 2_500,
+        profile,
+        withdrawalWaiver: true,
+      }).success,
     ).toBe(true);
     expect(
-      checkoutSchema.safeParse({ amountCents: 2_500, withdrawalWaiver: false })
-        .success,
+      checkoutSchema.safeParse({
+        amountCents: 2_500,
+        profile,
+        withdrawalWaiver: false,
+      }).success,
     ).toBe(false);
+  });
+  it("cleans the sponsor profile", () => {
+    expect(
+      sponsorProfileSchema.parse({
+        publicName: " Acme ",
+        tagline: "  ",
+        description: "",
+        websiteUrl: "",
+      }),
+    ).toEqual({
+      publicName: "Acme",
+      tagline: null,
+      description: null,
+      websiteUrl: null,
+    });
+    const site = (websiteUrl: string) =>
+      sponsorProfileSchema.safeParse({
+        publicName: "Acme",
+        tagline: null,
+        description: null,
+        websiteUrl,
+      }).success;
+    expect(site("https://acme.dev")).toBe(true);
+    expect(site("javascript:alert(1)")).toBe(false);
+    expect(site("http://acme.dev")).toBe(false);
   });
   const project = {
     name: "Halyard",

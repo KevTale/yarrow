@@ -133,9 +133,7 @@ export const addSecretFn = createServerFn({ method: "POST" })
       const details = await projectForOwner(db, project.id);
       let vaultId = details?.runConfig?.anthropicVaultId ?? null;
       if (!vaultId) {
-        vaultId = (
-          await client.createVault(`yarrow project ${project.id}`)
-        ).id;
+        vaultId = (await client.createVault(`yarrow project ${project.id}`)).id;
         await setAnthropicResources(db, project.id, { vaultId });
       }
       const previous = await deleteSecretReference(db, project.id, data.name);

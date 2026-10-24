@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { checkoutSchema, sponsorFiltersSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
 import {
-  ensureSponsorProfile,
   getSponsorFilters,
+  getSponsorProfile,
   saveSponsorFilters,
+  saveSponsorProfile,
 } from "@/db/sponsors";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
@@ -56,43 +56,39 @@ export const getFundContextFn = createServerFn({ method: "GET" }).handler(
     const viewer = await getViewer().catch(() => null);
     const profile =
       viewer && databaseConfigured()
-        ? await withDb((db) => getSponsorFilters(db, viewer.userId))
+        ? await withDb((db) => getSponsorProfile(db, viewer.userId))
         : null;
     return {
       signedIn: Boolean(viewer),
       githubLogin: viewer?.githubLogin ?? null,
-      publicName: profile?.publicName ?? null,
-      foundingSponsor: profile?.foundingSponsor ?? false,
+      profile,
       paymentsReady: paymentsConfigured() && databaseConfigured(),
     };
   },
 );
 
+/**
+ * Signed in or not: a guest pays with a placeholder id, Stripe collects the
+ * email, and signing in with that email later claims the payment.
+ */
 export const startCheckoutFn = createServerFn({ method: "POST" })
-  .validator(
-    checkoutSchema.extend({
-      publicName: z.string().trim().min(2).max(60).nullable(),
-    }),
-  )
+  .validator(checkoutSchema)
   .handler(async ({ data }) => {
-    const viewer = await requireViewer();
+    const viewer = await getViewer().catch(() => null);
     if (!paymentsConfigured()) throw new NotConfiguredError("Payments");
-    const {
-      data: { user },
-    } = await supabaseServer().auth.getUser();
+    const email = viewer
+      ? ((await supabaseServer().auth.getUser()).data.user?.email ?? null)
+      : null;
+    const userId = viewer?.userId ?? crypto.randomUUID();
     const url = await withDb(async (db) => {
-      await ensureSponsorProfile(db, viewer.userId, data.publicName);
-      // Name changes apply to the whole board, like the filters page.
-      const filters = await getSponsorFilters(db, viewer.userId);
-      if (filters.publicName !== data.publicName)
-        await saveSponsorFilters(db, viewer.userId, {
-          ...filters,
-          publicName: data.publicName,
-        });
+      await saveSponsorProfile(db, userId, data.profile, { guest: !viewer });
       return createCheckout(db, {
-        userId: viewer.userId,
-        email: user?.email ?? null,
+        userId,
+        email,
         amountCents: data.amountCents,
+        successPath: viewer
+          ? "/dashboard?checkout=success#sponsoring"
+          : "/leaderboard?checkout=success",
       });
     });
     return { url };

@@ -11,6 +11,8 @@ export type EventType =
   | "project.suspended"
   | "tracker.connected"
   | "sponsor.filters_updated"
+  | "sponsor.clicked"
+  | "sponsor.guest_claimed"
   | "contribution.created"
   | "contribution.settled"
   | "contribution.refunded"

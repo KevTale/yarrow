@@ -18,6 +18,7 @@ import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as WorkRouteImport } from './routes/work'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
 import { Route as AuthGithubRouteImport } from './routes/auth/github'
 import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
@@ -75,6 +76,11 @@ const WorkRoute = WorkRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthConfirmRoute = AuthConfirmRouteImport.update({
+  id: '/auth/confirm',
+  path: '/auth/confirm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthGithubRoute = AuthGithubRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
   '/auth/sign-out': typeof AuthSignOutRoute
   '/evidence/$': typeof EvidenceSplatRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/work'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
     | '/evidence/$'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/work'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
     | '/evidence/$'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/work'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/auth/github'
     | '/auth/sign-out'
     | '/evidence/$'
@@ -304,6 +316,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   WorkRoute: typeof WorkRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthConfirmRoute: typeof AuthConfirmRoute
   AuthGithubRoute: typeof AuthGithubRoute
   AuthSignOutRoute: typeof AuthSignOutRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
@@ -382,6 +395,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/confirm': {
+      id: '/auth/confirm'
+      path: '/auth/confirm'
+      fullPath: '/auth/confirm'
+      preLoaderRoute: typeof AuthConfirmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/github': {
@@ -488,6 +508,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   WorkRoute: WorkRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  AuthConfirmRoute: AuthConfirmRoute,
   AuthGithubRoute: AuthGithubRoute,
   AuthSignOutRoute: AuthSignOutRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,

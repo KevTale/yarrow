@@ -1,8 +1,13 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { SponsorFilters } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
-import { sponsorProfiles, sponsorProjectSelections } from "./schema";
+import {
+  contributions,
+  events,
+  sponsorProfiles,
+  sponsorProjectSelections,
+} from "./schema";
 
 export const defaultSponsorFilters: SponsorFilters = {
   publicName: null,
@@ -79,14 +84,181 @@ export async function saveSponsorFilters(
   });
 }
 
-/** Display name and founding flag, kept separate from the filters. */
-export async function ensureSponsorProfile(
+export type SponsorProfileInput = {
+  publicName: string | null;
+  tagline: string | null;
+  description: string | null;
+  websiteUrl: string | null;
+};
+
+export async function getSponsorProfile(
   db: Database,
   userId: string,
-  publicName: string | null,
+): Promise<(SponsorProfileInput & { foundingSponsor: boolean }) | null> {
+  const [profile] = await db
+    .select({
+      publicName: sponsorProfiles.publicName,
+      tagline: sponsorProfiles.tagline,
+      description: sponsorProfiles.description,
+      websiteUrl: sponsorProfiles.websiteUrl,
+      foundingSponsor: sponsorProfiles.foundingSponsor,
+    })
+    .from(sponsorProfiles)
+    .where(eq(sponsorProfiles.userId, userId));
+  return profile ?? null;
+}
+
+/**
+ * What a sponsor shows on the boards. Guests are sponsors who pay without an
+ * account: their userId is a placeholder until they sign in (see
+ * claimGuestSponsorships).
+ */
+export async function saveSponsorProfile(
+  db: Database,
+  userId: string,
+  profile: SponsorProfileInput,
+  options: { guest?: boolean } = {},
 ): Promise<void> {
+  const values = { ...profile, updatedAt: new Date() };
   await db
     .insert(sponsorProfiles)
-    .values({ userId, publicName })
-    .onConflictDoNothing();
+    .values({ userId, guest: options.guest ?? false, ...values })
+    .onConflictDoUpdate({ target: sponsorProfiles.userId, set: values });
+}
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+/**
+ * Stores the email Stripe collected for a guest's payment. A guest who already
+ * paid with that email keeps one board row: the new payment joins it and the
+ * latest profile wins. Returns true the first time a guest payment gets its
+ * email (webhook retries return false), when a sign-in link is due.
+ */
+export async function recordGuestEmail(
+  db: Database,
+  stripeCheckoutId: string,
+  email: string,
+): Promise<boolean> {
+  const address = normalizeEmail(email);
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ profile: sponsorProfiles })
+      .from(contributions)
+      .innerJoin(
+        sponsorProfiles,
+        eq(sponsorProfiles.userId, contributions.userId),
+      )
+      .where(eq(contributions.stripeCheckoutId, stripeCheckoutId))
+      .for("update");
+    const profile = row?.profile;
+    if (!profile?.guest || profile.email) return false;
+    const [earlier] = await tx
+      .select({ userId: sponsorProfiles.userId })
+      .from(sponsorProfiles)
+      .where(
+        and(
+          eq(sponsorProfiles.guest, true),
+          eq(sponsorProfiles.email, address),
+        ),
+      )
+      .for("update");
+    if (!earlier) {
+      await tx
+        .update(sponsorProfiles)
+        .set({ email: address, updatedAt: new Date() })
+        .where(eq(sponsorProfiles.userId, profile.userId));
+      return true;
+    }
+    await tx
+      .update(contributions)
+      .set({ userId: earlier.userId })
+      .where(eq(contributions.userId, profile.userId));
+    await tx
+      .update(events)
+      .set({ userId: earlier.userId })
+      .where(eq(events.userId, profile.userId));
+    await tx
+      .delete(sponsorProfiles)
+      .where(eq(sponsorProfiles.userId, profile.userId));
+    await tx
+      .update(sponsorProfiles)
+      .set({
+        publicName: profile.publicName,
+        tagline: profile.tagline,
+        description: profile.description,
+        websiteUrl: profile.websiteUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(sponsorProfiles.userId, earlier.userId));
+    return true;
+  });
+}
+
+/**
+ * On sign-in with a verified email: moves the guest payments made with that
+ * email (contributions, clicks, profile) to the signed-in user, in one
+ * transaction. Returns how many guest profiles were claimed.
+ */
+export async function claimGuestSponsorships(
+  db: Database,
+  userId: string,
+  email: string,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const guests = await tx
+      .select()
+      .from(sponsorProfiles)
+      .where(
+        and(
+          eq(sponsorProfiles.guest, true),
+          eq(sponsorProfiles.email, normalizeEmail(email)),
+        ),
+      )
+      .for("update");
+    if (guests.length === 0) return 0;
+    let [own] = await tx
+      .select()
+      .from(sponsorProfiles)
+      .where(eq(sponsorProfiles.userId, userId))
+      .for("update");
+    for (const guest of guests) {
+      await tx
+        .update(contributions)
+        .set({ userId })
+        .where(eq(contributions.userId, guest.userId));
+      await tx
+        .update(events)
+        .set({ userId })
+        .where(eq(events.userId, guest.userId));
+      if (!own) {
+        // The guest profile becomes the user's, public id (and clicks) included.
+        [own] = await tx
+          .update(sponsorProfiles)
+          .set({ userId, guest: false, updatedAt: new Date() })
+          .where(eq(sponsorProfiles.userId, guest.userId))
+          .returning();
+        continue;
+      }
+      await tx
+        .update(sponsorProfiles)
+        .set({
+          publicName: own.publicName ?? guest.publicName,
+          tagline: own.tagline ?? guest.tagline,
+          description: own.description ?? guest.description,
+          websiteUrl: own.websiteUrl ?? guest.websiteUrl,
+          logoUrl: own.logoUrl ?? guest.logoUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(sponsorProfiles.userId, userId));
+      await tx
+        .delete(sponsorProfiles)
+        .where(eq(sponsorProfiles.userId, guest.userId));
+    }
+    await recordEvent(tx, {
+      type: "sponsor.guest_claimed",
+      userId,
+      payload: { profiles: guests.length },
+    });
+    return guests.length;
+  });
 }

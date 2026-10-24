@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Github } from "lucide-react";
 import { sponsorNames, type RunSponsor } from "@/core/attribution";
+import { EmailSignIn } from "./email-sign-in";
 
 export function PageHeading({
   eyebrow,
@@ -147,15 +148,14 @@ export function SignInPrompt({
     <div className="sign-in-card">
       <p className="eyebrow">SIGN IN</p>
       <h2>{reason}</h2>
-      <p className="muted">
-        One account for sponsors and builders, with GitHub.
-      </p>
       <a
         className="button button-primary"
         href={`/auth/github?next=${encodeURIComponent(next)}`}
       >
         <Github size={16} /> Continue with GitHub
       </a>
+      <p className="sign-in-or">or</p>
+      <EmailSignIn next={next} />
       <Link to="/" className="text-link">
         Back to Yarrow <ArrowRight size={14} />
       </Link>

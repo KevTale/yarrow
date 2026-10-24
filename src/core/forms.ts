@@ -89,8 +89,29 @@ export const sponsorFiltersSchema = z.object({
 });
 export type SponsorFilters = z.infer<typeof sponsorFiltersSchema>;
 
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((value) => value || null);
+
+/** What a sponsor shows on the boards. NULL publicName means anonymous. */
+export const sponsorProfileSchema = z.object({
+  publicName: z.string().trim().min(2).max(60).nullable(),
+  tagline: optionalText(80),
+  description: optionalText(280),
+  websiteUrl: z
+    .union([z.literal(""), z.url({ protocol: /^https$/ }).max(300)])
+    .nullable()
+    .transform((value) => value || null),
+});
+export type SponsorProfile = z.infer<typeof sponsorProfileSchema>;
+
 export const checkoutSchema = z.object({
   amountCents: amountCentsSchema,
+  profile: sponsorProfileSchema,
   // Compute starts immediately: EU consumers waive the 14-day withdrawal right.
   withdrawalWaiver: z.literal(true, {
     error: "Please confirm that compute starts immediately.",

@@ -217,6 +217,10 @@ export const sponsorProfiles = pgTable("sponsor_profiles", {
   description: text("description"),
   websiteUrl: text("website_url"),
   logoUrl: text("logo_url"),
+  // Sponsors who paid without an account: userId is a placeholder until they
+  // sign in with this (Stripe-verified) email, then everything moves over.
+  guest: boolean("guest").default(false).notNull(),
+  email: text("email"),
   mode: sponsorModeEnum("mode").default("all_except").notNull(),
   includeHidden: boolean("include_hidden").default(false).notNull(),
   excludedCategories: text("excluded_categories")

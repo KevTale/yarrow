@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureAccount } from "@/db/accounts";
-import { databaseConfigured, withDb } from "@/server/db.server";
 import { safeNext, supabaseForRequest } from "@/server/auth-request.server";
+import { afterSignIn } from "@/server/sign-in.server";
 
 /** GitHub → Supabase → here: exchange the code, then make sure the account exists. */
 export const Route = createFileRoute("/auth/callback")({
@@ -19,18 +18,7 @@ export const Route = createFileRoute("/auth/callback")({
           return auth.redirect(
             `/sign-in?error=${encodeURIComponent(error?.message ?? "Sign-in failed")}`,
           );
-        const meta = data.user.user_metadata as Record<
-          string,
-          string | undefined
-        >;
-        if (databaseConfigured())
-          await withDb((db) =>
-            ensureAccount(db, {
-              userId: data.user.id,
-              githubLogin: meta.user_name ?? meta.preferred_username ?? null,
-              name: meta.full_name ?? meta.name ?? null,
-            }),
-          );
+        await afterSignIn(data.user);
         return auth.redirect(next);
       },
     },

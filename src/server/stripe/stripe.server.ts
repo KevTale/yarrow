@@ -6,7 +6,9 @@ import {
   refundContribution,
   settleStripeContribution,
 } from "@/db/contributions";
+import { recordGuestEmail } from "@/db/sponsors";
 import { appEnv, NotConfiguredError } from "../env.server";
+import { sendSignInLink } from "../sign-in.server";
 import { settlementFromSession, type PaidSession } from "./settlement";
 
 function stripeClient(): Stripe {
@@ -25,7 +27,13 @@ export function paymentsConfigured(): boolean {
  */
 export async function createCheckout(
   db: Database,
-  input: { userId: string; email: string | null; amountCents: number },
+  input: {
+    userId: string;
+    email: string | null;
+    amountCents: number;
+    /** Where Stripe sends the sponsor back, e.g. /leaderboard?checkout=success */
+    successPath: string;
+  },
 ): Promise<string> {
   const env = appEnv();
   const stripe = stripeClient();
@@ -54,7 +62,7 @@ export async function createCheckout(
     billing_address_collection: tax ? "required" : "auto",
     metadata: { userId: input.userId, kind: "compute_credit" },
     payment_intent_data: { metadata: { userId: input.userId } },
-    success_url: `${env.APP_URL}/dashboard?checkout=success`,
+    success_url: `${env.APP_URL}${input.successPath}`,
     cancel_url: `${env.APP_URL}/fund?checkout=cancelled`,
   });
   if (!session.url) throw new Error("Stripe returned no checkout URL");
@@ -96,7 +104,16 @@ export async function handleStripeWebhook(
       );
       if (!settlement) return "checkout not paid yet";
       const found = await settleStripeContribution(db, settlement);
-      return found ? "contribution settled" : "unknown checkout session";
+      if (!found) return "unknown checkout session";
+      const email = session.customer_details?.email;
+      if (email && (await recordGuestEmail(db, session.id, email))) {
+        // The payment stands either way; the link only gives the guest an account.
+        await sendSignInLink(email, "/dashboard").catch((error) =>
+          console.error("guest sign-in link", error),
+        );
+        return "contribution settled, sign-in link sent";
+      }
+      return "contribution settled";
     }
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed":

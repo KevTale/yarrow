@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Check, Github, LockKeyhole } from "lucide-react";
+import { ArrowRight, Check, LockKeyhole } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money, packs } from "@/core/packs";
@@ -30,12 +30,16 @@ function FundPage() {
       ? search.amount
       : 25;
   const [dollars, setDollars] = useState<number>(initial);
+  const saved = context.profile;
   const [publicName, setPublicName] = useState(
-    context.publicName ?? context.githubLogin ?? "",
+    saved?.publicName ?? context.githubLogin ?? "",
   );
   const [anonymous, setAnonymous] = useState(
-    context.signedIn && context.publicName === null,
+    Boolean(saved) && saved?.publicName === null,
   );
+  const [tagline, setTagline] = useState(saved?.tagline ?? "");
+  const [description, setDescription] = useState(saved?.description ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(saved?.websiteUrl ?? "");
   const [euConsumer, setEuConsumer] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
@@ -49,16 +53,19 @@ function FundPage() {
   const estimate = valid
     ? estimateBreakdown(cents, {
         vatRateBps: euConsumer ? 2000 : 0,
-        founding: context.foundingSponsor,
+        founding: saved?.foundingSponsor ?? false,
       })
     : null;
-  const next = `/fund?amount=${dollars}`;
-
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     if (!valid)
       return setError("Choose a whole-dollar amount from $10 to $1,000.");
+    if (!anonymous && publicName.trim().length < 2)
+      return setError("Choose a public name, or stay anonymous.");
+    const site = websiteUrl.trim();
+    if (!anonymous && site && !site.startsWith("https://"))
+      return setError("Use a website address starting with https://");
     if (!waiver)
       return setError("Please confirm that compute starts immediately.");
     setPending(true);
@@ -67,7 +74,19 @@ function FundPage() {
         data: {
           amountCents: cents,
           withdrawalWaiver: true,
-          publicName: anonymous ? null : publicName.trim() || null,
+          profile: anonymous
+            ? {
+                publicName: null,
+                tagline: null,
+                description: null,
+                websiteUrl: null,
+              }
+            : {
+                publicName: publicName.trim(),
+                tagline,
+                description,
+                websiteUrl: site,
+              },
         },
       });
       window.location.assign(url);
@@ -141,15 +160,50 @@ function FundPage() {
                 </span>
               </label>
               {!anonymous && (
-                <label className="field">
-                  Public name
-                  <input
-                    value={publicName}
-                    maxLength={60}
-                    onChange={(event) => setPublicName(event.target.value)}
-                    placeholder="Your name or your company"
-                  />
-                </label>
+                <div className="sponsor-profile-fields">
+                  <label className="field">
+                    Public name
+                    <input
+                      value={publicName}
+                      maxLength={60}
+                      onChange={(event) => setPublicName(event.target.value)}
+                      placeholder="Your name or your company"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>
+                      Tagline <span className="muted">· optional</span>
+                    </span>
+                    <input
+                      value={tagline}
+                      maxLength={80}
+                      onChange={(event) => setTagline(event.target.value)}
+                      placeholder="Payments for indie hackers"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>
+                      Website <span className="muted">· optional</span>
+                    </span>
+                    <input
+                      type="url"
+                      value={websiteUrl}
+                      maxLength={300}
+                      onChange={(event) => setWebsiteUrl(event.target.value)}
+                      placeholder="https://"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>
+                      Description <span className="muted">· optional</span>
+                    </span>
+                    <textarea
+                      value={description}
+                      maxLength={280}
+                      onChange={(event) => setDescription(event.target.value)}
+                    />
+                  </label>
+                </div>
               )}
               <label className="choice-row">
                 <input
@@ -166,14 +220,16 @@ function FundPage() {
                 </span>
               </label>
             </div>
-            <p className="field-note">
-              Where your money goes (categories, stacks, specific projects) is
-              set in{" "}
-              <Link to="/sponsor/filters" className="text-link">
-                your sponsor filters
-              </Link>
-              . By default it funds every visible project, in fair rotation.
-            </p>
+            {context.signedIn && (
+              <p className="field-note">
+                Where your money goes (categories, stacks, specific projects) is
+                set in{" "}
+                <Link to="/sponsor/filters" className="text-link">
+                  your sponsor filters
+                </Link>
+                . By default it funds every visible project, in fair rotation.
+              </p>
+            )}
           </fieldset>
 
           <fieldset className="form-section">
@@ -231,7 +287,7 @@ function FundPage() {
                   </div>
                   <div>
                     <dt>
-                      Platform margin ({context.foundingSponsor ? "5" : "10"}%)
+                      Platform margin ({saved?.foundingSponsor ? "5" : "10"}%)
                     </dt>
                     <dd>−{money(estimate.marginCents)}</dd>
                   </div>
@@ -245,14 +301,7 @@ function FundPage() {
                   </div>
                 </dl>
               )}
-              {!context.signedIn ? (
-                <a
-                  className="button button-primary button-full"
-                  href={`/auth/github?next=${encodeURIComponent(next)}`}
-                >
-                  <Github size={16} /> Sign in with GitHub to continue
-                </a>
-              ) : !context.paymentsReady ? (
+              {!context.paymentsReady ? (
                 <p className="feedback feedback-error" role="status">
                   Payments are not open yet on this deployment.
                 </p>
@@ -279,7 +328,7 @@ function FundPage() {
                   <Check size={13} /> Reserved before each run, debited at cost
                 </li>
                 <li>
-                  <Check size={13} /> Ranked by compute consumed
+                  <Check size={13} /> Ranked by money paid
                 </li>
                 <li>
                   <Check size={13} /> A PR or a documented reason, every time
