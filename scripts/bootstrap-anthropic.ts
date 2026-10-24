@@ -35,5 +35,5 @@ const environment = await client.createEnvironment({
 console.log(`ANTHROPIC_AGENT_ID=${agent.id}`);
 console.log(`ANTHROPIC_ENVIRONMENT_ID=${environment.id}`);
 console.log(
-  "\nStore both in the brain:\n  pnpm exec wrangler secret put ANTHROPIC_AGENT_ID --config workers/wrangler.jsonc\n  pnpm exec wrangler secret put ANTHROPIC_ENVIRONMENT_ID --config workers/wrangler.jsonc",
+  "\nStore both in the brain:\n  pnpm exec wrangler secret put ANTHROPIC_AGENT_ID --config workers/wrangler.jsonc --env dev|production\n  pnpm exec wrangler secret put ANTHROPIC_ENVIRONMENT_ID --config workers/wrangler.jsonc --env dev|production",
 );

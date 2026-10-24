@@ -462,6 +462,15 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
   });
 }
 
+/** Drizzle wraps driver errors ("Failed query: …"); the cause says why. */
+function describe(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return cause instanceof Error
+    ? `${String(error)}
+cause: ${cause.message}`
+    : String(error);
+}
+
 export default {
   fetch() {
     return Response.json({ service: "yarrow-brain", status: "ok" });
@@ -475,7 +484,7 @@ export default {
       (async () => {
         console.log(
           "dispatch",
-          await dispatch(env).catch((error) => [String(error)]),
+          await dispatch(env).catch((error) => [describe(error)]),
         );
         if (
           new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0 &&
@@ -485,7 +494,7 @@ export default {
             "tracker sync",
             await withDb(env, (db) =>
               syncTrackers(db, trackerSecretsFromEnv(env)),
-            ).catch((error) => [String(error)]),
+            ).catch((error) => [describe(error)]),
           );
       })(),
     );
