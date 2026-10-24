@@ -66,9 +66,9 @@ Détails dans [l'architecture](docs/architecture.md).
 
 | | Adresse | Déploiement | Supabase | GitHub App |
 |---|---|---|---|---|
-| **local** | `localhost:3000` | `pnpm dev`, `pnpm brain:dev` | dev | `yarrow-run-dev` |
-| **dev** | `dev.yarrow.run` | chaque push sur `main` | dev | `yarrow-run-dev` |
-| **prod** | `yarrow.run` | chaque push sur `prod` (`git push origin main:prod`) | prod (à créer) | `yarrow-run` |
+| **local** | `localhost:3000` | `pnpm dev`, `pnpm brain:dev` | `yarrow-dev` | `yarrow-run-dev` |
+| **dev** | `dev.yarrow.run` | chaque push sur `main` | `yarrow-dev` | `yarrow-run-dev` |
+| **prod** | `yarrow.run` | chaque push sur `prod` (`git push origin main:prod`) | `yarrow-prod` | `yarrow-run` |
 
 Le workflow [`deploy.yml`](.github/workflows/deploy.yml) lance lint, typecheck et tests, puis `pnpm deploy:dev` ou `pnpm deploy:prod` (boutique et cerveau). Il lui faut un seul secret de dépôt, `CLOUDFLARE_API_TOKEN` (modèle « Edit Cloudflare Workers », avec la zone `yarrow.run`). Les valeurs publiques de chaque environnement sont dans `wrangler.jsonc` et `workers/wrangler.jsonc` ; les secrets se posent une fois par environnement :
 
@@ -81,7 +81,7 @@ pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # ce
 
 À faire une fois par environnement, en commençant par dev :
 
-1. **Base :** les migrations sont appliquées sur le projet Supabase de dev. Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
+1. **Base :** les migrations sont appliquées sur les deux projets Supabase (`yarrow-dev`, `yarrow-prod`). Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
 2. **Auth :** activer le provider GitHub dans Supabase Auth, avec `<APP_URL>/auth/callback` en redirection.
 3. **GitHub App** (`yarrow-run-dev` pour dev et le local, `yarrow-run` pour la prod) :
    - permissions : Contents, Pull requests et Issues en écriture, Metadata en lecture ;

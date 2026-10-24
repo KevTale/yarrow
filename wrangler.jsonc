@@ -15,10 +15,10 @@
   // and, locally, in .dev.vars.
   "vars": {
     "APP_URL": "http://localhost:3000",
-    // The dev Supabase project, shared by local and dev.yarrow.run.
-    "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
+    // The yarrow-dev Supabase project, shared by local and dev.yarrow.run.
+    "SUPABASE_URL": "https://pporkihcsomdpycmmsvn.supabase.co",
     // Publishable by design (browser-safe). RLS denies it every table.
-    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable__m1NrrN9toP3yF---p7KGQ_PhxCVlGL",
     "GITHUB_APP_SLUG": "yarrow-run-dev",
   },
   "env": {
@@ -29,21 +29,21 @@
       "workers_dev": false,
       "vars": {
         "APP_URL": "https://dev.yarrow.run",
-        "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
-        "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
+        "SUPABASE_URL": "https://pporkihcsomdpycmmsvn.supabase.co",
+        "SUPABASE_PUBLISHABLE_KEY": "sb_publishable__m1NrrN9toP3yF---p7KGQ_PhxCVlGL",
         "GITHUB_APP_SLUG": "yarrow-run-dev",
       },
     },
-    // yarrow.run, deployed on every push to the prod branch. The Supabase
-    // values come from the prod project, not created yet.
+    // yarrow.run, deployed on every push to the prod branch, on the
+    // yarrow-prod Supabase project.
     "production": {
       "name": "yarrow-web",
       "routes": [{ "pattern": "yarrow.run", "custom_domain": true }],
       "workers_dev": false,
       "vars": {
         "APP_URL": "https://yarrow.run",
-        "SUPABASE_URL": "",
-        "SUPABASE_PUBLISHABLE_KEY": "",
+        "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",
+        "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
         "GITHUB_APP_SLUG": "yarrow-run",
       },
     },

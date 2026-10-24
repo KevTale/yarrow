@@ -30,7 +30,7 @@ Yarrow is for **people who build software**: SaaS, games, tools, open source or 
 - **Provider accounts:** platform-owned **API** accounts with prepaid credits. Never a consumer subscription (Claude Pro/Max, ChatGPT Plus/Pro).
 - **Branding:** do not name the product or features after "Claude Code" or "Codex". "Powered by Claude" or "uses OpenAI models" is fine.
 - **DB:** Supabase + Drizzle.
-- **Environments:** local and `dev.yarrow.run` share the dev Supabase project, Stripe test mode and the `yarrow-run-dev` GitHub App; `yarrow.run` has its own Supabase project and the `yarrow-run` App. Every push to `main` deploys dev, every push to `prod` deploys prod (GitHub Actions).
+- **Environments:** local and `dev.yarrow.run` share the `yarrow-dev` Supabase project, Stripe test mode and the `yarrow-run-dev` GitHub App; `yarrow.run` has the `yarrow-prod` project and the `yarrow-run` App. Every push to `main` deploys dev, every push to `prod` deploys prod (GitHub Actions).
 - **Design:** Opus dark ledger mockups (amber accent).
 - **Out of the architecture:** Cloudflare Sandbox runner, Docker/Hetzner pool and OpenRouter.
 
@@ -234,7 +234,7 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
 ## Brand (decided 2026-10-06)
 
 - **Name: Yarrow** (the plant, _achillée millefeuille_ in French). It replaces the working name "Agent Commons" (app and GitHub repo renamed on 2026-10-06).
-  - Still to do: buy the domains (`yarrow.run` and `useyarrow.com` were free on 2026-10-06) and file the trademark.
+  - `yarrow.run` bought on 2026-10-06 (Cloudflare Registrar, auto-renew off). Still to do: file the trademark.
   - No "Yarrow" trademark was found in the EU and French software classes (9 and 42).
 - **GitHub names:** the ticket label is `yarrow`; the correction mention is `@yarrow-run`, also the prod GitHub App slug (`yarrow-run-dev` in dev). Never `@yarrow`: that GitHub account belongs to someone else and would be notified on every request.
 - **Logo:** five small florets around a pollen heart, each floret being five petals around its own heart. A yarrow "flower" is really many tiny flowers, like a commons made of small contributions.
