@@ -2,6 +2,7 @@ import {
   createFileRoute,
   getRouteApi,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -40,6 +41,9 @@ export const Route = createFileRoute("/dashboard")({
     ]);
     return { connect, builder, sponsor };
   },
+  // Switching tabs or coming back soon after does not reload everything;
+  // the views refresh themselves (realtime and polling).
+  staleTime: 30_000,
   head: () => ({ meta: [{ title: "Dashboard · Yarrow" }] }),
   component: DashboardPage,
 });
@@ -57,6 +61,16 @@ function DashboardPage() {
   const router = useRouter();
   const [polls, setPolls] = useState(0);
   const [settings, setSettings] = useState(false);
+  // The project being opened from the rail, while its tickets load.
+  const switching = useRouterState({
+    select: (state) => {
+      if (!state.isLoading) return null;
+      const next = (state.location.search as { project?: string }).project;
+      const now = (state.resolvedLocation?.search as { project?: string })
+        ?.project;
+      return next && next !== now ? next : null;
+    },
+  });
   const projectCount = builder.status === "ok" ? builder.projects.length : 0;
   const [startCount] = useState(projectCount);
   // New repositories showed up, or the install only changed existing ones.
@@ -160,6 +174,7 @@ function DashboardPage() {
           data={builder}
           highlight={connect.queued?.issue ?? null}
           waiting={waiting}
+          switching={switching}
         />
       ) : (
         <SponsorView data={sponsor} onSettings={() => setSettings(true)} />

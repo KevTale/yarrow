@@ -3,6 +3,33 @@ import { appEnv } from "../env.server";
 import { GitHubClient, installationToken } from "./app";
 
 /**
+ * Read-only issue tokens, kept per repository while they have more than five
+ * minutes left (GitHub gives them an hour). Saves a round trip to GitHub on
+ * every dashboard load. Lives in the Worker isolate's memory only.
+ */
+const issueTokens = new Map<string, { token: string; expiresAt: number }>();
+
+async function issueToken(
+  credentials: { appId: string; privateKey: string },
+  installationId: string,
+  repositoryId: number,
+): Promise<string> {
+  const key = `${installationId}:${repositoryId}`;
+  const cached = issueTokens.get(key);
+  if (cached && cached.expiresAt - Date.now() > 5 * 60_000) return cached.token;
+  const { token, expiresAt } = await installationToken(
+    credentials,
+    installationId,
+    {
+      repositoryIds: [repositoryId],
+      permissions: { issues: "read", metadata: "read" },
+    },
+  );
+  issueTokens.set(key, { token, expiresAt: Date.parse(expiresAt) });
+  return token;
+}
+
+/**
  * A repository's open issues, read live with a read-only installation token.
  * They are shown, never stored: Yarrow only keeps the tickets it works on.
  * Null when GitHub cannot be reached; the table then shows Yarrow's tickets.
@@ -21,13 +48,10 @@ export async function openIssues(project: {
   )
     return null;
   try {
-    const { token } = await installationToken(
+    const token = await issueToken(
       { appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY },
       project.githubInstallationId,
-      {
-        repositoryIds: [Number(project.githubRepositoryId)],
-        permissions: { issues: "read", metadata: "read" },
-      },
+      Number(project.githubRepositoryId),
     );
     const items = await new GitHubClient(token).request<
       {
@@ -50,6 +74,10 @@ export async function openIssues(project: {
         updatedAt: new Date(item.updated_at).toISOString(),
       }));
   } catch (error) {
+    // A revoked install or a narrowed repository list: get a new token next time.
+    issueTokens.delete(
+      `${project.githubInstallationId}:${Number(project.githubRepositoryId)}`,
+    );
     console.error("open issues", project.repository, error);
     return null;
   }

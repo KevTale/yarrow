@@ -19,6 +19,7 @@ import {
 } from "@/functions/builder.functions";
 import { capitalize, timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
+import { Spinner } from "@/components/navigation-feedback";
 import { ModelsCell } from "./models";
 
 type BuilderData = Extract<
@@ -44,12 +45,15 @@ export function BuilderView({
   data,
   highlight,
   waiting,
+  switching = null,
 }: {
   data: BuilderData;
   /** The ticket just pasted on the landing. */
   highlight: number | null;
   /** A repository still being connected after the GitHub install. */
   waiting: string | null;
+  /** The project being opened from the rail, while it loads. */
+  switching?: string | null;
 }) {
   const navigate = useNavigate();
   const refresh = useServerFn(getBuilderFn);
@@ -208,17 +212,21 @@ export function BuilderView({
             <button
               type="button"
               key={item.id}
-              aria-current={item.id === project?.id}
+              aria-current={item.id === (switching ?? project?.id)}
               onClick={() => choose(item.id)}
             >
               <span>{item.name}</span>
-              <span className="bd-count">
-                {item.queued +
-                  item.running +
-                  item.delivered +
-                  item.merged +
-                  item.abstained}
-              </span>
+              {item.id === switching ? (
+                <Spinner />
+              ) : (
+                <span className="bd-count">
+                  {item.queued +
+                    item.running +
+                    item.delivered +
+                    item.merged +
+                    item.abstained}
+                </span>
+              )}
             </button>
           ))}
           <a className="bd-add" href="/connect/github">
@@ -231,7 +239,7 @@ export function BuilderView({
           <select
             className="bd-picker"
             aria-label="Project"
-            value={project?.id}
+            value={switching ?? project?.id}
             onChange={(event) =>
               event.target.value === "add"
                 ? window.location.assign("/connect/github")
@@ -246,7 +254,12 @@ export function BuilderView({
             <option value="add">+ Add a project</option>
           </select>
         )}
-        {project && (
+        {switching ? (
+          <BuilderSkeleton
+            name={live.projects.find((item) => item.id === switching)?.name}
+          />
+        ) : null}
+        {!switching && project && (
           <div className="bd-head">
             <h2>{project.name}</h2>
             <span className="mono muted">{project.repository}</span>
@@ -267,12 +280,12 @@ export function BuilderView({
             </span>
           </div>
         )}
-        {waiting && (
+        {!switching && waiting && (
           <p className="bd-wait" role="status">
             Connecting <span className="mono">{waiting}</span>…
           </p>
         )}
-        {project && !project.linked ? (
+        {switching ? null : project && !project.linked ? (
           <div className="bd-empty">
             <p className="muted">GitHub is not connected to this repository</p>
             <a className="go" href="/connect/github">
@@ -468,5 +481,32 @@ function Status({
         </button>
       )}
     </span>
+  );
+}
+
+/** The next project's head and table, drawn while its tickets load. */
+function BuilderSkeleton({ name }: { name?: string }) {
+  return (
+    <div className="bd-skeleton" aria-busy="true" aria-label="Loading tickets">
+      <div className="bd-head">
+        <h2>{name}</h2>
+        <span className="sk sk-text" />
+      </div>
+      <div className="bd-toolbar">
+        <span className="sk sk-filters" />
+        <span className="sk sk-search" />
+      </div>
+      <div className="bd-table">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div className="bd-row sk-row" key={i}>
+            <span className="sk sk-box" />
+            <span className="sk sk-line" style={{ width: `${72 - i * 7}%` }} />
+            <span className="sk sk-chip" />
+            <span className="sk sk-chip" />
+            <span className="sk sk-when" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

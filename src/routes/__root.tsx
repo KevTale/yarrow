@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionFromLink } from "@/components/session-from-link";
 import { LiveProvider } from "@/components/live";
+import { NavProgress, PendingLinks } from "@/components/navigation-feedback";
 import {
   getGuestFn,
   getLiveConfigFn,
@@ -28,6 +29,9 @@ export const Route = createRootRoute({
     // Not signed in, but paid from this browser: recognized as a guest.
     return { viewer: viewer ?? (await getGuestFn()), live };
   },
+  // Who is signed in only changes through a full page load or an
+  // invalidate (email link), so navigations reuse it.
+  staleTime: Infinity,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -67,6 +71,8 @@ function RootComponent() {
       </LiveProvider>
       <SiteFooter />
       <SessionFromLink />
+      <NavProgress />
+      <PendingLinks />
     </>
   );
 }

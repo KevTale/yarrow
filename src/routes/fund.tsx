@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, Check, LockKeyhole } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money, packs } from "@/core/packs";
 import { estimateBreakdown } from "@/core/pricing";
+import { Spinner } from "@/components/navigation-feedback";
 import { PageHeading } from "@/components/ui";
 import {
   getFundContextFn,
@@ -43,6 +44,12 @@ function FundPage() {
   const [euConsumer, setEuConsumer] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
+  // Back from Stripe: the browser may restore the page as it was left.
+  useEffect(() => {
+    const reset = () => setPending(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
   const [error, setError] = useState("");
 
   const cents = Math.round(dollars * 100);
@@ -305,7 +312,7 @@ function FundPage() {
                   disabled={pending || !valid}
                 >
                   {pending ? "Opening Stripe…" : `Continue to payment`}
-                  <ArrowRight size={16} />
+                  {pending ? <Spinner /> : <ArrowRight size={16} />}
                 </button>
               )}
               <p className="field-note row">

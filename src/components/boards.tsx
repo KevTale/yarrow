@@ -5,6 +5,7 @@ import type { TicketModel } from "@/core/tickets";
 import { ModelsCell } from "./dashboard/models";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { useFlip } from "./live";
+import { Spinner } from "./navigation-feedback";
 import { timeAgo } from "./ui";
 
 /** Time left before the Today boards reset (midnight UTC). Client-only. */
@@ -134,6 +135,13 @@ export function SponsorBoards({
 }) {
   const [dollars, setDollars] = useState("10");
   const [typed, setTyped] = useState(false);
+  const [going, setGoing] = useState(false);
+  // Back from the next page: the browser may restore this one as it was.
+  useEffect(() => {
+    const reset = () => setGoing(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
   const cents = Math.round(Number(dollars.replace(/[^0-9]/g, "")) * 100);
   const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
   const showYou = typed && valid;
@@ -294,7 +302,9 @@ export function SponsorBoards({
           className="claim"
           onSubmit={(event) => {
             event.preventDefault();
-            if (valid) window.location.href = `/fund?amount=${cents / 100}`;
+            if (!valid) return;
+            setGoing(true);
+            window.location.href = `/fund?amount=${cents / 100}`;
           }}
         >
           <p>
@@ -325,7 +335,7 @@ export function SponsorBoards({
                 ? "Up to $1,000"
                 : "Claim"}
             <i>
-              <ArrowRight size={14} strokeWidth={2.2} />
+              {going ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.2} />}
             </i>
           </button>
         </form>

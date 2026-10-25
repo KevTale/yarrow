@@ -4371,3 +4371,171 @@ a.sd-row:hover .sd-go {
   font-style: italic;
   color: var(--secondary);
 }
+
+/* ---------- Loading states ---------- */
+/* The router loading the next page: a thin amber bar at the very top. */
+.nav-progress {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 200;
+  height: 2px;
+  width: 0;
+  background: var(--amber);
+  box-shadow: 0 0 10px #f2b54499;
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-progress.on {
+  opacity: 1;
+  animation: nav-progress 6s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+.nav-progress.done {
+  width: 100%;
+  opacity: 0;
+  transition:
+    width 0.2s ease-out,
+    opacity 0.3s 0.15s;
+}
+@keyframes nav-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 88%;
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: 0.85;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A clicked link that loads a whole page (GitHub, Stripe, sign-in). */
+a[data-loading] {
+  pointer-events: none;
+  cursor: progress;
+}
+a[data-loading]:not(.go)::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  vertical-align: -1px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+.go[data-loading] i svg {
+  display: none;
+}
+.go[data-loading] i::after {
+  content: "";
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+.go[data-loading]:hover i {
+  transform: none;
+}
+
+/* The next project's tickets loading in the builder. */
+.sk {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--elevated) 0%,
+    var(--hover) 40%,
+    var(--elevated) 80%
+  );
+  background-size: 250% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+.bd-skeleton .bd-head h2 {
+  color: var(--secondary);
+}
+.sk-text {
+  width: 160px;
+}
+.sk-filters {
+  width: 260px;
+  height: 34px;
+  border-radius: 9px;
+}
+.sk-search {
+  width: 220px;
+  height: 34px;
+  border-radius: 9px;
+}
+.sk-row {
+  pointer-events: none;
+}
+.sk-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+.sk-chip {
+  width: 96px;
+  height: 22px;
+  border-radius: 999px;
+}
+.sk-when {
+  width: 48px;
+  justify-self: end;
+}
+.sk-row:nth-child(2) .sk {
+  animation-delay: 0.08s;
+}
+.sk-row:nth-child(3) .sk {
+  animation-delay: 0.16s;
+}
+.sk-row:nth-child(4) .sk {
+  animation-delay: 0.24s;
+}
+.sk-row:nth-child(5) .sk {
+  animation-delay: 0.32s;
+}
+.sk-row:nth-child(6) .sk {
+  animation-delay: 0.4s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress.on {
+    animation: none;
+    width: 60%;
+  }
+  .spinner,
+  a[data-loading]::after,
+  .go[data-loading] i::after {
+    animation-duration: 1.6s;
+  }
+  .sk {
+    animation: none;
+  }
+}
