@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RunSponsor } from "@/core/attribution";
+import type { TicketModel } from "@/core/tickets";
+import { ModelsCell } from "./dashboard/models";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { timeAgo } from "./ui";
 
@@ -50,6 +52,7 @@ type MergedRow = {
   url: string;
   mergedAt: Date | string | null;
   sponsors: RunSponsor[];
+  models: TicketModel[];
 };
 type ProjectRow = {
   id: string;
@@ -372,6 +375,7 @@ export function ShippedBoards({
                     <span>
                       {pr.repository} #{pr.number}
                     </span>
+                    <ModelsCell models={pr.models} inline />
                     {pr.sponsors.length > 0 && (
                       <span>
                         sponsored by{" "}

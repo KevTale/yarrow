@@ -3703,11 +3703,9 @@ button.md-name {
   margin-left: 5px;
 }
 .md-pop {
-  display: none;
-  position: absolute;
-  left: 0;
-  top: calc(100% + 6px);
-  z-index: 15;
+  display: grid;
+  position: fixed;
+  z-index: 90;
   min-width: 230px;
   padding: 12px 14px;
   background: var(--elevated);
@@ -3720,11 +3718,6 @@ button.md-name {
     monospace;
   color: var(--text);
   white-space: nowrap;
-}
-.md-model:hover .md-pop,
-.md-model.open .md-pop,
-.md-model:focus-within .md-pop {
-  display: grid;
 }
 .md-pop b {
   font:
@@ -4099,4 +4092,13 @@ a.sd-row:hover .sd-go {
 /* Header links jump to these landing sections, below the sticky header. */
 .board-section {
   scroll-margin-top: 80px;
+}
+.md-models.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+/* Above the row's stretched link, so hovering a model shows its numbers. */
+.board-row .md-model {
+  z-index: 3;
 }

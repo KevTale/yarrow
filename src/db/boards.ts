@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import type { Database } from "./client";
+import { runModelsView } from "../core/tickets";
 import { runSponsors } from "./queries";
 import {
   agentRuns,
@@ -9,6 +10,7 @@ import {
   pullRequests,
   results,
   runFundings,
+  runModels,
   sponsorProfiles,
   workUnits,
 } from "./schema";
@@ -173,7 +175,11 @@ export async function mergedToday(db: Database, now = new Date(), limit = 50) {
   return Promise.all(
     rows.map(async ({ workUnitId, ...row }) => {
       const [run] = await db
-        .select({ id: agentRuns.id })
+        .select({
+          id: agentRuns.id,
+          implementer: agentRuns.implementer,
+          reviewer: agentRuns.reviewer,
+        })
         .from(agentRuns)
         .innerJoin(results, eq(results.agentRunId, agentRuns.id))
         .where(
@@ -187,6 +193,16 @@ export async function mergedToday(db: Database, now = new Date(), limit = 50) {
       return {
         ...row,
         sponsors: run ? await runSponsors(db, run.id) : [],
+        models: run
+          ? runModelsView(
+              await db
+                .select()
+                .from(runModels)
+                .where(eq(runModels.agentRunId, run.id)),
+              run,
+              "merged",
+            )
+          : [],
       };
     }),
   );

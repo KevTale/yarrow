@@ -1,12 +1,11 @@
 import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import {
   phaseStatus,
-  plannedModel,
+  runModelsView,
   type TicketModel,
   type TicketRow,
   type TicketStatus,
 } from "../core/tickets";
-import { modelDisplayName } from "../core/pipeline";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import { MAX_GITHUB_TASK_ATTEMPTS } from "./github-tasks";
@@ -119,42 +118,13 @@ export async function projectTickets(
     if (settled && pending === "label_issue") status = "queued";
     if (settled && pending === "unlabel_issue") status = "none";
 
-    const stats = models.filter((model) => model.agentRunId === run?.id);
-    const running = unit.status === "running";
-    const ticketModels: TicketModel[] = !run
-      ? []
-      : stats.length > 0
-        ? stats
-            .sort((a, b) => a.role.localeCompare(b.role))
-            .map((model) => ({
-              role: model.role,
-              name: modelDisplayName(model.model),
-              effort: model.effort,
-              active: false,
-              seconds: model.seconds,
-              secondsExact: model.secondsExact,
-              inputTokens: model.inputTokens,
-              cachedInputTokens: model.cachedInputTokens,
-              outputTokens: model.outputTokens,
-              costCents: model.costCents,
-              costExact: model.costExact,
-            }))
-        : [
-            plannedModel(
-              "implementer",
-              run.implementer,
-              running && status === "writing",
-            ),
-            ...(running && status === "writing"
-              ? []
-              : [
-                  plannedModel(
-                    "reviewer",
-                    run.reviewer,
-                    running && status === "reviewing",
-                  ),
-                ]),
-          ];
+    const ticketModels: TicketModel[] = run
+      ? runModelsView(
+          models.filter((model) => model.agentRunId === run.id),
+          run,
+          status,
+        )
+      : [];
     return {
       number,
       title: unit.title,

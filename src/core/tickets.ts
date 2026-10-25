@@ -117,6 +117,55 @@ export function plannedModel(
   };
 }
 
+/** What the brain recorded for one model (a run_models row). */
+export interface RecordedModel {
+  role: "implementer" | "reviewer";
+  model: string;
+  effort: string | null;
+  seconds: number | null;
+  secondsExact: boolean;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  costCents: number;
+  costExact: boolean;
+}
+
+/**
+ * The models of a run: what was recorded once it settled, otherwise the
+ * configured ones, the one at work highlighted (the reviewer only once the
+ * implementer is done).
+ */
+export function runModelsView(
+  recorded: RecordedModel[],
+  planned: { implementer: string; reviewer: string },
+  status: TicketStatus,
+): TicketModel[] {
+  if (recorded.length > 0)
+    return [...recorded]
+      .sort((a, b) => a.role.localeCompare(b.role))
+      .map((model) => ({
+        role: model.role,
+        name: modelDisplayName(model.model),
+        effort: model.effort,
+        active: false,
+        seconds: model.seconds,
+        secondsExact: model.secondsExact,
+        inputTokens: model.inputTokens,
+        cachedInputTokens: model.cachedInputTokens,
+        outputTokens: model.outputTokens,
+        costCents: model.costCents,
+        costExact: model.costExact,
+      }));
+  const writing = status === "writing";
+  return [
+    plannedModel("implementer", planned.implementer, writing),
+    ...(writing
+      ? []
+      : [plannedModel("reviewer", planned.reviewer, status === "reviewing")]),
+  ];
+}
+
 /** Run phases, as the brain sets them, to what the table shows. */
 export function phaseStatus(
   phase: string | null,

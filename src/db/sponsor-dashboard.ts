@@ -1,8 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { modelDisplayName } from "../core/pipeline";
 import {
   phaseStatus,
-  plannedModel,
+  runModelsView,
   type TicketModel,
   type TicketStatus,
 } from "../core/tickets";
@@ -155,36 +154,11 @@ export async function sponsorShipped(
             : pull?.state === "closed"
               ? "pr_closed"
               : "pull_request";
-    const own = stats
-      .filter((model) => model.agentRunId === run.runId)
-      .sort((a, b) => a.role.localeCompare(b.role));
-    const models: TicketModel[] =
-      own.length > 0
-        ? own.map((model) => ({
-            role: model.role,
-            name: modelDisplayName(model.model),
-            effort: model.effort,
-            active: false,
-            seconds: model.seconds,
-            secondsExact: model.secondsExact,
-            inputTokens: model.inputTokens,
-            cachedInputTokens: model.cachedInputTokens,
-            outputTokens: model.outputTokens,
-            costCents: model.costCents,
-            costExact: model.costExact,
-          }))
-        : [
-            plannedModel("implementer", run.implementer, status === "writing"),
-            ...(status === "writing"
-              ? []
-              : [
-                  plannedModel(
-                    "reviewer",
-                    run.reviewer,
-                    status === "reviewing",
-                  ),
-                ]),
-          ];
+    const models = runModelsView(
+      stats.filter((model) => model.agentRunId === run.runId),
+      run,
+      status,
+    );
     const open = run.visibility === "public";
     return {
       runId: run.runId,
