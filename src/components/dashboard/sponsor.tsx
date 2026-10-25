@@ -213,7 +213,7 @@ function Board({
               {size === "large" && (
                 <span className="board-meta">
                   {row.websiteUrl && <span>{domain(row.websiteUrl)}</span>}
-                  <span>{plural(row.clicks, "click")}</span>
+                  {row.name && <span>{plural(row.clicks, "click")}</span>}
                   <span>{plural(row.pullRequests, "PR")} funded</span>
                   {row.you && (
                     <button type="button" className="sd-edit" onClick={onEdit}>

@@ -230,7 +230,7 @@ export function SponsorBoards({
                         {domain(row.websiteUrl)}
                       </a>
                     )}
-                    <span>{plural(row.clicks, "click")}</span>
+                    {row.name && <span>{plural(row.clicks, "click")}</span>}
                     <span>{plural(row.pullRequests, "PR")} funded</span>
                   </span>
                 </span>
