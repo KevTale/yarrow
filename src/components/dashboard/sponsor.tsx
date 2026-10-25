@@ -78,7 +78,7 @@ export function SponsorView({
   const shippedList = useFlip<HTMLDivElement>(shipped);
   return (
     <div className="sd">
-      {standings.anonymous && (
+      {standings.anonymous && data.isSponsor && (
         <p className="sd-anonymous">
           You sponsor anonymously.{" "}
           <button type="button" className="bd-retry" onClick={onSettings}>

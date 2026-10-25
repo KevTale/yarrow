@@ -3,17 +3,20 @@ import { ensureAccount } from "@/db/accounts";
 import { claimGuestSponsorships } from "@/db/sponsors";
 import { databaseConfigured, withDb } from "./db.server";
 import { cookieGuestId } from "./guest.server";
+import { emailConfigured, sendSignInEmail } from "./email.server";
 import { appEnv } from "./env.server";
 
 /**
- * Emails a one-time sign-in link through Supabase Auth. The "Magic Link"
- * email template must point to {{ .SiteURL }}/auth/confirm with the token
- * hash, so the link works on any device (no PKCE verifier needed).
+ * Emails a one-time sign-in link. With Resend configured, Yarrow sends its
+ * own email (one link for new and known addresses); otherwise Supabase's
+ * template does, pointing at /auth/confirm (or the URL fragment, which
+ * SessionFromLink picks up).
  */
 export async function sendSignInLink(
   email: string,
   next = "/dashboard",
 ): Promise<void> {
+  if (emailConfigured()) return sendSignInEmail(email, next);
   const env = appEnv();
   const client = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },

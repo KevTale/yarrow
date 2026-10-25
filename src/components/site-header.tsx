@@ -24,6 +24,7 @@ type HeaderViewer = {
   name: string | null;
   githubLogin: string | null;
   avatarUrl: string | null;
+  email?: string | null;
   /** Paid from this browser without an account. */
   guest?: boolean;
 } | null;
@@ -39,7 +40,8 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
-  const label = viewer?.githubLogin ?? viewer?.name ?? "Account";
+  const label =
+    viewer?.githubLogin ?? viewer?.name ?? viewer?.email ?? "Account";
   return (
     <header className="site-header">
       <div className="container header-inner">

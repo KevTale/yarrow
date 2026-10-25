@@ -22,6 +22,7 @@ export interface Viewer {
   githubLogin: string | null;
   name: string | null;
   avatarUrl: string | null;
+  email: string | null;
 }
 
 /** The signed-in user, verified against Supabase Auth, or null. */
@@ -34,6 +35,7 @@ export async function getViewer(): Promise<Viewer | null> {
     githubLogin: meta.user_name ?? meta.preferred_username ?? null,
     name: meta.full_name ?? meta.name ?? null,
     avatarUrl: meta.avatar_url ?? null,
+    email: data.user.email ?? null,
   };
 }
 

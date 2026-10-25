@@ -273,6 +273,24 @@ writeFileSync(
   join(SITE_DIR, "icon-maskable-512.png"),
   await png(maskableSvg, 512),
 );
+// Email clients do not show SVG: the logo for Yarrow's emails, at 2x for a 28 px height.
+async function wide(source: string, height: number): Promise<Buffer> {
+  const [, , w, h] = source.match(/viewBox="([^"]+)"/)![1]!.split(/\s+/).map(Number);
+  const width = Math.round((height * w!) / h!);
+  await page.setViewportSize({ width, height });
+  const sized = source.replace(
+    "<svg ",
+    `<svg width="${width}" height="${height}" style="display:block" `,
+  );
+  await page.setContent(
+    `<body style="margin:0;background:transparent">${sized}</body>`,
+  );
+  return page.screenshot({ omitBackground: true });
+}
+writeFileSync(
+  join(OUT_DIR, "yarrow-logo-on-dark.png"),
+  await wide(files["yarrow-logo-on-dark.svg"]!, 56),
+);
 await browser.close();
 
 console.log(`Wrote ${OUT_DIR}/ and the site icons in ${SITE_DIR}/`);

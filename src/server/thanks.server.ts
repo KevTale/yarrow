@@ -59,6 +59,7 @@ export async function thankSponsor(
     link: guest
       ? await signInLink(email, DASHBOARD)
       : `${appEnv().APP_URL}${DASHBOARD}`,
+    signsIn: guest,
   });
   await recordEvent(db, {
     type: "sponsor.thanked",

@@ -1,5 +1,8 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Github } from "lucide-react";
+import {
+  createFileRoute,
+  getRouteApi,
+  useRouter,
+} from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
@@ -15,6 +18,7 @@ import { settleConnectFn } from "@/functions/connect.functions";
 import { getSponsorDashboardFn } from "@/functions/sponsor.functions";
 
 type Tab = "builder" | "sponsor";
+const rootRoute = getRouteApi("__root__");
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: z.object({
@@ -42,6 +46,7 @@ const CONNECT_POLLS = 20;
 
 function DashboardPage() {
   const { connect, builder, sponsor } = Route.useLoaderData();
+  const { viewer } = rootRoute.useLoaderData();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const router = useRouter();
@@ -72,30 +77,20 @@ function DashboardPage() {
     builder.status === "ok" &&
     (builder.projects.length > 0 || waiting !== null);
   const isSponsor = sponsor.isSponsor;
+  // A new account sees both roles; without GitHub it is most likely a sponsor.
+  const fresh = !isBuilder && !isSponsor;
   const tab: Tab =
     search.tab ??
     (search.checkout
       ? "sponsor"
-      : isBuilder || !isSponsor
+      : isBuilder
         ? "builder"
-        : "sponsor");
-  const both = isBuilder && isSponsor;
+        : isSponsor || !viewer?.githubLogin
+          ? "sponsor"
+          : "builder");
+  const both = (isBuilder && isSponsor) || (fresh && builder.status === "ok");
   const choose = (next: Tab) =>
     navigate({ search: (current) => ({ ...current, tab: next }) });
-
-  if (!isBuilder && !isSponsor)
-    return (
-      <main id="main" className="container dashboard">
-        <div className="dashboard-start">
-          <a className="go" href="/connect/github">
-            <Github size={16} /> Connect GitHub
-          </a>
-          <a className="button button-secondary" href="/fund">
-            Sponsor
-          </a>
-        </div>
-      </main>
-    );
 
   return (
     <main id="main" className="container dashboard">

@@ -3158,14 +3158,6 @@ button.dashboard-role:hover {
 .dashboard-roles .dashboard-actions {
   margin-left: auto;
 }
-.dashboard-start {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding-block: 80px;
-}
 
 /* ---------- Dashboard: builder ---------- */
 .bd {
