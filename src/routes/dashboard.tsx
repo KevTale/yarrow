@@ -3,7 +3,11 @@ import { Github } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
-import { SponsorView } from "@/components/dashboard/sponsor";
+import {
+  SponsorActions,
+  SponsorSettings,
+  SponsorView,
+} from "@/components/dashboard/sponsor";
 import { NotConfigured, SignInPrompt } from "@/components/ui";
 import { getBuilderFn } from "@/functions/builder.functions";
 import { settleConnectFn } from "@/functions/connect.functions";
@@ -41,6 +45,7 @@ function DashboardPage() {
   const navigate = Route.useNavigate();
   const router = useRouter();
   const [polls, setPolls] = useState(0);
+  const [settings, setSettings] = useState(false);
   const waiting = polls < CONNECT_POLLS ? connect.waiting : null;
 
   useEffect(() => {
@@ -69,7 +74,7 @@ function DashboardPage() {
     );
 
   const isBuilder = builder.projects.length > 0 || waiting !== null;
-  const isSponsor = sponsor.dashboard.contributions.length > 0;
+  const isSponsor = sponsor.isSponsor;
   const tab: Tab =
     search.tab ??
     (search.checkout
@@ -118,6 +123,9 @@ function DashboardPage() {
               </h1>
             ),
           )}
+        {tab === "sponsor" && (
+          <SponsorActions data={sponsor} onSettings={() => setSettings(true)} />
+        )}
       </div>
       {search.checkout === "success" && tab === "sponsor" && (
         <p className="feedback" role="status">
@@ -131,7 +139,14 @@ function DashboardPage() {
           waiting={waiting}
         />
       ) : (
-        <SponsorView data={sponsor} />
+        <SponsorView data={sponsor} onSettings={() => setSettings(true)} />
+      )}
+      {tab === "sponsor" && (
+        <SponsorSettings
+          data={sponsor}
+          open={settings}
+          onClose={() => setSettings(false)}
+        />
       )}
     </main>
   );

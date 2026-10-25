@@ -32,7 +32,6 @@ import { Route as OutSponsorIdRouteImport } from './routes/out/$sponsorId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
-import { Route as SponsorFiltersRouteImport } from './routes/sponsor/filters'
 import { Route as ApiWebhooksGithubRouteImport } from './routes/api/webhooks/github'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integrations/$tracker.callback'
@@ -154,11 +153,6 @@ const RunsRunIdRoute = RunsRunIdRouteImport.update({
   path: '/runs/$runId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SponsorFiltersRoute = SponsorFiltersRouteImport.update({
-  id: '/sponsor/filters',
-  path: '/sponsor/filters',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiWebhooksGithubRoute = ApiWebhooksGithubRouteImport.update({
   id: '/api/webhooks/github',
   path: '/api/webhooks/github',
@@ -206,7 +200,6 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
-  '/sponsor/filters': typeof SponsorFiltersRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -236,7 +229,6 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
-  '/sponsor/filters': typeof SponsorFiltersRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -267,7 +259,6 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
-  '/sponsor/filters': typeof SponsorFiltersRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -299,7 +290,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
-    | '/sponsor/filters'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -329,7 +319,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
-    | '/sponsor/filters'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -359,7 +348,6 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
-    | '/sponsor/filters'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -390,7 +378,6 @@ export interface RootRouteChildren {
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
-  SponsorFiltersRoute: typeof SponsorFiltersRoute
   ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
@@ -560,13 +547,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RunsRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sponsor/filters': {
-      id: '/sponsor/filters'
-      path: '/sponsor/filters'
-      fullPath: '/sponsor/filters'
-      preLoaderRoute: typeof SponsorFiltersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/webhooks/github': {
       id: '/api/webhooks/github'
       path: '/api/webhooks/github'
@@ -622,7 +602,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   RunsRunIdRoute: RunsRunIdRoute,
-  SponsorFiltersRoute: SponsorFiltersRoute,
   ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,

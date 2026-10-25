@@ -1,6 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { checkoutSchema, sponsorFiltersSchema } from "@/core/forms";
+import { z } from "zod";
+import { checkoutSchema, sponsorProfileSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
+import {
+  sponsorSettings,
+  sponsorShipped,
+  sponsorStandings,
+} from "@/db/sponsor-dashboard";
 import {
   getSponsorFilters,
   getSponsorProfile,
@@ -21,33 +27,53 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
     const viewer = await getViewer().catch(() => null);
     if (!viewer) return { status: "signed_out" as const };
     if (!databaseConfigured()) return { status: "not_configured" as const };
-    return withDb(async (db) => ({
-      status: "ok" as const,
-      viewer,
-      dashboard: await sponsorDashboard(db, viewer.userId),
-      filters: await getSponsorFilters(db, viewer.userId),
-    }));
+    return withDb(async (db) => {
+      const { totals, contributions } = await sponsorDashboard(
+        db,
+        viewer.userId,
+      );
+      const filters = await getSponsorFilters(db, viewer.userId);
+      return {
+        status: "ok" as const,
+        isSponsor: contributions.length > 0,
+        leftCents:
+          totals.creditCents - totals.consumedCents - totals.reservedCents,
+        standings: await sponsorStandings(db, viewer.userId),
+        shipped: await sponsorShipped(db, viewer.userId),
+        settings: await sponsorSettings(db, viewer.userId),
+        funding: {
+          mode: filters.mode,
+          selectedProjectIds:
+            filters.mode === "only" ? filters.selectedProjectIds : [],
+        },
+        projects: (await selectableProjects(db)).projects,
+      };
+    });
   },
 );
 
-export const getFiltersFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const viewer = await getViewer().catch(() => null);
-    if (!viewer) return { status: "signed_out" as const };
-    if (!databaseConfigured()) return { status: "not_configured" as const };
-    return withDb(async (db) => ({
-      status: "ok" as const,
-      filters: await getSponsorFilters(db, viewer.userId),
-      ...(await selectableProjects(db)),
-    }));
-  },
-);
-
-export const saveFiltersFn = createServerFn({ method: "POST" })
-  .validator(sponsorFiltersSchema)
+/** Settings drawer: the leaderboard profile and where the money goes. */
+export const saveSponsorSettingsFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      profile: sponsorProfileSchema,
+      mode: z.enum(["all_except", "only"]),
+      selectedProjectIds: z.array(z.uuid()).max(500),
+    }),
+  )
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
-    await withDb((db) => saveSponsorFilters(db, viewer.userId, data));
+    await withDb(async (db) => {
+      await saveSponsorProfile(db, viewer.userId, data.profile);
+      const filters = await getSponsorFilters(db, viewer.userId);
+      await saveSponsorFilters(db, viewer.userId, {
+        ...filters,
+        publicName: data.profile.publicName,
+        mode: data.mode,
+        // In all_except mode, selections mean "excluded": none from here.
+        selectedProjectIds: data.mode === "only" ? data.selectedProjectIds : [],
+      });
+    });
     return { saved: true };
   });
 

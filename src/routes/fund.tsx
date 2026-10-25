@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, Check, LockKeyhole } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -220,16 +220,6 @@ function FundPage() {
                 </span>
               </label>
             </div>
-            {context.signedIn && (
-              <p className="field-note">
-                Where your money goes (categories, stacks, specific projects) is
-                set in{" "}
-                <Link to="/sponsor/filters" className="text-link">
-                  your sponsor filters
-                </Link>
-                . By default it funds every visible project, in fair rotation.
-              </p>
-            )}
           </fieldset>
 
           <fieldset className="form-section">

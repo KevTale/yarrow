@@ -117,6 +117,14 @@ The leaderboard is the game layer on top.
 
   Before launch, ask for **pledges** that convert to payment at launch rather than upfront payment. Announce each founding sponsor publicly as social proof for the next one.
 
+## Dashboard
+
+Decided 2026-10-07 (mockup: claude.ai/artifact/GnHLGnxDoGuDdikpUk3T8i). One page, two tabs, **Builder** and **Sponsor**, shown only when the account has both roles. The avatar menu is Dashboard and Sign out.
+
+- **Builder:** one table per project (a project rail appears from two projects; a select on phones). Rows are the repo's open GitHub issues, read live and never stored, plus the tickets Yarrow works on. Filters with counts (All, In Yarrow, Not queued) and search. Queue and Remove from queue, row by row or in batch, add or remove the label through the brain; Retry requeues an abstained ticket. Statuses: Queue, Queued, Writing, Reviewing, Pull request #n, Merged, Abstained. A pasted ticket lands here highlighted.
+- **Models** column (dashboard and landing): who wrote and who reviewed, with the reasoning level; hover or tap shows time, tokens and cost. Claude's numbers come from Anthropic (exact); the reviewer's tokens come from OpenAI, its cost is tokens × list price and its time is measured by Yarrow, both marked ≈.
+- **Sponsor:** where you stand first (Today, with the time left before the reset, and All time, each showing the sponsor ahead and behind), then the Claim control priced for the next rank, then "Shipped with your money" (public tickets link their PR, others stay private). Credit left, Add funds and Settings sit beside the tabs. Settings is a drawer: leaderboard profile, Every project or Only the projects I choose (a searchable list opens under the option), payments.
+
 ## Money
 
 - **Sponsor packs:** $10 / $25 / $100, plus a **custom amount** in whole dollars between $10 and $1,000. The minimum avoids fixed Stripe fees eating small payments. The maximum limits fraud and chargeback exposure in v1.

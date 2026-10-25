@@ -72,7 +72,7 @@ function tileColor(name: string): string {
   return tiles[hash % tiles.length]!;
 }
 
-function Logo({
+export function Logo({
   name,
   url,
   size,
@@ -96,7 +96,7 @@ function Logo({
   );
 }
 
-function domain(url: string): string {
+export function domain(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
@@ -104,7 +104,7 @@ function domain(url: string): string {
   }
 }
 
-const plural = (n: number, word: string) =>
+export const plural = (n: number, word: string) =>
   `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
 /** The sponsor boards, side by side, with one control to claim a place on both. */
