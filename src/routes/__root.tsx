@@ -11,6 +11,7 @@ import jost from "@fontsource/jost/500.css?url";
 import appCss from "@/styles.css?url";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SessionFromLink } from "@/components/session-from-link";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createRootRoute({
@@ -51,6 +52,7 @@ function RootComponent() {
       <SiteHeader viewer={viewer} />
       <Outlet />
       <SiteFooter />
+      <SessionFromLink />
     </>
   );
 }
