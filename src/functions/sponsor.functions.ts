@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { checkoutSchema, sponsorProfileSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
+import { sponsorBoard } from "@/db/boards";
 import {
   sponsorSettings,
   sponsorShipped,
@@ -94,14 +95,22 @@ export const saveSponsorSettingsFn = createServerFn({ method: "POST" })
 export const getFundContextFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const viewer = await getViewer().catch(() => null);
-    const profile =
-      viewer && databaseConfigured()
-        ? await withDb((db) => getSponsorProfile(db, viewer.userId))
-        : null;
+    const [profile, today] = databaseConfigured()
+      ? await withDb((db) =>
+          Promise.all([
+            viewer ? getSponsorProfile(db, viewer.userId) : null,
+            // Today's amounts, for the rank shown on the sponsor's card.
+            sponsorBoard(db, "today").then((rows) =>
+              rows.map((row) => row.paidCents),
+            ),
+          ]),
+        )
+      : [null, [] as number[]];
     return {
       signedIn: Boolean(viewer),
       githubLogin: viewer?.githubLogin ?? null,
       profile,
+      today,
       paymentsReady: paymentsConfigured() && databaseConfigured(),
     };
   },

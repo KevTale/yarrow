@@ -4563,3 +4563,117 @@ a[data-loading]:not(.go)::after {
     animation: none;
   }
 }
+
+/* ---------- Fund: the form is the sponsor's card ---------- */
+.fund-switch {
+  display: inline-flex;
+  padding: 3px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.fund-switch label {
+  position: relative;
+  cursor: pointer;
+}
+.fund-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.fund-switch span {
+  display: block;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  color: var(--muted);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.fund-switch input:checked + span {
+  background: var(--elevated);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.fund-switch input:focus-visible + span {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.fund-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.fund-card .board-head {
+  padding-inline: 16px;
+}
+.fund-row {
+  border-bottom: 0;
+  background: linear-gradient(90deg, #e6ae3812, #e6ae3800 70%);
+}
+.fund-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  white-space: normal;
+}
+.fund-sep {
+  color: var(--muted);
+}
+/* Inputs that read like the text the boards will print. */
+.fund-input {
+  min-width: 0;
+  max-width: 100%;
+  field-sizing: content;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed #3a3e45;
+  border-radius: 0;
+  padding: 1px 0;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.fund-input::placeholder {
+  color: #5d636d;
+}
+.fund-input:hover {
+  border-bottom-color: #5d636d;
+}
+.fund-input:focus {
+  border-bottom: 1px solid var(--amber);
+}
+.fund-name {
+  font-weight: 600;
+  min-width: 8ch;
+}
+.fund-tagline {
+  color: var(--secondary);
+  min-width: 6ch;
+}
+.fund-description {
+  display: block;
+  width: 100%;
+  resize: none;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  min-height: 2lh;
+}
+.fund-site {
+  color: var(--secondary);
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  min-width: 14ch;
+}
+.summary-vat {
+  font-size: 11px;
+  color: var(--muted);
+  margin: -4px 0 14px;
+}

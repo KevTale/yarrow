@@ -135,7 +135,7 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
 - **Platform margin:** 10% of sponsor money excluding VAT _(hypothesis)_. It is the only revenue at launch.
 - **Compute credit** = amount paid excluding VAT − actual Stripe fee − platform margin.
   - The Stripe fee comes from the Stripe balance transaction in the webhook, never from an estimate.
-  - Checkout shows an estimated breakdown before payment. Examples for $100:
+  - The fund page shows the business estimate (fees, margin, compute credit) with "VAT included where it applies"; no consumer toggle (decided 2026-10-07). Examples for $100:
     - a business (no VAT), US card: about $3.20 Stripe and $10.00 margin, so about **$86.80 compute**;
     - a French consumer, VAT-inclusive: $83.33 excluding VAT, about $3.20 Stripe and $8.33 margin, so about **$71.80 compute**.
 - **VAT** is handled with Stripe Tax:
@@ -281,7 +281,7 @@ The operating entity is the founder's existing EURL, TOTEM (RCS Nanterre 881 263
 
 **v1**
 - Landing.
-- Sponsor checkout (packs + custom amount).
+- Sponsor checkout (packs + custom amount). The profile form is the sponsor's own board row, edited in place, with the rank today for the amount chosen (decided 2026-10-07).
 - Sponsor dashboard with filters, including the hidden opt-in.
 - Leaderboard and projects showcase.
 - Add project: the GitHub App, plus **all four trackers** (GitHub Issues, Linear, Jira, Trello) behind one `TrackerAdapter` interface. The interface lists tagged tickets, reads a ticket, comments, and receives webhooks or polls.

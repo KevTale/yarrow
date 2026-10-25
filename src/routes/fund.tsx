@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Check, LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money, packs } from "@/core/packs";
 import { estimateBreakdown } from "@/core/pricing";
+import { Logo, SponsorName } from "@/components/boards";
 import { Spinner } from "@/components/navigation-feedback";
 import { PageHeading } from "@/components/ui";
 import {
@@ -41,7 +42,6 @@ function FundPage() {
   const [tagline, setTagline] = useState(saved?.tagline ?? "");
   const [description, setDescription] = useState(saved?.description ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(saved?.websiteUrl ?? "");
-  const [euConsumer, setEuConsumer] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
   // Back from Stripe: the browser may restore the page as it was left.
@@ -59,20 +59,23 @@ function FundPage() {
     cents <= MAX_AMOUNT_CENTS;
   const estimate = valid
     ? estimateBreakdown(cents, {
-        vatRateBps: euConsumer ? 2000 : 0,
+        vatRateBps: 0,
         founding: saved?.foundingSponsor ?? false,
       })
     : null;
+  const rank = context.today.filter((paid) => paid >= cents).length + 1;
+  const name = publicName.trim();
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     if (!valid)
       return setError("Choose a whole-dollar amount from $10 to $1,000.");
-    if (!anonymous && publicName.trim().length < 2)
+    if (!anonymous && name.length < 2)
       return setError("Choose a public name, or stay anonymous.");
-    const site = websiteUrl.trim();
-    if (!anonymous && site && !site.startsWith("https://"))
-      return setError("Use a website address starting with https://");
+    const site = websiteAddress(websiteUrl);
+    if (!anonymous && site === null)
+      return setError("That website address does not look right.");
     if (!waiver)
       return setError("Please confirm that compute starts immediately.");
     setPending(true);
@@ -89,10 +92,10 @@ function FundPage() {
                 websiteUrl: null,
               }
             : {
-                publicName: publicName.trim(),
+                publicName: name,
                 tagline,
                 description,
-                websiteUrl: site,
+                websiteUrl: site ?? "",
               },
         },
       });
@@ -108,7 +111,7 @@ function FundPage() {
       <PageHeading
         eyebrow="FUND AI WORK"
         title="Sponsor the builders."
-        description="Your money becomes API compute. Claude implements, OpenAI reviews, and your name is on every PR it funds."
+        description="Your money pays for frontier AI on builders' tickets. Your name ships with every pull request it funds."
       />
       {search.checkout === "cancelled" && (
         <p className="feedback" role="status">
@@ -153,95 +156,110 @@ function FundPage() {
 
           <fieldset className="form-section">
             <legend className="eyebrow">02 / Your place on the board</legend>
-            <div className="choice-list">
-              <label className="choice-row">
+            <div className="fund-switch" role="radiogroup" aria-label="Name">
+              <label>
                 <input
                   type="radio"
                   name="visibility"
                   checked={!anonymous}
                   onChange={() => setAnonymous(false)}
                 />
-                <span>
-                  <strong>Show my name</strong>
-                  <small>On the leaderboard and on every PR you fund.</small>
-                </span>
+                <span>Show my name</span>
               </label>
-              {!anonymous && (
-                <div className="sponsor-profile-fields">
-                  <label className="field">
-                    Public name
-                    <input
-                      value={publicName}
-                      maxLength={60}
-                      onChange={(event) => setPublicName(event.target.value)}
-                      placeholder="Your name or your company"
-                    />
-                  </label>
-                  <label className="field">
-                    <span>
-                      Tagline <span className="muted">· optional</span>
-                    </span>
-                    <input
-                      value={tagline}
-                      maxLength={80}
-                      onChange={(event) => setTagline(event.target.value)}
-                      placeholder="Payments for indie hackers"
-                    />
-                  </label>
-                  <label className="field">
-                    <span>
-                      Website <span className="muted">· optional</span>
-                    </span>
-                    <input
-                      type="url"
-                      value={websiteUrl}
-                      maxLength={300}
-                      onChange={(event) => setWebsiteUrl(event.target.value)}
-                      placeholder="https://"
-                    />
-                  </label>
-                  <label className="field">
-                    <span>
-                      Description <span className="muted">· optional</span>
-                    </span>
-                    <textarea
-                      value={description}
-                      maxLength={280}
-                      onChange={(event) => setDescription(event.target.value)}
-                    />
-                  </label>
-                </div>
-              )}
-              <label className="choice-row">
+              <label>
                 <input
                   type="radio"
                   name="visibility"
                   checked={anonymous}
                   onChange={() => setAnonymous(true)}
                 />
-                <span>
-                  <strong>Stay anonymous</strong>
-                  <small>
-                    The work still happens. PRs say “an anonymous sponsor”.
-                  </small>
-                </span>
+                <span>Stay anonymous</span>
               </label>
+            </div>
+            {/* The form is the card the boards will show. */}
+            <div className="fund-card">
+              <div className="board-head">
+                <span>Today</span>
+                <span className="board-total">
+                  <small>your rank</small> {valid ? `#${rank}` : "–"}
+                </span>
+              </div>
+              <div className="board-row large first fund-row">
+                <span className="board-rank">{valid ? rank : "–"}</span>
+                <Logo name={anonymous ? null : name || "?"} size="large" />
+                <span className="board-body">
+                  {anonymous ? (
+                    <>
+                      <span className="board-title">
+                        <SponsorName name={null} />
+                      </span>
+                      <span className="board-meta">
+                        <span>0 PRs funded</span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="board-title fund-title">
+                        <input
+                          className="fund-input fund-name"
+                          value={publicName}
+                          maxLength={60}
+                          size={Math.max(publicName.length, 12)}
+                          onChange={(event) =>
+                            setPublicName(event.target.value)
+                          }
+                          placeholder="Your name or company"
+                          aria-label="Public name"
+                        />
+                        <span className="fund-sep" aria-hidden="true">
+                          ·
+                        </span>
+                        <input
+                          className="fund-input fund-tagline"
+                          value={tagline}
+                          maxLength={80}
+                          size={Math.max(tagline.length, 8)}
+                          onChange={(event) => setTagline(event.target.value)}
+                          placeholder="Tagline"
+                          aria-label="Tagline (optional)"
+                        />
+                      </span>
+                      <textarea
+                        className="fund-input fund-description"
+                        value={description}
+                        maxLength={280}
+                        rows={2}
+                        onChange={(event) => setDescription(event.target.value)}
+                        placeholder="What you do, in a sentence"
+                        aria-label="Description (optional)"
+                      />
+                      <span className="board-meta">
+                        <input
+                          className="fund-input fund-site"
+                          value={websiteUrl}
+                          maxLength={300}
+                          inputMode="url"
+                          autoComplete="url"
+                          size={Math.max(websiteUrl.length, 14)}
+                          onChange={(event) => setWebsiteUrl(event.target.value)}
+                          placeholder="yourcompany.com"
+                          aria-label="Website (optional)"
+                        />
+                        <span>0 clicks</span>
+                        <span>0 PRs funded</span>
+                      </span>
+                    </>
+                  )}
+                </span>
+                <span className="board-amount">
+                  {valid ? money(cents, false) : "–"}
+                </span>
+              </div>
             </div>
           </fieldset>
 
           <fieldset className="form-section">
             <legend className="eyebrow">03 / Before you pay</legend>
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={euConsumer}
-                onChange={(event) => setEuConsumer(event.target.checked)}
-              />
-              <span>
-                Show the estimate as an EU consumer (prices include VAT;
-                businesses with a VAT number are reverse-charged)
-              </span>
-            </label>
             <label className="checkbox-row">
               <input
                 type="checkbox"
@@ -253,9 +271,8 @@ function FundPage() {
                 <a href="/terms" className="text-link" target="_blank">
                   Terms
                 </a>
-                , ask for compute to start immediately and acknowledge that I
-                lose my 14-day withdrawal right once it starts. Compute credit
-                is not refundable as cash.
+                , ask for compute to start right away and give up my 14-day
+                withdrawal right.
               </span>
             </label>
           </fieldset>
@@ -276,15 +293,9 @@ function FundPage() {
             <div className="summary-content">
               {estimate && (
                 <dl className="summary-lines">
-                  {estimate.taxCents > 0 && (
-                    <div>
-                      <dt>VAT (20%, estimate)</dt>
-                      <dd>−{money(estimate.taxCents)}</dd>
-                    </div>
-                  )}
                   <div>
-                    <dt>Card fees (estimate)</dt>
-                    <dd>−{money(estimate.feeCents)}</dd>
+                    <dt>Card fees</dt>
+                    <dd>≈ −{money(estimate.feeCents)}</dd>
                   </div>
                   <div>
                     <dt>
@@ -302,6 +313,7 @@ function FundPage() {
                   </div>
                 </dl>
               )}
+              <p className="summary-vat">VAT included where it applies</p>
               {!context.paymentsReady ? (
                 <p className="feedback feedback-error" role="status">
                   Payments are not open yet on this deployment.
@@ -316,29 +328,32 @@ function FundPage() {
                 </button>
               )}
               <p className="field-note row">
-                <LockKeyhole size={12} /> Secure payment by Stripe. The real fee
-                and VAT are applied when the payment settles.
+                <LockKeyhole size={12} /> Secure payment by Stripe
               </p>
               {error && (
                 <div className="feedback feedback-error" role="alert">
                   {error}
                 </div>
               )}
-              <ul className="summary-checks">
-                <li>
-                  <Check size={13} /> Reserved before each run, debited at cost
-                </li>
-                <li>
-                  <Check size={13} /> Ranked by money paid
-                </li>
-                <li>
-                  <Check size={13} /> A PR or a documented reason, every time
-                </li>
-              </ul>
             </div>
           </div>
         </aside>
       </form>
     </main>
   );
+}
+
+/** "acme.com" → "https://acme.com/"; empty → ""; anything odd → null. */
+function websiteAddress(input: string): string | null {
+  const value = input.trim();
+  if (!value) return "";
+  const withScheme = /^https?:\/\//i.test(value)
+    ? value.replace(/^http:/i, "https:")
+    : `https://${value}`;
+  try {
+    const url = new URL(withScheme);
+    return url.hostname.includes(".") ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }

@@ -28,8 +28,6 @@ test("fund shows the brief's breakdown and asks to sign in", async ({
   await page.goto("/fund?amount=100");
   await expect(page.getByRole("radio", { name: /Sprint/ })).toBeChecked();
   await expect(page.getByText("≈ $86.80")).toBeVisible();
-  await page.getByText("Show the estimate as an EU consumer").click();
-  await expect(page.getByText("≈ $71.80")).toBeVisible();
   await page.getByRole("radio", { name: /Starter/ }).check();
   await expect(page.getByText("≈ $6.91")).toBeVisible();
   await expect(
