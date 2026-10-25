@@ -11,7 +11,19 @@ export interface ManagedSession {
   id: string;
   status: "idle" | "running" | "rescheduling" | "terminated";
   stop_reason?: string | null;
-  usage?: { list_cost?: unknown; active_seconds?: number } | null;
+  usage?: {
+    list_cost?: unknown;
+    active_seconds?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation?: {
+      ephemeral_1h_input_tokens?: number;
+      ephemeral_5m_input_tokens?: number;
+    };
+  } | null;
+  /** Snapshot of the agent: the model and the effort it actually ran with. */
+  agent?: { model?: { id?: string; effort?: { type?: string } | string } };
 }
 
 export interface SessionFile {

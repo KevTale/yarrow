@@ -293,10 +293,8 @@ describe("sponsor filters", () => {
     }
   }
 
-  it("excludes hidden projects unless the sponsor opted in", async () => {
+  it("funds hidden projects like any other", async () => {
     await db.update(schema.projects).set({ visibility: "hidden" });
-    expect(await fundable()).toBe(false);
-    await db.update(schema.sponsorProfiles).set({ includeHidden: true });
     expect(await fundable()).toBe(true);
   });
 
@@ -333,12 +331,12 @@ describe("sponsor filters", () => {
     expect(await fundable()).toBe(true);
   });
 
-  it("treats a sponsor without a profile as all_except without hidden projects", async () => {
+  it("treats a sponsor without a profile as every project", async () => {
     await db.delete(schema.contributions);
     await addContribution();
     expect(await fundable()).toBe(true);
     await db.update(schema.projects).set({ visibility: "hidden" });
-    expect(await fundable()).toBe(false);
+    expect(await fundable()).toBe(true);
   });
 });
 

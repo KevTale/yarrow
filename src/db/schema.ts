@@ -548,3 +548,33 @@ export const githubTasks = pgTable(
     index("github_tasks_pending").on(t.doneAt, t.createdAt),
   ],
 ).enableRLS();
+
+export const modelRoleEnum = pgEnum("model_role", ["implementer", "reviewer"]);
+
+/** What each model did on a run: time, tokens and cost, as the providers report them. */
+export const runModels = pgTable(
+  "run_models",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id),
+    role: modelRoleEnum("role").notNull(),
+    model: text("model").notNull(),
+    // Reasoning level the model ran at ("high"), null when the provider chose.
+    effort: text("effort"),
+    // Provider sessions of this role in the run (the reviewer may review twice).
+    sessions: integer("sessions").default(1).notNull(),
+    seconds: integer("seconds"),
+    // Anthropic reports compute time; OpenAI's is measured by the brain.
+    secondsExact: boolean("seconds_exact").default(false).notNull(),
+    inputTokens: integer("input_tokens"),
+    cachedInputTokens: integer("cached_input_tokens"),
+    outputTokens: integer("output_tokens"),
+    costCents: integer("cost_cents").notNull(),
+    // Anthropic prices the session; OpenAI's is tokens × list price.
+    costExact: boolean("cost_exact").default(false).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique("run_model_role").on(t.agentRunId, t.role)],
+).enableRLS();

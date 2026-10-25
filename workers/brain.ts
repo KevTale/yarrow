@@ -6,6 +6,7 @@ import {
 import { runRequestSchema, type RunRequest } from "../src/core/contracts";
 import {
   defaultPipelineRoles,
+  defaultReviewerEffort,
   INITIAL_RESERVATION_CENTS,
 } from "../src/core/pipeline";
 import { planDispatch, PER_ACCOUNT_CONCURRENCY } from "../src/core/queue";
@@ -18,6 +19,7 @@ import { eq } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
+import { recordRunModels } from "../src/db/runs";
 import { agentRuns } from "../src/db/schema";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
@@ -49,6 +51,8 @@ export interface BrainEnv {
   ANTHROPIC_ENVIRONMENT_ID?: string;
   OPENAI_API_KEY?: string;
   OPENAI_REVIEW_MODEL?: string;
+  /** Reasoning effort asked of the reviewer, from none to max. */
+  OPENAI_REVIEW_EFFORT?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
   TOKEN_ENCRYPTION_KEY?: string;
@@ -105,6 +109,7 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
     anthropicAgentId: env.ANTHROPIC_AGENT_ID!,
     defaultEnvironmentId: env.ANTHROPIC_ENVIRONMENT_ID!,
     reviewerModel: env.OPENAI_REVIEW_MODEL ?? "gpt-6-astra",
+    reviewerEffort: env.OPENAI_REVIEW_EFFORT ?? defaultReviewerEffort,
     reviewerRates: defaultReviewerRates,
   });
 }
@@ -167,7 +172,9 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       );
 
     let implementer: string | null = null;
-    const reviewers: string[] = [];
+    // Reviewer sessions and their wall time, measured between durable steps.
+    const reviewers: { id: string; seconds: number | null }[] = [];
+    const now = (label: string) => step.do(label, async () => Date.now());
     try {
       const run = await step.do("prepare", () =>
         withDb(env, (db) => pipeline(env, db).prepare(runId)),
@@ -204,17 +211,21 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       // Unclear ticket: a second opinion from the reviewer before giving up.
       if (snapshot.status === "unclear") {
         await phase("checking clarity");
+        const clarityStarted = await now("clarity:started");
         const clarityId = await step.do("clarity:start", () =>
           withDb(env, (db) =>
             pipeline(env, db).startClarity(run, snapshot.questions),
           ),
         );
-        reviewers.push(clarityId);
-        if (
-          (await waitFor(step, "clarity", () =>
-            withDb(env, (db) => pipeline(env, db).reviewerState(clarityId)),
-          )) !== "done"
-        )
+        const clarity_ = { id: clarityId, seconds: null as number | null };
+        reviewers.push(clarity_);
+        const clarityState = await waitFor(step, "clarity", () =>
+          withDb(env, (db) => pipeline(env, db).reviewerState(clarityId)),
+        );
+        clarity_.seconds = Math.round(
+          ((await now("clarity:finished")) - clarityStarted) / 1000,
+        );
+        if (clarityState !== "done")
           throw new StopRun(
             "provider_error",
             "The clarity check did not finish.",
@@ -266,17 +277,21 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       // Review by the other lab, then at most one fix round on blocking comments.
       const review = async (round: number): Promise<Review> => {
         await phase(round === 1 ? "reviewing" : "re-reviewing");
+        const started = await now(`review:${round}:started`);
         const reviewerId = await step.do(`review:${round}:start`, () =>
           withDb(env, (db) =>
             pipeline(env, db).startReview(run, implementerId, snapshot),
           ),
         );
-        reviewers.push(reviewerId);
-        if (
-          (await waitFor(step, `review:${round}`, () =>
-            withDb(env, (db) => pipeline(env, db).reviewerState(reviewerId)),
-          )) !== "done"
-        )
+        const reviewer = { id: reviewerId, seconds: null as number | null };
+        reviewers.push(reviewer);
+        const state = await waitFor(step, `review:${round}`, () =>
+          withDb(env, (db) => pipeline(env, db).reviewerState(reviewerId)),
+        );
+        reviewer.seconds = Math.round(
+          ((await now(`review:${round}:finished`)) - started) / 1000,
+        );
+        if (state !== "done")
           throw new StopRun("provider_error", "The review did not finish.");
         return step.do(`review:${round}:read`, () =>
           withDb(env, (db) => pipeline(env, db).readReview(reviewerId)),
@@ -321,7 +336,11 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         withDb(env, async (db) => {
           const runner = pipeline(env, db);
           const ledger = new PostgresLedger(db);
-          const cost = await runner.cost(implementerId, reviewers);
+          const { costCents: cost, models } = await runner.usage(
+            implementerId,
+            reviewers,
+          );
+          await recordRunModels(db, runId, models);
           await topUp(ledger, db, runId, cost);
           await ledger.settle(runId, {
             outcome: "pull_request",
@@ -348,13 +367,15 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               (error as Error).message ?? "Run failed",
             );
       const implementerId = implementer;
-      const reviewerIds = [...reviewers];
+      const reviewerRuns = [...reviewers];
       await step.do("abstain", () =>
         withDb(env, async (db) => {
           const ledger = new PostgresLedger(db);
-          const cost = await pipeline(env, db)
-            .cost(implementerId, reviewerIds)
-            .catch(() => 0);
+          const usage = await pipeline(env, db)
+            .usage(implementerId, reviewerRuns)
+            .catch(() => ({ costCents: 0, models: [] }));
+          const cost = usage.costCents;
+          await recordRunModels(db, runId, usage.models);
           await topUp(ledger, db, runId, cost);
           if (stop.reason === "provider_error")
             await recordEvent(db, {

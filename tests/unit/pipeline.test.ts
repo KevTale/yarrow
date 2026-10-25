@@ -96,7 +96,16 @@ function fakeProviders() {
       return json({
         id: "sesn_1",
         status: "idle",
-        usage: { list_cost: "187" },
+        // Shapes from the Get Session reference (platform.claude.com, 2026-10-07).
+        agent: { model: { id: "claude-opus-5-5", effort: { type: "high" } } },
+        usage: {
+          list_cost: { amount: "187", currency: "USD" },
+          active_seconds: 72.4,
+          input_tokens: 1_000,
+          output_tokens: 5_000,
+          cache_read_input_tokens: 40_000,
+          cache_creation: { ephemeral_5m_input_tokens: 2_000 },
+        },
       });
     if (url.includes("/v1/files?scope_id=sesn_1"))
       return json({
@@ -225,6 +234,7 @@ describe("run pipeline", async () => {
       anthropicAgentId: "agent_1",
       defaultEnvironmentId: "env_1",
       reviewerModel: "gpt-6-astra",
+      reviewerEffort: "high",
       reviewerRates: defaultReviewerRates,
       fetcher,
     });
@@ -275,7 +285,7 @@ describe("run pipeline", async () => {
       (call) => call.url === "https://api.openai.com/v1/agents/sessions",
     )!;
     expect(reviewSession.body).toMatchObject({
-      agent: { model: "gpt-6-astra" },
+      agent: { model: "gpt-6-astra", reasoning: { effort: "high" } },
       environment: {
         type: "openai_hosted",
         network: {
@@ -330,6 +340,38 @@ describe("run pipeline", async () => {
     const cost = await runner.cost(sessionId, [reviewerId]);
     // Claude 187¢ + OpenAI: 100k fresh × $10/M + 100k cached × $1/M + 10k out × $50/M = 160¢ + 3¢ sandbox.
     expect(cost).toBe(187 + 163);
+    const usage = await runner.usage(sessionId, [
+      { id: reviewerId, seconds: 31 },
+    ]);
+    expect(usage.costCents).toBe(cost);
+    expect(usage.models).toEqual([
+      {
+        role: "implementer",
+        model: "claude-opus-5-5",
+        effort: "high",
+        sessions: 1,
+        seconds: 72,
+        secondsExact: true,
+        inputTokens: 43_000,
+        cachedInputTokens: 40_000,
+        outputTokens: 5_000,
+        costCents: 187,
+        costExact: true,
+      },
+      {
+        role: "reviewer",
+        model: "gpt-6-astra",
+        effort: "high",
+        sessions: 1,
+        seconds: 31,
+        secondsExact: false,
+        inputTokens: 200_000,
+        cachedInputTokens: 100_000,
+        outputTokens: 10_000,
+        costCents: 163,
+        costExact: false,
+      },
+    ]);
     await ledger.reserveMore(runId, cost - 100, 1);
     await ledger.settle(runId, {
       outcome: "pull_request",

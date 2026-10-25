@@ -7,6 +7,24 @@ export interface PipelineRoles {
   reviewer: string;
 }
 
+/** Reasoning level asked of the reviewer (Claude's is set on the agent). */
+export const defaultReviewerEffort = "high";
+
+/** What one model did on a run, shown on the boards and dashboards. */
+export interface RunModelUsage {
+  role: "implementer" | "reviewer";
+  model: string;
+  effort: string | null;
+  sessions: number;
+  seconds: number | null;
+  secondsExact: boolean;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  costCents: number;
+  costExact: boolean;
+}
+
 export const defaultPipelineRoles: PipelineRoles = {
   implementer: "claude-opus-5-5:high",
   reviewer: "openai-astra",

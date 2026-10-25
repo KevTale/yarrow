@@ -36,6 +36,13 @@
       "when": 1791334122271,
       "tag": "0004_worthless_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791372221256,
+      "tag": "0005_tired_shadowcat",
+      "breakpoints": true
     }
   ]
 }

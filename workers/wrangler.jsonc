@@ -20,6 +20,7 @@
   "vars": {
     "APP_URL": "http://localhost:3000",
     "OPENAI_REVIEW_MODEL": "gpt-6-astra",
+    "OPENAI_REVIEW_EFFORT": "high",
     "DISPATCH": "on",
   },
   // Enable R2 in the Cloudflare dashboard, create the bucket, then uncomment
@@ -43,6 +44,7 @@
       "vars": {
         "APP_URL": "https://dev.yarrow.run",
         "OPENAI_REVIEW_MODEL": "gpt-6-astra",
+        "OPENAI_REVIEW_EFFORT": "high",
         "DISPATCH": "on",
       },
     },
@@ -61,6 +63,7 @@
       "vars": {
         "APP_URL": "https://yarrow.run",
         "OPENAI_REVIEW_MODEL": "gpt-6-astra",
+        "OPENAI_REVIEW_EFFORT": "high",
         "DISPATCH": "on",
       },
     },

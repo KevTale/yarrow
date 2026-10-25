@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { RunModelUsage } from "../core/pipeline";
 import type { Database } from "./client";
 import {
   agentRuns,
@@ -6,6 +7,7 @@ import {
   projectSecrets,
   projects,
   pullRequests,
+  runModels,
   trackerBoards,
   trackerConnections,
   workUnits,
@@ -77,4 +79,22 @@ export async function setAnthropicResources(
     .insert(projectRunConfigs)
     .values({ projectId, ...values })
     .onConflictDoUpdate({ target: projectRunConfigs.projectId, set: values });
+}
+
+/** Stores what each model did on a run. Idempotent: Workflow steps may retry. */
+export async function recordRunModels(
+  db: Database,
+  runId: string,
+  models: RunModelUsage[],
+): Promise<void> {
+  for (const model of models) {
+    const { role, ...values } = model;
+    await db
+      .insert(runModels)
+      .values({ agentRunId: runId, role, ...values })
+      .onConflictDoUpdate({
+        target: [runModels.agentRunId, runModels.role],
+        set: values,
+      });
+  }
 }

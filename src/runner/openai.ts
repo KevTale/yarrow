@@ -64,6 +64,19 @@ export function usageCostCents(usages: Usage[], rates: TokenRates): number {
   return Math.ceil(cents);
 }
 
+/** Token totals over a session's turns. */
+export function usageTokens(usages: Usage[]) {
+  let input = 0;
+  let cached = 0;
+  let output = 0;
+  for (const usage of usages) {
+    input += usage.input_tokens ?? 0;
+    cached += usage.input_tokens_details?.cached_tokens ?? 0;
+    output += usage.output_tokens ?? 0;
+  }
+  return { input, cached, output };
+}
+
 interface Item {
   type: string;
   role?: string;
@@ -121,6 +134,8 @@ export class AgentsClient {
    */
   createSession(input: {
     model: string;
+    /** Reasoning effort, from none to max. */
+    effort?: string;
     instructions: string;
     task: string;
     repository?: { owner: string; repo: string; branch: string; token: string };
@@ -134,7 +149,11 @@ export class AgentsClient {
         ]
       : [];
     return this.call("POST", "", {
-      agent: { model: input.model, instructions: input.instructions },
+      agent: {
+        model: input.model,
+        instructions: input.instructions,
+        ...(input.effort ? { reasoning: { effort: input.effort } } : {}),
+      },
       environment: {
         type: "openai_hosted",
         network: input.repository

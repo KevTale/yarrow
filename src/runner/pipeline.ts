@@ -1,5 +1,9 @@
 import { pullRequestFooter } from "../core/attribution";
-import { modelDisplayName, type PipelineRoles } from "../core/pipeline";
+import {
+  modelDisplayName,
+  type PipelineRoles,
+  type RunModelUsage,
+} from "../core/pipeline";
 import {
   blockingComments,
   inlineCommentBody,
@@ -32,7 +36,12 @@ import {
   type TrackerSecrets,
 } from "../server/trackers/index";
 import { listCostCents, type ManagedAgentsClient } from "./anthropic";
-import { usageCostCents, type AgentsClient, type TokenRates } from "./openai";
+import {
+  usageCostCents,
+  usageTokens,
+  type AgentsClient,
+  type TokenRates,
+} from "./openai";
 import {
   changesSchema,
   CLARITY_INSTRUCTIONS,
@@ -85,6 +94,8 @@ export interface PipelineDeps {
   anthropicAgentId: string;
   defaultEnvironmentId: string;
   reviewerModel: string;
+  /** Reasoning effort for the reviewer; the provider default when absent. */
+  reviewerEffort?: string;
   reviewerRates: TokenRates;
   fetcher?: Fetch;
 }
@@ -360,6 +371,7 @@ export class RunPipeline {
   async startClarity(run: PreparedRun, questions: string[]): Promise<string> {
     const session = await this.deps.openai.createSession({
       model: this.deps.reviewerModel,
+      effort: this.deps.reviewerEffort,
       instructions: CLARITY_INSTRUCTIONS,
       task: clarityTask(run.ticket, questions),
     });
@@ -382,6 +394,7 @@ export class RunPipeline {
     const { owner, repo } = splitRepository(run.repository);
     const session = await this.deps.openai.createSession({
       model: this.deps.reviewerModel,
+      effort: this.deps.reviewerEffort,
       instructions: REVIEWER_INSTRUCTIONS,
       task: reviewTask({
         ticket: run.ticket,
@@ -433,17 +446,91 @@ export class RunPipeline {
     implementerSessionId: string | null,
     reviewerSessionIds: string[],
   ): Promise<number> {
-    let cents = 0;
-    if (implementerSessionId)
-      cents += listCostCents(
-        await this.deps.anthropic.getSession(implementerSessionId),
-      );
-    for (const id of reviewerSessionIds)
-      cents += usageCostCents(
-        await this.deps.openai.usage(id),
-        this.deps.reviewerRates,
-      );
-    return cents;
+    const { costCents } = await this.usage(
+      implementerSessionId,
+      reviewerSessionIds.map((id) => ({ id, seconds: null })),
+    );
+    return costCents;
+  }
+
+  /**
+   * What each model did: Anthropic reports the implementer's model, effort,
+   * tokens, compute time and exact cost; OpenAI reports the reviewer's tokens,
+   * so its cost is tokens × list price and its time is measured by the brain.
+   */
+  async usage(
+    implementerSessionId: string | null,
+    reviewers: { id: string; seconds: number | null }[],
+  ): Promise<{ costCents: number; models: RunModelUsage[] }> {
+    const models: RunModelUsage[] = [];
+    if (implementerSessionId) {
+      const session =
+        await this.deps.anthropic.getSession(implementerSessionId);
+      const usage = session.usage ?? {};
+      const created =
+        (usage.cache_creation?.ephemeral_1h_input_tokens ?? 0) +
+        (usage.cache_creation?.ephemeral_5m_input_tokens ?? 0);
+      const cached = usage.cache_read_input_tokens ?? 0;
+      const effort = session.agent?.model?.effort;
+      const [defaultModel, defaultEffort] =
+        this.deps.roles.implementer.split(":");
+      const tokens = usage.input_tokens !== undefined;
+      models.push({
+        role: "implementer",
+        model: session.agent?.model?.id ?? defaultModel!,
+        effort:
+          (typeof effort === "string" ? effort : effort?.type) ??
+          defaultEffort ??
+          null,
+        sessions: 1,
+        seconds:
+          usage.active_seconds === undefined
+            ? null
+            : Math.round(usage.active_seconds),
+        secondsExact: usage.active_seconds !== undefined,
+        inputTokens: tokens
+          ? (usage.input_tokens ?? 0) + cached + created
+          : null,
+        cachedInputTokens: tokens ? cached : null,
+        outputTokens: tokens ? (usage.output_tokens ?? 0) : null,
+        costCents: listCostCents(session),
+        costExact: true,
+      });
+    }
+    if (reviewers.length > 0) {
+      let costCents = 0;
+      let seconds: number | null = 0;
+      const totals = { input: 0, cached: 0, output: 0 };
+      for (const reviewer of reviewers) {
+        const usages = await this.deps.openai.usage(reviewer.id);
+        costCents += usageCostCents(usages, this.deps.reviewerRates);
+        const tokens = usageTokens(usages);
+        totals.input += tokens.input;
+        totals.cached += tokens.cached;
+        totals.output += tokens.output;
+        seconds =
+          seconds === null || reviewer.seconds === null
+            ? null
+            : seconds + reviewer.seconds;
+      }
+      models.push({
+        role: "reviewer",
+        model: this.deps.reviewerModel,
+        effort: this.deps.reviewerEffort ?? null,
+        sessions: reviewers.length,
+        seconds,
+        secondsExact: false,
+        inputTokens: totals.input,
+        cachedInputTokens: totals.cached,
+        outputTokens: totals.output,
+        costCents,
+        costExact: false,
+      });
+    }
+    return {
+      costCents: models.reduce((sum, model) => sum + model.costCents, 0),
+      models,
+    };
   }
 
   private runUrl(runId: string): string {

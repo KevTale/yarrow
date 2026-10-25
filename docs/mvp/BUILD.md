@@ -82,7 +82,7 @@ Later: appear as an assignable agent in Linear and Jira, so owners can simply as
 | **Listed** | Name, description, product URL, shipped work count. No code, no PRs |
 | **Hidden** _(final name TBD)_ | Nothing. It only appears as "a private project" in aggregate stats |
 
-- Hidden projects only receive money from sponsors who explicitly accepted hidden projects. Owners are told that this may mean less compute.
+- Hidden projects are funded like any other: "Every project" includes them (decided 2026-10-07; Listed projects already show no code or PRs, so an opt-in added a choice without meaning).
 - Code is never shown to the platform team or to sponsors. Only the providers process it, through their API under commercial terms. Sandboxes are destroyed after each run.
 - Ticket text and project descriptions are processed by the platform for triage and moderation (see Trust & safety). The terms say so.
 
@@ -98,11 +98,10 @@ The leaderboard is the game layer on top.
 
 ### Sponsor filters
 
-- Two modes:
-  - `all_except` (default): every eligible project, minus excluded categories and projects. New projects are included automatically.
-  - `only`: after "deselect all", only the checked projects. New projects are **not** included.
-- Filters by category, by stack, by project size, and by individual project.
-- **Hidden projects are opt-in by the sponsor**, and excluded by default.
+- Two choices in the sponsor's Settings (decided 2026-10-07):
+  - **Every project** (`all_except`, default): new projects are included automatically.
+  - **Only the projects I choose** (`only`): a searchable list opens right under the option; new projects are **not** included.
+- The ledger still supports excluded categories and required stacks, but the UI no longer offers them: projects created from GitHub have no category.
 - If none of the selected projects has an eligible ticket, the credit stays unused. The dashboard says so.
 
 ### Launch and outreach

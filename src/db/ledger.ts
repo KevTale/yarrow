@@ -30,7 +30,8 @@ const availableCents = sql<number>`(${contributions.creditCents} - ${contributio
 
 /**
  * Settled contributions whose sponsor filters accept this project, oldest money
- * first, locked for the rest of the transaction.
+ * first, locked for the rest of the transaction. "Every project" includes
+ * hidden ones (decided 2026-10-07): Listed projects already show no code.
  */
 function eligibleContributions(tx: Transaction, projectId: string) {
   const selected = sql`exists (select 1 from ${sponsorProjectSelections} where ${sponsorProjectSelections.userId} = ${contributions.userId} and ${sponsorProjectSelections.projectId} = ${projects.id})`;
@@ -49,7 +50,6 @@ function eligibleContributions(tx: Transaction, projectId: string) {
       and(
         eq(contributions.paymentStatus, "settled"),
         sql`${availableCents} > 0`,
-        sql`(${projects.visibility} <> 'hidden' or coalesce(${sponsorProfiles.includeHidden}, false))`,
         sql`(
           (coalesce(${sponsorProfiles.mode}, 'all_except') = 'all_except'
             and not ${selected}
