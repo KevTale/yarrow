@@ -26,5 +26,5 @@ export const company = {
   registry: "RCS Nanterre 881 263 503",
   vat: "FR37881263503",
   address: "1 avenue Galois, 92340 Bourg-la-Reine, France",
-  email: "hello@kevin-tale.com",
+  email: "contact@yarrow.run",
 };

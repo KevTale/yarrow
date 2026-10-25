@@ -109,6 +109,8 @@ async function send(to: string, subject: string, content: EmailContent) {
     },
     body: JSON.stringify({
       from: env.EMAIL_FROM ?? "Yarrow <no-reply@yarrow.run>",
+      // Replies reach a person (forwarded by Cloudflare Email Routing).
+      reply_to: "contact@yarrow.run",
       to: [to],
       subject,
       html,
