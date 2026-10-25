@@ -29,6 +29,12 @@ export interface AppEnv {
   TOKEN_ENCRYPTION_KEY?: string;
   /** Writes owners' test secrets to Managed Agents vaults (never to our DB). */
   ANTHROPIC_API_KEY?: string;
+  /** Sends Yarrow's own emails (thanks after a payment). Optional. */
+  RESEND_API_KEY?: string;
+  /** Sender of Yarrow's emails, e.g. "Yarrow <no-reply@yarrow.run>". */
+  EMAIL_FROM?: string;
+  /** Supabase secret key: sign-in links inside Yarrow's emails. Optional. */
+  SUPABASE_SECRET_KEY?: string;
   /** R2 bucket with run evidence (screenshots, video). Optional. */
   EVIDENCE?: R2Bucket;
 }

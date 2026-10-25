@@ -6,9 +6,8 @@ import {
   refundContribution,
   settleStripeContribution,
 } from "@/db/contributions";
-import { recordGuestEmail } from "@/db/sponsors";
 import { appEnv, NotConfiguredError } from "../env.server";
-import { sendSignInLink } from "../sign-in.server";
+import { thankSponsor } from "../thanks.server";
 import { settlementFromSession, type PaidSession } from "./settlement";
 
 function stripeClient(): Stripe {
@@ -106,14 +105,12 @@ export async function handleStripeWebhook(
       const found = await settleStripeContribution(db, settlement);
       if (!found) return "unknown checkout session";
       const email = session.customer_details?.email;
-      if (email && (await recordGuestEmail(db, session.id, email))) {
-        // The payment stands either way; the link only gives the guest an account.
-        await sendSignInLink(email, "/dashboard").catch((error) =>
-          console.error("guest sign-in link", error),
-        );
-        return "contribution settled, sign-in link sent";
-      }
-      return "contribution settled";
+      if (!email) return "contribution settled";
+      // The payment stands either way; the email only thanks and signs in.
+      const thanks = await thankSponsor(db, session.id, email).catch(
+        (error: Error) => `thanks failed: ${error.message}`,
+      );
+      return `contribution settled, ${thanks}`;
     }
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed":

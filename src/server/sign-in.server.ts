@@ -2,6 +2,7 @@ import { createClient, type User } from "@supabase/supabase-js";
 import { ensureAccount } from "@/db/accounts";
 import { claimGuestSponsorships } from "@/db/sponsors";
 import { databaseConfigured, withDb } from "./db.server";
+import { cookieGuestId } from "./guest.server";
 import { appEnv } from "./env.server";
 
 /**
@@ -37,6 +38,10 @@ export async function afterSignIn(user: User): Promise<void> {
       githubLogin: meta.user_name ?? meta.preferred_username ?? null,
       name: meta.full_name ?? meta.name ?? null,
     });
-    if (user.email) await claimGuestSponsorships(db, user.id, user.email);
+    // The verified email, and the payment made from this very browser.
+    await claimGuestSponsorships(db, user.id, {
+      email: user.email,
+      guestId: await cookieGuestId(),
+    });
   });
 }

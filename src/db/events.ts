@@ -13,6 +13,7 @@ export type EventType =
   | "sponsor.filters_updated"
   | "sponsor.clicked"
   | "sponsor.guest_claimed"
+  | "sponsor.thanked"
   | "contribution.created"
   | "contribution.settled"
   | "contribution.refunded"

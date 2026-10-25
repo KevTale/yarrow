@@ -26,10 +26,10 @@ import {
   EmptyState,
   NotConfigured,
   PageHeading,
-  SignInPrompt,
   TicketStatus,
   timeAgo,
 } from "@/components/ui";
+import { SignInPrompt } from "@/components/email-sign-in";
 
 export const Route = createFileRoute("/projects/$projectId")({
   validateSearch: z.object({
@@ -52,14 +52,7 @@ function ProjectPage() {
   const data = Route.useLoaderData();
   const { projectId } = Route.useParams();
   if (data.status === "signed_out")
-    return (
-      <main id="main" className="container page-main">
-        <SignInPrompt
-          next={`/projects/${projectId}`}
-          reason="Sign in to manage this project."
-        />
-      </main>
-    );
+    return <SignInPrompt next={`/projects/${projectId}`} />;
   if (data.status === "not_configured")
     return (
       <main id="main" className="container page-main">

@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeNext } from "@/server/auth-request.server";
 import { getViewer, supabaseServer } from "@/server/auth.server";
+import { getSponsorProfile } from "@/db/sponsors";
+import { withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
+import { currentGuest } from "@/server/guest.server";
 import { afterSignIn, sendSignInLink } from "@/server/sign-in.server";
 
 export const getViewerFn = createServerFn({ method: "GET" }).handler(
@@ -58,5 +61,20 @@ export const getLiveConfigFn = createServerFn({ method: "GET" }).handler(
     return env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY
       ? { url: env.SUPABASE_URL, key: env.SUPABASE_PUBLISHABLE_KEY }
       : null;
+  },
+);
+
+/** The sponsor who paid from this browser without an account, for the header. */
+export const getGuestFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const guestId = await currentGuest().catch(() => null);
+    if (!guestId) return null;
+    const profile = await withDb((db) => getSponsorProfile(db, guestId));
+    return {
+      name: profile?.publicName ?? null,
+      githubLogin: null,
+      avatarUrl: null,
+      guest: true as const,
+    };
   },
 );

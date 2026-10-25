@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import type { SponsorFilters } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -195,25 +195,27 @@ export async function recordGuestEmail(
 }
 
 /**
- * On sign-in with a verified email: moves the guest payments made with that
- * email (contributions, clicks, profile) to the signed-in user, in one
- * transaction. Returns how many guest profiles were claimed.
+ * On sign-in: moves guest payments (contributions, clicks, profile) to the
+ * signed-in user, in one transaction. A guest is matched by the verified
+ * email Stripe collected, or by this browser's guest cookie (the payer
+ * themself). A user who already has a profile keeps it whole: a payment
+ * made with their email by someone else never renames them.
  */
 export async function claimGuestSponsorships(
   db: Database,
   userId: string,
-  email: string,
+  by: { email?: string | null; guestId?: string | null },
 ): Promise<number> {
+  const matches = [
+    by.email ? eq(sponsorProfiles.email, normalizeEmail(by.email)) : undefined,
+    by.guestId ? eq(sponsorProfiles.userId, by.guestId) : undefined,
+  ].filter((match) => match !== undefined);
+  if (matches.length === 0) return 0;
   return db.transaction(async (tx) => {
     const guests = await tx
       .select()
       .from(sponsorProfiles)
-      .where(
-        and(
-          eq(sponsorProfiles.guest, true),
-          eq(sponsorProfiles.email, normalizeEmail(email)),
-        ),
-      )
+      .where(and(eq(sponsorProfiles.guest, true), or(...matches)))
       .for("update");
     if (guests.length === 0) return 0;
     let [own] = await tx
@@ -240,17 +242,6 @@ export async function claimGuestSponsorships(
         continue;
       }
       await tx
-        .update(sponsorProfiles)
-        .set({
-          publicName: own.publicName ?? guest.publicName,
-          tagline: own.tagline ?? guest.tagline,
-          description: own.description ?? guest.description,
-          websiteUrl: own.websiteUrl ?? guest.websiteUrl,
-          logoUrl: own.logoUrl ?? guest.logoUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(sponsorProfiles.userId, userId));
-      await tx
         .delete(sponsorProfiles)
         .where(eq(sponsorProfiles.userId, guest.userId));
     }
@@ -261,4 +252,16 @@ export async function claimGuestSponsorships(
     });
     return guests.length;
   });
+}
+
+/** A guest sponsor still waiting to be claimed (the guest cookie's target). */
+export async function isGuestSponsor(
+  db: Database,
+  guestId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ guest: sponsorProfiles.guest })
+    .from(sponsorProfiles)
+    .where(eq(sponsorProfiles.userId, guestId));
+  return row?.guest === true;
 }

@@ -19,8 +19,14 @@ export const Route = createFileRoute("/auth/confirm")({
         );
         const auth = supabaseForRequest(request);
         if (!tokenHash) return auth.redirect("/sign-in?error=Missing%20link");
+        // Our own emails pass Supabase's verification type (magiclink, signup).
+        const kind = url.searchParams.get("type");
+        const type =
+          kind === "magiclink" || kind === "signup" || kind === "invite"
+            ? kind
+            : "email";
         const { data, error } = await auth.client.auth.verifyOtp({
-          type: "email",
+          type,
           token_hash: tokenHash,
         });
         if (error || !data.user)

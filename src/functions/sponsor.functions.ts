@@ -13,7 +13,8 @@ import {
   saveSponsorFilters,
   saveSponsorProfile,
 } from "@/db/sponsors";
-import { getViewer, requireViewer } from "@/server/auth.server";
+import { getViewer, UnauthorizedError } from "@/server/auth.server";
+import { currentGuest, rememberGuest } from "@/server/guest.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { NotConfiguredError } from "@/server/env.server";
 import {
@@ -22,11 +23,19 @@ import {
 } from "@/server/stripe/stripe.server";
 import { supabaseServer } from "@/server/auth.server";
 
+/** The signed-in user, or the guest who paid from this browser. */
+async function sponsorIdentity() {
+  const viewer = await getViewer().catch(() => null);
+  if (viewer) return { userId: viewer.userId, guest: false };
+  const guestId = await currentGuest();
+  return guestId ? { userId: guestId, guest: true } : null;
+}
+
 export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
   async () => {
-    const viewer = await getViewer().catch(() => null);
-    if (!viewer) return { status: "signed_out" as const };
     if (!databaseConfigured()) return { status: "not_configured" as const };
+    const viewer = await sponsorIdentity();
+    if (!viewer) return { status: "signed_out" as const };
     return withDb(async (db) => {
       const { totals, contributions } = await sponsorDashboard(
         db,
@@ -36,6 +45,7 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
       return {
         status: "ok" as const,
         userId: viewer.userId,
+        guest: viewer.guest,
         isSponsor: contributions.length > 0,
         leftCents:
           totals.creditCents - totals.consumedCents - totals.reservedCents,
@@ -63,9 +73,12 @@ export const saveSponsorSettingsFn = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const viewer = await requireViewer();
+    const viewer = await sponsorIdentity();
+    if (!viewer) throw new UnauthorizedError();
     await withDb(async (db) => {
-      await saveSponsorProfile(db, viewer.userId, data.profile);
+      await saveSponsorProfile(db, viewer.userId, data.profile, {
+        guest: viewer.guest,
+      });
       const filters = await getSponsorFilters(db, viewer.userId);
       await saveSponsorFilters(db, viewer.userId, {
         ...filters,
@@ -106,17 +119,19 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
     const email = viewer
       ? ((await supabaseServer().auth.getUser()).data.user?.email ?? null)
       : null;
-    const userId = viewer?.userId ?? crypto.randomUUID();
+    // A returning guest pays again as the same guest: one row on the boards.
+    const userId =
+      viewer?.userId ?? (await currentGuest()) ?? crypto.randomUUID();
     const url = await withDb(async (db) => {
       await saveSponsorProfile(db, userId, data.profile, { guest: !viewer });
       return createCheckout(db, {
         userId,
         email,
         amountCents: data.amountCents,
-        successPath: viewer
-          ? "/dashboard?checkout=success#sponsoring"
-          : "/?checkout=success#sponsors",
+        // Back from Stripe straight to the Sponsor tab, recognized.
+        successPath: "/dashboard?tab=sponsor&checkout=success",
       });
     });
+    if (!viewer) await rememberGuest(userId);
     return { url };
   });

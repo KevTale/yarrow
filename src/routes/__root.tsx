@@ -13,7 +13,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionFromLink } from "@/components/session-from-link";
 import { LiveProvider } from "@/components/live";
-import { getLiveConfigFn, getViewerFn } from "@/functions/viewer.functions";
+import {
+  getGuestFn,
+  getLiveConfigFn,
+  getViewerFn,
+} from "@/functions/viewer.functions";
 
 export const Route = createRootRoute({
   loader: async () => {
@@ -21,7 +25,8 @@ export const Route = createRootRoute({
       getViewerFn(),
       getLiveConfigFn(),
     ]);
-    return { viewer, live };
+    // Not signed in, but paid from this browser: recognized as a guest.
+    return { viewer: viewer ?? (await getGuestFn()), live };
   },
   head: () => ({
     meta: [

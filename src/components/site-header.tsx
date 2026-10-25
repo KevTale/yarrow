@@ -24,6 +24,8 @@ type HeaderViewer = {
   name: string | null;
   githubLogin: string | null;
   avatarUrl: string | null;
+  /** Paid from this browser without an account. */
+  guest?: boolean;
 } | null;
 
 export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
@@ -76,6 +78,11 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
                   >
                     Dashboard
                   </Link>
+                  {viewer.guest && (
+                    <a href="/sign-in?next=/dashboard" role="menuitem">
+                      Sign in
+                    </a>
+                  )}
                   <a href="/auth/sign-out" role="menuitem" className="muted">
                     Sign out
                   </a>

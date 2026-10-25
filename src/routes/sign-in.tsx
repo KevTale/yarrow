@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { SignInPrompt } from "@/components/ui";
+import { SignInPrompt } from "@/components/email-sign-in";
 
 export const Route = createFileRoute("/sign-in")({
   validateSearch: z.object({
@@ -14,16 +14,9 @@ export const Route = createFileRoute("/sign-in")({
 function SignIn() {
   const search = Route.useSearch();
   return (
-    <main id="main" className="container page-main">
-      {search.error && (
-        <p className="feedback feedback-error" role="alert">
-          {search.error}
-        </p>
-      )}
-      <SignInPrompt
-        next={search.next?.startsWith("/") ? search.next : "/dashboard"}
-        reason="Sponsor the work, or bring your backlog."
-      />
-    </main>
+    <SignInPrompt
+      next={search.next?.startsWith("/") ? search.next : "/dashboard"}
+      error={search.error}
+    />
   );
 }

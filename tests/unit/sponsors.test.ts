@@ -118,12 +118,12 @@ describe("guest sponsors", () => {
       .values({ type: "sponsor.clicked", userId: guest.userId });
 
     const userId = crypto.randomUUID();
-    expect(await claimGuestSponsorships(db, userId, "Ops@Northwind.dev")).toBe(
-      1,
-    );
-    expect(await claimGuestSponsorships(db, userId, "ops@northwind.dev")).toBe(
-      0,
-    );
+    expect(
+      await claimGuestSponsorships(db, userId, { email: "Ops@Northwind.dev" }),
+    ).toBe(1);
+    expect(
+      await claimGuestSponsorships(db, userId, { email: "ops@northwind.dev" }),
+    ).toBe(0);
     const [after] = await profiles();
     expect(after).toMatchObject({
       userId,
@@ -140,28 +140,48 @@ describe("guest sponsors", () => {
     ]);
   });
 
-  it("merge into an existing profile, keeping what the user already set", async () => {
+  it("keep an existing profile whole: someone else's payment never renames it", async () => {
     const userId = crypto.randomUUID();
     await saveSponsorProfile(db, userId, profile("Ada", null));
-    const guest = await guestPays("Ada L.", 2500, "https://ada.dev");
+    const guest = await guestPays("Mallory", 2500, "https://mallory.example");
     await recordGuestEmail(db, guest.checkout, "ada@x.dev");
 
-    expect(await claimGuestSponsorships(db, userId, "ada@x.dev")).toBe(1);
+    expect(
+      await claimGuestSponsorships(db, userId, { email: "ada@x.dev" }),
+    ).toBe(1);
     expect(await profiles()).toHaveLength(1);
     expect(await getSponsorProfile(db, userId)).toMatchObject({
       publicName: "Ada",
-      websiteUrl: "https://ada.dev",
+      websiteUrl: null,
+    });
+    // The money still counts for Ada.
+    expect(await sponsorBoard(db, "all", now)).toMatchObject([
+      { name: "Ada", paidCents: 2500 },
+    ]);
+  });
+
+  it("move the payment made from this browser, whatever the email", async () => {
+    const guest = await guestPays("Kevin", 1000);
+    await recordGuestEmail(db, guest.checkout, "kevin@gmail.example");
+    const userId = crypto.randomUUID();
+    // Signs in with GitHub under another address, in the same browser.
+    expect(
+      await claimGuestSponsorships(db, userId, {
+        email: "kevin@hotmail.example",
+        guestId: guest.userId,
+      }),
+    ).toBe(1);
+    expect(await getSponsorProfile(db, userId)).toMatchObject({
+      publicName: "Kevin",
     });
   });
 
   it("never claim a guest payment whose email is not yet known", async () => {
     await guestPays("Northwind", 2500);
     expect(
-      await claimGuestSponsorships(
-        db,
-        crypto.randomUUID(),
-        "ops@northwind.dev",
-      ),
+      await claimGuestSponsorships(db, crypto.randomUUID(), {
+        email: "ops@northwind.dev",
+      }),
     ).toBe(0);
   });
 });

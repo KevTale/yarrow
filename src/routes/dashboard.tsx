@@ -8,7 +8,8 @@ import {
   SponsorSettings,
   SponsorView,
 } from "@/components/dashboard/sponsor";
-import { NotConfigured, SignInPrompt } from "@/components/ui";
+import { SignInPrompt } from "@/components/email-sign-in";
+import { NotConfigured } from "@/components/ui";
 import { getBuilderFn } from "@/functions/builder.functions";
 import { settleConnectFn } from "@/functions/connect.functions";
 import { getSponsorDashboardFn } from "@/functions/sponsor.functions";
@@ -57,23 +58,19 @@ function DashboardPage() {
     return () => clearTimeout(timer);
   }, [connect, polls, router]);
 
-  if (builder.status === "signed_out" || sponsor.status === "signed_out")
-    return (
-      <main id="main" className="container page-main">
-        <SignInPrompt
-          next="/dashboard"
-          reason="Your projects and sponsoring."
-        />
-      </main>
-    );
-  if (builder.status !== "ok" || sponsor.status !== "ok")
+  // A guest who paid from this browser has a Sponsor tab, no Builder tab.
+  if (sponsor.status === "signed_out")
+    return <SignInPrompt next="/dashboard" />;
+  if (sponsor.status !== "ok" || builder.status === "not_configured")
     return (
       <main id="main" className="container page-main">
         <NotConfigured />
       </main>
     );
 
-  const isBuilder = builder.projects.length > 0 || waiting !== null;
+  const isBuilder =
+    builder.status === "ok" &&
+    (builder.projects.length > 0 || waiting !== null);
   const isSponsor = sponsor.isSponsor;
   const tab: Tab =
     search.tab ??
@@ -132,7 +129,7 @@ function DashboardPage() {
           Payment received. Your credit appears once Stripe confirms it.
         </p>
       )}
-      {tab === "builder" ? (
+      {tab === "builder" && builder.status === "ok" ? (
         <BuilderView
           data={builder}
           highlight={connect.queued?.issue ?? null}

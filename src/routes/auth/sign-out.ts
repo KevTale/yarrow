@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseForRequest } from "@/server/auth-request.server";
+import { stateCookie, supabaseForRequest } from "@/server/auth-request.server";
 
 export const Route = createFileRoute("/auth/sign-out")({
   server: {
@@ -7,7 +7,8 @@ export const Route = createFileRoute("/auth/sign-out")({
       GET: async ({ request }) => {
         const auth = supabaseForRequest(request);
         await auth.client.auth.signOut();
-        return auth.redirect("/");
+        // Also forgets the sponsor who paid from this browser.
+        return auth.redirect("/", [stateCookie("yarrow_guest", "", 0)]);
       },
     },
   },

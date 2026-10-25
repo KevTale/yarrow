@@ -69,7 +69,12 @@ export function SponsorView({
   const { standings, shipped } = data;
   const router = useRouter();
   // Someone passing you, your runs moving: refetch at once.
-  useLive(["boards", `sponsor:${data.userId}`], () => router.invalidate());
+  useLive(
+    // A guest has no session for private channels; the boards still tell
+    // when their payment lands.
+    ["boards", data.guest ? null : `sponsor:${data.userId}`],
+    () => router.invalidate(),
+  );
   const shippedList = useFlip<HTMLDivElement>(shipped);
   return (
     <div className="sd">

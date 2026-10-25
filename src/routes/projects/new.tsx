@@ -10,7 +10,8 @@ import {
   parseStacks,
   ProjectFields,
 } from "@/components/project-fields";
-import { PageHeading, SignInPrompt } from "@/components/ui";
+import { SignInPrompt } from "@/components/email-sign-in";
+import { PageHeading } from "@/components/ui";
 
 export const Route = createFileRoute("/projects/new")({
   loader: () => getViewerFn(),
@@ -27,15 +28,7 @@ function NewProjectPage() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
-  if (!viewer)
-    return (
-      <main id="main" className="container page-main">
-        <SignInPrompt
-          next="/projects/new"
-          reason="Bring your backlog. It's free."
-        />
-      </main>
-    );
+  if (!viewer) return <SignInPrompt next="/projects/new" />;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
