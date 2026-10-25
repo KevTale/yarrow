@@ -1,0 +1,1 @@
+ALTER TYPE "public"."github_task_kind" ADD VALUE 'unlabel_issue';

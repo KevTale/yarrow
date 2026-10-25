@@ -522,6 +522,7 @@ export const events = pgTable(
 export const githubTaskKindEnum = pgEnum("github_task_kind", [
   "setup_project",
   "label_issue",
+  "unlabel_issue",
 ]);
 
 /**

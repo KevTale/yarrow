@@ -7,23 +7,52 @@ export type GithubTaskKind = (typeof githubTasks.$inferSelect)["kind"];
 /** Tries before a task is left alone (its last error stays visible). */
 export const MAX_GITHUB_TASK_ATTEMPTS = 5;
 
-/** Asks the brain for a GitHub write. Asking again re-opens a finished task. */
+const opposite: Partial<Record<GithubTaskKind, GithubTaskKind>> = {
+  label_issue: "unlabel_issue",
+  unlabel_issue: "label_issue",
+};
+
+/**
+ * Asks the brain for a GitHub write. Asking again re-opens a finished task
+ * as the newest request, and the last of label/unlabel wins.
+ */
 export async function requestGithubTask(
   db: Database,
   task: { projectId: string; kind: GithubTaskKind; issueNumber?: number },
 ): Promise<void> {
-  const reopen = { doneAt: null, attempts: 0, lastError: null };
-  await db
-    .insert(githubTasks)
-    .values({ ...task, issueNumber: task.issueNumber ?? 0 })
-    .onConflictDoUpdate({
-      target: [
-        githubTasks.projectId,
-        githubTasks.kind,
-        githubTasks.issueNumber,
-      ],
-      set: reopen,
-    });
+  const issueNumber = task.issueNumber ?? 0;
+  const reopen = {
+    doneAt: null,
+    attempts: 0,
+    lastError: null,
+    createdAt: new Date(),
+  };
+  await db.transaction(async (tx) => {
+    const undo = opposite[task.kind];
+    if (undo)
+      await tx
+        .update(githubTasks)
+        .set({ doneAt: new Date(), lastError: "superseded" })
+        .where(
+          and(
+            eq(githubTasks.projectId, task.projectId),
+            eq(githubTasks.kind, undo),
+            eq(githubTasks.issueNumber, issueNumber),
+            isNull(githubTasks.doneAt),
+          ),
+        );
+    await tx
+      .insert(githubTasks)
+      .values({ ...task, issueNumber })
+      .onConflictDoUpdate({
+        target: [
+          githubTasks.projectId,
+          githubTasks.kind,
+          githubTasks.issueNumber,
+        ],
+        set: reopen,
+      });
+  });
 }
 
 export type PendingGithubTask = {

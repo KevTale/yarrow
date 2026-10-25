@@ -71,19 +71,10 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
                 <div className="account-menu" role="menu">
                   <Link
                     to="/dashboard"
-                    hash="projects"
                     role="menuitem"
                     onClick={() => setOpen(false)}
                   >
-                    My projects
-                  </Link>
-                  <Link
-                    to="/dashboard"
-                    hash="sponsoring"
-                    role="menuitem"
-                    onClick={() => setOpen(false)}
-                  >
-                    My sponsoring
+                    Dashboard
                   </Link>
                   <a href="/auth/sign-out" role="menuitem" className="muted">
                     Sign out

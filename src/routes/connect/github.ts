@@ -42,7 +42,7 @@ export const Route = createFileRoute("/connect/github")({
                   project.repository.toLowerCase() === repository,
               )
             : false;
-        if (connected) return auth.redirect("/connect/done", [cookie]);
+        if (connected) return auth.redirect("/dashboard", [cookie]);
         return auth.redirect(
           `https://github.com/apps/${appEnv().GITHUB_APP_SLUG}/installations/new`,
           [cookie],

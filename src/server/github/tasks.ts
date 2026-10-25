@@ -71,13 +71,24 @@ export async function runGithubTasks(
       );
       const client = new GitHubClient(token, fetcher);
       if (task.kind === "setup_project") await setupProject(client, db, task);
-      else
+      else if (task.kind === "label_issue")
         // Labeling is the owner's authorization: the issues webhook queues it.
         await client.request(
           "POST",
           `/repos/${task.repository}/issues/${task.issueNumber}/labels`,
           { labels: [task.label] },
         );
+      else
+        await client
+          .request(
+            "DELETE",
+            `/repos/${task.repository}/issues/${task.issueNumber}/labels/${encodeURIComponent(task.label)}`,
+          )
+          .catch((error) => {
+            // 404: the label is already gone.
+            if (!(error instanceof GitHubError && error.status === 404))
+              throw error;
+          });
       await finishGithubTask(db, task.id);
       log.push(`${task.kind} ${task.repository} done`);
     } catch (error) {
