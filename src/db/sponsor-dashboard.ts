@@ -62,7 +62,7 @@ export async function sponsorStandings(
     })
     .from(sponsorProfiles)
     .where(eq(sponsorProfiles.userId, userId));
-  const publicId = profile?.publicName ? profile.publicId : null;
+  const publicId = profile?.publicId ?? null;
   const [today, all] = await Promise.all([
     sponsorBoard(db, "today", now),
     sponsorBoard(db, "all", now),

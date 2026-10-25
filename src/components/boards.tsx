@@ -37,7 +37,8 @@ export function ResetsIn() {
 
 export type SponsorRow = {
   publicId: string;
-  name: string;
+  /** Null for an anonymous sponsor. */
+  name: string | null;
   tagline: string | null;
   description: string | null;
   websiteUrl: string | null;
@@ -81,10 +82,17 @@ export function Logo({
   url,
   size,
 }: {
-  name: string;
+  /** Null for an anonymous sponsor. */
+  name: string | null;
   url?: string | null;
   size: "large" | "small";
 }) {
+  if (name === null)
+    return (
+      <span className={`board-logo ${size} anonymous`} aria-hidden="true">
+        ?
+      </span>
+    );
   if (url)
     return (
       <img className={`board-logo ${size}`} src={url} alt="" loading="lazy" />
@@ -110,6 +118,11 @@ export function domain(url: string): string {
 
 export const plural = (n: number, word: string) =>
   `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
+
+/** "Anonymous sponsor" in place of a name. */
+export function SponsorName({ name }: { name: string | null }) {
+  return name ? <b>{name}</b> : <b className="anonymous">Anonymous sponsor</b>;
+}
 
 /** The sponsor boards, side by side, with one control to claim a place on both. */
 export function SponsorBoards({
@@ -201,7 +214,7 @@ export function SponsorBoards({
                 <Logo name={row.name} url={row.logoUrl} size="large" />
                 <span className="board-body">
                   <span className="board-title">
-                    <b>{row.name}</b>
+                    <SponsorName name={row.name} />
                     {row.tagline && <span> · {row.tagline}</span>}
                   </span>
                   {row.description && (
@@ -263,7 +276,9 @@ export function SponsorBoards({
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={row.name} url={row.logoUrl} size="small" />
                 <span className="board-body">
-                  <span className="board-title">{row.name}</span>
+                  <span className="board-title">
+                    <SponsorName name={row.name} />
+                  </span>
                   <span className="board-meta">
                     {plural(row.pullRequests, "PR")} funded
                   </span>

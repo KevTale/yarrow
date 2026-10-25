@@ -4102,3 +4102,15 @@ a.sd-row:hover .sd-go {
 .board-row .md-model {
   z-index: 3;
 }
+
+/* Anonymous sponsors: ranked, never named. */
+.board-logo.anonymous {
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.board-title b.anonymous {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--secondary);
+}

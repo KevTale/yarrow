@@ -8,7 +8,13 @@ import {
   getSponsorDashboardFn,
   saveSponsorSettingsFn,
 } from "@/functions/sponsor.functions";
-import { domain, Logo, plural, ResetsIn } from "@/components/boards";
+import {
+  domain,
+  Logo,
+  plural,
+  ResetsIn,
+  SponsorName,
+} from "@/components/boards";
 import { useFlip, useLive } from "@/components/live";
 import { ModelsCell } from "./models";
 
@@ -198,7 +204,7 @@ function Board({
             <Logo name={row.name} url={row.logoUrl} size={size} />
             <span className="board-body">
               <span className="board-title">
-                <b>{row.name}</b>
+                <SponsorName name={row.name} />
                 {size === "large" && row.tagline && (
                   <span> · {row.tagline}</span>
                 )}

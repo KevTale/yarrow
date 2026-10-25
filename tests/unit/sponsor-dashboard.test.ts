@@ -50,7 +50,7 @@ describe("sponsor standings", () => {
     expect(today.others).toEqual([40_000, 30_000, 10_000, 5_000]);
   });
 
-  it("keeps three rows at the top and shows the top for anonymous sponsors", async () => {
+  it("keeps three rows at the top and ranks anonymous sponsors too", async () => {
     const first = await sponsor("Northwind", 40_000);
     await sponsor("Acme", 30_000);
     await sponsor("Bolt", 10_000);
@@ -62,11 +62,11 @@ describe("sponsor standings", () => {
     const hidden = await sponsor(null, 90_000);
     const standing = await sponsorStandings(db, hidden.userId);
     expect(standing.anonymous).toBe(true);
-    expect(standing.all.rank).toBeNull();
-    expect(standing.all.rows.map((row) => row.name)).toEqual([
-      "Northwind",
-      "Acme",
-      "Bolt",
+    expect(standing.all.rank).toBe(1);
+    expect(standing.all.rows.map((row) => [row.name, row.you])).toEqual([
+      [null, true],
+      ["Northwind", false],
+      ["Acme", false],
     ]);
   });
 });

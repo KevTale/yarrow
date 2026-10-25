@@ -26,7 +26,8 @@ export function startOfUtcDay(now = new Date()): Date {
 
 export type SponsorRow = {
   publicId: string;
-  name: string;
+  /** Null for an anonymous sponsor: ranked, never named. */
+  name: string | null;
   tagline: string | null;
   description: string | null;
   websiteUrl: string | null;
@@ -39,8 +40,8 @@ export type SponsorRow = {
 
 /**
  * Sponsors ranked by money paid (excluding VAT) on settled Stripe payments,
- * for today or all time. Paying moves a sponsor up at once. Promo credit,
- * refunds and anonymous sponsors never appear.
+ * for today or all time. Paying moves a sponsor up at once. Promo credit
+ * and refunds never count; anonymous sponsors rank without their profile.
  */
 export async function sponsorBoard(
   db: Database,
@@ -69,7 +70,6 @@ export async function sponsorBoard(
       and(
         eq(contributions.source, "stripe"),
         eq(contributions.paymentStatus, "settled"),
-        sql`${sponsorProfiles.publicName} is not null`,
         period === "today"
           ? gte(contributions.createdAt, startOfUtcDay(now))
           : undefined,
@@ -115,7 +115,10 @@ export async function sponsorBoard(
   const fundedBy = new Map(funded.map((row) => [row.userId, row.pullRequests]));
   return rows.map(({ userId, name, ...row }) => ({
     ...row,
-    name: name!,
+    name,
+    ...(name
+      ? {}
+      : { tagline: null, description: null, websiteUrl: null, logoUrl: null }),
     clicks: clicksBy.get(userId) ?? 0,
     pullRequests: fundedBy.get(userId) ?? 0,
   }));

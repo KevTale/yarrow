@@ -130,21 +130,25 @@ describe("sponsor boards", () => {
 
     const today = await sponsorBoard(db, "today", now);
     expect(today.map((row) => [row.name, row.paidCents])).toEqual([
+      [null, 90000],
       ["Ada L.", 5000],
       ["Northwind", 1000],
     ]);
     const all = await sponsorBoard(db, "all", now);
     expect(all.map((row) => [row.name, row.paidCents])).toEqual([
+      [null, 90000],
       ["Northwind", 11000],
       ["Ada L.", 5000],
     ]);
-    expect(all[0]).toMatchObject({
+    expect(all[1]).toMatchObject({
       tagline: "Analytics",
       websiteUrl: "https://northwind.dev",
       clicks: 0,
       pullRequests: 0,
     });
-    expect(all[0]!.publicId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(all[1]!.publicId).toMatch(/^[0-9a-f-]{36}$/);
+    // An anonymous sponsor shows nothing of their profile.
+    expect(all[0]).toMatchObject({ tagline: null, websiteUrl: null });
   });
 
   it("count clicks and funded pull requests", async () => {
