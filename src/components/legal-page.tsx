@@ -21,7 +21,7 @@ export function LegalPage({
 
 export const company = {
   name: "TOTEM",
-  form: "EURL (single-member limited liability company)",
+  form: "EURL (single-member limited liability company) with a share capital of €1,000",
   siren: "881 263 503",
   registry: "RCS Nanterre 881 263 503",
   vat: "FR37881263503",
