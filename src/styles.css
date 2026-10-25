@@ -3338,3 +3338,29 @@ a.dash-row:hover {
 .footer-legal a:hover {
   color: var(--text);
 }
+
+/* Today boards: time left before midnight UTC */
+.board-resets {
+  font-style: normal;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.board-resets b {
+  color: var(--secondary);
+  font-weight: 500;
+}
+/* A row whose title links: the whole row is the target. */
+.board-row.linked {
+  position: relative;
+  transition: background 0.15s;
+}
+.board-row.linked:hover {
+  background: var(--surface);
+}
+.board-row.linked .board-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}

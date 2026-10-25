@@ -4,6 +4,34 @@ import type { RunSponsor } from "@/core/attribution";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { timeAgo } from "./ui";
 
+/** Time left before the Today boards reset (midnight UTC). Client-only. */
+export function ResetsIn() {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const next = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1,
+      );
+      const minutes = Math.max(0, Math.floor((next - now.getTime()) / 60000));
+      setLabel(
+        `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`,
+      );
+    };
+    tick();
+    const timer = setInterval(tick, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  if (!label) return null;
+  return (
+    <em className="board-resets">
+      (resets in <b>{label}</b>)
+    </em>
+  );
+}
+
 export type SponsorRow = {
   publicId: string;
   name: string;
@@ -148,7 +176,9 @@ export function SponsorBoards({
       <div className="board-grid">
         <div className="board-box" ref={todayBox}>
           <div className="board-head">
-            <span>Today</span>
+            <span>
+              Today <ResetsIn />
+            </span>
             <span className="board-total">
               <small>total</small> {money(todayTotal, false)}
             </span>
@@ -299,7 +329,9 @@ export function ShippedBoards({
       <div className="board-grid">
         <div className="board-box">
           <div className="board-head">
-            <span>Today</span>
+            <span>
+              Today <ResetsIn />
+            </span>
             <span className="board-total">
               <small>merged</small> {totals.today.toLocaleString("en-US")}
             </span>
@@ -320,7 +352,7 @@ export function ShippedBoards({
               </li>
             )}
             {today.map((pr) => (
-              <li className="board-row large merged" key={pr.url}>
+              <li className="board-row large merged linked" key={pr.url}>
                 <span className="board-rank" />
                 <Logo
                   name={pr.repository.split("/")[1] ?? pr.repository}
@@ -367,15 +399,24 @@ export function ShippedBoards({
           <ol className="board-list">
             {projects.map((project, i) => (
               <li
-                className={`board-row small ${i === 0 ? "first" : ""}`}
+                className={`board-row small ${i === 0 ? "first" : ""} ${project.repository ? "linked" : ""}`}
                 key={project.id}
               >
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={project.name} size="small" />
                 <span className="board-body">
-                  <span className="board-title">
-                    {project.repository ?? project.name}
-                  </span>
+                  {project.repository ? (
+                    <a
+                      className="board-title"
+                      href={`https://github.com/${project.repository}`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {project.repository}
+                    </a>
+                  ) : (
+                    <span className="board-title">{project.name}</span>
+                  )}
                   <span className="board-meta">pull requests merged</span>
                 </span>
                 <span className="board-amount">
