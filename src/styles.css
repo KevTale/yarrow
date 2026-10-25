@@ -39,6 +39,8 @@ body > main {
   flex: 1 0 auto;
   /* Auto margins would otherwise shrink a centered page to its content. */
   width: 100%;
+  /* A grid page keeps its rows at the top instead of spreading them out. */
+  align-content: start;
 }
 a {
   color: inherit;
