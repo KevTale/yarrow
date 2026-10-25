@@ -125,6 +125,10 @@ Decided 2026-10-07 (mockup: claude.ai/artifact/GnHLGnxDoGuDdikpUk3T8i). One page
 - **Models** column (dashboard and landing): who wrote and who reviewed, with the reasoning level; hover or tap shows time, tokens and cost. Claude's numbers come from Anthropic (exact); the reviewer's tokens come from OpenAI, its cost is tokens × list price and its time is measured by Yarrow, both marked ≈.
 - **Sponsor:** where you stand first (Today, with the time left before the reset, and All time, each showing the sponsor ahead and behind), then the Claim control priced for the next rank, then "Shipped with your money" (public tickets link their PR, others stay private). Credit left, Add funds and Settings sit beside the tabs. Settings is a drawer: leaderboard profile, Every project or Only the projects I choose (a searchable list opens under the option), payments.
 
+### Realtime
+
+Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase Realtime (Broadcast from Database, `drizzle/0007_realtime.sql`); pages refetch through their own server functions, so no data travels on a channel and the access rules stay the server's. Channels: `boards` (public: landing boards, a settled payment, a profile change, a merge), `project:<id>` (private to the project's members: tickets, runs, label tasks, PRs), `sponsor:<user>` (private to that sponsor: their payments and the runs they fund). Private channels are checked by a policy on `realtime.messages`. Polling stays as a slow safety net. Rows that move slide to their new place, new rows fade in, changed values flash.
+
 ## Money
 
 - **Sponsor packs:** $10 / $25 / $100, plus a **custom amount** in whole dollars between $10 and $1,000. The minimum avoids fixed Stripe fees eating small payments. The maximum limits fraud and chargeback exposure in v1.

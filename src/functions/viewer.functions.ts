@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeNext } from "@/server/auth-request.server";
 import { getViewer, supabaseServer } from "@/server/auth.server";
+import { appEnv } from "@/server/env.server";
 import { afterSignIn, sendSignInLink } from "@/server/sign-in.server";
 
 export const getViewerFn = createServerFn({ method: "GET" }).handler(
@@ -49,3 +50,13 @@ export const adoptSessionFn = createServerFn({ method: "POST" })
     await afterSignIn(session.user);
     return { ok: true };
   });
+
+/** Public values the browser needs for Realtime (the publishable key). */
+export const getLiveConfigFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const env = appEnv();
+    return env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY
+      ? { url: env.SUPABASE_URL, key: env.SUPABASE_PUBLISHABLE_KEY }
+      : null;
+  },
+);

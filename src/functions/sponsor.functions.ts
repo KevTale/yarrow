@@ -35,6 +35,7 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
       const filters = await getSponsorFilters(db, viewer.userId);
       return {
         status: "ok" as const,
+        userId: viewer.userId,
         isSponsor: contributions.length > 0,
         leftCents:
           totals.creditCents - totals.consumedCents - totals.reservedCents,

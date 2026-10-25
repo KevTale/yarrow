@@ -4,6 +4,7 @@ import type { RunSponsor } from "@/core/attribution";
 import type { TicketModel } from "@/core/tickets";
 import { ModelsCell } from "./dashboard/models";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
+import { useFlip } from "./live";
 import { timeAgo } from "./ui";
 
 /** Time left before the Today boards reset (midnight UTC). Client-only. */
@@ -129,6 +130,8 @@ export function SponsorBoards({
   const allTotal = all.reduce((sum, row) => sum + row.paidCents, 0);
   const todayBox = useRef<HTMLDivElement>(null);
   const allBox = useRef<HTMLDivElement>(null);
+  const todayList = useFlip<HTMLOListElement>(today);
+  const allList = useFlip<HTMLOListElement>(all);
   useEffect(() => {
     if (!showYou) return;
     for (const box of [todayBox.current, allBox.current]) {
@@ -186,11 +189,13 @@ export function SponsorBoards({
               <small>total</small> {money(todayTotal, false)}
             </span>
           </div>
-          <ol className="board-list">
+          <ol className="board-list" ref={todayList}>
             {withYou(today, rankToday, "large", (row, i) => (
               <li
                 className={`board-row large ${i === 0 ? "first" : ""}`}
                 key={row.publicId}
+                data-flip={row.publicId}
+                data-flip-value={row.paidCents}
               >
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={row.name} url={row.logoUrl} size="large" />
@@ -247,11 +252,13 @@ export function SponsorBoards({
               <small>total</small> {money(allTotal, false)}
             </span>
           </div>
-          <ol className="board-list">
+          <ol className="board-list" ref={allList}>
             {withYou(all, rankAll, "small", (row, i) => (
               <li
                 className={`board-row small ${i === 0 ? "first" : ""}`}
                 key={row.publicId}
+                data-flip={row.publicId}
+                data-flip-value={row.paidCents}
               >
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={row.name} url={row.logoUrl} size="small" />
@@ -322,6 +329,8 @@ export function ShippedBoards({
   projects: ProjectRow[];
   totals: { today: number; all: number };
 }) {
+  const todayList = useFlip<HTMLOListElement>(today);
+  const projectList = useFlip<HTMLOListElement>(projects);
   return (
     <section
       className="board-section"
@@ -339,7 +348,7 @@ export function ShippedBoards({
               <small>merged</small> {totals.today.toLocaleString("en-US")}
             </span>
           </div>
-          <ol className="board-list">
+          <ol className="board-list" ref={todayList}>
             {today.length === 0 && (
               <li className="board-row large open">
                 <span className="board-rank" />
@@ -355,7 +364,11 @@ export function ShippedBoards({
               </li>
             )}
             {today.map((pr) => (
-              <li className="board-row large merged linked" key={pr.url}>
+              <li
+                className="board-row large merged linked"
+                key={pr.url}
+                data-flip={pr.url}
+              >
                 <span className="board-rank" />
                 <Logo
                   name={pr.repository.split("/")[1] ?? pr.repository}
@@ -400,11 +413,13 @@ export function ShippedBoards({
               <small>merged</small> {totals.all.toLocaleString("en-US")}
             </span>
           </div>
-          <ol className="board-list">
+          <ol className="board-list" ref={projectList}>
             {projects.map((project, i) => (
               <li
                 className={`board-row small ${i === 0 ? "first" : ""} ${project.repository ? "linked" : ""}`}
                 key={project.id}
+                data-flip={project.id}
+                data-flip-value={project.merged}
               >
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={project.name} size="small" />

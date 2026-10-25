@@ -12,10 +12,17 @@ import appCss from "@/styles.css?url";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionFromLink } from "@/components/session-from-link";
-import { getViewerFn } from "@/functions/viewer.functions";
+import { LiveProvider } from "@/components/live";
+import { getLiveConfigFn, getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createRootRoute({
-  loader: () => getViewerFn(),
+  loader: async () => {
+    const [viewer, live] = await Promise.all([
+      getViewerFn(),
+      getLiveConfigFn(),
+    ]);
+    return { viewer, live };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -43,14 +50,16 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const viewer = Route.useLoaderData();
+  const { viewer, live } = Route.useLoaderData();
   return (
     <>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
       <SiteHeader viewer={viewer} />
-      <Outlet />
+      <LiveProvider config={live}>
+        <Outlet />
+      </LiveProvider>
       <SiteFooter />
       <SessionFromLink />
     </>

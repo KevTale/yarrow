@@ -9,6 +9,7 @@ import {
   saveSponsorSettingsFn,
 } from "@/functions/sponsor.functions";
 import { domain, Logo, plural, ResetsIn } from "@/components/boards";
+import { useFlip, useLive } from "@/components/live";
 import { ModelsCell } from "./models";
 
 export type SponsorData = Extract<
@@ -60,6 +61,10 @@ export function SponsorView({
   onSettings: () => void;
 }) {
   const { standings, shipped } = data;
+  const router = useRouter();
+  // Someone passing you, your runs moving: refetch at once.
+  useLive(["boards", `sponsor:${data.userId}`], () => router.invalidate());
+  const shippedList = useFlip<HTMLDivElement>(shipped);
   return (
     <div className="sd">
       {standings.anonymous && (
@@ -90,7 +95,7 @@ export function SponsorView({
       </div>
       <Claim today={standings.today} all={standings.all} />
 
-      <div className="sd-shipped">
+      <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
           <span>
             Shipped with your money <em>{shipped.length}</em>
@@ -124,6 +129,8 @@ export function SponsorView({
           return row.url ? (
             <a
               key={row.runId}
+              data-flip={row.runId}
+              data-flip-value={row.status}
               className="sd-row linked"
               href={row.url}
               target="_blank"
@@ -132,7 +139,12 @@ export function SponsorView({
               {cells}
             </a>
           ) : (
-            <div key={row.runId} className="sd-row">
+            <div
+              key={row.runId}
+              data-flip={row.runId}
+              data-flip-value={row.status}
+              className="sd-row"
+            >
               {cells}
             </div>
           );
@@ -153,6 +165,7 @@ function Board({
   size: "large" | "small";
   onEdit: () => void;
 }) {
+  const list = useFlip<HTMLOListElement>(standing);
   return (
     <div>
       <div className="board-head">
@@ -161,7 +174,7 @@ function Board({
           <small>total</small> {money(standing.totalCents, false)}
         </span>
       </div>
-      <ol className="board-list">
+      <ol className="board-list" ref={list}>
         {standing.rows.length === 0 && (
           <li className={`board-row ${size} open`}>
             <span className="board-rank">1</span>
@@ -177,6 +190,8 @@ function Board({
         {standing.rows.map((row) => (
           <li
             key={row.publicId}
+            data-flip={row.publicId}
+            data-flip-value={row.paidCents}
             className={`board-row ${size} ${row.rank === 1 ? "first" : ""} ${row.you ? "you" : ""}`}
           >
             <span className="board-rank">{row.rank}</span>

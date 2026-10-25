@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { ShippedBoards, SponsorBoards } from "@/components/boards";
+import { useLive } from "@/components/live";
 import { ShipForm } from "@/components/ship-form";
 import { getBoardsFn } from "@/functions/public.functions";
 
@@ -20,6 +21,9 @@ function Landing() {
   const loaded = Route.useLoaderData();
   const boards = loaded.configured ? loaded : empty;
   const { checkout } = Route.useSearch();
+  const router = useRouter();
+  // A payment or a merge anywhere moves the boards for every visitor.
+  useLive(["boards"], () => router.invalidate(), 2_000);
   return (
     <main id="main" className="landing">
       {checkout === "success" && (

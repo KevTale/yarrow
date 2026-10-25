@@ -18,6 +18,7 @@ import {
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
 import { capitalize, timeAgo } from "@/components/ui";
+import { useFlip, useLive } from "@/components/live";
 import { ModelsCell } from "./models";
 
 type BuilderData = Extract<
@@ -85,26 +86,27 @@ export function BuilderView({
   );
   const busy = rows.some(moving) || waiting !== null;
 
-  // Poll Yarrow's state; GitHub's open issues only once a minute.
+  // Realtime signals refresh at once; polling is the safety net.
+  const pull = async () => {
+    if (!project) return;
+    const withIssues = Date.now() - issuesAt.current > 60_000;
+    const next = await refresh({
+      data: { projectId: project.id, issues: withIssues },
+    }).catch(() => null);
+    if (next?.status !== "ok") return;
+    setLive(next);
+    if (withIssues) {
+      issuesAt.current = Date.now();
+      if (next.issues) setIssues(next.issues);
+    }
+  };
+  useLive([project ? `project:${project.id}` : null], () => void pull());
   useEffect(() => {
     if (!project) return;
-    const timer = setTimeout(
-      async () => {
-        const withIssues = Date.now() - issuesAt.current > 60_000;
-        const next = await refresh({
-          data: { projectId: project.id, issues: withIssues },
-        }).catch(() => null);
-        if (next?.status !== "ok") return;
-        setLive(next);
-        if (withIssues) {
-          issuesAt.current = Date.now();
-          if (next.issues) setIssues(next.issues);
-        }
-      },
-      busy ? 4_000 : 30_000,
-    );
+    const timer = setTimeout(() => void pull(), busy ? 15_000 : 60_000);
     return () => clearTimeout(timer);
-  }, [live, busy, project, refresh]);
+  });
+  const table = useFlip<HTMLDivElement>(live);
 
   async function act(kind: "queue" | "unqueue" | "retry", numbers: number[]) {
     if (!project || numbers.length === 0) return;
@@ -318,7 +320,12 @@ export function BuilderView({
                 {error}
               </p>
             )}
-            <div className="bd-table" role="table" aria-label="Tickets">
+            <div
+              className="bd-table"
+              role="table"
+              aria-label="Tickets"
+              ref={table}
+            >
               <div className="bd-row bd-thead" role="row">
                 <span>
                   <input
@@ -346,6 +353,8 @@ export function BuilderView({
                 <div
                   role="row"
                   key={row.number}
+                  data-flip={row.number}
+                  data-flip-value={row.status}
                   className={`bd-row ${selected.has(row.number) ? "selected" : ""} ${fresh === row.number ? "fresh" : ""}`}
                   onAnimationEnd={() => setFresh(null)}
                 >

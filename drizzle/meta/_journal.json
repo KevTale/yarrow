@@ -50,6 +50,13 @@
       "when": 1791372657467,
       "tag": "0006_mushy_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791374334193,
+      "tag": "0007_realtime",
+      "breakpoints": true
     }
   ]
 }
