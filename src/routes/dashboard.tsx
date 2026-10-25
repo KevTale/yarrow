@@ -11,6 +11,7 @@ import {
   SponsorSettings,
   SponsorView,
 } from "@/components/dashboard/sponsor";
+import { WelcomeView } from "@/components/dashboard/welcome";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { NotConfigured } from "@/components/ui";
 import { getBuilderFn } from "@/functions/builder.functions";
@@ -91,6 +92,14 @@ function DashboardPage() {
   const both = (isBuilder && isSponsor) || (fresh && builder.status === "ok");
   const choose = (next: Tab) =>
     navigate({ search: (current) => ({ ...current, tab: next }) });
+
+  // A new account, signed in on purpose: the two ways in, not empty tabs.
+  if (fresh && !sponsor.guest && !search.tab)
+    return (
+      <main id="main" className="container dashboard">
+        <WelcomeView data={sponsor} />
+      </main>
+    );
 
   return (
     <main id="main" className="container dashboard">

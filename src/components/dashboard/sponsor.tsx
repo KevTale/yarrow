@@ -242,7 +242,7 @@ const rankWith = (standing: Standing, cents: number) =>
   1;
 
 /** Priced for #1 today by default; any amount shows where it lands. */
-function Claim({ today, all }: { today: Standing; all: Standing }) {
+export function Claim({ today, all }: { today: Standing; all: Standing }) {
   const top = Math.max(0, ...today.others);
   const needed =
     today.rank === 1 ? MIN_AMOUNT_CENTS : top - today.paidCents + 100;
