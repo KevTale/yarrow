@@ -59,6 +59,8 @@ export async function createCheckout(
     automatic_tax: { enabled: tax },
     tax_id_collection: { enabled: tax },
     billing_address_collection: tax ? "required" : "auto",
+    // A numbered invoice for every payment, emailed by Stripe.
+    invoice_creation: { enabled: true },
     metadata: { userId: input.userId, kind: "compute_credit" },
     payment_intent_data: { metadata: { userId: input.userId } },
     success_url: `${env.APP_URL}${input.successPath}`,

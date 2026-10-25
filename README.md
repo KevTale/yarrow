@@ -82,13 +82,14 @@ pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # ce
 À faire une fois par environnement, en commençant par dev :
 
 1. **Base :** les migrations sont appliquées sur les deux projets Supabase (`yarrow-dev`, `yarrow-prod`). Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
-2. **Auth :** activer le provider GitHub dans Supabase Auth, avec `<APP_URL>/auth/callback` en redirection.
-3. **GitHub App** (`yarrow-run-dev` pour dev et le local, `yarrow-run` pour la prod) :
-   - permissions : Contents, Pull requests et Issues en écriture, Metadata en lecture ;
+2. **Auth (Supabase) :** provider GitHub avec le Client ID et un client secret de la GitHub App ci-dessous. URL Configuration : Site URL `<APP_URL>`, redirection `<APP_URL>/**`. Email : OTP expiry à 86400 s (les liens de connexion durent 24 h).
+3. **GitHub App** (`yarrow-run-dev` pour dev et le local, `yarrow-run` pour la prod, installable par **n'importe quel compte**) :
+   - permissions de dépôt : Contents, Pull requests et Issues en écriture, Metadata en lecture ; permission de compte : Email addresses en lecture (connexion Supabase) ;
    - événements : Installation, Installation repositories, Issues, Issue comment, Pull request, Repository ;
-   - webhook : `<APP_URL>/api/webhooks/github`.
+   - webhook : `<APP_URL>/api/webhooks/github` ;
+   - Callback URL : `https://<ref Supabase>.supabase.co/auth/v1/callback` ; Setup URL : `<APP_URL>/connect/done`, avec « Redirect on update ».
 4. **Stripe :** webhook `<APP_URL>/api/webhooks/stripe` avec `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` et `charge.dispute.created`. Activer Stripe Tax puis `STRIPE_TAX=on`.
-5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme, puis `pnpm bootstrap:anthropic` pour créer l'agent Claude et son environnement. Il affiche `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`.
+5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme. `scripts/set-secrets.ps1` propose de créer l'agent Claude et son environnement avec la clé saisie (`pnpm bootstrap:anthropic`) et pose `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`.
 6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers).
 7. **R2 :** activer R2, créer le bucket `yarrow-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
 8. **Secrets :** chaque secret avec `wrangler secret put` (voir [Environnements](#environnements)), puis un push sur la branche de l'environnement.

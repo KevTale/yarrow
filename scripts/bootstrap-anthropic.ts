@@ -11,7 +11,9 @@ import { existsSync } from "node:fs";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
 import { IMPLEMENTER_SYSTEM } from "../src/runner/prompts";
 
-if (existsSync(".env")) process.loadEnvFile(".env");
+// A key already in the shell wins (set-secrets.ps1 passes the target's key).
+if (!process.env.ANTHROPIC_API_KEY && existsSync(".env"))
+  process.loadEnvFile(".env");
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
   console.error("Set ANTHROPIC_API_KEY (a platform Console API key).");

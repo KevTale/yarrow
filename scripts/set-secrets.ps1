@@ -24,10 +24,20 @@ function Add($name, $value, [switch]$Web, [switch]$Brain) {
 
 Write-Host "Secrets for '$Target'. Leave a value empty to skip it." -ForegroundColor Yellow
 Add DATABASE_URL (Read-Secret "Supabase DATABASE_URL (Connect > Transaction pooler, port 6543)") -Web -Brain
-Add ANTHROPIC_API_KEY (Read-Secret "Anthropic API key") -Web -Brain
+$anthropic = Read-Secret "Anthropic API key"
+Add ANTHROPIC_API_KEY $anthropic -Web -Brain
+# The brain's Claude agent lives in the key's Anthropic workspace.
+if ($anthropic -and (Read-Host "Create the Claude agent for '$Target' with this key? (y/N)") -eq "y") {
+  $env:ANTHROPIC_API_KEY = $anthropic
+  try { $out = pnpm --silent bootstrap:anthropic } finally { Remove-Item Env:ANTHROPIC_API_KEY }
+  foreach ($line in $out) { if ($line -match '^(ANTHROPIC_(AGENT|ENVIRONMENT)_ID)=(.+)$') { Add $Matches[1] $Matches[3] -Brain } }
+  if (-not $brainSecrets.ContainsKey("ANTHROPIC_AGENT_ID")) { throw "The Claude agent was not created: $out" }
+}
 Add OPENAI_API_KEY (Read-Secret "OpenAI API key") -Brain
-Add STRIPE_SECRET_KEY (Read-Secret "Stripe secret key (sk_test_...)") -Web
+$stripeKey = if ($Target -eq "production") { "sk_live_..." } else { "sk_test_..." }
+Add STRIPE_SECRET_KEY (Read-Secret "Stripe secret key ($stripeKey)") -Web
 Add STRIPE_WEBHOOK_SECRET (Read-Secret "Stripe webhook signing secret (whsec_...)") -Web
+if ((Read-Host "Is Stripe Tax active in this Stripe account? (y/N)") -eq "y") { Add STRIPE_TAX "on" -Web }
 Add GITHUB_APP_ID (Read-Host "GitHub App ID (a number)") -Web -Brain
 Add GITHUB_APP_WEBHOOK_SECRET (Read-Secret "GitHub App webhook secret") -Web
 Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web
@@ -43,4 +53,3 @@ if ($webSecrets.Count) { $webSecrets | ConvertTo-Json -Compress | pnpm exec wran
 if ($brainSecrets.Count) { $brainSecrets | ConvertTo-Json -Compress | pnpm exec wrangler secret bulk --config workers/wrangler.jsonc --env $Target }
 Write-Host "Web: $($webSecrets.Keys -join ', ')" -ForegroundColor Green
 Write-Host "Brain: $($brainSecrets.Keys -join ', ')" -ForegroundColor Green
-Write-Host "Next: ANTHROPIC_AGENT_ID and ANTHROPIC_ENVIRONMENT_ID, from pnpm bootstrap:anthropic." -ForegroundColor Yellow
