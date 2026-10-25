@@ -92,7 +92,8 @@ export function mergeTickets(
       updatedAt: issue.updatedAt,
     });
   }
-  return merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // Newest tickets first, and a row never moves when its status changes.
+  return merged.sort((a, b) => b.number - a.number);
 }
 
 /** "claude-opus-5-5:high" → Claude Opus 5.5 at high effort, no stats yet. */

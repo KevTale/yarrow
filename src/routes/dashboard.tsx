@@ -44,6 +44,9 @@ export const Route = createFileRoute("/dashboard")({
   // Switching tabs or coming back soon after does not reload everything;
   // the views refresh themselves (realtime and polling).
   staleTime: 30_000,
+  // Another project's tickets are never shown from memory: an old copy
+  // would flash before the fresh one replaces it.
+  gcTime: 0,
   head: () => ({ meta: [{ title: "Dashboard · Yarrow" }] }),
   component: DashboardPage,
 });

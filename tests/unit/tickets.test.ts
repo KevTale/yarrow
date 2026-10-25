@@ -269,6 +269,24 @@ describe("merging GitHub's open issues", () => {
     expect(yarrow.title).toBe("Old title");
   });
 
+  it("orders tickets by number, whatever GitHub last touched", () => {
+    const issue = (number: number, updatedAt: string) => ({
+      number,
+      title: `#${number}`,
+      url: "",
+      updatedAt,
+    });
+    const rows = mergeTickets(
+      [],
+      [
+        issue(4, "2026-10-07T09:00:00.000Z"),
+        issue(12, "2026-10-07T08:00:00.000Z"),
+        issue(7, "2026-10-07T11:00:00.000Z"),
+      ],
+    );
+    expect(rows.map((row) => row.number)).toEqual([12, 7, 4]);
+  });
+
   it("formats time and tokens", () => {
     expect(formatSeconds(28)).toBe("28 s");
     expect(formatSeconds(72)).toBe("1 min 12 s");

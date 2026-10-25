@@ -3545,18 +3545,42 @@ a.bd-title:hover {
 .s-abstained .dot {
   border: 1.5px solid var(--red);
 }
+.s-none {
+  color: var(--muted);
+}
+.s-none .dot {
+  border: 1.5px solid #4a4f57;
+}
+/* "Add" shows on the row under the pointer, always on touch screens. */
 .bd-queue {
-  font-size: 12.5px;
-  color: var(--secondary);
-  background: none;
-  border: 1px dashed #3a3e45;
-  border-radius: 7px;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--amber);
+  background: #f2b5441a;
+  border: 1px solid #f2b5444d;
+  border-radius: 999px;
+  padding: 2px 9px 2px 7px;
   cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.bd-row:hover .bd-queue,
+.bd-queue:focus-visible {
+  opacity: 1;
 }
 .bd-queue:hover {
-  border-color: var(--amber);
-  color: var(--amber);
+  background: #f2b5442e;
+}
+@media (hover: none) {
+  .bd-queue {
+    opacity: 1;
+  }
 }
 .bd-retry {
   font-size: 12.5px;

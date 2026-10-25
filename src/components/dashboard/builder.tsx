@@ -216,17 +216,7 @@ export function BuilderView({
               onClick={() => choose(item.id)}
             >
               <span>{item.name}</span>
-              {item.id === switching ? (
-                <Spinner />
-              ) : (
-                <span className="bd-count">
-                  {item.queued +
-                    item.running +
-                    item.delivered +
-                    item.merged +
-                    item.abstained}
-                </span>
-              )}
+              {item.id === switching && <Spinner />}
             </button>
           ))}
           <a className="bd-add" href="/connect/github">
@@ -418,7 +408,7 @@ export function BuilderView({
             disabled={canQueue.length === 0}
             onClick={() => act("queue", canQueue)}
           >
-            Queue
+            Add to queue
           </button>
           <button
             type="button"
@@ -451,13 +441,18 @@ function Status({
 }) {
   if (row.status === "none")
     return (
-      <button
-        type="button"
-        className="bd-queue"
-        onClick={() => act("queue", [row.number])}
-      >
-        Queue
-      </button>
+      <span className="bd-status s-none">
+        <span className="dot" aria-hidden="true" />
+        Not queued
+        <button
+          type="button"
+          className="bd-queue"
+          aria-label={`Add #${row.number} to the queue`}
+          onClick={() => act("queue", [row.number])}
+        >
+          <Plus size={12} strokeWidth={2.4} /> Add
+        </button>
+      </span>
     );
   const label = statusLabel[row.status];
   return (
