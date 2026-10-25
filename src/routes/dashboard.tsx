@@ -26,6 +26,8 @@ export const Route = createFileRoute("/dashboard")({
     tab: z.enum(["builder", "sponsor"]).optional(),
     project: z.uuid().optional(),
     checkout: z.enum(["success"]).optional(),
+    /** Set by /connect/done: GitHub's webhook may not have landed yet. */
+    installation: z.number().int().positive().optional().catch(undefined),
   }),
   loaderDeps: ({ search }) => ({ project: search.project }),
   loader: async ({ deps }) => {
@@ -44,6 +46,8 @@ export const Route = createFileRoute("/dashboard")({
 
 /** GitHub's install webhook usually lands within seconds. */
 const CONNECT_POLLS = 20;
+/** After an install: up to 30 s for the first projects to appear. */
+const INSTALL_POLLS = 10;
 
 function DashboardPage() {
   const { connect, builder, sponsor } = Route.useLoaderData();
@@ -53,16 +57,34 @@ function DashboardPage() {
   const router = useRouter();
   const [polls, setPolls] = useState(0);
   const [settings, setSettings] = useState(false);
-  const waiting = polls < CONNECT_POLLS ? connect.waiting : null;
+  const projectCount = builder.status === "ok" ? builder.projects.length : 0;
+  const [startCount] = useState(projectCount);
+  // New repositories showed up, or the install only changed existing ones.
+  const installed =
+    projectCount > startCount || (projectCount > 0 && polls >= 2);
+  const installing =
+    search.installation !== undefined && polls < INSTALL_POLLS && !installed;
+  const waiting =
+    (polls < CONNECT_POLLS ? connect.waiting : null) ??
+    (installing ? "GitHub" : null);
 
   useEffect(() => {
-    if (!connect.waiting || polls >= CONNECT_POLLS) return;
+    if (!waiting) return;
     const timer = setTimeout(async () => {
       await router.invalidate();
       setPolls((count) => count + 1);
     }, 3_000);
     return () => clearTimeout(timer);
-  }, [connect, polls, router]);
+  }, [waiting, polls, router]);
+
+  // Done waiting: a refresh should not wait again.
+  useEffect(() => {
+    if (search.installation !== undefined && !installing)
+      navigate({
+        search: (current) => ({ ...current, installation: undefined }),
+        replace: true,
+      });
+  }, [search.installation, installing, navigate]);
 
   // A guest who paid from this browser has a Sponsor tab, no Builder tab.
   if (sponsor.status === "signed_out")
