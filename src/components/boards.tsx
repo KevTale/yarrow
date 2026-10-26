@@ -104,6 +104,23 @@ export function domain(url: string): string {
 export const plural = (n: number, word: string) =>
   `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
+/**
+ * The whole row opens the sponsor's website, through Yarrow's redirect so
+ * the click is counted.
+ */
+function SponsorLink({ row }: { row: SponsorRow }) {
+  if (!row.websiteUrl || !row.name) return null;
+  return (
+    <a
+      className="board-row-link"
+      href={`/out/${row.publicId}`}
+      rel="sponsored noopener"
+      target="_blank"
+      aria-label={`${row.name}, ${domain(row.websiteUrl)}`}
+    />
+  );
+}
+
 /** "Anonymous sponsor" in place of a name. */
 export function SponsorName({ name }: { name: string | null }) {
   return name ? <b>{name}</b> : <b className="anonymous">Anonymous sponsor</b>;
@@ -197,12 +214,13 @@ export function SponsorBoards({
           <ol className="board-list" ref={todayList}>
             {withYou(today, rankToday, "large", (row, i) => (
               <li
-                className={`board-row large ${i === 0 ? "first" : ""}`}
+                className={`board-row large ${i === 0 ? "first" : ""} ${row.websiteUrl ? "linked" : ""}`}
                 key={row.publicId}
                 data-sponsor={row.publicId}
                 data-flip={row.publicId}
                 data-flip-value={row.paidCents}
               >
+                <SponsorLink row={row} />
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={row.name} url={row.logoUrl} size="large" />
                 <span className="board-body">
@@ -211,17 +229,18 @@ export function SponsorBoards({
                     {row.tagline && <span> · {row.tagline}</span>}
                   </span>
                   {row.description && (
-                    <span className="board-description">{row.description}</span>
+                    <span
+                      className="board-description"
+                      title={row.description}
+                    >
+                      {row.description}
+                    </span>
                   )}
                   <span className="board-meta">
                     {row.websiteUrl && (
-                      <a
-                        href={`/out/${row.publicId}`}
-                        rel="sponsored noopener"
-                        target="_blank"
-                      >
+                      <span className="board-domain">
                         {domain(row.websiteUrl)}
-                      </a>
+                      </span>
                     )}
                     {row.name && <span>{plural(row.clicks, "click")}</span>}
                     <span>{plural(row.pullRequests, "PR")} funded</span>
@@ -261,12 +280,13 @@ export function SponsorBoards({
           <ol className="board-list" ref={allList}>
             {withYou(all, rankAll, "small", (row, i) => (
               <li
-                className={`board-row small ${i === 0 ? "first" : ""}`}
+                className={`board-row small ${i === 0 ? "first" : ""} ${row.websiteUrl ? "linked" : ""}`}
                 key={row.publicId}
                 data-sponsor={row.publicId}
                 data-flip={row.publicId}
                 data-flip-value={row.paidCents}
               >
+                <SponsorLink row={row} />
                 <span className="board-rank">{i + 1}</span>
                 <Logo name={row.name} url={row.logoUrl} size="small" />
                 <span className="board-body">
@@ -274,7 +294,7 @@ export function SponsorBoards({
                     <SponsorName name={row.name} />
                   </span>
                   <span className="board-meta">
-                    {plural(row.pullRequests, "PR")} funded
+                    <span>{plural(row.pullRequests, "PR")} funded</span>
                   </span>
                 </span>
                 <span className="board-amount">
@@ -367,6 +387,7 @@ const liveLabel: Record<LiveRow["status"], string> = {
 export function LiveBoard({ live }: { live: LiveRow[] }) {
   const list = useFlip<HTMLDivElement>(live);
   const working = live.filter((row) => isWorking(row.status)).length;
+  const merged = live.filter((row) => row.status === "merged").length;
   return (
     <section className="board-section" id="shipped" aria-labelledby="live-title">
       <h2 id="live-title">Live</h2>
@@ -375,11 +396,13 @@ export function LiveBoard({ live }: { live: LiveRow[] }) {
           <span>
             Today <ResetsIn />
           </span>
-          <span className="board-total live-counts">
-            {working > 0 && <span className="live-dot" aria-hidden="true" />}
-            <small>working</small> {working}
-            <small>merged</small>{" "}
-            {live.filter((row) => row.status === "merged").length}
+          <span className="live-counts">
+            <span>
+              <b>{working}</b> ongoing {working === 1 ? "ticket" : "tickets"}
+            </span>
+            <span>
+              <b>{merged}</b> merged {merged === 1 ? "PR" : "PRs"}
+            </span>
           </span>
         </div>
         <div className="live-row live-thead" role="row">
