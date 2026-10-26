@@ -129,7 +129,7 @@ export function TicketStack({
                 </span>
                 {sponsor && (
                   <span className="tk-paid">
-                    Paid by
+                    <span className="tk-paid-label">Paid by</span>
                     <Logo
                       name={sponsor.name}
                       url={logos.get(sponsor.publicId ?? "") ?? null}
