@@ -2,7 +2,10 @@ import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
-import { SponsorView } from "@/components/dashboard/sponsor";
+import {
+  SponsorActions,
+  SponsorView,
+} from "@/components/dashboard/sponsor";
 import { WelcomeView } from "@/components/dashboard/welcome";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { NotConfigured } from "@/components/ui";
@@ -168,12 +171,18 @@ function DashboardPage() {
               {role === "builder" ? "Builder" : "Sponsor"}
             </button>
           ))}
+          {tab === "sponsor" && <SponsorActions data={sponsor} />}
         </div>
       ) : (
         <>
           <h1 className="sr-only">
             {tab === "builder" ? "Builder" : "Sponsor"}
           </h1>
+          {tab === "sponsor" && (
+            <div className="dashboard-roles">
+              <SponsorActions data={sponsor} />
+            </div>
+          )}
         </>
       )}
       {tab === "builder" && builder.status === "ok" ? (

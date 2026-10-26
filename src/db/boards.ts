@@ -302,12 +302,41 @@ export interface LiveRow {
  * UTC, newest first. Listed projects show their repository's name, never
  * their tickets.
  */
-export async function liveToday(
+export function liveToday(
   db: Database,
   now = new Date(),
   limit = 40,
 ): Promise<LiveRow[]> {
-  const since = startOfUtcDay(now);
+  return liveFeed(db, startOfUtcDay(now), limit);
+}
+
+/** The latest work whatever the day: the landing's ticket cards. */
+export function liveRecent(db: Database, limit = 12): Promise<LiveRow[]> {
+  return liveFeed(db, null, limit);
+}
+
+/** What the platform did so far: tickets at work now, merged PRs ever. */
+export async function platformTotals(db: Database) {
+  const [running] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(agentRuns)
+    .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(and(eq(agentRuns.status, "running"), listed));
+  const [merged] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(pullRequests)
+    .innerJoin(workUnits, eq(workUnits.id, pullRequests.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(and(eq(pullRequests.state, "merged"), listed));
+  return { inProgress: running?.count ?? 0, merged: merged?.count ?? 0 };
+}
+
+async function liveFeed(
+  db: Database,
+  since: Date | null,
+  limit: number,
+): Promise<LiveRow[]> {
   const running = await db
     .select({
       runId: agentRuns.id,
@@ -352,10 +381,12 @@ export async function liveToday(
       and(
         listed,
         ne(pullRequests.state, "closed"),
-        or(
-          gte(pullRequests.openedAt, since),
-          gte(pullRequests.closedAt, since),
-        ),
+        since
+          ? or(
+              gte(pullRequests.openedAt, since),
+              gte(pullRequests.closedAt, since),
+            )
+          : undefined,
       ),
     )
     .orderBy(

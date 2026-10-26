@@ -14,6 +14,7 @@ import {
   sponsorStandings,
 } from "@/db/sponsor-dashboard";
 import {
+  boardViewer,
   getSponsorFilters,
   getSponsorProfile,
   saveSponsorFilters,
@@ -66,6 +67,11 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
         spentCents: totals.consumedCents,
         impact: await sponsorImpact(db, viewer.userId),
         standings: await sponsorStandings(db, viewer.userId),
+        boards: {
+          today: await sponsorBoard(db, "today"),
+          all: await sponsorBoard(db, "all"),
+        },
+        you: await boardViewer(db, viewer.userId),
         shipped: await sponsorShipped(db, viewer.userId),
         activity: await queueActivity(db),
         settings: await sponsorSettings(db, viewer.userId),

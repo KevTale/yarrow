@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
-import { LiveBoard, SponsorBoards } from "@/components/boards";
 import { useLive } from "@/components/live";
 import { ShipForm } from "@/components/ship-form";
+import { SponsorBoard } from "@/components/sponsor-board";
+import { TicketStack } from "@/components/ticket-stack";
 import { getBoardsFn } from "@/functions/public.functions";
 
 export const Route = createFileRoute("/")({
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/")({
 const empty = {
   sponsors: { today: [], all: [] },
   live: [],
+  totals: { inProgress: 0, merged: 0 },
+  you: null,
 };
 
 function Landing() {
@@ -34,21 +37,29 @@ function Landing() {
         </div>
       )}
       <section className="landing-hero container">
-        <h1>Frontier AI for free</h1>
-        <p className="landing-sub">
-          Paste an issue: <span className="model model-claude">Claude Opus</span>{" "}
-          and <span className="model model-gpt">GPT Astra</span> turn it into a
-          pull request in minutes. Sponsors pay for the compute, and their names ship with
-          every pull request.
-        </p>
-        <ShipForm jira={loaded.sources.jira} />
+        <div className="landing-pitch">
+          <h1>Frontier AI for free</h1>
+          <p className="landing-sub">
+            Paste an issue:{" "}
+            <span className="model model-claude">Claude Opus</span> and{" "}
+            <span className="model model-gpt">GPT Astra</span> turn it into a
+            pull request in minutes. Sponsors pay for the compute, and their
+            names ship with every pull request.
+          </p>
+          <ShipForm jira={loaded.sources.jira} />
+        </div>
+        <TicketStack
+          live={boards.live}
+          totals={boards.totals}
+          sponsors={boards.sponsors.all}
+        />
       </section>
       <div className="container landing-boards">
-        <SponsorBoards
+        <SponsorBoard
           today={boards.sponsors.today}
           all={boards.sponsors.all}
+          you={boards.you}
         />
-        <LiveBoard live={boards.live} />
       </div>
     </main>
   );

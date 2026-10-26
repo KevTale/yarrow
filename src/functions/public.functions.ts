@@ -2,10 +2,9 @@ import { notFound } from "@tanstack/react-router";
 import { jiraReady } from "@/server/jira.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import {
-  liveToday,
-  sponsorBoard,
-} from "@/db/boards";
+import { liveRecent, platformTotals, sponsorBoard } from "@/db/boards";
+import { boardViewer } from "@/db/sponsors";
+import { currentGuest } from "@/server/guest.server";
 import { runActivityFor, runDetail, showcase } from "@/db/queries";
 import { syncRunActivity } from "@/db/activity";
 import { appEnv } from "@/server/env.server";
@@ -19,16 +18,25 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
     // Jira lights up on the landing once its OAuth app is configured.
     const sources = { jira: jiraReady() };
     if (!databaseConfigured()) return { configured: false as const, sources };
+    // The visitor's own card on the boards: signed in, or the guest who
+    // paid from this browser.
+    const userId =
+      (await getViewer().catch(() => null))?.userId ??
+      (await currentGuest().catch(() => null));
     return withDb(async (db) => {
-      const [today, all, live] = await Promise.all([
+      const [today, all, live, totals, you] = await Promise.all([
         sponsorBoard(db, "today"),
         sponsorBoard(db, "all"),
-        liveToday(db),
+        liveRecent(db),
+        platformTotals(db),
+        userId ? boardViewer(db, userId) : null,
       ]);
       return {
         configured: true as const,
         sponsors: { today, all },
         live,
+        totals,
+        you,
         sources,
       };
     });

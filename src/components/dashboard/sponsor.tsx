@@ -1,16 +1,14 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, ArrowUpRight, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
+import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
-import type { Standing } from "@/db/sponsor-dashboard";
 import {
   getSponsorDashboardFn,
   saveSponsorFundingFn,
-  saveSponsorProfileFn,
 } from "@/functions/sponsor.functions";
-import { Paid, plural } from "@/components/boards";
+import { plural } from "@/components/boards";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -20,11 +18,7 @@ import {
   useSavedFades,
   type SaveState,
 } from "@/components/saved-state";
-import {
-  SponsorCardRow,
-  websiteAddress,
-  type CardValue,
-} from "@/components/sponsor-card";
+import { SponsorBoard } from "@/components/sponsor-board";
 import { timeAgo } from "@/components/ui";
 
 export type SponsorData = Extract<
@@ -187,170 +181,8 @@ function FundingPicker({ data }: { data: SponsorData }) {
   );
 }
 
-const anonymousProfile = {
-  publicName: null,
-  tagline: null,
-  description: null,
-  websiteUrl: null,
-  logo: null,
-};
-
-/**
- * The sponsor's campaign: their card as the boards print it, edited in
- * place; beside it the budget (balance, where it goes, what more buys); under
- * them what the card brought.
- */
-function Campaign({ data }: { data: SponsorData }) {
-  const save = useServerFn(saveSponsorProfileFn);
-  const router = useRouter();
-  const { today, all } = data.standings;
-  const { profile } = data.settings;
-  const [card, setCard] = useState<CardValue>({
-    anonymous: profile.publicName === null && data.isSponsor,
-    name: profile.publicName ?? "",
-    tagline: profile.tagline ?? "",
-    description: profile.description ?? "",
-    website: profile.websiteUrl ?? "",
-    logo: profile.logoUrl,
-  });
-  const [state, setState] = useState<SaveState>("idle");
-  const [error, setError] = useState("");
-  useSavedFades(state, setState);
-  const last = useRef<string | null>(null);
-
-  async function commit(patch: Partial<CardValue> = {}): Promise<boolean> {
-    const next = { ...card, ...patch };
-    const name = next.name.trim();
-    const site = websiteAddress(next.website);
-    // Nothing typed yet: nothing to save, nothing to complain about.
-    if (!next.anonymous && name.length === 0) return true;
-    if (!next.anonymous && name.length < 2) {
-      setError("Use a name of two letters or more.");
-      return false;
-    }
-    if (!next.anonymous && site === null) {
-      setError("That website address does not look right.");
-      return false;
-    }
-    const values = next.anonymous
-      ? anonymousProfile
-      : {
-          publicName: name,
-          tagline: next.tagline,
-          description: next.description,
-          websiteUrl: site ?? "",
-          logo: next.logo,
-        };
-    const key = JSON.stringify(values);
-    if (key === last.current) return true;
-    setError("");
-    setState("saving");
-    try {
-      await save({ data: { profile: values } });
-      last.current = key;
-      setState("saved");
-      void router.invalidate();
-      return true;
-    } catch (cause) {
-      setState("error");
-      if (cause instanceof Error && /image/i.test(cause.message))
-        setError(cause.message);
-      return false;
-    }
-  }
-
-  const yours = all.rows.find((row) => row.you);
-  return (
-    <div className="sd-campaign">
-      <section className="sd-card" aria-label="Your card">
-        <div className="sd-card-head">
-          <span className="bd-label">Your card</span>
-          <span className="sd-ranks">
-            <span>
-              <b>{today.rank ? `#${today.rank}` : "–"}</b> today
-            </span>
-            <span>
-              <b>{all.rank ? `#${all.rank}` : "–"}</b> all time
-            </span>
-          </span>
-        </div>
-        <SponsorCardRow
-          className={all.rank === 1 ? "first" : ""}
-          value={card}
-          onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
-          onCommit={(patch) => void commit(patch)}
-          rank={all.rank ?? "–"}
-          stats={yours}
-          amount={
-            yours ? (
-              <Paid row={yours} />
-            ) : (
-              <span className="board-amount muted">$0</span>
-            )
-          }
-        />
-        <div className="sd-card-foot">
-          <label className="sd-anon">
-            <input
-              type="checkbox"
-              checked={card.anonymous}
-              onChange={(event) => {
-                const anonymous = event.target.checked;
-                setCard((current) => ({ ...current, anonymous }));
-                void commit({ anonymous });
-              }}
-            />
-            Stay anonymous
-          </label>
-          <SavedState state={state} />
-          {error && (
-            <span className="sd-error" role="alert">
-              {error}
-            </span>
-          )}
-          <a className="sd-board-link" href="/#sponsors">
-            See the leaderboard <ArrowUpRight size={13} />
-          </a>
-        </div>
-      </section>
-      <Budget data={data} commit={commit} />
-    </div>
-  );
-}
-
-/** Rank reached on a board when the viewer adds `cents`. */
-const rankWith = (standing: Standing, cents: number) =>
-  standing.others.filter((paid) => paid >= standing.paidCents + cents).length +
-  1;
-
-/** What #1 today costs on top of what the viewer paid today. */
-function toTop(today: Standing): number {
-  const top = Math.max(0, ...today.others);
-  const needed = today.rank === 1 ? 0 : top - today.paidCents + 100;
-  return Math.min(
-    MAX_AMOUNT_CENTS,
-    Math.max(MIN_AMOUNT_CENTS, Math.ceil(needed / 100) * 100),
-  );
-}
-
-/**
- * The money side: what is left and what it still buys, where it goes, and
- * what more takes. Paying saves the card first.
- */
-function Budget({
-  data,
-  commit,
-}: {
-  data: SponsorData;
-  commit: () => Promise<boolean>;
-}) {
-  const { today } = data.standings;
-  const [dollars, setDollars] = useState(String(toTop(today) / 100));
-  const [going, setGoing] = useState(false);
-  const cents = Math.round(Number(dollars || 0) * 100);
-  const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
-  const target = rankWith(today, valid ? cents : MIN_AMOUNT_CENTS);
-  const gains = today.rank === null || target < today.rank;
+/** Beside the role tabs: the credit left, what it still buys, where it goes. */
+export function SponsorActions({ data }: { data: SponsorData }) {
   // What a ticket cost this sponsor so far, to say what the balance buys.
   const done = data.shipped.filter(
     (row) => !working.includes(row.status) && row.costCents > 0,
@@ -360,95 +192,21 @@ function Budget({
     : 0;
   const balance = Math.max(0, data.balanceCents);
   const left = average ? Math.floor(balance / average) : null;
-
-  async function take() {
-    if (!valid) return;
-    setGoing(true);
-    if (!(await commit())) return setGoing(false);
-    window.location.href = `/fund?amount=${cents / 100}`;
-  }
-
   return (
-    <section className="sd-budget" aria-label="Budget">
-      <span className="bd-label">Balance</span>
-      <p className="sd-balance">
+    <span className="dashboard-actions sd-actions">
+      <span className="sd-left">
         <b>{money(balance)}</b>
-        {left !== null && <span>≈ {plural(left, "ticket")}</span>}
-      </p>
-      {data.inUseCents > 0 && (
-        <p className="sd-in-use">{money(data.inUseCents)} at work right now</p>
-      )}
+        {left !== null ? ` ≈ ${plural(left, "ticket")}` : " balance"}
+        {data.inUseCents > 0 && (
+          <small>{money(data.inUseCents)} at work</small>
+        )}
+      </span>
       <FundingPicker data={data} />
-      <form
-        className="sd-add"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void take();
-        }}
-      >
-        <p className="sd-add-pitch">
-          {today.rank === 1 ? (
-            <>
-              You are <b>#1 today</b>
-            </>
-          ) : (
-            <>
-              <b>{money(toTop(today), false)}</b>
-              {today.rank === null ? " takes " : " more takes "}
-              <b>#1 today</b>
-            </>
-          )}
-        </p>
-        <div className="sd-add-row">
-          <label className="sd-take-amount">
-            $
-            <input
-              value={dollars}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-label="Amount in dollars"
-              onChange={(event) =>
-                setDollars(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))
-              }
-            />
-          </label>
-          <button type="submit" className="sd-take-go" aria-disabled={!valid}>
-            {!valid
-              ? cents < MIN_AMOUNT_CENTS
-                ? "From $10"
-                : "Up to $1,000"
-              : gains
-                ? `Take #${target} today`
-                : "Add funds"}
-            {going ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.2} />}
-          </button>
-        </div>
-      </form>
-    </section>
+    </span>
   );
 }
 
-/** What the card brought, in large. */
-function Results({ data }: { data: SponsorData }) {
-  const yours = data.standings.all.rows.find((row) => row.you);
-  const items = [
-    { label: "Clicks", value: (yours?.clicks ?? 0).toLocaleString("en-US") },
-    { label: "Merged PRs", value: String(yours?.merged ?? 0) },
-    { label: "Spent", value: money(data.spentCents) },
-  ];
-  return (
-    <dl className="sd-results">
-      {items.map((item) => (
-        <div key={item.label}>
-          <dt>{item.label}</dt>
-          <dd>{item.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** Sponsor tab: your card and budget, what they brought, where your name went. */
+/** Sponsor tab: the boards with your card in them, then where your name went. */
 export function SponsorView({
   data,
   celebrate = false,
@@ -477,8 +235,11 @@ export function SponsorView({
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      <Campaign data={data} />
-      {data.isSponsor && <Results data={data} />}
+      <SponsorBoard
+        today={data.boards.today}
+        all={data.boards.all}
+        you={data.you}
+      />
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">

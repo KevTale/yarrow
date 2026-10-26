@@ -269,3 +269,20 @@ export async function isGuestSponsor(
     .where(eq(sponsorProfiles.userId, guestId));
   return row?.guest === true;
 }
+
+/** Who is looking at the boards: their row's id, and the card they last saved. */
+export async function boardViewer(db: Database, userId: string) {
+  const [profile] = await db
+    .select({
+      publicId: sponsorProfiles.publicId,
+      publicName: sponsorProfiles.publicName,
+      tagline: sponsorProfiles.tagline,
+      description: sponsorProfiles.description,
+      websiteUrl: sponsorProfiles.websiteUrl,
+      logoUrl: sponsorProfiles.logoUrl,
+    })
+    .from(sponsorProfiles)
+    .where(eq(sponsorProfiles.userId, userId));
+  return profile ?? null;
+}
+export type BoardViewer = NonNullable<Awaited<ReturnType<typeof boardViewer>>>;
