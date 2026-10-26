@@ -36,9 +36,9 @@ function Landing() {
       <section className="landing-hero container">
         <h1>Frontier AI for free</h1>
         <p className="landing-sub">
-          Paste a ticket and get a pull request back, written and reviewed by
-          the best AI models in the world. Sponsors pay for the compute, and
-          their names ship with every pull request.
+          Paste an issue: Claude Opus and GPT Astra turn it into a pull request
+          in minutes. Sponsors pay for the compute, and their names ship with
+          every pull request.
         </p>
         <ShipForm />
       </section>

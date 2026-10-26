@@ -2659,9 +2659,13 @@ tbody tr:hover {
   font-size: 14px;
   cursor: pointer;
 }
-.ship-source-list li:hover,
+.ship-source-list li:not([aria-disabled="true"]):hover,
 .ship-source-list li.focus {
   background: var(--hover);
+}
+.ship-source-list li[aria-disabled="true"] {
+  cursor: default;
+  color: var(--muted);
 }
 .ship-source-list em {
   margin-left: auto;

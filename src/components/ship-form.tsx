@@ -28,6 +28,16 @@ function connectUrl(
   return `/connect/github${query ? `?${query}` : ""}`;
 }
 
+/** The next choosable source from `from`, walking `step` (±1); "soon" ones are skipped. */
+function nextSource(from: number, step: 1 | -1): number {
+  const n = ticketSources.length;
+  for (let i = 1; i <= n; i++) {
+    const at = (from + step * i + n) % n;
+    if (!ticketSources[at]!.soon) return at;
+  }
+  return from;
+}
+
 /** The hero form: paste a ticket link, or connect the whole backlog. */
 export function ShipForm() {
   const [source, setSource] = useState<TicketSource>(ticketSources[0]!);
@@ -48,6 +58,7 @@ export function ShipForm() {
   }, [open]);
 
   function choose(next: TicketSource) {
+    if (next.soon) return;
     setSource(next);
     setOpen(false);
     setHint(null);
@@ -55,9 +66,10 @@ export function ShipForm() {
   function submit(event: React.FormEvent) {
     event.preventDefault();
     setHint(null);
-    if (source.soon) return setHint(`${source.name} is coming soon.`);
     if (!value.trim()) return document.getElementById("ship-url")?.focus();
     const link = parseTicketLink(value);
+    if (link?.source.soon)
+      return setHint(`${link.source.name} is coming soon.`);
     if (!link || link.source.id !== source.id)
       return setHint(`This doesn't look like a ${source.name} link.`);
     setBusy(true);
@@ -88,12 +100,10 @@ export function ShipForm() {
                 setOpen(true);
               } else if (open && event.key === "ArrowDown") {
                 event.preventDefault();
-                setFocus((focus + 1) % ticketSources.length);
+                setFocus(nextSource(focus, 1));
               } else if (open && event.key === "ArrowUp") {
                 event.preventDefault();
-                setFocus(
-                  (focus + ticketSources.length - 1) % ticketSources.length,
-                );
+                setFocus(nextSource(focus, -1));
               } else if (open && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 choose(ticketSources[focus]!);
@@ -114,6 +124,7 @@ export function ShipForm() {
                   key={item.id}
                   role="option"
                   aria-selected={item.id === source.id}
+                  aria-disabled={item.soon}
                   className={i === focus ? "focus" : undefined}
                   onMouseDown={(event) => {
                     event.preventDefault();
@@ -143,7 +154,7 @@ export function ShipForm() {
           onChange={(event) => {
             setValue(event.target.value);
             const link = parseTicketLink(event.target.value);
-            if (link) setSource(link.source);
+            if (link && !link.source.soon) setSource(link.source);
           }}
         />
         <button className="go" type="submit" aria-busy={busy}>
@@ -156,21 +167,12 @@ export function ShipForm() {
       {hint && <p className="ship-hint">{hint}</p>}
       <p className="ship-or">
         or{" "}
-        {source.soon ? (
-          <span
-            className="button button-small button-secondary"
-            aria-disabled="true"
-          >
-            Connect {source.name} · soon
-          </span>
-        ) : (
-          <a
-            className="button button-small button-secondary"
-            href={connectUrl(source, null)}
-          >
-            Connect {source.name}
-          </a>
-        )}{" "}
+        <a
+          className="button button-small button-secondary"
+          href={connectUrl(source, null)}
+        >
+          Connect {source.name}
+        </a>{" "}
         to send your whole backlog
       </p>
     </div>
