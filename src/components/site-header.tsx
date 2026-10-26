@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { money } from "@/core/packs";
 import { logoOnDark } from "./brand-svg";
 
 /** Inline, so the flower can turn on hover. */
@@ -24,14 +23,7 @@ type HeaderViewer = {
   guest?: boolean;
 } | null;
 
-export function SiteHeader({
-  viewer,
-  balance = null,
-}: {
-  viewer: HeaderViewer;
-  /** The sponsor's credit left, in cents; null when they never paid. */
-  balance?: number | null;
-}) {
+export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -55,16 +47,6 @@ export function SiteHeader({
         <div className="header-actions" ref={menu}>
           {viewer ? (
             <>
-              {balance !== null && (
-                <Link
-                  to="/dashboard"
-                  search={{ tab: "sponsor" }}
-                  className="header-balance"
-                  aria-label={`${money(balance)} of credit left`}
-                >
-                  {money(balance)}
-                </Link>
-              )}
               <button
                 className="avatar-button"
                 aria-label={`${label} menu`}

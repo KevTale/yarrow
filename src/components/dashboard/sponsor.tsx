@@ -1,7 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
 import { workText } from "@/core/tickets";
@@ -9,7 +9,7 @@ import {
   getSponsorDashboardFn,
   saveSponsorFundingFn,
 } from "@/functions/sponsor.functions";
-import { Logo, plural, SponsorName } from "@/components/boards";
+import { plural } from "@/components/boards";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -40,11 +40,13 @@ const statusLabel = {
 
 const working = ["writing", "reviewing", "delivering"];
 
-/** Every project, or only the ones ticked; saved at each change. */
-function FundingPicker({ data }: { data: SponsorData }) {
+/**
+ * Where the money goes, laid flat: every project, or the projects chosen
+ * as chips. Saved at each change.
+ */
+function FundingChoice({ data }: { data: SponsorData }) {
   const save = useServerFn(saveSponsorFundingFn);
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(data.funding.mode);
   const [chosen, setChosen] = useState<string[]>(
     data.funding.selectedProjectIds,
@@ -52,29 +54,11 @@ function FundingPicker({ data }: { data: SponsorData }) {
   const [search, setSearch] = useState("");
   const [state, setState] = useState<SaveState>("idle");
   useSavedFades(state, setState);
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === "Escape"
-          : !root.current?.contains(event.target as Node)
-      )
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
 
   async function apply(nextMode: typeof mode, nextChosen: string[]) {
     setMode(nextMode);
     setChosen(nextChosen);
-    // "Only" with nothing ticked funds nothing: wait for a first tick.
+    // "Only" with nothing chosen funds nothing: wait for a first project.
     if (nextMode === "only" && nextChosen.length === 0) return setState("idle");
     setState("saving");
     try {
@@ -92,89 +76,73 @@ function FundingPicker({ data }: { data: SponsorData }) {
   const projects = data.projects.filter(
     (project) => !q || project.name.toLowerCase().includes(q),
   );
-  const savedMode = data.funding.mode;
-  const savedCount = data.funding.selectedProjectIds.length;
   return (
-    <div className="jp sd-funds" ref={root}>
-      <button
-        type="button"
-        className="jp-button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
+    <div className="sd-funds">
+      <div className="sd-funds-head">
+        <span className="sd-label" id="sd-funds-label">
+          Your money funds
+        </span>
+        <SavedState state={state} />
+      </div>
+      <div
+        className="sd-seg"
+        role="radiogroup"
+        aria-labelledby="sd-funds-label"
       >
-        <span className="muted">funds</span>
-        {savedMode === "only" ? plural(savedCount, "project") : "every project"}
-        <ChevronDown size={14} className="jp-chevron" />
-      </button>
-      {open && (
-        <div
-          className="jp-menu sd-funds-menu"
-          role="dialog"
-          aria-label="Your money funds"
+        <button
+          type="button"
+          role="radio"
+          aria-checked={mode === "all_except"}
+          onClick={() => void apply("all_except", [])}
         >
-          <div className="sd-funds-head">
-            <span className="bd-label">Your money funds</span>
-            <SavedState state={state} />
-          </div>
-          <label className="jp-option">
+          Every project
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={mode === "only"}
+          onClick={() => void apply("only", chosen)}
+        >
+          Projects I choose
+          {mode === "only" && chosen.length > 0 && <em>{chosen.length}</em>}
+        </button>
+      </div>
+      {mode === "only" && (
+        <div className="sd-chips">
+          {data.projects.length > 12 && (
             <input
-              type="radio"
-              name="funding"
-              checked={mode === "all_except"}
-              onChange={() => void apply("all_except", [])}
+              className="bd-search sd-chips-search"
+              type="search"
+              placeholder="Search projects"
+              aria-label="Search projects"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
             />
-            <span>Every project</span>
-          </label>
-          <label className="jp-option">
-            <input
-              type="radio"
-              name="funding"
-              checked={mode === "only"}
-              onChange={() => void apply("only", chosen)}
-            />
-            <span>Only the projects I choose</span>
-          </label>
-          {mode === "only" && (
-            <div className="sd-funds-pick">
-              <input
-                className="bd-search"
-                type="search"
-                placeholder="Search projects"
-                aria-label="Search projects"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-              <div className="sd-funds-list">
-                {projects.map((project) => {
-                  const on = chosen.includes(project.id);
-                  return (
-                    <label className="jp-option" key={project.id}>
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() =>
-                          void apply(
-                            "only",
-                            on
-                              ? chosen.filter((id) => id !== project.id)
-                              : [...chosen, project.id],
-                          )
-                        }
-                      />
-                      <span>{project.name}</span>
-                      <span className="muted small">{project.visibility}</span>
-                    </label>
-                  );
-                })}
-                {projects.length === 0 && (
-                  <span className="jp-empty muted">No project</span>
-                )}
-              </div>
-              {chosen.length === 0 && (
-                <span className="jp-empty muted">Tick at least one</span>
-              )}
-            </div>
+          )}
+          {projects.map((project) => {
+            const on = chosen.includes(project.id);
+            return (
+              <button
+                type="button"
+                key={project.id}
+                className="sd-chip"
+                aria-pressed={on}
+                onClick={() =>
+                  void apply(
+                    "only",
+                    on
+                      ? chosen.filter((id) => id !== project.id)
+                      : [...chosen, project.id],
+                  )
+                }
+              >
+                {on && <Check size={13} strokeWidth={2.6} />}
+                {project.name}
+              </button>
+            );
+          })}
+          {projects.length === 0 && (
+            <span className="muted small">No project</span>
           )}
         </div>
       )}
@@ -182,23 +150,10 @@ function FundingPicker({ data }: { data: SponsorData }) {
   );
 }
 
-/** "https://acme.com/" → "acme.com". */
-function host(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-/**
- * The sponsor's card as the boards show it, with the way back to it on the
- * landing, where it is edited and topped up; beside it, what it did and the
- * credit left.
- */
+/** What the sponsor's money did and what is left, then where it goes. */
 function SponsorSummary({ data }: { data: SponsorData }) {
   const you = data.you;
-  const name = data.isSponsor ? (you?.publicName ?? null) : null;
+  const named = Boolean(data.isSponsor && you?.publicName);
   const mine = you
     ? data.boards.all.find((row) => row.publicId === you.publicId)
     : undefined;
@@ -211,103 +166,48 @@ function SponsorSummary({ data }: { data: SponsorData }) {
     : 0;
   const balance = Math.max(0, data.balanceCents);
   const left = average ? Math.floor(balance / average) : null;
-  const toRow = { to: "/", search: { edit: true }, hash: "sponsors" } as const;
+  const rank = (value: number | null) => (value ? `#${value}` : "–");
   return (
-    <section className="sd-me" aria-label="Your card">
-      <div className="sd-me-card">
-        {data.isSponsor ? (
-          <Logo
-            name={name}
-            url={name ? (you?.logoUrl ?? null) : null}
-            size="large"
-          />
-        ) : (
-          <span className="board-logo large open" aria-hidden="true">
-            +
-          </span>
-        )}
-        <div className="sd-me-body">
-          <p className="sd-me-name">
-            {data.isSponsor ? (
-              <SponsorName name={name} />
-            ) : (
-              <span className="muted">Your company here</span>
+    <section className="sd-me" aria-label="Your sponsoring">
+      <dl className="sd-metrics">
+        <div className="sd-metric balance">
+          <dt>Balance</dt>
+          <dd>
+            <b>{money(balance)}</b>
+            {left !== null && <small>≈ {plural(left, "ticket")}</small>}
+            {data.inUseCents > 0 && (
+              <small>{money(data.inUseCents)} at work</small>
             )}
-            {name && you?.tagline && <span> · {you.tagline}</span>}
-          </p>
-          {name && you?.description && (
-            <p className="sd-me-description">{you.description}</p>
-          )}
-          {name && you?.websiteUrl && (
-            <a
-              className="sd-me-site"
-              href={you.websiteUrl}
-              target="_blank"
-              rel="noopener"
-            >
-              {host(you.websiteUrl)}
-            </a>
-          )}
-          <div className="sd-me-actions">
-            <Link {...toRow} className="sb-claim-go">
-              {data.isSponsor ? "Add credit" : "Claim a place"}
-              <ArrowRight size={14} strokeWidth={2.4} />
-            </Link>
-            {data.isSponsor && (
-              <Link {...toRow} className="bd-btn bd-btn-line">
-                Edit
-              </Link>
-            )}
-          </div>
+          </dd>
         </div>
-      </div>
-      <div className="sd-me-side">
-        <dl className="sd-metrics">
-          <div className="sd-metric balance">
-            <dt>Balance</dt>
-            <dd>
-              <b>{money(balance)}</b>
-              {left !== null && <small>≈ {plural(left, "ticket")}</small>}
-              {data.inUseCents > 0 && (
-                <small>{money(data.inUseCents)} at work</small>
-              )}
-            </dd>
-          </div>
+        <div className="sd-metric">
+          <dt>Today</dt>
+          <dd>
+            <b>{rank(data.standings.today.rank)}</b>
+          </dd>
+        </div>
+        <div className="sd-metric">
+          <dt>All time</dt>
+          <dd>
+            <b>{rank(data.standings.all.rank)}</b>
+          </dd>
+        </div>
+        {named && (
           <div className="sd-metric">
-            <dt>Today</dt>
+            <dt>Clicks</dt>
             <dd>
-              <b>
-                {data.standings.today.rank
-                  ? `#${data.standings.today.rank}`
-                  : "–"}
-              </b>
+              <b>{(mine?.clicks ?? 0).toLocaleString("en-US")}</b>
             </dd>
           </div>
-          <div className="sd-metric">
-            <dt>All time</dt>
-            <dd>
-              <b>
-                {data.standings.all.rank ? `#${data.standings.all.rank}` : "–"}
-              </b>
-            </dd>
-          </div>
-          {name && (
-            <div className="sd-metric">
-              <dt>Clicks</dt>
-              <dd>
-                <b>{(mine?.clicks ?? 0).toLocaleString("en-US")}</b>
-              </dd>
-            </div>
-          )}
-          <div className="sd-metric">
-            <dt>Merged PRs</dt>
-            <dd>
-              <b>{data.impact.merged.toLocaleString("en-US")}</b>
-            </dd>
-          </div>
-        </dl>
-        {data.isSponsor && <FundingPicker data={data} />}
-      </div>
+        )}
+        <div className="sd-metric">
+          <dt>Merged PRs</dt>
+          <dd>
+            <b>{data.impact.merged.toLocaleString("en-US")}</b>
+          </dd>
+        </div>
+      </dl>
+      {data.isSponsor && <FundingChoice data={data} />}
     </section>
   );
 }

@@ -3,8 +3,6 @@ import { z } from "zod";
 import { safeNext } from "@/server/auth-request.server";
 import { getViewer, supabaseServer } from "@/server/auth.server";
 import { getSponsorProfile } from "@/db/sponsors";
-import { and, eq, sql } from "drizzle-orm";
-import { contributions } from "@/db/schema";
 import { withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { currentGuest } from "@/server/guest.server";
@@ -78,37 +76,5 @@ export const getGuestFn = createServerFn({ method: "GET" }).handler(
       avatarUrl: null,
       guest: true as const,
     };
-  },
-);
-
-/**
- * The credit a sponsor has left, for the header. Null when the viewer
- * never paid, or the database is not there.
- */
-export const getBalanceFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const userId =
-      (await getViewer().catch(() => null))?.userId ??
-      (await currentGuest().catch(() => null));
-    if (!userId) return null;
-    try {
-      return await withDb(async (db) => {
-        const [row] = await db
-          .select({
-            paid: sql<number>`count(*)::int`,
-            left: sql<number>`coalesce(sum(${contributions.creditCents} - ${contributions.debitedCents}), 0)::int`,
-          })
-          .from(contributions)
-          .where(
-            and(
-              eq(contributions.userId, userId),
-              eq(contributions.paymentStatus, "settled"),
-            ),
-          );
-        return row && row.paid > 0 ? Math.max(0, row.left) : null;
-      });
-    } catch {
-      return null;
-    }
   },
 );

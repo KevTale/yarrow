@@ -19,7 +19,6 @@ import {
   WarmDashboard,
 } from "@/components/navigation-feedback";
 import {
-  getBalanceFn,
   getGuestFn,
   getLiveConfigFn,
   getViewerFn,
@@ -27,13 +26,12 @@ import {
 
 export const Route = createRootRoute({
   loader: async () => {
-    const [viewer, live, balance] = await Promise.all([
+    const [viewer, live] = await Promise.all([
       getViewerFn(),
       getLiveConfigFn(),
-      getBalanceFn(),
     ]);
     // Not signed in, but paid from this browser: recognized as a guest.
-    return { viewer: viewer ?? (await getGuestFn()), live, balance };
+    return { viewer: viewer ?? (await getGuestFn()), live };
   },
   // Who is signed in only changes through a full page load or an
   // invalidate (email link), so navigations reuse it.
@@ -65,13 +63,13 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const { viewer, live, balance } = Route.useLoaderData();
+  const { viewer, live } = Route.useLoaderData();
   return (
     <>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <SiteHeader viewer={viewer} balance={balance} />
+      <SiteHeader viewer={viewer} />
       <LiveProvider config={live}>
         <Outlet />
       </LiveProvider>

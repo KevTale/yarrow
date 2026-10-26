@@ -145,33 +145,12 @@ export function SponsorBoard({
     startEditing ? "today" : null,
   );
   const claim = useClaim(today, all, you, editing !== null);
-  const [todayBoard, allBoard] = claim.boards as [Board, Board];
-
   return (
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-head">
         <h2 id="sponsors-title">Sponsors</h2>
         {!editing && (
           <div className="sb-head-side">
-            {allBoard.mine && (
-              <button
-                type="button"
-                className="sb-standing"
-                onClick={() => setEditing("today")}
-              >
-                <span className="sb-you">You</span>
-                {todayBoard.current ? (
-                  <span>
-                    <b>#{todayBoard.current}</b> today
-                  </span>
-                ) : (
-                  <span>Unranked today</span>
-                )}
-                <span className="sb-standing-all">
-                  <b>#{allBoard.current}</b> all time
-                </span>
-              </button>
-            )}
             <div className="sb-claim-bar">
               <Dollars dollars={claim.dollars} setDollars={claim.setDollars} />
               <button
@@ -692,17 +671,7 @@ function EditRow({
           )}
         </span>
       </div>
-      <div className="sb-edit-foot">
-        {claim.fees && (
-          <span className="sb-fees">
-            <span>Card fees ≈ −{money(claim.fees.feeCents)}</span>
-            <span>
-              Margin {claim.founding ? "5" : "10"}% −
-              {money(claim.fees.marginCents)}
-            </span>
-            <b>Compute ≈ {money(claim.fees.creditCents)}</b>
-          </span>
-        )}
+      <div className="sb-edit-checks">
         <label className="sb-check">
           <input
             type="checkbox"
@@ -729,8 +698,22 @@ function EditRow({
             )
           </span>
         </label>
-        <SavedState state={state} />
+      </div>
+      <div className="sb-edit-pay">
+        {claim.fees ? (
+          <span className="sb-fees">
+            <b>≈ {money(claim.fees.creditCents)} of compute</b>
+            <small>
+              −{money(claim.fees.feeCents)} card fees · −
+              {money(claim.fees.marginCents)} margin (
+              {claim.founding ? "5" : "10"}%)
+            </small>
+          </span>
+        ) : (
+          <span />
+        )}
         <span className="sb-claim-actions">
+          <SavedState state={state} />
           <button
             type="button"
             className="bd-btn bd-btn-ghost"
