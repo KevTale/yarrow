@@ -444,8 +444,16 @@ export function SponsorCard({
   close?: () => void;
   autoFocus?: boolean;
 }) {
-  const { sponsoring, card, setCard, label, dollars, setDollars, cents, valid } =
-    claim;
+  const {
+    sponsoring,
+    card,
+    setCard,
+    label,
+    dollars,
+    setDollars,
+    cents,
+    valid,
+  } = claim;
   const save = useServerFn(saveSponsorProfileFn);
   const checkout = useServerFn(startCheckoutFn);
   const router = useRouter();

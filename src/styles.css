@@ -6350,16 +6350,24 @@ a.tk:hover {
     padding-block: 28px 44px;
     gap: 30px;
   }
-  .tk-when {
-    display: none;
+  /* Three lines per card: the title and the sponsor each get the width. */
+  .tk-stack {
+    --row: 104px;
   }
-  /* The title keeps most of the card: the sponsor's logo and name only. */
+  .tk {
+    grid-template-rows: auto auto auto;
+    row-gap: 3px;
+  }
+  .tk .board-logo.small {
+    grid-row: 1 / 4;
+  }
+  .tk-title {
+    grid-column: 2 / 4;
+  }
   .tk-paid {
-    max-width: 50%;
-  }
-  .tk-paid-label,
-  .tk-more {
-    display: none;
+    grid-column: 2 / 4;
+    justify-self: start;
+    max-width: 100%;
   }
   .tk-totals {
     justify-content: center;

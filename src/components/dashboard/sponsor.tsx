@@ -76,8 +76,7 @@ function FundingPicker({ data }: { data: SponsorData }) {
     setMode(nextMode);
     setChosen(nextChosen);
     // "Only" with nothing ticked funds nothing: wait for a first tick.
-    if (nextMode === "only" && nextChosen.length === 0)
-      return setState("idle");
+    if (nextMode === "only" && nextChosen.length === 0) return setState("idle");
     setState("saving");
     try {
       await save({
@@ -110,7 +109,11 @@ function FundingPicker({ data }: { data: SponsorData }) {
         <ChevronDown size={14} className="jp-chevron" />
       </button>
       {open && (
-        <div className="jp-menu sd-funds-menu" role="dialog" aria-label="Your money funds">
+        <div
+          className="jp-menu sd-funds-menu"
+          role="dialog"
+          aria-label="Your money funds"
+        >
           <div className="sd-funds-head">
             <span className="bd-label">Your money funds</span>
             <SavedState state={state} />
@@ -161,9 +164,7 @@ function FundingPicker({ data }: { data: SponsorData }) {
                         }
                       />
                       <span>{project.name}</span>
-                      <span className="muted small">
-                        {project.visibility}
-                      </span>
+                      <span className="muted small">{project.visibility}</span>
                     </label>
                   );
                 })}
@@ -198,9 +199,7 @@ export function SponsorActions({ data }: { data: SponsorData }) {
       <span className="sd-left">
         <b>{money(balance)}</b>
         {left !== null ? ` ≈ ${plural(left, "ticket")}` : " balance"}
-        {data.inUseCents > 0 && (
-          <small>{money(data.inUseCents)} at work</small>
-        )}
+        {data.inUseCents > 0 && <small>{money(data.inUseCents)} at work</small>}
       </span>
       <FundingPicker data={data} />
     </span>
