@@ -10,6 +10,7 @@ import {
   removable,
   selectable,
   done,
+  workText,
   type ReviewRow,
   type TicketRow,
 } from "@/core/tickets";
@@ -817,7 +818,8 @@ function Status({
         </button>
       </span>
     );
-  const label = statusLabel[row.status];
+  // "Claude Opus is writing": the model at work, named as on the landing.
+  const label = workText(row.status, row.models) ?? statusLabel[row.status];
   const text = ["pull_request", "merged", "pr_closed"].includes(row.status) ? (
     // "PR #4", "PR #4 merged": the pull request, never the issue.
     row.pullRequest ? (

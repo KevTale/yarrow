@@ -44,3 +44,8 @@ const displayNames: Record<string, string> = {
 export function modelDisplayName(id: string): string {
   return displayNames[id] ?? id;
 }
+
+/** "Claude Opus 5.5" → "Claude Opus": the name as the pitch says it. */
+export function modelShortName(name: string): string {
+  return name.replace(/\s+[\d.]+$/, "");
+}

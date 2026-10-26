@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
+import { workText } from "@/core/tickets";
 import {
   getSponsorDashboardFn,
   saveSponsorFundingFn,
@@ -18,7 +19,7 @@ import {
   useSavedFades,
   type SaveState,
 } from "@/components/saved-state";
-import { SponsorBoard } from "@/components/sponsor-board";
+import { SponsorCard, useClaim } from "@/components/sponsor-board";
 import { timeAgo } from "@/components/ui";
 
 export type SponsorData = Extract<
@@ -206,7 +207,7 @@ export function SponsorActions({ data }: { data: SponsorData }) {
   );
 }
 
-/** Sponsor tab: the boards with your card in them, then where your name went. */
+/** Sponsor tab: your card, open to edit or add credit, then where your name went. */
 export function SponsorView({
   data,
   celebrate = false,
@@ -232,14 +233,16 @@ export function SponsorView({
   }, [data.guest, router]);
   const shippedList = useFlip<HTMLDivElement>(shipped);
   const live = shipped.filter((row) => working.includes(row.status)).length;
+  const claim = useClaim(data.boards.today, data.boards.all, data.you, true);
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      <SponsorBoard
-        today={data.boards.today}
-        all={data.boards.all}
-        you={data.you}
-      />
+      <section className="sd-card" aria-labelledby="sd-card-title">
+        <h2 id="sd-card-title" className="sd-card-title">
+          Your card
+        </h2>
+        <SponsorCard claim={claim} />
+      </section>
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
@@ -276,7 +279,10 @@ export function SponsorView({
               <span className={`bd-status s-${row.status}`}>
                 <span className="dot" aria-hidden="true" />
                 <RunHover runId={row.runId} link={false}>
-                  <span>{statusLabel[row.status]}</span>
+                  <span>
+                    {workText(row.status, row.models) ??
+                      statusLabel[row.status]}
+                  </span>
                 </RunHover>
               </span>
               <span className="sd-cost">

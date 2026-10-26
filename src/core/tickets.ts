@@ -1,4 +1,8 @@
-import { defaultReviewerEffort, modelDisplayName } from "./pipeline";
+import {
+  defaultReviewerEffort,
+  modelDisplayName,
+  modelShortName,
+} from "./pipeline";
 
 /** Where a ticket stands, from the builder's point of view. */
 export type TicketStatus =
@@ -25,6 +29,38 @@ export interface TicketModel {
   outputTokens: number | null;
   costCents: number | null;
   costExact: boolean;
+}
+
+/** A ticket at work: the model doing it, and what it does. */
+export interface WorkLabel {
+  /** "Claude Opus", or null when no model is named (delivering). */
+  model: string | null;
+  /** "is writing", "is reviewing", "Opening the PR". */
+  text: string;
+}
+
+/**
+ * "Claude Opus is writing", "GPT Astra is reviewing", "Opening the PR":
+ * the same words everywhere a ticket at work shows. Null once it is done.
+ */
+export function workLabel(
+  status: string,
+  models: TicketModel[],
+): WorkLabel | null {
+  if (status === "delivering") return { model: null, text: "Opening the PR" };
+  if (status !== "writing" && status !== "reviewing") return null;
+  const role = status === "writing" ? "implementer" : "reviewer";
+  const model = models.find((candidate) => candidate.role === role);
+  const verb = status === "writing" ? "writing" : "reviewing";
+  return model
+    ? { model: modelShortName(model.name), text: `is ${verb}` }
+    : { model: null, text: verb[0]!.toUpperCase() + verb.slice(1) };
+}
+
+/** The label as one string, for a plain cell. */
+export function workText(status: string, models: TicketModel[]): string | null {
+  const label = workLabel(status, models);
+  return label ? [label.model, label.text].filter(Boolean).join(" ") : null;
 }
 
 /** Where a ticket lives. The code always lives on GitHub. */

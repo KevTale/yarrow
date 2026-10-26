@@ -280,6 +280,7 @@ export async function boardViewer(db: Database, userId: string) {
       description: sponsorProfiles.description,
       websiteUrl: sponsorProfiles.websiteUrl,
       logoUrl: sponsorProfiles.logoUrl,
+      foundingSponsor: sponsorProfiles.foundingSponsor,
     })
     .from(sponsorProfiles)
     .where(eq(sponsorProfiles.userId, userId));

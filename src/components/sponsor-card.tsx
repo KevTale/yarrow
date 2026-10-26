@@ -28,7 +28,7 @@ export function SponsorCardRow({
   onChange: (patch: Partial<CardValue>) => void;
   onCommit?: (patch?: Partial<CardValue>) => void;
   rank: ReactNode;
-  /** The amount column: a price, or the controls to pay it. */
+  /** The amount column: a price, or the controls to pay it; null for none. */
   amount: ReactNode;
   /** What the sponsor's money already did, once there is something. */
   stats?: { clicks: number; merged: number };

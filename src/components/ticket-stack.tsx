@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { workLabel } from "@/core/tickets";
 import type { LiveRow } from "@/db/boards";
 import { Logo, plural, type SponsorRow } from "./boards";
 import { timeAgo } from "./ui";
@@ -6,19 +7,32 @@ import { timeAgo } from "./ui";
 const working = (status: LiveRow["status"]) =>
   status !== "pull_request" && status !== "merged";
 
-function statusLabel(row: LiveRow) {
-  switch (row.status) {
-    case "writing":
-      return "Writing";
-    case "reviewing":
-      return "In review";
-    case "delivering":
-      return "Opening the PR";
-    case "pull_request":
-      return row.prNumber ? `PR #${row.prNumber} open` : "PR open";
-    case "merged":
-      return row.prNumber ? `PR #${row.prNumber} merged` : "Merged";
-  }
+/** The maker's color for a model name, as in the pitch. */
+const makerClass = (model: string) =>
+  model.startsWith("Claude") ? "model-claude" : "model-gpt";
+
+/** The status pill: who is at work, or the pull request's state. */
+function Status({ row }: { row: LiveRow }) {
+  const work = workLabel(row.status, row.models);
+  return (
+    <span className={`tk-status s-${row.status}`}>
+      {work && <span className="live-dot" aria-hidden="true" />}
+      {work ? (
+        <>
+          {work.model && (
+            <span className={`model ${makerClass(work.model)}`}>
+              {work.model}
+            </span>
+          )}{" "}
+          {work.text}
+        </>
+      ) : row.status === "merged" ? (
+        "PR merged"
+      ) : (
+        "PR open"
+      )}
+    </span>
+  );
 }
 
 /** A row turns every this often; the slide itself is in CSS. */
@@ -26,9 +40,9 @@ const STEP_MS = 4_000;
 const SLIDE_MS = 600;
 
 /**
- * The latest tickets as a column that turns: one row each, the newest on
+ * The latest tickets as a column that turns: one card each, the newest on
  * top, the next one coming in from the top every few seconds while the
- * rows above and below fade out at the edges. Each row says who paid.
+ * cards above and below fade out at the edges. Each card says who paid.
  */
 export function TicketStack({
   live,
@@ -104,7 +118,9 @@ export function TicketStack({
           }
         >
           {n === 0 && (
-            <li className="tk tk-empty">The first tickets show up here</li>
+            <li>
+              <div className="tk tk-empty">The first tickets show up here</div>
+            </li>
           )}
           {rows.map((row, i) => {
             const sponsor = row.sponsors[0];
@@ -113,17 +129,9 @@ export function TicketStack({
                 <Logo name={row.project} url={row.logoUrl} size="small" />
                 <span className="tk-head">
                   <span className="tk-project">{row.project}</span>
-                  {row.issueRef && (
-                    <span className="tk-ref">{row.issueRef}</span>
-                  )}
                   <span className="tk-when">{timeAgo(row.at)}</span>
                 </span>
-                <span className={`tk-status s-${row.status}`}>
-                  {working(row.status) && (
-                    <span className="live-dot" aria-hidden="true" />
-                  )}
-                  {statusLabel(row)}
-                </span>
+                <Status row={row} />
                 <span className={`tk-title ${row.title ? "" : "private"}`}>
                   {row.title ?? "Private ticket"}
                 </span>
