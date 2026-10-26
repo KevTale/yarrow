@@ -6864,6 +6864,11 @@ a.sb-row-link:hover .sb-name b {
     width: 100%;
     justify-content: center;
   }
+  /* The name's placeholder keeps the line until the row is used. */
+  .sb-row.you:not(.engaged) .fund-tagline:placeholder-shown,
+  .sb-row.you:not(.engaged) .fund-sep:has(+ .fund-tagline:placeholder-shown) {
+    display: none;
+  }
   .sb-edit-checks {
     padding-left: 12px;
   }
