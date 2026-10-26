@@ -67,7 +67,8 @@ export const getRunActivityFn = createServerFn({ method: "GET" })
     const apiKey = appEnv().ANTHROPIC_API_KEY;
     const activity = await withDb(async (db) => {
       const first = await runActivityFor(db, data.runId, viewer?.userId ?? null);
-      if (!first || first.status !== "running" || !apiKey) return first;
+      if (!first || !apiKey) return first;
+      if (first.status !== "running" && !first.unread) return first;
       const read = await syncRunActivity(
         db,
         new ManagedAgentsClient(apiKey),

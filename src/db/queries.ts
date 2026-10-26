@@ -19,12 +19,12 @@ import {
   agentRuns,
   contributions,
   correctionRequests,
-  events,
   projectRunConfigs,
   projectSecrets,
   projects,
   pullRequests,
   results,
+  runActivityReads,
   runFundings,
   sponsorProfiles,
   trackerBoards,
@@ -156,17 +156,23 @@ const runColumns = {
   pullRequestUrl: results.pullRequestUrl,
   workUnitId: workUnits.id,
   ticketTitle: workUnits.title,
+  ticketKey: workUnits.externalId,
   ticketUrl: workUnits.url,
   source: workUnits.source,
   projectId: projects.id,
   projectName: projects.name,
+  repository: projects.repository,
+  logoUrl: projects.logoUrl,
   visibility: projects.visibility,
 };
 
 interface Redactable {
   visibility: "public" | "listed" | "hidden";
   projectName: string;
+  repository: string;
+  logoUrl: string | null;
   ticketTitle: string;
+  ticketKey: string;
   ticketUrl: string;
   pullRequestUrl: string | null;
 }
@@ -177,10 +183,11 @@ function redactRun<T extends Redactable>(row: T, member: boolean): T {
   return {
     ...row,
     ticketTitle: "A ticket",
+    ticketKey: "",
     ticketUrl: "",
     pullRequestUrl: null,
     ...(row.visibility === "hidden"
-      ? { projectName: "A private project" }
+      ? { projectName: "A private project", repository: "", logoUrl: null }
       : {}),
   };
 }
@@ -222,7 +229,7 @@ async function isMember(
   return Boolean(row);
 }
 
-/** One run with its timeline. Null when the viewer may not see it at all. */
+/** One run. Null when the viewer may not see it at all. */
 export async function runDetail(
   db: Database,
   runId: string,
@@ -248,14 +255,6 @@ export async function runDetail(
   if (!row) return null;
   const member = await isMember(db, viewerUserId, row.accountId);
   if (row.visibility === "hidden" && !member) return null;
-  const timeline = await db
-    .select({
-      type: events.type,
-      at: events.createdAt,
-    })
-    .from(events)
-    .where(eq(events.agentRunId, runId))
-    .orderBy(asc(events.createdAt));
   const detailed = member || row.visibility === "public";
   const redacted = redactRun(row, member);
   return {
@@ -267,7 +266,6 @@ export async function runDetail(
     review: detailed ? (row.review as StoredReview | null) : null,
     artifacts: detailed ? ((row.artifacts ?? []) as StoredArtifact[]) : [],
     sponsors: await runSponsors(db, runId),
-    timeline,
   };
 }
 
@@ -293,11 +291,14 @@ export async function runActivityFor(
       pullRequestUrl: results.pullRequestUrl,
       visibility: projects.visibility,
       accountId: projects.accountId,
+      session: agentRuns.implementerSession,
+      readAt: runActivityReads.readAt,
     })
     .from(agentRuns)
     .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
     .innerJoin(projects, eq(projects.id, workUnits.projectId))
     .leftJoin(results, eq(results.agentRunId, agentRuns.id))
+    .leftJoin(runActivityReads, eq(runActivityReads.agentRunId, agentRuns.id))
     .where(eq(agentRuns.id, runId));
   if (!row) return null;
   const member = await isMember(db, viewerUserId, row.accountId);
@@ -315,6 +316,8 @@ export async function runActivityFor(
     summary: detailed ? row.summary : null,
     pullRequestUrl: detailed ? row.pullRequestUrl : null,
     detailed,
+    /** A session the feed never read: read once, even after the run. */
+    unread: row.session !== null && row.readAt === null,
     lines: detailed ? lines : lines.map(redactActivity),
   };
 }

@@ -253,19 +253,60 @@ export function StageBar({ activity }: { activity: RunActivity }) {
   );
 }
 
-/** Why the agents stopped, in their words when the viewer may read them. */
-export function StopReason({ activity }: { activity: RunActivity }) {
-  if (activity.outcome !== "abstained") return null;
-  const title =
-    activity.abstentionReason === "ticket_unclear"
-      ? "The ticket needs more detail"
-      : activity.abstentionReason === "provider_error"
-        ? "An AI provider failed"
-        : "Yarrow stopped";
+// Runs before questions were stored one per line.
+const legacyUnclear = "Implementer and reviewer both found the ticket unclear: ";
+const asLines = (summary: string) =>
+  (summary.startsWith(legacyUnclear)
+    ? summary
+        .slice(legacyUnclear.length)
+        .split(/(?<=\?)\s+/)
+        .map((question) => `- ${question}`)
+    : summary.split("\n")
+  ).map((line) => line.trim());
+
+const stopTitle: Record<string, string> = {
+  ticket_unclear: "The ticket needs more detail",
+  provider_error: "An AI provider failed",
+};
+
+/**
+ * Why the agents stopped, in their words when the viewer may read them.
+ * Their questions ("- …" lines) show as a list; the card keeps two.
+ */
+export function StopReason({
+  reason,
+  summary,
+  compact = false,
+}: {
+  reason: string | null;
+  summary: string | null;
+  compact?: boolean;
+}) {
+  const lines = asLines(summary ?? "");
+  const questions = lines
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2));
+  const text = lines.filter((line) => line && !line.startsWith("- ")).join(" ");
+  const shown = compact ? questions.slice(0, 2) : questions;
   return (
-    <div className="ra-stop" role="status">
-      <strong>{title}</strong>
-      {activity.summary && <p>{activity.summary}</p>}
+    <div className={`ra-stop ${compact ? "compact" : ""}`} role="status">
+      <strong>
+        <Ban size={14} aria-hidden="true" />
+        {stopTitle[reason ?? ""] ?? "Yarrow stopped"}
+      </strong>
+      {text && <p>{text}</p>}
+      {shown.length > 0 && (
+        <ul>
+          {shown.map((question) => (
+            <li key={question}>{question}</li>
+          ))}
+        </ul>
+      )}
+      {shown.length < questions.length && (
+        <span className="ra-stop-more">
+          +{plural(questions.length - shown.length, "more question")}
+        </span>
+      )}
     </div>
   );
 }
@@ -360,7 +401,13 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
       ) : (
         <>
           <StageBar activity={activity} />
-          <StopReason activity={activity} />
+          {activity.outcome === "abstained" && (
+            <StopReason
+              reason={activity.abstentionReason}
+              summary={activity.summary}
+              compact
+            />
+          )}
           {activity.lines.length === 0 ? (
             <p className="muted ra-empty">
               {running ? "The agent is starting." : "No activity was recorded."}
@@ -403,7 +450,6 @@ export function RunFeed({ runId }: { runId: string }) {
         )}
       </div>
       <StageBar activity={activity} />
-      <StopReason activity={activity} />
       {activity.lines.length === 0 ? (
         <p className="muted">
           {running

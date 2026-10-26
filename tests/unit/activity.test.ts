@@ -188,7 +188,10 @@ describe("a run's activity feed", async () => {
         return pages.shift() ?? [];
       },
     };
+    // Never read yet: even a finished run gets one read when viewed.
+    expect((await runActivityFor(db, runId, null))!.unread).toBe(true);
     expect(await syncRunActivity(db, sessions, runId, 0)).toBe(true);
+    expect((await runActivityFor(db, runId, null))!.unread).toBe(false);
     expect(await syncRunActivity(db, sessions, runId, 0)).toBe(true);
     // A viewer right after: within the window, no read.
     expect(await syncRunActivity(db, sessions, runId, 60_000)).toBe(false);

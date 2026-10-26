@@ -254,9 +254,10 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           withDb(env, (db) => pipeline(env, db).readClarity(clarityId)),
         );
         if (!clarity.clear) {
-          const questions = [
-            ...new Set([...snapshot.questions, ...clarity.questions]),
-          ];
+          // One list: both agents ask the same things in their own words.
+          const questions = snapshot.questions.length
+            ? snapshot.questions
+            : clarity.questions;
           await step.do("clarity:comment", () =>
             withDb(env, (db) => {
               const runner = pipeline(env, db);
@@ -268,7 +269,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           );
           throw new StopRun(
             "ticket_unclear",
-            `Implementer and reviewer both found the ticket unclear: ${questions.join(" ")}`,
+            questions.map((question) => `- ${question}`).join("\n"),
           );
         }
         await phase("implementing");

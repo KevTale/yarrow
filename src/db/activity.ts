@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
 import {
   activityFromEvent,
   type ActivityLine,
@@ -79,7 +79,8 @@ export async function syncRunActivity(
     .onConflictDoUpdate({
       target: runActivityReads.agentRunId,
       set: { readAt: now },
-      setWhere: sql`${runActivityReads.readAt} < ${new Date(now.getTime() - every)}`,
+      // Through the column, so the driver gets a timestamp, not a raw Date.
+      setWhere: lt(runActivityReads.readAt, new Date(now.getTime() - every)),
     })
     .returning({ readAt: runActivityReads.readAt });
   if (!claimed) return false;

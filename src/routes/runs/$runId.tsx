@@ -1,16 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, GitPullRequest } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CircleCheck,
+  ExternalLink,
+  GitPullRequest,
+  Lock,
+} from "lucide-react";
 import { sponsorNames } from "@/core/attribution";
+import { projectLogo } from "@/core/logos";
 import { money } from "@/core/packs";
 import { modelDisplayName } from "@/core/pipeline";
+import { bareTitle, ticketIdentity } from "@/core/tickets";
 import { getRunFn } from "@/functions/public.functions";
-import { RunFeed } from "@/components/run-activity";
-import {
-  capitalize,
-  RunStatus,
-  timeAgo,
-  VisibilityBadge,
-} from "@/components/ui";
+import { JiraIcon } from "@/components/brand-icons";
+import { RunFeed, StopReason } from "@/components/run-activity";
+import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
 
 export const Route = createFileRoute("/runs/$runId")({
   loader: ({ params }) => getRunFn({ data: { runId: params.runId } }),
@@ -29,85 +34,95 @@ export const Route = createFileRoute("/runs/$runId")({
   ),
 });
 
-const eventLabel: Record<string, string> = {
-  "run.started": "Run started, budget reserved",
-  "run.reserved_more": "More sponsor money reserved",
-  "run.finished": "Run finished",
-  "run.failed": "Provider error",
-};
-
 function RunPage() {
   const run = Route.useLoaderData();
   const sponsors = sponsorNames(run.sponsors);
+  const ticket = run.ticketKey
+    ? ticketIdentity(run.source, run.ticketKey)
+    : null;
+  const title = ticket ? bareTitle(run.ticketTitle, ticket.key) : null;
+  const logo = projectLogo(run.logoUrl, run.repository || null);
+  const pr = run.pullRequestUrl
+    ? /github\.com\/(.+)\/pull\/(\d+)/.exec(run.pullRequestUrl)
+    : null;
   return (
-    <main id="main" className="container page-main">
-      <nav className="breadcrumb small">
-        <Link to="/work">
-          <ArrowLeft size={13} /> Work
+    <main id="main" className="container page-main rp">
+      <header className="rp-head">
+        <Link to="/work" className="st-back" aria-label="All work">
+          <ArrowLeft size={18} />
         </Link>
-      </nav>
-      <header className="detail-intro">
-        <div className="row">
-          <RunStatus run={run} />
-          <VisibilityBadge visibility={run.visibility} />
-          <span className="muted small">
-            {capitalize(run.kind)} · {timeAgo(run.createdAt)}
-          </span>
-        </div>
-        <h1 className="detail-title">{run.ticketTitle}</h1>
-        <p className="muted">
-          {run.projectName}
-          {run.ticketUrl && (
-            <>
-              {" · "}
+        <div className="rp-intro">
+          <p className="rp-project">
+            {logo && <img src={logo} alt="" width={18} height={18} />}
+            <span>{run.repository || run.projectName}</span>
+            {ticket && (
               <a
-                className="text-link"
+                className="rp-ticket"
                 href={run.ticketUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                Ticket <ExternalLink size={12} />
+                {run.source === "jira" && <JiraIcon size={12} />}
+                {ticket.ref}
+                <ExternalLink size={11} />
               </a>
-            </>
-          )}
-        </p>
+            )}
+          </p>
+          <h1 className={title ? "" : "rp-hidden"}>
+            {title ?? (
+              <>
+                <Lock size={20} aria-hidden="true" /> A private ticket
+              </>
+            )}
+          </h1>
+          <p className="rp-meta">
+            <RunStatus run={run} />
+            {run.kind === "correction" && <span>Correction</span>}
+            <span>{timeAgo(run.createdAt)}</span>
+          </p>
+        </div>
       </header>
 
-      <div className="detail-layout">
-        <div className="stack">
-          {run.pullRequestUrl && (
-            <section className="outcome-panel">
-              <GitPullRequest size={20} />
-              <div>
-                <strong>Draft pull request delivered</strong>
-                <a
-                  className="text-link"
-                  href={run.pullRequestUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {run.pullRequestUrl.replace("https://github.com/", "")}{" "}
-                  <ExternalLink size={12} />
-                </a>
-              </div>
-            </section>
-          )}
+      {pr && run.pullRequestUrl && (
+        <a
+          className="rp-pr"
+          href={run.pullRequestUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <GitPullRequest size={18} aria-hidden="true" />
+          <span>
+            <strong>Draft pull request #{pr[2]}</strong>
+            <span className="muted">{pr[1]}</span>
+          </span>
+          <span className="rp-pr-open">
+            Open on GitHub <ArrowUpRight size={14} />
+          </span>
+        </a>
+      )}
+      {run.status === "abstained" && (
+        <StopReason reason={run.abstentionReason} summary={run.summary} />
+      )}
+
+      <div className="rp-layout">
+        <div className="rp-main">
           <RunFeed runId={run.runId} />
           {run.instruction && (
-            <section className="panel">
-              <p className="eyebrow">CORRECTION REQUESTED</p>
+            <section className="rp-panel">
+              <h2>Correction requested</h2>
               <p>{run.instruction}</p>
             </section>
           )}
           {run.summary && !run.abstentionReason && (
-            <section className="panel">
-              <p className="eyebrow">WHAT CHANGED</p>
+            <section className="rp-panel">
+              <h2>What changed</h2>
               <p>{run.summary}</p>
               {run.evidence.length > 0 && (
-                <ul className="summary-checks">
+                <ul className="rp-checks">
                   {run.evidence.map((line) => (
-                    <li key={line} className="mono small">
-                      {line}
+                    <li key={line}>
+                      <CircleCheck size={14} aria-hidden="true" />
+                      <span>{line}</span>
                     </li>
                   ))}
                 </ul>
@@ -115,25 +130,28 @@ function RunPage() {
             </section>
           )}
           {run.review && (
-            <section className="panel">
-              <p className="eyebrow">
-                REVIEW BY {modelDisplayName(run.review.reviewer).toUpperCase()}
-                {run.review.rounds > 1 ? " · AFTER ONE FIX ROUND" : ""}
-              </p>
+            <section className="rp-panel">
+              <h2>
+                Review by {modelDisplayName(run.review.reviewer)}
+                {run.review.rounds > 1 && (
+                  <span className="rp-tag">after one fix round</span>
+                )}
+              </h2>
               <p>{run.review.summary}</p>
               {run.review.comments.length > 0 && (
-                <ul className="stack">
+                <ul className="rp-comments">
                   {run.review.comments.map((comment, i) => (
-                    <li key={i} className="small">
-                      <strong>{capitalize(comment.severity)}</strong>
+                    <li key={i}>
+                      <span className={`rp-severity s-${comment.severity}`}>
+                        {capitalize(comment.severity)}
+                      </span>
                       {comment.path && (
-                        <span className="mono muted">
-                          {" "}
+                        <code>
                           {comment.path}
                           {comment.line ? `:${comment.line}` : ""}
-                        </span>
-                      )}{" "}
-                      — {comment.body}
+                        </code>
+                      )}
+                      <p>{comment.body}</p>
                     </li>
                   ))}
                 </ul>
@@ -141,41 +159,29 @@ function RunPage() {
             </section>
           )}
           {run.artifacts.length > 0 && (
-            <section className="panel evidence-panel">
-              <p className="eyebrow">EVIDENCE</p>
-              <div className="stack">
-                {run.artifacts.map((artifact) =>
-                  artifact.kind === "video" ? (
-                    <figure key={artifact.key}>
-                      <video
-                        src={`/evidence/${artifact.key}`}
-                        controls
-                        width="100%"
-                      />
-                      <figcaption className="small muted">
-                        {artifact.label}
-                      </figcaption>
-                    </figure>
-                  ) : (
-                    <figure key={artifact.key}>
+            <section className="rp-panel">
+              <h2>Evidence</h2>
+              <div className="rp-media">
+                {run.artifacts.map((artifact) => (
+                  <figure key={artifact.key}>
+                    {artifact.kind === "video" ? (
+                      <video src={`/evidence/${artifact.key}`} controls />
+                    ) : (
                       <img
                         src={`/evidence/${artifact.key}`}
                         alt={artifact.label}
-                        width="100%"
                       />
-                      <figcaption className="small muted">
-                        {artifact.label}
-                      </figcaption>
-                    </figure>
-                  ),
-                )}
+                    )}
+                    <figcaption>{artifact.label}</figcaption>
+                  </figure>
+                ))}
               </div>
             </section>
           )}
         </div>
 
-        <aside className="stack">
-          <dl className="summary-card summary-lines">
+        <aside>
+          <dl className="rp-facts">
             <div>
               <dt>Implemented by</dt>
               <dd>{modelDisplayName(run.implementer)}</dd>
@@ -183,6 +189,14 @@ function RunPage() {
             <div>
               <dt>Reviewed by</dt>
               <dd>{modelDisplayName(run.reviewer)}</dd>
+            </div>
+            <div>
+              <dt>Duration</dt>
+              <dd>
+                {run.finishedAt
+                  ? duration(run.createdAt, run.finishedAt)
+                  : "Running"}
+              </dd>
             </div>
             <div>
               <dt>Compute cost</dt>
@@ -194,27 +208,11 @@ function RunPage() {
                 <dd className="mono">{money(run.reservedCents)}</dd>
               </div>
             )}
-            <div className="divider">
+            <div className="rp-sponsors">
               <dt>Sponsored by</dt>
               <dd>{sponsors ?? "—"}</dd>
             </div>
           </dl>
-          {run.timeline.length > 0 && (
-            <section className="panel">
-              <p className="eyebrow">TIMELINE</p>
-              <ol className="timeline small">
-                {run.timeline.map((event, i) => (
-                  <li key={i}>
-                    <span>{eventLabel[event.type] ?? event.type}</span>
-                    <span className="muted mono">
-                      {" "}
-                      {new Date(event.at).toLocaleString("en-US")}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
         </aside>
       </div>
     </main>
