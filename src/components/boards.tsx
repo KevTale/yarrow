@@ -409,8 +409,8 @@ const liveLabel: Record<LiveRow["status"], string> = {
   writing: "Writing",
   reviewing: "Reviewing",
   delivering: "Opening the PR",
-  pull_request: "Pull request",
-  merged: "Merged",
+  pull_request: "PR open",
+  merged: "PR merged",
 };
 
 /** Today's work as it happens: tickets at work first, then pull requests. */

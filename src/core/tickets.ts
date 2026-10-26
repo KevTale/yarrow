@@ -81,10 +81,14 @@ export const bareTitle = (title: string, key: string) =>
 /** In Yarrow: queued, worked on, or shipped. */
 export const inYarrow = (row: TicketRow) => row.status !== "none";
 
-/** Statuses a builder can still act on (queue, retry, remove). */
-export const queueable = (row: TicketRow) =>
-  row.status === "none" || row.status === "abstained";
+/** Rows the batch bar acts on: add to the queue, or remove from it. */
+export const queueable = (row: TicketRow) => row.status === "none";
 export const removable = (row: TicketRow) => row.status === "queued";
+export const selectable = (row: TicketRow) => queueable(row) || removable(row);
+
+/** Its pull request was merged or closed: nothing left to do here. */
+export const done = (row: TicketRow) =>
+  row.status === "merged" || row.status === "pr_closed";
 
 /** Still moving: worth refreshing the table for. */
 export const moving = (row: TicketRow) =>

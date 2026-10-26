@@ -8,6 +8,8 @@ import {
   moving,
   queueable,
   removable,
+  selectable,
+  done,
   type ReviewRow,
   type TicketRow,
 } from "@/core/tickets";
@@ -30,7 +32,7 @@ type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
   { status: "ok" }
 >;
-type Filter = "all" | "in" | "review" | "out";
+type Filter = "open" | "in" | "review" | "out" | "done";
 
 const statusLabel: Record<TicketRow["status"], string> = {
   none: "",
@@ -38,9 +40,9 @@ const statusLabel: Record<TicketRow["status"], string> = {
   writing: "Writing",
   reviewing: "Reviewing",
   delivering: "Opening the pull request",
-  pull_request: "Pull request",
-  merged: "Merged",
-  pr_closed: "Closed",
+  pull_request: "",
+  merged: " merged",
+  pr_closed: " closed",
   abstained: "Abstained",
 };
 
@@ -93,7 +95,7 @@ export function BuilderView({
     projects: data.projects,
     review: data.review,
   });
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("open");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fresh, setFresh] = useState<string | null>(highlight);
@@ -322,32 +324,29 @@ export function BuilderView({
       </div>
     );
 
-  const toReview = rows.filter((row) => row.status === "pull_request");
-  const counts = {
-    all: rows.length,
-    in: rows.filter(inYarrow).length,
-    review: toReview.length,
-    out: rows.filter((row) => !inYarrow(row)).length,
+  // Merged or closed pull requests leave the open views for Done.
+  const filters: Record<Filter, (row: TicketRow) => boolean> = {
+    open: (row) => !done(row),
+    in: (row) => inYarrow(row) && !done(row),
+    review: (row) => row.status === "pull_request",
+    out: (row) => !inYarrow(row),
+    done,
   };
+  const counts = Object.fromEntries(
+    Object.entries(filters).map(([key, test]) => [key, rows.filter(test).length]),
+  ) as Record<Filter, number>;
   const q = query.trim().toLowerCase();
   const shown = rows
-    .filter(
-      (row) =>
-        filter === "all" ||
-        (filter === "in"
-          ? inYarrow(row)
-          : filter === "review"
-            ? row.status === "pull_request"
-            : !inYarrow(row)),
-    )
+    .filter(filters[filter])
     .filter(
       (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
     );
   const chosen = rows.filter((row) => selected.has(row.key));
   const canQueue = chosen.filter(queueable).map((row) => row.key);
   const canRemove = chosen.filter(removable).map((row) => row.key);
+  const pickable = shown.filter(selectable);
   const allShown =
-    shown.length > 0 && shown.every((row) => selected.has(row.key));
+    pickable.length > 0 && pickable.every((row) => selected.has(row.key));
   const toggle = (key: string) =>
     setSelected((current) => {
       const next = new Set(current);
@@ -527,10 +526,11 @@ export function BuilderView({
                     <div className="bd-filters" role="group" aria-label="Show">
                       {(
                         [
-                          ["all", "All"],
+                          ["open", "Open"],
                           ["in", "In Yarrow"],
                           ["review", "To review"],
                           ["out", "Not queued"],
+                          ["done", "Done"],
                         ] as const
                       ).map(([key, label]) => (
                         <button
@@ -571,18 +571,20 @@ export function BuilderView({
                   >
                     <div className="bd-row bd-thead" role="row">
                       <span>
-                        <input
-                          type="checkbox"
-                          aria-label="Select all"
-                          checked={allShown}
-                          onChange={() =>
-                            setSelected(
-                              allShown
-                                ? new Set()
-                                : new Set(shown.map((row) => row.key)),
-                            )
-                          }
-                        />
+                        {pickable.length > 0 && (
+                          <input
+                            type="checkbox"
+                            aria-label="Select all"
+                            checked={allShown}
+                            onChange={() =>
+                              setSelected(
+                                allShown
+                                  ? new Set()
+                                  : new Set(pickable.map((row) => row.key)),
+                              )
+                            }
+                          />
+                        )}
                       </span>
                       <span>Ticket</span>
                       <span>Models</span>
@@ -602,12 +604,15 @@ export function BuilderView({
                         onAnimationEnd={() => setFresh(null)}
                       >
                         <span>
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${row.ref}`}
-                            checked={selected.has(row.key)}
-                            onChange={() => toggle(row.key)}
-                          />
+                          {/* Only rows the batch bar can act on. */}
+                          {selectable(row) && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${row.ref}`}
+                              checked={selected.has(row.key)}
+                              onChange={() => toggle(row.key)}
+                            />
+                          )}
                         </span>
                         <span className="bd-ticket">
                           <TicketRef row={row} />
@@ -645,22 +650,24 @@ export function BuilderView({
       {selected.size > 0 && !reviewing && (
         <div className="bd-batch" role="region" aria-label="Selection">
           <b>{selected.size} selected</b>
-          <button
-            type="button"
-            className="bd-btn bd-btn-amber"
-            disabled={canQueue.length === 0}
-            onClick={() => act("queue", canQueue)}
-          >
-            Add to queue
-          </button>
-          <button
-            type="button"
-            className="bd-btn bd-btn-line"
-            disabled={canRemove.length === 0}
-            onClick={() => act("unqueue", canRemove)}
-          >
-            Remove from queue
-          </button>
+          {canQueue.length > 0 && (
+            <button
+              type="button"
+              className="bd-btn bd-btn-amber"
+              onClick={() => act("queue", canQueue)}
+            >
+              Add to queue
+            </button>
+          )}
+          {canRemove.length > 0 && (
+            <button
+              type="button"
+              className="bd-btn bd-btn-line"
+              onClick={() => act("unqueue", canRemove)}
+            >
+              Remove from queue
+            </button>
+          )}
           <button
             type="button"
             className="bd-btn bd-btn-ghost"
@@ -798,11 +805,16 @@ function Status({
   return (
     <span className={`bd-status s-${row.status}`}>
       <span className="dot" aria-hidden="true" />
-      {row.pullRequest &&
-      ["pull_request", "merged", "pr_closed"].includes(row.status) ? (
-        <a href={row.pullRequest.url} target="_blank" rel="noopener">
-          {label} #{row.pullRequest.number}
-        </a>
+      {["pull_request", "merged", "pr_closed"].includes(row.status) ? (
+        // "PR #4", "PR #4 merged": the pull request, never the issue.
+        row.pullRequest ? (
+          <a href={row.pullRequest.url} target="_blank" rel="noopener">
+            PR #{row.pullRequest.number}
+            {label}
+          </a>
+        ) : (
+          <span>PR{label}</span>
+        )
       ) : (
         <span title={row.reason ?? undefined}>{label}</span>
       )}
