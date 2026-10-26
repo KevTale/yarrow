@@ -6327,12 +6327,11 @@ a.tk:hover {
   /* Two lines per card, as on desktop: the title and the sponsor share
      the second line, both ellipsed. */
   .tk-when,
-  .tk-paid-label,
   .tk-more {
     display: none;
   }
   .tk-paid {
-    max-width: 34vw;
+    max-width: 46vw;
   }
   .tk-totals {
     justify-content: center;
@@ -6368,52 +6367,6 @@ a.tk:hover {
 }
 .sb-head h2 {
   font-size: 32px;
-}
-.sb-head-side {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 18px;
-}
-/* Where the viewer stands; it opens their row. */
-.sb-claim-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.sb-dollars {
-  display: flex;
-  align-items: center;
-  height: 40px;
-  padding: 0 6px 0 12px;
-  border: 1px solid #f2b54480;
-  border-radius: 10px;
-  background: var(--surface);
-  font:
-    500 18px var(--font-display),
-    sans-serif;
-  color: var(--amber);
-  cursor: text;
-}
-.sb-dollars:focus-within {
-  border-color: var(--amber);
-}
-.sb-dollars input {
-  width: 56px;
-  padding: 0 0 0 2px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  outline: none;
-}
-.sb-dollars.large {
-  height: 46px;
-  padding-left: 12px;
-  font-size: 22px;
-}
-.sb-dollars.large input {
-  width: 70px;
 }
 .sb-claim-go {
   display: inline-flex;
@@ -6619,48 +6572,74 @@ a.sb-row-link:hover .sb-name b {
   color: var(--muted);
 }
 
-/* The viewer's row as its own form, right where it shows */
-.sb-row.editing {
+/* The viewer's row as a form the size of every other row */
+.sb-form-row {
+  display: grid;
+  grid-template-columns: 26px 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sb-form-row .logo-picker .board-logo.small {
+  border: 1px dashed #f2b54480;
+}
+.sb-fields-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.sb-form-row .fund-input {
+  padding: 0;
+}
+.sb-form-row .fund-name {
+  min-width: 6ch;
+}
+.sb-form-row .fund-description {
+  font-size: 13px;
+  line-height: 1.4;
+}
+/* The amount, where every amount prints, and typed in place. */
+.sb-amount-field {
+  display: inline-flex;
+  align-items: baseline;
+  font:
+    500 17px var(--font-display),
+    sans-serif;
+  color: var(--amber);
+  cursor: text;
+}
+.sb-amount-field input {
+  min-width: 2ch;
+  field-sizing: content;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dashed #f2b54480;
+  background: none;
+  color: var(--amber);
+  font: inherit;
+  text-align: right;
+  outline: none;
+}
+.sb-amount-field input:focus {
+  border-bottom: 1px solid var(--amber);
+}
+/* Once used, the row and the payment under it read as one card. */
+.sb-row.engaged {
   margin-block: 4px;
   border: 1px solid #f2b5448c;
   border-radius: 12px;
   background: var(--surface);
   box-shadow: 0 16px 40px #00000052;
 }
-.sb-edit-row {
-  display: grid;
-  grid-template-columns: 26px 28px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-  padding: 14px 12px 12px 6px;
-}
-.sb-edit-row .sb-rank {
-  padding-top: 3px;
-}
-.sb-fields {
-  gap: 5px;
-}
-.sb-fields-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 6px;
-  font-size: 15px;
-}
-.sb-fields .fund-description {
-  font-size: 13px;
-}
-.sb-fields .fund-site {
-  justify-self: start;
-}
-.sb-edit-row .sb-paid {
-  gap: 6px;
-}
 /* Under the fields, aligned with them, the two choices; then a band the
    whole width with what the amount buys beside the buttons. */
 .sb-edit-checks {
   display: grid;
-  gap: 8px;
+  justify-items: start;
+  gap: 10px;
   padding: 12px 12px 12px 84px;
   border-top: 1px solid var(--line);
   font-size: 13px;
@@ -6881,21 +6860,9 @@ a.sb-row-link:hover .sb-name b {
   .sb-stats-under {
     display: block;
   }
-  .sb-head-side,
-  .sb-claim-bar {
+  .sb-head > .sb-claim-go {
     width: 100%;
-  }
-  .sb-claim-bar .sb-claim-go {
-    flex: 1;
     justify-content: center;
-  }
-  /* The form: the amount under the fields. */
-  .sb-edit-row {
-    grid-template-columns: 26px 28px minmax(0, 1fr);
-  }
-  .sb-edit-row .sb-paid {
-    grid-column: 3;
-    justify-items: start;
   }
   .sb-edit-checks {
     padding-left: 12px;
