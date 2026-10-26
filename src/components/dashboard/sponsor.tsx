@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
@@ -10,15 +10,7 @@ import {
   saveSponsorFundingFn,
   saveSponsorProfileFn,
 } from "@/functions/sponsor.functions";
-import {
-  domain,
-  Impact,
-  Logo,
-  Paid,
-  plural,
-  ResetsIn,
-  SponsorName,
-} from "@/components/boards";
+import { Paid, plural } from "@/components/boards";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -53,21 +45,6 @@ const statusLabel = {
 } as const;
 
 const working = ["writing", "reviewing", "delivering"];
-
-/** Beside the role tabs: the credit left, and where it goes. */
-export function SponsorActions({ data }: { data: SponsorData }) {
-  return (
-    <span className="dashboard-actions sd-actions">
-      <span className="sd-left">
-        <b>{money(Math.max(0, data.balanceCents))}</b> balance
-        {data.inUseCents > 0 && (
-          <small>{money(data.inUseCents)} in use</small>
-        )}
-      </span>
-      <FundingPicker data={data} />
-    </span>
-  );
-}
 
 /** Every project, or only the ones ticked; saved at each change. */
 function FundingPicker({ data }: { data: SponsorData }) {
@@ -218,20 +195,15 @@ const anonymousProfile = {
   logo: null,
 };
 
-/** Rank reached on a board when the viewer adds `cents`. */
-const rankWith = (standing: Standing, cents: number) =>
-  standing.others.filter((paid) => paid >= standing.paidCents + cents).length +
-  1;
-
 /**
- * Today's board with the viewer's card in it, edited in place: at their
- * place once they paid today, otherwise where $10 would put them. The
- * amount beside it says the place it takes, and pays it.
+ * The sponsor's campaign: their card as the boards print it, edited in
+ * place; beside it the budget (balance, where it goes, what more buys); under
+ * them what the card brought.
  */
-function TodayBoard({ data }: { data: SponsorData }) {
+function Campaign({ data }: { data: SponsorData }) {
   const save = useServerFn(saveSponsorProfileFn);
   const router = useRouter();
-  const today = data.standings.today;
+  const { today, all } = data.standings;
   const { profile } = data.settings;
   const [card, setCard] = useState<CardValue>({
     anonymous: profile.publicName === null && data.isSponsor,
@@ -245,9 +217,6 @@ function TodayBoard({ data }: { data: SponsorData }) {
   const [error, setError] = useState("");
   useSavedFades(state, setState);
   const last = useRef<string | null>(null);
-  const [dollars, setDollars] = useState(String(MIN_AMOUNT_CENTS / 100));
-  const [going, setGoing] = useState(false);
-  const list = useFlip<HTMLOListElement>(today);
 
   async function commit(patch: Partial<CardValue> = {}): Promise<boolean> {
     const next = { ...card, ...patch };
@@ -290,214 +259,196 @@ function TodayBoard({ data }: { data: SponsorData }) {
     }
   }
 
+  const yours = all.rows.find((row) => row.you);
+  return (
+    <div className="sd-campaign">
+      <section className="sd-card" aria-label="Your card">
+        <div className="sd-card-head">
+          <span className="bd-label">Your card</span>
+          <span className="sd-ranks">
+            <span>
+              <b>{today.rank ? `#${today.rank}` : "–"}</b> today
+            </span>
+            <span>
+              <b>{all.rank ? `#${all.rank}` : "–"}</b> all time
+            </span>
+          </span>
+        </div>
+        <SponsorCardRow
+          className={all.rank === 1 ? "first" : ""}
+          value={card}
+          onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
+          onCommit={(patch) => void commit(patch)}
+          rank={all.rank ?? "–"}
+          stats={yours}
+          amount={
+            yours ? (
+              <Paid row={yours} />
+            ) : (
+              <span className="board-amount muted">$0</span>
+            )
+          }
+        />
+        <div className="sd-card-foot">
+          <label className="sd-anon">
+            <input
+              type="checkbox"
+              checked={card.anonymous}
+              onChange={(event) => {
+                const anonymous = event.target.checked;
+                setCard((current) => ({ ...current, anonymous }));
+                void commit({ anonymous });
+              }}
+            />
+            Stay anonymous
+          </label>
+          <SavedState state={state} />
+          {error && (
+            <span className="sd-error" role="alert">
+              {error}
+            </span>
+          )}
+          <a className="sd-board-link" href="/#sponsors">
+            See the leaderboard <ArrowUpRight size={13} />
+          </a>
+        </div>
+      </section>
+      <Budget data={data} commit={commit} />
+    </div>
+  );
+}
+
+/** Rank reached on a board when the viewer adds `cents`. */
+const rankWith = (standing: Standing, cents: number) =>
+  standing.others.filter((paid) => paid >= standing.paidCents + cents).length +
+  1;
+
+/** What #1 today costs on top of what the viewer paid today. */
+function toTop(today: Standing): number {
+  const top = Math.max(0, ...today.others);
+  const needed = today.rank === 1 ? 0 : top - today.paidCents + 100;
+  return Math.min(
+    MAX_AMOUNT_CENTS,
+    Math.max(MIN_AMOUNT_CENTS, Math.ceil(needed / 100) * 100),
+  );
+}
+
+/**
+ * The money side: what is left and what it still buys, where it goes, and
+ * what more takes. Paying saves the card first.
+ */
+function Budget({
+  data,
+  commit,
+}: {
+  data: SponsorData;
+  commit: () => Promise<boolean>;
+}) {
+  const { today } = data.standings;
+  const [dollars, setDollars] = useState(String(toTop(today) / 100));
+  const [going, setGoing] = useState(false);
   const cents = Math.round(Number(dollars || 0) * 100);
   const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
-  const onBoard = today.rank !== null;
   const target = rankWith(today, valid ? cents : MIN_AMOUNT_CENTS);
-  const yours =
-    today.rows.find((row) => row.you) ??
-    data.standings.all.rows.find((row) => row.you);
-  const label = !valid
-    ? cents < MIN_AMOUNT_CENTS
-      ? "From $10"
-      : "Up to $1,000"
-    : onBoard && target >= today.rank!
-      ? "Add"
-      : `Take #${target}`;
+  const gains = today.rank === null || target < today.rank;
+  // What a ticket cost this sponsor so far, to say what the balance buys.
+  const done = data.shipped.filter(
+    (row) => !working.includes(row.status) && row.costCents > 0,
+  );
+  const average = done.length
+    ? done.reduce((sum, row) => sum + row.costCents, 0) / done.length
+    : 0;
+  const balance = Math.max(0, data.balanceCents);
+  const left = average ? Math.floor(balance / average) : null;
 
   async function take() {
     if (!valid) return;
     setGoing(true);
-    // The card first: the checkout carries what was just typed.
     if (!(await commit())) return setGoing(false);
     window.location.href = `/fund?amount=${cents / 100}`;
   }
 
-  const youRow = (
-    <li key="you" className="sd-you-row">
-      <SponsorCardRow
-        className={onBoard ? "you" : "ghost"}
-        value={card}
-        onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
-        onCommit={(patch) => void commit(patch)}
-        rank={
-          onBoard && target < today.rank! ? (
-            <>
-              {today.rank}
-              <small>→{target}</small>
-            </>
-          ) : onBoard ? (
-            today.rank
-          ) : (
-            target
-          )
-        }
-        stats={yours}
-        amount={
-          <span className="sd-take">
-            {onBoard && yours && <Paid row={{ ...yours, paidCents: today.paidCents }} />}
-            <form
-              className="sd-take-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void take();
-              }}
-            >
-              <label className="sd-take-amount">
-                {onBoard ? "+$" : "$"}
-                <input
-                  value={dollars}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  aria-label="Amount in dollars"
-                  onChange={(event) =>
-                    setDollars(
-                      event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                    )
-                  }
-                />
-              </label>
-              <button type="submit" className="sd-take-go" aria-disabled={!valid}>
-                {label}
-                {going ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.2} />}
-              </button>
-            </form>
-          </span>
-        }
-      />
-    </li>
-  );
-
-  // Off the board: the card slides in at the place the amount takes, and
-  // whoever it passes moves one down.
-  const rows: React.ReactNode[] = [];
-  let placed = false;
-  for (const row of today.rows) {
-    if (row.you) {
-      rows.push(youRow);
-      placed = true;
-      continue;
-    }
-    if (!onBoard && !placed && row.rank >= target) {
-      rows.push(youRow);
-      placed = true;
-    }
-    rows.push(
-      <BoardRow
-        key={row.publicId}
-        row={row}
-        rank={!onBoard && placed ? row.rank + 1 : row.rank}
-        size="large"
-      />,
-    );
-  }
-  if (!placed) rows.push(youRow);
-
   return (
-    <div className="sd-today">
-      <div className="board-head">
-        <span>
-          Today <ResetsIn />
-        </span>
-        <span className="board-total">
-          <small>total</small> {money(today.totalCents, false)}
-        </span>
-      </div>
-      <ol className="board-list" ref={list}>
-        {rows}
-      </ol>
-      <div className="sd-today-foot">
-        <label className="sd-anon">
-          <input
-            type="checkbox"
-            checked={card.anonymous}
-            onChange={(event) => {
-              const anonymous = event.target.checked;
-              setCard((current) => ({ ...current, anonymous }));
-              void commit({ anonymous });
-            }}
-          />
-          Stay anonymous
-        </label>
-        <SavedState state={state} />
-        {error && (
-          <span className="sd-error" role="alert">
-            {error}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** A sponsor on the boards, as everyone sees them. */
-function BoardRow({
-  row,
-  rank,
-  size,
-}: {
-  row: Standing["rows"][number];
-  rank: number;
-  size: "large" | "small";
-}) {
-  return (
-    <li
-      data-flip={row.publicId}
-      data-flip-value={row.paidCents}
-      className={`board-row ${size} ${rank === 1 ? "first" : ""} ${row.you ? "you" : ""}`}
-    >
-      <span className="board-rank">{rank}</span>
-      <Logo name={row.name} url={row.logoUrl} size={size} />
-      <span className="board-body">
-        <span className="board-title">
-          <SponsorName name={row.name} />
-          {size === "large" && row.tagline && <span> · {row.tagline}</span>}
-          {row.you && <span className="sd-you">You</span>}
-        </span>
-        {size === "large" && row.description && (
-          <span className="board-description" title={row.description}>
-            {row.description}
-          </span>
-        )}
-        <span className="board-meta">
-          {size === "large" && row.websiteUrl && (
-            <span>{domain(row.websiteUrl)}</span>
-          )}
-          {size === "large" && row.name && (
-            <span>{plural(row.clicks, "click")}</span>
-          )}
-          <Impact row={row} />
-        </span>
-      </span>
-      {size === "large" ? (
-        <Paid row={row} />
-      ) : (
-        <span className="board-amount">{money(row.paidCents, false)}</span>
+    <section className="sd-budget" aria-label="Budget">
+      <span className="bd-label">Balance</span>
+      <p className="sd-balance">
+        <b>{money(balance)}</b>
+        {left !== null && <span>≈ {plural(left, "ticket")}</span>}
+      </p>
+      {data.inUseCents > 0 && (
+        <p className="sd-in-use">{money(data.inUseCents)} at work right now</p>
       )}
-    </li>
+      <FundingPicker data={data} />
+      <form
+        className="sd-add"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void take();
+        }}
+      >
+        <p className="sd-add-pitch">
+          {today.rank === 1 ? (
+            <>
+              You are <b>#1 today</b>
+            </>
+          ) : (
+            <>
+              <b>{money(toTop(today), false)}</b>
+              {today.rank === null ? " takes " : " more takes "}
+              <b>#1 today</b>
+            </>
+          )}
+        </p>
+        <div className="sd-add-row">
+          <label className="sd-take-amount">
+            $
+            <input
+              value={dollars}
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Amount in dollars"
+              onChange={(event) =>
+                setDollars(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))
+              }
+            />
+          </label>
+          <button type="submit" className="sd-take-go" aria-disabled={!valid}>
+            {!valid
+              ? cents < MIN_AMOUNT_CENTS
+                ? "From $10"
+                : "Up to $1,000"
+              : gains
+                ? `Take #${target} today`
+                : "Add funds"}
+            {going ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.2} />}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }
 
-function AllTimeBoard({ standing }: { standing: Standing }) {
-  const list = useFlip<HTMLOListElement>(standing);
+/** What the card brought, in large. */
+function Results({ data }: { data: SponsorData }) {
+  const yours = data.standings.all.rows.find((row) => row.you);
+  const items = [
+    { label: "Clicks", value: (yours?.clicks ?? 0).toLocaleString("en-US") },
+    { label: "Merged PRs", value: String(yours?.merged ?? 0) },
+    { label: "Spent", value: money(data.spentCents) },
+  ];
   return (
-    <div>
-      <div className="board-head">
-        <span>All time</span>
-        <span className="board-total">
-          <small>total</small> {money(standing.totalCents, false)}
-        </span>
-      </div>
-      <ol className="board-list" ref={list}>
-        {standing.rows.map((row) => (
-          <BoardRow key={row.publicId} row={row} rank={row.rank} size="small" />
-        ))}
-      </ol>
-    </div>
+    <dl className="sd-results">
+      {items.map((item) => (
+        <div key={item.label}>
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
-/** Sponsor tab: where you stand, your card in it, then the runs. */
+/** Sponsor tab: your card and budget, what they brought, where your name went. */
 export function SponsorView({
   data,
   celebrate = false,
@@ -506,7 +457,7 @@ export function SponsorView({
   /** Just back from Stripe: thank the sponsor. */
   celebrate?: boolean;
 }) {
-  const { standings, shipped, activity } = data;
+  const { shipped, activity } = data;
   const router = useRouter();
   // Someone passing you, your runs moving: refetch at once.
   useLive(
@@ -526,15 +477,13 @@ export function SponsorView({
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      <div className="sd-standings">
-        <TodayBoard data={data} />
-        <AllTimeBoard standing={standings.all} />
-      </div>
+      <Campaign data={data} />
+      {data.isSponsor && <Results data={data} />}
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
           <span>
-            Funded by you <em>{shipped.length}</em>
+            Your name on <em>{shipped.length}</em>
             {live > 0 && <span className="sd-live">{live} live</span>}
           </span>
           <span>Project</span>

@@ -4048,43 +4048,8 @@ button.md-name {
   display: grid;
   gap: 36px;
 }
-.sd-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.sd-left {
-  font-size: 13.5px;
-  color: var(--muted);
-  margin-right: 4px;
-}
-.sd-left b {
-  font:
-    500 17px var(--font-display),
-    sans-serif;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.sd-standings {
-  display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
-  gap: 28px 40px;
-  align-items: start;
-}
 .board-row.you {
   background: #f2b5440c;
-}
-.sd-you {
-  font:
-    500 11px var(--font-geist-mono),
-    monospace;
-  color: var(--amber);
-  border: 1px solid #f2b54466;
-  border-radius: 999px;
-  padding: 1px 7px;
-  margin-left: 8px;
-  vertical-align: 2px;
 }
 .sd .claim {
   margin-top: -12px;
@@ -4146,9 +4111,6 @@ a.sd-row:hover {
     monospace;
 }
 @media (max-width: 760px) {
-  .sd-standings {
-    grid-template-columns: 1fr;
-  }
   .sd .claim {
     margin-top: 0;
     border-radius: 14px;
@@ -4994,11 +4956,6 @@ a[data-loading]:not(.go)::after {
   .live-row.working {
     animation: none;
   }
-}
-.sd-left small {
-  margin-left: 8px;
-  font-size: 12px;
-  color: var(--muted);
 }
 
 /* ---------- Landing: the live table ---------- */
@@ -6507,37 +6464,6 @@ button.st-back {
   justify-items: end;
 }
 
-/* Sponsor tab: the viewer's card inside Today */
-.sd-you-row .fund-row {
-  border-bottom: 1px solid #1d2025;
-}
-.sd-you-row .fund-row.ghost {
-  background: #f2b5440a;
-  outline: 1px dashed #f2b54459;
-  outline-offset: -1px;
-  border-radius: 10px;
-}
-.sd-you-row .board-rank {
-  color: var(--amber);
-}
-.sd-you-row .board-rank small {
-  display: block;
-  font-size: 12px;
-}
-.sd-take {
-  display: grid;
-  justify-items: end;
-  align-content: start;
-  gap: 10px;
-}
-.sd-take .board-amount {
-  padding-top: 4px;
-}
-.sd-take-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 .sd-take-amount {
   display: flex;
   align-items: center;
@@ -6585,14 +6511,6 @@ button.st-back {
   color: var(--muted);
   cursor: default;
 }
-.sd-today-foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  padding: 12px 4px 0;
-  font-size: 13px;
-}
 .sd-anon {
   display: inline-flex;
   align-items: center;
@@ -6609,12 +6527,154 @@ button.st-back {
 .sd-error {
   color: var(--red);
 }
-@media (max-width: 760px) {
-  .sd-you-row .fund-row {
-    grid-template-columns: 26px 40px minmax(0, 1fr);
+
+
+/* Sponsor tab: the campaign */
+.sd-campaign {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+.sd-card,
+.sd-budget {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.sd-card-head,
+.sd-card-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 12px 16px;
+}
+.sd-card-head {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.sd-card-foot {
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.sd-card .fund-row {
+  border-bottom: 0;
+}
+.sd-ranks {
+  display: flex;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.sd-ranks b {
+  font:
+    500 15px var(--font-display),
+    sans-serif;
+  color: var(--amber);
+  margin-right: 3px;
+}
+.sd-board-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--muted);
+}
+.sd-board-link:hover {
+  color: var(--text);
+}
+.sd-budget {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.sd-balance {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: -4px 0 0;
+}
+.sd-balance b {
+  font:
+    500 30px var(--font-display),
+    sans-serif;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.sd-balance span,
+.sd-in-use {
+  font-size: 13px;
+  color: var(--muted);
+}
+.sd-in-use {
+  margin: -6px 0 0;
+}
+.sd-budget .jp,
+.sd-budget .jp-button {
+  width: 100%;
+}
+.sd-budget .sd-funds-menu {
+  left: 0;
+  right: auto;
+  width: 100%;
+  min-width: 280px;
+}
+.sd-add {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.sd-add-pitch {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--secondary);
+}
+.sd-add-pitch b {
+  color: var(--amber);
+  font-weight: 600;
+}
+.sd-add-row {
+  display: flex;
+  gap: 6px;
+}
+.sd-add-row .sd-take-amount {
+  flex: 1;
+}
+.sd-add-row .sd-take-amount input {
+  width: 100%;
+}
+.sd-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.sd-results > div {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.sd-results dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.sd-results dd {
+  margin: 4px 0 0;
+  font:
+    500 24px var(--font-display),
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 860px) {
+  .sd-campaign {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .sd-take {
-    grid-column: 2 / -1;
-    justify-items: start;
+}
+@media (max-width: 520px) {
+  .sd-results {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
