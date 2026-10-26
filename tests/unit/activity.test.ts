@@ -5,6 +5,7 @@ import {
   groupActivity,
   reachedStages,
   redactActivity,
+  storyLines,
   type SessionEvent,
 } from "../../src/core/activity";
 import { ensureAccount } from "../../src/db/accounts";
@@ -132,6 +133,23 @@ describe("reading a session into lines", () => {
       "read",
       "write",
     ]);
+  });
+});
+
+describe("the feed a person reads", () => {
+  it("leaves out shell commands and the turn's closing message", () => {
+    const lines = [
+      tool("a", 1, "bash", { command: "git status" }),
+      tool("b", 2, "edit", { file_path: "a.ts", old_string: "x", new_string: "y" }),
+      { id: "c", type: "agent.message", processed_at: at(3), content: [{ type: "text", text: "Now the tests." }] },
+      tool("d", 4, "bash", { command: "pnpm test" }),
+      { id: "e", type: "agent.message", processed_at: at(5), content: [{ type: "text", text: "I fixed the export." }] },
+      tool("f", 6, "bash", { command: "git add -A" }),
+    ].map((event) => activityFromEvent(event as SessionEvent)!);
+    const review = { externalId: "r", at: at(7), actor: "yarrow" as const, kind: "phase" as const, detail: { phase: "reviewing" } };
+    expect(storyLines([...lines, review]).map((line) => line.externalId)).toEqual(["b", "c", "d", "r"]);
+    // While the agent works, its latest message is a thought, not a summary.
+    expect(storyLines(lines).map((line) => line.externalId)).toEqual(["b", "c", "d", "e"]);
   });
 });
 

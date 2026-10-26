@@ -13,7 +13,6 @@ import {
   runDetail,
   showcase,
   sponsorDashboard,
-  workFeed,
 } from "../../src/db/queries";
 import { loadDispatch } from "../../src/db/queue";
 import * as schema from "../../src/db/schema";
@@ -365,7 +364,6 @@ describe("visibility", () => {
   it("keeps hidden projects out of every public view", async () => {
     const runId = await deliveredRun("hidden");
     expect(await runDetail(db, runId, null)).toBeNull();
-    expect(await workFeed(db)).toHaveLength(0);
     expect(await showcase(db)).toHaveLength(0);
     const dashboard = await sponsorDashboard(db, sponsor);
     expect(dashboard.fundedRuns[0]!.projectName).toBe("A private project");

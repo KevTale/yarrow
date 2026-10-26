@@ -1,4 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useCanGoBack,
+  useRouter,
+} from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -14,7 +19,7 @@ import { modelDisplayName } from "@/core/pipeline";
 import { bareTitle, ticketIdentity } from "@/core/tickets";
 import { getRunFn } from "@/functions/public.functions";
 import { JiraIcon } from "@/components/brand-icons";
-import { RunFeed, StopReason } from "@/components/run-activity";
+import { Rich, RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
 
 export const Route = createFileRoute("/runs/$runId")({
@@ -27,12 +32,32 @@ export const Route = createFileRoute("/runs/$runId")({
     <main id="main" className="container page-main not-found">
       <h1>Run not found</h1>
       <p className="muted">It does not exist, or its project is private.</p>
-      <Link to="/work" className="text-link">
-        <ArrowLeft size={14} /> All work
+      <Link to="/" className="text-link">
+        <ArrowLeft size={14} /> Home
       </Link>
     </main>
   ),
 });
+
+/** Back where the visitor came from; home when the run was opened first. */
+function BackArrow() {
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+  return canGoBack ? (
+    <button
+      type="button"
+      className="st-back"
+      aria-label="Back"
+      onClick={() => router.history.back()}
+    >
+      <ArrowLeft size={18} />
+    </button>
+  ) : (
+    <Link to="/" className="st-back" aria-label="Home">
+      <ArrowLeft size={18} />
+    </Link>
+  );
+}
 
 function RunPage() {
   const run = Route.useLoaderData();
@@ -48,9 +73,7 @@ function RunPage() {
   return (
     <main id="main" className="container page-main rp">
       <header className="rp-head">
-        <Link to="/work" className="st-back" aria-label="All work">
-          <ArrowLeft size={18} />
-        </Link>
+        <BackArrow />
         <div className="rp-intro">
           <p className="rp-project">
             {logo && <img src={logo} alt="" width={18} height={18} />}
@@ -106,7 +129,6 @@ function RunPage() {
 
       <div className="rp-layout">
         <div className="rp-main">
-          <RunFeed runId={run.runId} />
           {run.instruction && (
             <section className="rp-panel">
               <h2>Correction requested</h2>
@@ -115,8 +137,15 @@ function RunPage() {
           )}
           {run.summary && !run.abstentionReason && (
             <section className="rp-panel">
-              <h2>What changed</h2>
-              <p>{run.summary}</p>
+              <h2>
+                What changed
+                <span className="rp-by">
+                  by {modelDisplayName(run.implementer)}
+                </span>
+              </h2>
+              <p>
+                <Rich text={run.summary} />
+              </p>
               {run.evidence.length > 0 && (
                 <ul className="rp-checks">
                   {run.evidence.map((line) => (
@@ -132,12 +161,17 @@ function RunPage() {
           {run.review && (
             <section className="rp-panel">
               <h2>
-                Review by {modelDisplayName(run.review.reviewer)}
+                Review
+                <span className="rp-by">
+                  by {modelDisplayName(run.review.reviewer)}
+                </span>
                 {run.review.rounds > 1 && (
                   <span className="rp-tag">after one fix round</span>
                 )}
               </h2>
-              <p>{run.review.summary}</p>
+              <p>
+                <Rich text={run.review.summary} />
+              </p>
               {run.review.comments.length > 0 && (
                 <ul className="rp-comments">
                   {run.review.comments.map((comment, i) => (
@@ -178,6 +212,7 @@ function RunPage() {
               </div>
             </section>
           )}
+          <RunFeed runId={run.runId} />
         </div>
 
         <aside>

@@ -19,7 +19,6 @@ import { Route as ShippedRouteImport } from './routes/shipped'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as WorkRouteImport } from './routes/work'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
 import { Route as AuthGithubRouteImport } from './routes/auth/github'
@@ -86,11 +85,6 @@ const SignInRoute = SignInRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WorkRoute = WorkRouteImport.update({
-  id: '/work',
-  path: '/work',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -193,7 +187,6 @@ export interface FileRoutesByFullPath {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
-  '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -223,7 +216,6 @@ export interface FileRoutesByTo {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
-  '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -254,7 +246,6 @@ export interface FileRoutesById {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
-  '/work': typeof WorkRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -286,7 +277,6 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
-    | '/work'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -316,7 +306,6 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
-    | '/work'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -346,7 +335,6 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
-    | '/work'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -377,7 +365,6 @@ export interface RootRouteChildren {
   ShowcaseRoute: typeof ShowcaseRoute
   SignInRoute: typeof SignInRoute
   TermsRoute: typeof TermsRoute
-  WorkRoute: typeof WorkRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
   AuthGithubRoute: typeof AuthGithubRoute
@@ -467,13 +454,6 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/work': {
-      id: '/work'
-      path: '/work'
-      fullPath: '/work'
-      preLoaderRoute: typeof WorkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -609,7 +589,6 @@ const rootRouteChildren: RootRouteChildren = {
   ShowcaseRoute: ShowcaseRoute,
   SignInRoute: SignInRoute,
   TermsRoute: TermsRoute,
-  WorkRoute: WorkRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthConfirmRoute: AuthConfirmRoute,
   AuthGithubRoute: AuthGithubRoute,

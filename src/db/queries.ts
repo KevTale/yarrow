@@ -192,25 +192,6 @@ function redactRun<T extends Redactable>(row: T, member: boolean): T {
   };
 }
 
-/** Recent runs across Public and Listed projects. */
-export async function workFeed(db: Database, limit = 50) {
-  const rows = await db
-    .select(runColumns)
-    .from(agentRuns)
-    .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
-    .innerJoin(projects, eq(projects.id, workUnits.projectId))
-    .leftJoin(results, eq(results.agentRunId, agentRuns.id))
-    .where(and(visible, isNull(projects.suspendedAt)))
-    .orderBy(desc(agentRuns.createdAt))
-    .limit(limit);
-  return Promise.all(
-    rows.map(async (row) => ({
-      ...redactRun(row, false),
-      sponsors: await runSponsors(db, row.runId),
-    })),
-  );
-}
-
 async function isMember(
   db: Database,
   userId: string | null,
@@ -293,6 +274,7 @@ export async function runActivityFor(
       accountId: projects.accountId,
       session: agentRuns.implementerSession,
       readAt: runActivityReads.readAt,
+      implementer: agentRuns.implementer,
     })
     .from(agentRuns)
     .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
@@ -309,6 +291,7 @@ export async function runActivityFor(
     runId,
     status: row.status,
     phase: row.phase,
+    implementer: row.implementer,
     createdAt: row.createdAt.toISOString(),
     finishedAt: row.finishedAt?.toISOString() ?? null,
     outcome: row.outcome,

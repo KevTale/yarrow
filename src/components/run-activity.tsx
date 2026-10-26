@@ -19,13 +19,16 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   groupActivity,
+  milestone,
   reachedStages,
   shortCommand,
   stages,
+  storyLines,
   type ActivityGroup as Group,
   type ActivityLine,
   type Stage,
 } from "@/core/activity";
+import { modelDisplayName } from "@/core/pipeline";
 import type { RunActivity } from "@/db/queries";
 import { getRunActivityFn } from "@/functions/public.functions";
 import { Spinner } from "@/components/navigation-feedback";
@@ -64,6 +67,21 @@ function Code({ children }: { children: ReactNode }) {
   return <code className="ra-code">{children}</code>;
 }
 
+/** The agents write Markdown: `code` and **bold** read as such. */
+export function Rich({ text }: { text: string }) {
+  return text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/).map((part, i) =>
+    /^`.+`$/.test(part) ? (
+      <code key={i}>{part.slice(1, -1)}</code>
+    ) : /^\*\*.+\*\*$/.test(part) ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    ),
+  );
+}
+
+const image = /\.(png|jpe?g|webp|gif)$/i;
+
 /** One line of the feed, in plain words. */
 function Describe({ group, live }: { group: Group; live: boolean }) {
   const { detail } = group;
@@ -88,6 +106,13 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
     );
   switch (group.kind) {
     case "read":
+      if (group.count === 1 && detail.path && image.test(detail.path))
+        return (
+          <>
+            Looked at the screenshot{" "}
+            <Code>{detail.path.split("/").at(-1)}</Code>
+          </>
+        );
       return (
         <>
           {group.count > 1 ? `Read ${plural(group.count, "file")}` : "Read"}
@@ -125,7 +150,9 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
     case "test":
       return (
         <>
-          Ran the tests {detail.command && <Code>{oneLine(detail.command)}</Code>}
+          <span title={detail.command && oneLine(detail.command)}>
+            Ran the tests
+          </span>
           {result}
         </>
       );
@@ -150,7 +177,9 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
       );
     case "note":
       return detail.text ? (
-        <span className="ra-note">{detail.text}</span>
+        <span className="ra-note">
+          <Rich text={detail.text} />
+        </span>
       ) : (
         <>Wrote a note</>
       );
@@ -193,14 +222,11 @@ function time(at: string) {
 export function ActivityList({
   lines,
   live,
-  limit,
 }: {
   lines: ActivityLine[];
   live: boolean;
-  limit?: number;
 }) {
-  const groups = groupActivity(lines);
-  const shown = limit ? groups.slice(-limit) : groups;
+  const shown = groupActivity(lines);
   return (
     <ol className="ra-list">
       {shown.map((group, i) => (
@@ -390,9 +416,35 @@ export function RunHover({
   );
 }
 
+/**
+ * The run at a glance: its milestones, what the agent does right now while
+ * it works, and once the PR is open, its summary.
+ */
+function glance(activity: RunActivity, running: boolean) {
+  const story = storyLines(activity.lines);
+  const last = story.map(milestone).lastIndexOf(true);
+  const now = running ? story.slice(last + 1).slice(-3) : [];
+  return [...story.slice(0, last + 1).filter(milestone), ...now];
+}
+
+/** The implementer's summary, a few lines, signed by its model. */
+function Summary({ activity }: { activity: RunActivity }) {
+  if (activity.outcome !== "pull_request" || !activity.summary) return null;
+  return (
+    <div className="ra-summary">
+      <span>{modelDisplayName(activity.implementer)}</span>
+      <p>
+        <Rich text={activity.summary} />
+      </p>
+    </div>
+  );
+}
+
 function RunCard({ runId, link }: { runId: string; link: boolean }) {
   const { activity, failed, running } = useRunActivity(runId);
-  const total = activity ? groupActivity(activity.lines).length : 0;
+  const total = activity
+    ? groupActivity(storyLines(activity.lines)).length
+    : 0;
   return (
     <div className="ra-card" role="dialog" aria-label="Run activity">
       {!activity ? (
@@ -418,11 +470,12 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
               {running ? "The agent is starting." : "No activity was recorded."}
             </p>
           ) : (
-            <ActivityList lines={activity.lines} live={running} limit={5} />
+            <ActivityList lines={glance(activity, running)} live={running} />
           )}
+          <Summary activity={activity} />
           {link && (
             <Link to="/runs/$runId" params={{ runId }} className="ra-more">
-              {total > 5 ? `View all · ${total} steps` : "Open the run"}
+              {`View all · ${plural(total, "step")}`}
               <ArrowRight size={13} />
             </Link>
           )}
@@ -462,7 +515,7 @@ export function RunFeed({ runId }: { runId: string }) {
             : "No activity was recorded for this run."}
         </p>
       ) : (
-        <ActivityList lines={activity.lines} live={running} />
+        <ActivityList lines={storyLines(activity.lines)} live={running} />
       )}
       {!activity.detailed && (
         <p className="ra-private">

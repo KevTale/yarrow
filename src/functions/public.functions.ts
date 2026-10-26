@@ -6,7 +6,7 @@ import {
   liveToday,
   sponsorBoard,
 } from "@/db/boards";
-import { runActivityFor, runDetail, showcase, workFeed } from "@/db/queries";
+import { runActivityFor, runDetail, showcase } from "@/db/queries";
 import { syncRunActivity } from "@/db/activity";
 import { appEnv } from "@/server/env.server";
 import { ManagedAgentsClient } from "@/runner/anthropic";
@@ -41,16 +41,6 @@ export const getShowcaseFn = createServerFn({ method: "GET" }).handler(
     return withDb(async (db) => ({
       configured: true as const,
       projects: await showcase(db),
-    }));
-  },
-);
-
-export const getWorkFeedFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    if (!databaseConfigured()) return { configured: false as const };
-    return withDb(async (db) => ({
-      configured: true as const,
-      runs: await workFeed(db, 100),
     }));
   },
 );

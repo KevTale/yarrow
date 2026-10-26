@@ -228,3 +228,20 @@ export function groupActivity(lines: ActivityLine[]): ActivityGroup[] {
   }
   return groups;
 }
+
+/**
+ * The feed a person reads: what the agents did, not how. Shell commands
+ * stay out (tests stay in), and so does the message that ends each of the
+ * implementer's turns: it is the run's summary, shown on its own.
+ */
+export function storyLines(lines: ActivityLine[]): ActivityLine[] {
+  return lines.filter((line, i) => {
+    if (line.kind === "command") return false;
+    if (line.kind !== "note" || line.actor !== "implementer") return true;
+    const next = lines.slice(i + 1).find((later) => later.kind !== "command");
+    return !next || next.actor === "implementer";
+  });
+}
+
+/** Yarrow's steps, the review and the outcome: the run at a glance. */
+export const milestone = (line: ActivityLine) => line.actor !== "implementer";
