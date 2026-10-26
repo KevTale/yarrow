@@ -454,6 +454,11 @@ function BoardRow({
           {size === "large" && row.tagline && <span> · {row.tagline}</span>}
           {row.you && <span className="sd-you">You</span>}
         </span>
+        {size === "large" && row.description && (
+          <span className="board-description" title={row.description}>
+            {row.description}
+          </span>
+        )}
         <span className="board-meta">
           {size === "large" && row.websiteUrl && (
             <span>{domain(row.websiteUrl)}</span>
@@ -461,13 +466,7 @@ function BoardRow({
           {size === "large" && row.name && (
             <span>{plural(row.clicks, "click")}</span>
           )}
-          {size === "large" ? (
-            <Impact row={row} />
-          ) : (
-            <span>
-              {plural(row.pullRequests, "PR")} · {row.merged} merged
-            </span>
-          )}
+          <Impact row={row} />
         </span>
       </span>
       {size === "large" ? (

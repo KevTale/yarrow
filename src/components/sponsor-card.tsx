@@ -31,7 +31,7 @@ export function SponsorCardRow({
   /** The amount column: a price, or the controls to pay it. */
   amount: ReactNode;
   /** What the sponsor's money already did, once there is something. */
-  stats?: { clicks: number; tickets: number; pullRequests: number; merged: number };
+  stats?: { clicks: number; merged: number };
   className?: string;
 }) {
   const field = (key: "name" | "tagline" | "description" | "website") => ({
@@ -91,10 +91,9 @@ export function SponsorCardRow({
                 {...field("tagline")}
               />
             </span>
-            <textarea
+            <input
               className="fund-input fund-description"
               maxLength={280}
-              rows={2}
               placeholder="What you do, in a sentence"
               aria-label="Description (optional)"
               {...field("description")}

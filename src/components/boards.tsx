@@ -153,18 +153,9 @@ export function ClaimPlace({
   );
 }
 
-/** What a sponsor's money produced: "8 tickets · 6 PRs · 2 merged". */
-export function Impact({
-  row,
-}: {
-  row: Pick<SponsorRow, "tickets" | "pullRequests" | "merged">;
-}) {
-  return (
-    <span>
-      {plural(row.tickets, "ticket")} · {plural(row.pullRequests, "PR")} ·{" "}
-      {row.merged} merged
-    </span>
-  );
+/** What a sponsor's money shipped: "5 merged PRs". */
+export function Impact({ row }: { row: Pick<SponsorRow, "merged"> }) {
+  return <span>{plural(row.merged, "merged PR")}</span>;
 }
 
 /** The amount paid, and under it how much of its credit is already work. */
@@ -362,9 +353,7 @@ export function SponsorBoards({
                     <SponsorName name={row.name} />
                   </span>
                   <span className="board-meta">
-                    <span>
-                      {plural(row.pullRequests, "PR")} · {row.merged} merged
-                    </span>
+                    <Impact row={row} />
                   </span>
                 </span>
                 <span className="board-amount">
