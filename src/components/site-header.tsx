@@ -17,7 +17,7 @@ export function Brand() {
 /** Sections of the landing, not pages. */
 const links = [
   { hash: "sponsors", label: "Leaderboard" },
-  { hash: "shipped", label: "Shipped" },
+  { hash: "shipped", label: "Live" },
 ] as const;
 
 type HeaderViewer = {

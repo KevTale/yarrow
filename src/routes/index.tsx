@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
 
 const empty = {
   sponsors: { today: [], all: [] },
-  shipped: { today: [], projects: [], totals: { today: 0, all: 0 } },
+  shipped: { live: [], projects: [], totals: { today: 0, all: 0 } },
 };
 
 function Landing() {
@@ -48,7 +48,7 @@ function Landing() {
           all={boards.sponsors.all}
         />
         <ShippedBoards
-          today={boards.shipped.today}
+          live={boards.shipped.live}
           projects={boards.shipped.projects}
           totals={boards.shipped.totals}
         />

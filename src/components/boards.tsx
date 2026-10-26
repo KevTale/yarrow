@@ -1,7 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { RunSponsor } from "@/core/attribution";
-import type { TicketModel } from "@/core/tickets";
+import type { LiveRow } from "@/db/boards";
 import { ModelsCell } from "./dashboard/models";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { useFlip } from "./live";
@@ -47,15 +46,6 @@ export type SponsorRow = {
   paidCents: number;
   clicks: number;
   pullRequests: number;
-};
-type MergedRow = {
-  title: string;
-  repository: string;
-  number: number;
-  url: string;
-  mergedAt: Date | string | null;
-  sponsors: RunSponsor[];
-  models: TicketModel[];
 };
 type ProjectRow = {
   id: string;
@@ -344,37 +334,44 @@ export function SponsorBoards({
   );
 }
 
-/** Today's merged pull requests beside the projects ranked by merges. */
+/** Today's work as it happens beside the projects ranked by merges. */
 export function ShippedBoards({
-  today,
+  live,
   projects,
   totals,
 }: {
-  today: MergedRow[];
+  live: LiveRow[];
   projects: ProjectRow[];
   totals: { today: number; all: number };
 }) {
-  const todayList = useFlip<HTMLOListElement>(today);
+  const liveList = useFlip<HTMLOListElement>(live);
   const projectList = useFlip<HTMLOListElement>(projects);
+  const working = live.filter((row) => isWorking(row.status)).length;
   return (
     <section
       className="board-section"
       id="shipped"
       aria-labelledby="shipped-title"
     >
-      <h2 id="shipped-title">Shipped</h2>
+      <h2 id="shipped-title">Live</h2>
       <div className="board-grid">
         <div className="board-box">
           <div className="board-head">
             <span>
               Today <ResetsIn />
             </span>
-            <span className="board-total">
-              <small>merged</small> {totals.today.toLocaleString("en-US")}
+            <span className="board-total live-counts">
+              {working > 0 && (
+                <>
+                  <span className="live-dot" aria-hidden="true" />
+                  <small>working</small> {working}
+                </>
+              )}
+              <small>PRs</small> {live.length - working}
             </span>
           </div>
-          <ol className="board-list" ref={todayList}>
-            {today.length === 0 && (
+          <ol className="board-list" ref={liveList}>
+            {live.length === 0 && (
               <li className="board-row large open">
                 <span className="board-rank" />
                 <span className="board-logo large open" aria-hidden="true">
@@ -382,52 +379,14 @@ export function ShippedBoards({
                 </span>
                 <span className="board-body">
                   <span className="board-title">
-                    The first merge of the day is next
+                    The next ticket starts here
                   </span>
                 </span>
                 <span />
               </li>
             )}
-            {today.map((pr) => (
-              <li
-                className="board-row large merged linked"
-                key={pr.url}
-                data-flip={pr.url}
-              >
-                <span className="board-rank" />
-                <Logo
-                  name={pr.repository.split("/")[1] ?? pr.repository}
-                  size="large"
-                />
-                <span className="board-body">
-                  <a
-                    className="board-title"
-                    href={pr.url}
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <b>{pr.title}</b>
-                  </a>
-                  <span className="board-meta">
-                    <span className="merged-chip">merged</span>
-                    <span>
-                      {pr.repository} #{pr.number}
-                    </span>
-                    <ModelsCell models={pr.models} inline />
-                    {pr.sponsors.length > 0 && (
-                      <span>
-                        sponsored by{" "}
-                        {pr.sponsors
-                          .map(
-                            (sponsor) => sponsor.name ?? "an anonymous sponsor",
-                          )
-                          .join(", ")}
-                      </span>
-                    )}
-                  </span>
-                </span>
-                <span className="board-when">{timeAgo(pr.mergedAt)}</span>
-              </li>
+            {live.map((row) => (
+              <LiveItem row={row} key={row.key} />
             ))}
           </ol>
         </div>
@@ -477,5 +436,65 @@ export function ShippedBoards({
         </div>
       </div>
     </section>
+  );
+}
+
+const isWorking = (status: LiveRow["status"]) =>
+  status !== "pull_request" && status !== "merged";
+
+const liveLabel: Record<LiveRow["status"], string> = {
+  writing: "writing",
+  reviewing: "reviewing",
+  delivering: "opening the PR",
+  pull_request: "pull request",
+  merged: "merged",
+};
+
+/** One line of the live board: a ticket at work, or a pull request out. */
+function LiveItem({ row }: { row: LiveRow }) {
+  const working = isWorking(row.status);
+  const title = row.title ? (
+    <b>{row.title}</b>
+  ) : (
+    <b className="anonymous">Private ticket</b>
+  );
+  return (
+    <li
+      className={`board-row large live-row ${working ? "working" : ""} ${row.url ? "linked" : ""}`}
+      data-flip={row.key}
+      data-flip-value={row.status}
+    >
+      <span className="board-rank" />
+      <Logo name={row.project} size="large" />
+      <span className="board-body">
+        {row.url ? (
+          <a className="board-title" href={row.url} target="_blank" rel="noopener">
+            {title}
+          </a>
+        ) : (
+          <span className="board-title">{title}</span>
+        )}
+        <span className="board-meta">
+          <span className={`live-chip s-${row.status}`}>
+            {working && <span className="live-dot" aria-hidden="true" />}
+            {liveLabel[row.status]}
+          </span>
+          <span>
+            {row.repository ?? row.project}
+            {row.number ? ` #${row.number}` : ""}
+          </span>
+          <ModelsCell models={row.models} inline />
+          {row.sponsors.length > 0 && (
+            <span>
+              sponsored by{" "}
+              {row.sponsors
+                .map((sponsor) => sponsor.name ?? "an anonymous sponsor")
+                .join(", ")}
+            </span>
+          )}
+        </span>
+      </span>
+      <span className="board-when">{timeAgo(row.at)}</span>
+    </li>
   );
 }

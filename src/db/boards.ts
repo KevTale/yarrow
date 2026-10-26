@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
-import { runModelsView } from "../core/tickets";
+import type { RunSponsor } from "../core/attribution";
+import { phaseStatus, runModelsView, type TicketModel } from "../core/tickets";
 import { runSponsors } from "./queries";
 import {
   agentRuns,
@@ -248,3 +249,152 @@ export async function mergedTotals(db: Database, now = new Date()) {
     .where(and(listed, eq(pullRequests.state, "merged")));
   return { today: row?.today ?? 0, all: row?.all ?? 0 };
 }
+
+export type LiveStatus =
+  | "writing"
+  | "reviewing"
+  | "delivering"
+  | "pull_request"
+  | "merged";
+
+export interface LiveRow {
+  key: string;
+  status: LiveStatus;
+  /** Null on a listed project: its tickets stay private. */
+  title: string | null;
+  project: string;
+  /** owner/name on public projects only. */
+  repository: string | null;
+  number: number | null;
+  url: string | null;
+  /** When the run started, the PR opened or merged. */
+  at: string;
+  sponsors: RunSponsor[];
+  models: TicketModel[];
+}
+
+/**
+ * Today's work as it happens, on public and listed projects: tickets being
+ * worked on now first, then pull requests opened or merged since midnight
+ * UTC, newest first. Listed projects show their name, never their tickets.
+ */
+export async function liveToday(
+  db: Database,
+  now = new Date(),
+  limit = 40,
+): Promise<LiveRow[]> {
+  const since = startOfUtcDay(now);
+  const running = await db
+    .select({
+      runId: agentRuns.id,
+      phase: agentRuns.phase,
+      implementer: agentRuns.implementer,
+      reviewer: agentRuns.reviewer,
+      createdAt: agentRuns.createdAt,
+      title: workUnits.title,
+      project: projects.name,
+      visibility: projects.visibility,
+      repository: projects.repository,
+    })
+    .from(agentRuns)
+    .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(and(eq(agentRuns.status, "running"), listed))
+    .orderBy(desc(agentRuns.createdAt))
+    .limit(limit);
+  const pulls = await db
+    .select({
+      workUnitId: pullRequests.workUnitId,
+      number: pullRequests.number,
+      url: pullRequests.url,
+      state: pullRequests.state,
+      openedAt: pullRequests.openedAt,
+      closedAt: pullRequests.closedAt,
+      title: workUnits.title,
+      project: projects.name,
+      visibility: projects.visibility,
+      repository: projects.repository,
+    })
+    .from(pullRequests)
+    .innerJoin(workUnits, eq(workUnits.id, pullRequests.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(
+      and(
+        listed,
+        ne(pullRequests.state, "closed"),
+        or(
+          gte(pullRequests.openedAt, since),
+          gte(pullRequests.closedAt, since),
+        ),
+      ),
+    )
+    .orderBy(
+      desc(sql`coalesce(${pullRequests.closedAt}, ${pullRequests.openedAt})`),
+    )
+    .limit(limit);
+
+  const open = (visibility: string) => visibility === "public";
+  const live: LiveRow[] = await Promise.all(
+    running.map(async (run) => {
+      const status = phaseStatus(run.phase);
+      return {
+        key: run.runId,
+        status,
+        title: open(run.visibility) ? run.title : null,
+        project: run.project,
+        repository: open(run.visibility) ? run.repository : null,
+        number: null,
+        url: null,
+        at: run.createdAt.toISOString(),
+        sponsors: await runSponsors(db, run.runId),
+        models: runModelsView([], run, status),
+      };
+    }),
+  );
+  const shipped: LiveRow[] = await Promise.all(
+    pulls.map(async (pull) => {
+      const status: LiveStatus =
+        pull.state === "merged" ? "merged" : "pull_request";
+      const [run] = await db
+        .select({
+          id: agentRuns.id,
+          implementer: agentRuns.implementer,
+          reviewer: agentRuns.reviewer,
+        })
+        .from(agentRuns)
+        .innerJoin(results, eq(results.agentRunId, agentRuns.id))
+        .where(
+          and(
+            eq(agentRuns.workUnitId, pull.workUnitId),
+            eq(results.outcome, "pull_request"),
+          ),
+        )
+        .orderBy(desc(agentRuns.createdAt))
+        .limit(1);
+      const isPublic = open(pull.visibility);
+      return {
+        key: pull.url,
+        status,
+        title: isPublic ? pull.title : null,
+        project: pull.project,
+        repository: isPublic ? pull.repository : null,
+        number: isPublic ? pull.number : null,
+        url: isPublic ? pull.url : null,
+        at: (pull.closedAt ?? pull.openedAt).toISOString(),
+        sponsors: run ? await runSponsors(db, run.id) : [],
+        models: run
+          ? runModelsView(
+              await db
+                .select()
+                .from(runModels)
+                .where(eq(runModels.agentRunId, run.id)),
+              run,
+              status,
+            )
+          : [],
+      };
+    }),
+  );
+  return [...live, ...shipped].slice(0, limit);
+}
+

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  liveToday,
   mergedToday,
   mergedTotals,
   projectBoard,
@@ -196,6 +197,60 @@ describe("shipped boards", () => {
     expect(await projectBoard(db)).toMatchObject([
       { name: "open-source", merged: 2, repository: "test/open-source" },
       { name: "listed-app", merged: 1, repository: null },
+    ]);
+  });
+
+  it("shows tickets at work first, then today's pull requests; private tickets stay untitled", async () => {
+    const north = await sponsor("Northwind");
+    const paid = await pay(north, 1000);
+    const open = await project("live-open", "public");
+    const listedOnly = await project("live-listed", "listed");
+    const hidden = await project("live-hidden", "hidden");
+    for (const projectId of [open, listedOnly, hidden]) {
+      const workUnitId = crypto.randomUUID();
+      await raw.insert(schema.workUnits).values({
+        id: workUnitId,
+        projectId,
+        source: "github",
+        externalId: "1",
+        title: "Working ticket",
+        url: "https://github.com/t/1",
+        authorized: true,
+        status: "running",
+      });
+      const runId = crypto.randomUUID();
+      await raw.insert(schema.agentRuns).values({
+        id: runId,
+        workUnitId,
+        status: "running",
+        phase: "reviewing",
+        implementer: "claude-opus-5-5:high",
+        reviewer: "openai-astra",
+      });
+      await raw
+        .insert(schema.runFundings)
+        .values({ agentRunId: runId, contributionId: paid });
+    }
+    await shipped(open, paid, "open", null);
+
+    const rows = (await liveToday(db)).filter((row) =>
+      row.project.startsWith("live-"),
+    );
+    expect(rows).toMatchObject([
+      { project: "live-listed", status: "reviewing", title: null, url: null },
+      {
+        project: "live-open",
+        status: "reviewing",
+        title: "Working ticket",
+        repository: "test/live-open",
+        sponsors: [{ name: "Northwind" }],
+      },
+      {
+        project: "live-open",
+        status: "pull_request",
+        title: expect.stringMatching(/^Ticket/),
+        url: expect.stringContaining("/pull/"),
+      },
     ]);
   });
 

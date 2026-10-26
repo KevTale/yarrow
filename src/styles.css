@@ -4790,3 +4790,80 @@ a[data-loading]:not(.go)::after {
     animation: none;
   }
 }
+
+/* ---------- Landing: the live board ---------- */
+.live-counts {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.live-counts small:not(:first-child) {
+  margin-left: 8px;
+}
+.live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 0 #f2b54466;
+  animation: live-amber 1.6s ease-out infinite;
+  align-self: center;
+}
+@keyframes live-amber {
+  70% {
+    box-shadow: 0 0 0 6px #f2b54400;
+  }
+  100% {
+    box-shadow: 0 0 0 0 #f2b54400;
+  }
+}
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  color: var(--secondary);
+}
+.live-chip.s-writing,
+.live-chip.s-reviewing,
+.live-chip.s-delivering {
+  color: var(--amber);
+  border-color: #f2b5444d;
+  background: #f2b54412;
+}
+.live-chip.s-pull_request {
+  color: #9db4ff;
+  border-color: #9db4ff4d;
+}
+.live-chip.s-merged {
+  color: var(--green);
+  border-color: #5ccb9566;
+}
+/* A ticket at work: a slow light passes over its row. */
+.live-row.working {
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    #f2b5440d 50%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  animation: live-sweep 3.2s ease-in-out infinite;
+}
+@keyframes live-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .live-row.working {
+    animation: none;
+  }
+}

@@ -102,6 +102,17 @@ describe("realtime signals", () => {
       .update(schema.agentRuns)
       .set({ phase: "reviewing" })
       .where(sql`id = ${runId}`);
+    // The landing's live board follows phases too.
+    expect(await signals()).toEqual([
+      `project:${projectId}`,
+      `sponsor:${userId}`,
+      "boards (public)",
+    ]);
+    await raw.execute(sql`TRUNCATE realtime.log`);
+    await raw
+      .update(schema.agentRuns)
+      .set({ reservedCents: 300 })
+      .where(sql`id = ${runId}`);
     expect(await signals()).toEqual([
       `project:${projectId}`,
       `sponsor:${userId}`,
