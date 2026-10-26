@@ -31,7 +31,7 @@ export const defaultPipelineRoles: PipelineRoles = {
 };
 
 /** Initial reservation per run. An estimate, not a cap: runs top up as they spend. */
-export const INITIAL_RESERVATION_CENTS = 1_000;
+export const INITIAL_RESERVATION_CENTS = 300;
 
 const displayNames: Record<string, string> = {
   "claude-opus-5-5:high": "Claude Opus 5.5",

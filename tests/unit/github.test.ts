@@ -97,17 +97,21 @@ describe("PR delivery", () => {
       branch: branchName("Fix the export button!", "1234567890"),
       files: [
         { path: "src/export.ts", content: "export {}" },
+        { path: "logo.png", content: "iVBORw0KGgo=", encoding: "base64" },
         { path: "old.ts", content: null },
       ],
       message:
         "Fix export\n\nAssisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
     });
     expect(sha).toBe("new-commit");
+    // Text rides in the tree request; only the binary file needs a blob.
+    expect(calls.filter((call) => call.path.endsWith("/git/blobs"))).toHaveLength(1);
     const tree = calls.find((call) => call.path.endsWith("/git/trees"))!;
     expect(tree.body).toMatchObject({
       base_tree: "base-tree",
       tree: [
-        { path: "src/export.ts", sha: expect.stringMatching(/^blob-/) },
+        { path: "src/export.ts", content: "export {}" },
+        { path: "logo.png", sha: expect.stringMatching(/^blob-/) },
         { path: "old.ts", sha: null },
       ],
     });

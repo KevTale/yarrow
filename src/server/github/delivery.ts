@@ -73,10 +73,22 @@ export async function commitChanges(
     "GET",
     `/repos/${owner}/${repo}/git/commits/${parent}`,
   );
+  // Text goes inline in the tree request: one call to GitHub whatever the
+  // number of files (a Worker invocation has a subrequest limit). Only
+  // binary files need a blob of their own.
   const tree = [];
   for (const file of input.files) {
     if (file.content === null) {
       tree.push({ path: file.path, mode: "100644", type: "blob", sha: null });
+      continue;
+    }
+    if ((file.encoding ?? "utf-8") === "utf-8") {
+      tree.push({
+        path: file.path,
+        mode: file.mode ?? "100644",
+        type: "blob",
+        content: file.content,
+      });
       continue;
     }
     const blob = await client.request<{ sha: string }>(
