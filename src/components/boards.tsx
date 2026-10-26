@@ -121,6 +121,34 @@ function SponsorLink({ row }: { row: SponsorRow }) {
   );
 }
 
+/**
+ * The place an amount reaches, with one rank in the sentence: "Claim #1
+ * today and all time", or "Claim #2 today" with the all-time rank aside.
+ */
+export function ClaimPlace({
+  today,
+  all,
+  verb = "Claim",
+}: {
+  today: number | null;
+  all: number | null;
+  verb?: string;
+}) {
+  if (today === null || all === null) return <>{verb} a spot</>;
+  if (today === all)
+    return (
+      <>
+        {verb} <strong>#{today}</strong> today and all time
+      </>
+    );
+  return (
+    <>
+      {verb} <strong>#{today}</strong> today{" "}
+      <small className="claim-all">#{all} all time</small>
+    </>
+  );
+}
+
 /** "Anonymous sponsor" in place of a name. */
 export function SponsorName({ name }: { name: string | null }) {
   return name ? <b>{name}</b> : <b className="anonymous">Anonymous sponsor</b>;
@@ -314,9 +342,11 @@ export function SponsorBoards({
           }}
         >
           <p>
-            Claim <strong>{valid ? `#${rankToday + 1}` : "–"}</strong> today{" "}
-            <span className="claim-sep">·</span>{" "}
-            <strong>{valid ? `#${rankAll + 1}` : "–"}</strong> all time for{" "}
+            <ClaimPlace
+              today={valid ? rankToday + 1 : null}
+              all={valid ? rankAll + 1 : null}
+            />{" "}
+            for{" "}
             <label className="claim-amount">
               <span>$</span>
               <input

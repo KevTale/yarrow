@@ -9,6 +9,7 @@ import {
   saveSponsorSettingsFn,
 } from "@/functions/sponsor.functions";
 import {
+  ClaimPlace,
   domain,
   Logo,
   plural,
@@ -294,10 +295,11 @@ export function Claim({ today, all }: { today: Standing; all: Standing }) {
       }}
     >
       <p>
-        {leading ? "Stay" : "Claim"}{" "}
-        <strong>{valid ? `#${rankWith(today, cents)}` : "–"}</strong> today{" "}
-        <span className="claim-sep">·</span>{" "}
-        <strong>{valid ? `#${rankWith(all, cents)}` : "–"}</strong> all time{" "}
+        <ClaimPlace
+          today={valid ? rankWith(today, cents) : null}
+          all={valid ? rankWith(all, cents) : null}
+          verb={leading ? "Stay" : "Claim"}
+        />{" "}
         {leading ? "with" : "for"}{" "}
         <label className="claim-amount">
           <span>$</span>

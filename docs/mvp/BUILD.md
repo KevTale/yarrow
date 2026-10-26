@@ -220,7 +220,7 @@ Track **cost per merged PR**, **merge rate** and **rejection reasons** from day 
 
 Decided 2026-10-07. The landing shows the hero, then these boards, instead of explanatory sections.
 
-- **Sponsors:** ranked by **money paid** (excluding VAT), on two boards shown side by side: **Today** (resets at midnight UTC) and **All time**. Paying moves a sponsor up at once.
+- **Sponsors:** ranked by **money paid** (what the card was charged, VAT included, so the board shows what the sponsor paid; decided 2026-10-07), on two boards shown side by side: **Today** (resets at midnight UTC) and **All time**. Paying moves a sponsor up at once.
   - Each row shows the sponsor profile (name, tagline, description, website, logo), outbound clicks to the website and the number of PRs funded. Clicks are counted through a Yarrow redirect: they measure the exposure a sponsor gets.
   - One control under both boards: "Claim #N today · #M all time for $X" (from $10). Typing an amount shows the sponsor's future row on both boards; "Claim" opens Stripe Checkout.
   - Excluded: promo credits and refunds. Anonymous sponsors are ranked as "Anonymous sponsor", with no profile, link or clicks (decided 2026-10-07).

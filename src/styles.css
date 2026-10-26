@@ -5115,3 +5115,7 @@ a.live-title:hover {
 .board-domain {
   color: var(--secondary);
 }
+.claim-all {
+  font-size: 13px;
+  color: var(--muted);
+}

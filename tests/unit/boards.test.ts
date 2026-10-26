@@ -114,7 +114,7 @@ beforeEach(async () => {
 });
 
 describe("sponsor boards", () => {
-  it("rank by money paid excluding VAT, today and all time", async () => {
+  it("rank by money paid, VAT included, today and all time", async () => {
     const north = await sponsor("Northwind", {
       tagline: "Analytics",
       websiteUrl: "https://northwind.dev",
@@ -138,7 +138,7 @@ describe("sponsor boards", () => {
     const all = await sponsorBoard(db, "all", now);
     expect(all.map((row) => [row.name, row.paidCents])).toEqual([
       [null, 90000],
-      ["Northwind", 11000],
+      ["Northwind", 13000],
       ["Ada L.", 5000],
     ]);
     expect(all[1]).toMatchObject({

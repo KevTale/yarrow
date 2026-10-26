@@ -40,7 +40,8 @@ export type SponsorRow = {
 };
 
 /**
- * Sponsors ranked by money paid (excluding VAT) on settled Stripe payments,
+ * Sponsors ranked by money paid (what the card was charged, VAT included:
+ * what the sponsor sees) on settled Stripe payments,
  * for today or all time. Paying moves a sponsor up at once. Promo credit
  * and refunds never count; anonymous sponsors rank without their profile.
  */
@@ -49,7 +50,7 @@ export async function sponsorBoard(
   period: BoardPeriod,
   now = new Date(),
 ): Promise<SponsorRow[]> {
-  const paid = sql<number>`sum(${contributions.amountCents} - ${contributions.taxCents})::int`;
+  const paid = sql<number>`sum(${contributions.amountCents})::int`;
   const rows = await db
     .select({
       userId: sponsorProfiles.userId,
