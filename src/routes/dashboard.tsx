@@ -158,31 +158,43 @@ function DashboardPage() {
 
   return (
     <main id="main" className="container dashboard">
-      <div className="dashboard-roles" role={both ? "tablist" : undefined}>
-        {(["builder", "sponsor"] as const)
-          .filter((role) => both || role === tab)
-          .map((role) =>
-            both ? (
-              <button
-                type="button"
-                key={role}
-                role="tab"
-                aria-selected={tab === role}
-                className="dashboard-role"
-                onClick={() => choose(role)}
-              >
-                {role === "builder" ? "Builder" : "Sponsor"}
-              </button>
-            ) : (
-              <h1 key={role} className="dashboard-role" aria-selected>
-                {role === "builder" ? "Builder" : "Sponsor"}
-              </h1>
-            ),
+      {/* The role tabs only when the account is both; one role needs no title. */}
+      {both ? (
+        <div className="dashboard-roles" role="tablist">
+          {(["builder", "sponsor"] as const).map((role) => (
+            <button
+              type="button"
+              key={role}
+              role="tab"
+              aria-selected={tab === role}
+              className="dashboard-role"
+              onClick={() => choose(role)}
+            >
+              {role === "builder" ? "Builder" : "Sponsor"}
+            </button>
+          ))}
+          {tab === "sponsor" && (
+            <SponsorActions
+              data={sponsor}
+              onSettings={() => setSettings(true)}
+            />
           )}
-        {tab === "sponsor" && (
-          <SponsorActions data={sponsor} onSettings={() => setSettings(true)} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <h1 className="sr-only">
+            {tab === "builder" ? "Builder" : "Sponsor"}
+          </h1>
+          {tab === "sponsor" && (
+            <div className="dashboard-roles">
+              <SponsorActions
+                data={sponsor}
+                onSettings={() => setSettings(true)}
+              />
+            </div>
+          )}
+        </>
+      )}
       {tab === "builder" && builder.status === "ok" ? (
         <BuilderView
           data={builder}

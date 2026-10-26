@@ -18,12 +18,11 @@ import {
   queueTicketsFn,
   retryTicketFn,
   setProjectLogoFn,
-  setProjectVisibilityFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
 import { LogoPicker } from "@/components/logo-picker";
-import { capitalize, timeAgo } from "@/components/ui";
+import { timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
@@ -35,12 +34,6 @@ type BuilderData = Extract<
 >;
 /** The ticket's stage: each ticket is in exactly one. */
 type Filter = "todo" | "progress" | "review" | "done";
-
-const visibilityHint = {
-  public: "On the public boards with its repository, tickets and pull requests",
-  listed: "On the public boards with its repository's name only",
-  hidden: "Never on the public boards",
-} as const;
 
 const statusLabel: Record<TicketRow["status"], string> = {
   none: "",
@@ -94,7 +87,6 @@ export function BuilderView({
   const unqueue = useServerFn(unqueueTicketsFn);
   const retry = useServerFn(retryTicketFn);
   const saveLogo = useServerFn(setProjectLogoFn);
-  const saveVisibility = useServerFn(setProjectVisibilityFn);
   const [store, setStore] = useState<Record<string, BuilderData>>(() => ({
     ...Object.fromEntries(cache),
     ...(data.project ? { [data.project.id]: data } : {}),
@@ -107,6 +99,8 @@ export function BuilderView({
   // Null: the default, In progress, or To queue while nothing is.
   const [chosenFilter, setFilter] = useState<Filter | null>(null);
   const [query, setQuery] = useState("");
+  // Searching looks in every stage, until a stage is picked again.
+  const [narrowed, setNarrowed] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fresh, setFresh] = useState<string | null>(highlight);
   const [error, setError] = useState("");
@@ -284,24 +278,6 @@ export function BuilderView({
     }
   }
 
-  async function changeVisibility(visibility: "public" | "listed" | "hidden") {
-    if (!project) return;
-    const id = project.id;
-    const show = (value: typeof visibility) =>
-      setStore((all) => ({
-        ...all,
-        [id]: { ...all[id]!, project: { ...all[id]!.project!, visibility: value } },
-      }));
-    const before = project.visibility;
-    show(visibility);
-    try {
-      await saveVisibility({ data: { projectId: id, visibility } });
-    } catch {
-      show(before);
-      setError("The visibility was not saved. Try again in a moment.");
-    }
-  }
-
   async function changeLogo(logo: string | null) {
     if (!project) return;
     const id = project.id;
@@ -361,17 +337,21 @@ export function BuilderView({
     review: (row) => row.status === "pull_request",
     done,
   };
+  const q = query.trim().toLowerCase();
+  const matches = rows.filter(
+    (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
+  );
+  // While searching, each stage counts its matches.
   const counts = Object.fromEntries(
-    Object.entries(filters).map(([key, test]) => [key, rows.filter(test).length]),
+    Object.entries(filters).map(([key, test]) => [
+      key,
+      matches.filter(test).length,
+    ]),
   ) as Record<Filter, number>;
   const filter: Filter =
     chosenFilter ?? (counts.progress > 0 ? "progress" : "todo");
-  const q = query.trim().toLowerCase();
-  const shown = rows
-    .filter(filters[filter])
-    .filter(
-      (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
-    );
+  const everywhere = q !== "" && !narrowed;
+  const shown = everywhere ? matches : matches.filter(filters[filter]);
   const chosen = rows.filter((row) => selected.has(row.key));
   const canQueue = chosen.filter(queueable).map((row) => row.key);
   const canRemove = chosen.filter(removable).map((row) => row.key);
@@ -502,24 +482,15 @@ export function BuilderView({
                   size="small"
                 />
                 <h2 title={project.repository}>{project.name}</h2>
-                {/* Who sees it on the public boards; changed in place. */}
-                <select
-                  className="bd-chip bd-visibility"
-                  aria-label="Visibility on the public boards"
-                  title={visibilityHint[project.visibility]}
-                  value={project.visibility}
-                  onChange={(event) =>
-                    void changeVisibility(
-                      event.target.value as typeof project.visibility,
-                    )
-                  }
+                <Link
+                  to="/projects/$projectId"
+                  params={{ projectId: project.id }}
+                  className="bd-cog"
+                  aria-label="Settings"
+                  data-tip="Settings"
                 >
-                  {(["public", "listed", "hidden"] as const).map((value) => (
-                    <option key={value} value={value}>
-                      {capitalize(value)}
-                    </option>
-                  ))}
-                </select>
+                  <Settings size={16} />
+                </Link>
                 {project.boards.map((board) => (
                   <span
                     className="bd-chip bd-chip-board"
@@ -542,13 +513,6 @@ export function BuilderView({
                         <Plus size={14} /> Jira
                       </a>
                     )}
-                  <Link
-                    to="/projects/$projectId"
-                    params={{ projectId: project.id }}
-                    className="bd-settings"
-                  >
-                    <Settings size={15} /> <span>Settings</span>
-                  </Link>
                 </span>
               </div>
               {waiting && (
@@ -580,8 +544,11 @@ export function BuilderView({
                         <button
                           type="button"
                           key={key}
-                          aria-pressed={filter === key}
-                          onClick={() => setFilter(key)}
+                          aria-pressed={!everywhere && filter === key}
+                          onClick={() => {
+                            setFilter(key);
+                            if (q) setNarrowed(true);
+                          }}
                         >
                           {label} <span>{counts[key]}</span>
                         </button>
@@ -593,7 +560,10 @@ export function BuilderView({
                       placeholder="Search tickets"
                       aria-label="Search tickets"
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        if (!event.target.value.trim()) setNarrowed(false);
+                      }}
                     />
                   </div>
                   {live?.issues === null && (
