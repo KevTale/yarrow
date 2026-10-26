@@ -17,20 +17,6 @@ export type SponsorRow = {
   merged: number;
 };
 
-const tiles = [
-  "#e6ae38",
-  "#9db4ff",
-  "#ee7b6e",
-  "#c7a6ff",
-  "#7fd6e6",
-  "#5ccb95",
-];
-function tileColor(name: string): string {
-  let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return tiles[hash % tiles.length]!;
-}
-
 export function Logo({
   name,
   url,
@@ -51,12 +37,9 @@ export function Logo({
     return (
       <img className={`board-logo ${size}`} src={url} alt="" loading="lazy" />
     );
+  // No logo: the initial on a plain tile, never a loud color.
   return (
-    <span
-      className={`board-logo ${size}`}
-      style={{ background: tileColor(name) }}
-      aria-hidden="true"
-    >
+    <span className={`board-logo ${size} initial`} aria-hidden="true">
       {name.charAt(0).toUpperCase()}
     </span>
   );

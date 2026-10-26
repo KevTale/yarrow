@@ -22,14 +22,14 @@ const dots: Record<TicketSource["id"], string> = {
  */
 function connectUrl(
   source: TicketSource,
-  link: Omit<TicketLink, "source"> | null,
+  link: Omit<TicketLink, "source">,
 ): string {
   const params = new URLSearchParams();
   if (source.id !== "github") params.set("source", source.id);
-  if (link?.repository) params.set("repository", link.repository);
-  if (link?.issue) params.set("issue", String(link.issue));
-  if (link?.site) params.set("site", link.site);
-  if (link?.ticket) params.set("ticket", link.ticket);
+  if (link.repository) params.set("repository", link.repository);
+  if (link.issue) params.set("issue", String(link.issue));
+  if (link.site) params.set("site", link.site);
+  if (link.ticket) params.set("ticket", link.ticket);
   const query = params.toString();
   return `/connect/github${query ? `?${query}` : ""}`;
 }
@@ -48,7 +48,7 @@ function nextSource(
   return from;
 }
 
-/** The hero form: paste a ticket link, or connect the whole backlog. */
+/** The hero form: paste a ticket link. Connecting GitHub comes next. */
 export function ShipForm({ jira = false }: { jira?: boolean }) {
   // Jira opens once its OAuth app is configured on this deployment.
   const available = (item: TicketSource) =>
@@ -178,16 +178,6 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
         </button>
       </form>
       {hint && <p className="ship-hint">{hint}</p>}
-      <p className="ship-or">
-        or{" "}
-        <a
-          className="button button-small button-secondary"
-          href={connectUrl(source, null)}
-        >
-          Connect {source.name}
-        </a>{" "}
-        to send your whole backlog
-      </p>
     </div>
   );
 }

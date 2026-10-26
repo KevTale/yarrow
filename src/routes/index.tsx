@@ -42,9 +42,9 @@ function Landing() {
           <p className="landing-sub">
             Paste an issue:{" "}
             <span className="model model-claude">Claude Opus</span> and{" "}
-            <span className="model model-gpt">GPT Astra</span> turn it into a
-            pull request in minutes. Sponsors pay for the compute, and their
-            names ship with every pull request.
+            <span className="model model-gpt">GPT Astra</span> turn it into a{" "}
+            <b>pull request</b> in minutes. Free because sponsors pay for the
+            compute, and their names ship with every pull request.
           </p>
           <ShipForm jira={loaded.sources.jira} />
         </div>

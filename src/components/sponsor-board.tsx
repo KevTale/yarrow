@@ -1,6 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import type { BoardViewer } from "@/db/sponsors";
@@ -8,7 +8,7 @@ import {
   saveSponsorProfileFn,
   startCheckoutFn,
 } from "@/functions/sponsor.functions";
-import { domain, Impact, Logo, Paid, plural, SponsorName, type SponsorRow } from "./boards";
+import { Logo, plural, SponsorName, type SponsorRow } from "./boards";
 import { useFlip } from "./live";
 import { Spinner } from "./navigation-feedback";
 import { SavedState, useSavedFades, type SaveState } from "./saved-state";
@@ -16,7 +16,7 @@ import { SponsorCardRow, websiteAddress, type CardValue } from "./sponsor-card";
 
 type Period = "today" | "all";
 
-/** The first places; the viewer's card shows further down when it lands there. */
+/** The first places; the viewer's row shows further down when it lands there. */
 const TOP = 10;
 
 const anonymousProfile = {
@@ -27,11 +27,15 @@ const anonymousProfile = {
   logo: null,
 };
 
+/** The place an amount takes among the others on a board. */
+function placeAmong(others: SponsorRow[], cents: number): number {
+  return others.filter((row) => row.paidCents >= cents).length + 1;
+}
+
 /**
- * The sponsors, as cards, with the viewer's own card among them: at their
- * place once they paid, otherwise where $10 would put them. Opened, the card
- * is edited in place, and its amount moves it to the place it takes; Claim
- * pays it.
+ * Today and all time side by side, the viewer's own row in both: at their
+ * place once they paid, otherwise where $10 would put them. The amount in
+ * the head moves that row live; Claim opens the card, which pays it.
  */
 export function SponsorBoard({
   today,
@@ -42,59 +46,212 @@ export function SponsorBoard({
   all: SponsorRow[];
   you: BoardViewer | null;
 }) {
-  const [period, setPeriod] = useState<Period>(
-    today.length > 0 || all.length === 0 ? "today" : "all",
-  );
-  const rows = period === "today" ? today : all;
-  const total = rows.reduce((sum, row) => sum + row.paidCents, 0);
-  const mine = you
-    ? rows.find((row) => row.publicId === you.publicId)
-    : undefined;
-  // Their card is saved as it is edited once they sponsor; before, at Claim.
-  const sponsoring = Boolean(
-    you && all.some((row) => row.publicId === you.publicId),
-  );
-  const others = rows.filter((row) => row !== mine);
-
   const [open, setOpen] = useState(false);
   const [dollars, setDollars] = useState(String(MIN_AMOUNT_CENTS / 100));
   const cents = Math.round(Number(dollars || 0) * 100);
   const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
-  const base = mine?.paidCents ?? 0;
-  const place = (added: number) =>
-    others.filter((row) => row.paidCents >= base + added).length + 1;
-  // Closed and on the board: their own place. Otherwise the place it takes.
-  const target =
-    mine && !open ? place(0) : place(valid ? cents : MIN_AMOUNT_CENTS);
-
-  const motion = useMemo(
-    () => ({ rows, target, open }),
-    [rows, target, open],
+  const added = valid ? cents : MIN_AMOUNT_CENTS;
+  // Their row is saved as it is edited once they sponsor; before, at Claim.
+  const sponsoring = Boolean(
+    you && all.some((row) => row.publicId === you.publicId),
   );
-  const list = useFlip<HTMLOListElement>(motion, period);
+  const [card, setCard] = useState<CardValue>({
+    anonymous: Boolean(you && sponsoring && you.publicName === null),
+    name: you?.publicName ?? "",
+    tagline: you?.tagline ?? "",
+    description: you?.description ?? "",
+    website: you?.websiteUrl ?? "",
+    logo: you?.logoUrl ?? null,
+  });
 
-  const card = (
-    <ClaimCard
+  const boards = (["today", "all"] as const).map((period) => {
+    const rows = period === "today" ? today : all;
+    const mine = you
+      ? rows.find((row) => row.publicId === you.publicId)
+      : undefined;
+    const others = rows.filter((row) => row !== mine);
+    const base = mine?.paidCents ?? 0;
+    const current = mine ? placeAmong(others, base) : null;
+    // Closed and on the board: their own place. Otherwise the place taken.
+    const target = mine && !open ? current! : placeAmong(others, base + added);
+    return { period, rows, mine, others, current, target };
+  });
+  const [todayBoard, allBoard] = boards as [
+    (typeof boards)[number],
+    (typeof boards)[number],
+  ];
+  const gains = boards.some(
+    ({ current, target }) => current === null || target < current,
+  );
+  const label = !valid
+    ? cents < MIN_AMOUNT_CENTS
+      ? "From $10"
+      : "Up to $1,000"
+    : gains
+      ? `Claim #${todayBoard.target} today · #${allBoard.target} all time`
+      : `Add ${money(cents, false)}`;
+
+  return (
+    <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
+      <div className="sb-head">
+        <h2 id="sponsors-title">Sponsors</h2>
+        {!open && (
+          <div className="sb-claim-bar">
+            <Dollars
+              dollars={dollars}
+              setDollars={setDollars}
+              plus={sponsoring}
+            />
+            <button
+              type="button"
+              className="sb-claim-go"
+              onClick={() => setOpen(true)}
+            >
+              {label}
+              <ArrowRight size={14} strokeWidth={2.4} />
+            </button>
+          </div>
+        )}
+      </div>
+      {open && (
+        <ClaimCard
+          sponsoring={sponsoring}
+          paid={allBoard.mine?.paidCents ?? 0}
+          card={card}
+          setCard={setCard}
+          close={() => setOpen(false)}
+          label={label}
+          dollars={dollars}
+          setDollars={setDollars}
+          cents={cents}
+          valid={valid}
+        />
+      )}
+      <div className="sb-boards">
+        {boards.map((board) => (
+          <Column
+            key={board.period}
+            {...board}
+            open={open}
+            added={added}
+            name={card.anonymous ? null : card.name.trim() || null}
+            logo={card.anonymous ? null : card.logo}
+            onClaim={() => setOpen(true)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** The amount, in whole dollars. */
+function Dollars({
+  dollars,
+  setDollars,
+  plus,
+  inputRef,
+}: {
+  dollars: string;
+  setDollars: (value: string) => void;
+  /** On top of what the sponsor already paid. */
+  plus: boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <label className="sb-dollars">
+      {plus ? "+$" : "$"}
+      <input
+        ref={inputRef}
+        value={dollars}
+        inputMode="numeric"
+        autoComplete="off"
+        aria-label="Amount in dollars"
+        onChange={(event) =>
+          setDollars(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))
+        }
+      />
+    </label>
+  );
+}
+
+/** One board: its head, then the sponsors with the viewer's row among them. */
+function Column({
+  period,
+  rows,
+  mine,
+  others,
+  target,
+  open,
+  added,
+  name,
+  logo,
+  onClaim,
+}: {
+  period: Period;
+  rows: SponsorRow[];
+  mine: SponsorRow | undefined;
+  others: SponsorRow[];
+  target: number;
+  open: boolean;
+  added: number;
+  /** The name being typed on the card, for the viewer's row. */
+  name: string | null;
+  logo: string | null;
+  onClaim: () => void;
+}) {
+  const total = rows.reduce((sum, row) => sum + row.paidCents, 0);
+  const motion = useMemo(() => ({ rows, target, open }), [rows, target, open]);
+  const list = useFlip<HTMLOListElement>(motion);
+
+  const you = (
+    <li
       key="you"
-      you={you}
-      mine={mine}
-      sponsoring={sponsoring}
-      open={open}
-      setOpen={setOpen}
-      rank={target}
-      current={mine ? place(0) : null}
-      period={period}
-      dollars={dollars}
-      setDollars={setDollars}
-      cents={cents}
-      valid={valid}
-    />
+      className={`sb-row you ${mine ? "" : "ghost"} ${open ? "open" : ""}`}
+      data-flip="you"
+    >
+      <button
+        type="button"
+        className="sb-row-button"
+        onClick={onClaim}
+        disabled={open}
+      >
+        <span className="sb-rank">{target}</span>
+        {mine && !open ? (
+          <Logo name={mine.name} url={mine.logoUrl} size="small" />
+        ) : name ? (
+          <Logo name={name} url={logo} size="small" />
+        ) : (
+          <span className="board-logo small open" aria-hidden="true">
+            +
+          </span>
+        )}
+        <span className="sb-body">
+          <span className="sb-title">
+            {mine && !open ? (
+              <SponsorName name={mine.name} />
+            ) : name ? (
+              <b>{name}</b>
+            ) : (
+              <span className="sb-placeholder">Your company here</span>
+            )}
+            <span className="sb-you">You</span>
+          </span>
+        </span>
+        <span className="sb-paid">
+          <b>
+            {money((mine?.paidCents ?? 0) + (mine && !open ? 0 : added), false)}
+          </b>
+          {mine && <Stats row={mine} />}
+        </span>
+      </button>
+    </li>
   );
+
   const items: React.ReactNode[] = [];
   others.slice(0, TOP).forEach((row, i) => {
-    if (i + 1 === target) items.push(card);
+    if (i + 1 === target) items.push(you);
     items.push(
-      <SponsorCard
+      <SponsorLine
         key={row.publicId}
         row={row}
         rank={i + 1 >= target ? i + 2 : i + 1}
@@ -108,106 +265,105 @@ export function SponsorBoard({
           ···
         </li>,
       );
-    items.push(card);
+    items.push(you);
   }
 
   return (
-    <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
-      <div className="sb-head">
-        <h2 id="sponsors-title">Sponsors</h2>
-        <div className="sb-periods" role="tablist" aria-label="Period">
-          {(["today", "all"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={period === value}
-              onClick={() => setPeriod(value)}
-            >
-              {value === "today" ? "Today" : "All time"}
-            </button>
-          ))}
-        </div>
-        <span className="sb-total">
-          <small>total</small> {money(total, false)}
-        </span>
+    <div className="sb-board" data-period={period}>
+      <div className="sb-board-head">
+        <h3>{period === "today" ? "Today" : "All time"}</h3>
+        <span>{money(total, false)}</span>
       </div>
       <ol className="sb-list" ref={list}>
         {items}
       </ol>
-    </section>
+    </div>
   );
 }
 
-/** A sponsor as everyone sees them; the card opens their website. */
-function SponsorCard({ row, rank }: { row: SponsorRow; rank: number }) {
+/** What the sponsor's money did, under the amount. */
+function Stats({
+  row,
+}: {
+  row: Pick<SponsorRow, "name" | "clicks" | "merged">;
+}) {
+  return (
+    <small>
+      {row.name && <span>{plural(row.clicks, "click")}</span>}
+      <span>{plural(row.merged, "merged PR")}</span>
+    </small>
+  );
+}
+
+/** A sponsor as everyone sees them; the row opens their website. */
+function SponsorLine({ row, rank }: { row: SponsorRow; rank: number }) {
+  const linked = Boolean(row.websiteUrl && row.name);
+  const body = (
+    <>
+      <span className="sb-rank">{rank}</span>
+      <Logo name={row.name} url={row.logoUrl} size="small" />
+      <span className="sb-body">
+        <span className="sb-title">
+          <SponsorName name={row.name} />
+          {row.tagline && <span> · {row.tagline}</span>}
+        </span>
+        {rank <= 3 && row.description && (
+          <span className="sb-description" title={row.description}>
+            {row.description}
+          </span>
+        )}
+      </span>
+      <span className="sb-paid">
+        <b>{money(row.paidCents, false)}</b>
+        <Stats row={row} />
+      </span>
+    </>
+  );
   return (
     <li
-      className={`sb-card ${rank <= 3 ? "top" : ""} ${row.websiteUrl && row.name ? "linked" : ""}`}
+      className={`sb-row ${rank <= 3 ? "top" : ""} ${linked ? "linked" : ""}`}
       data-flip={row.publicId}
       data-sponsor={row.publicId}
     >
-      {row.websiteUrl && row.name && (
+      {linked ? (
         <a
-          className="board-row-link"
+          className="sb-row-link"
           href={`/out/${row.publicId}`}
           rel="sponsored noopener"
           target="_blank"
-          aria-label={`${row.name}, ${domain(row.websiteUrl)}`}
-        />
+        >
+          {body}
+        </a>
+      ) : (
+        <span className="sb-row-link">{body}</span>
       )}
-      <div className="board-row large">
-        <span className="board-rank">{rank}</span>
-        <Logo name={row.name} url={row.logoUrl} size="large" />
-        <span className="board-body">
-          <span className="board-title">
-            <SponsorName name={row.name} />
-            {row.tagline && <span> · {row.tagline}</span>}
-          </span>
-          {row.description && (
-            <span className="board-description" title={row.description}>
-              {row.description}
-            </span>
-          )}
-          <span className="board-meta">
-            {row.websiteUrl && <span>{domain(row.websiteUrl)}</span>}
-            {row.name && <span>{plural(row.clicks, "click")}</span>}
-            <Impact row={row} />
-          </span>
-        </span>
-        <Paid row={row} />
-      </div>
     </li>
   );
 }
 
 /**
- * The viewer's card. Closed: their row (or, before they sponsor, the place
- * $10 takes). Open: the card as a form, the amount, and Claim.
+ * The viewer's card, open above the boards: the profile as a form, the
+ * amount, the waiver, and Claim, which opens Stripe Checkout.
  */
 function ClaimCard({
-  you,
-  mine,
   sponsoring,
-  open,
-  setOpen,
-  rank,
-  current,
-  period,
+  paid,
+  card,
+  setCard,
+  close,
+  label,
   dollars,
   setDollars,
   cents,
   valid,
 }: {
-  you: BoardViewer | null;
-  mine: SponsorRow | undefined;
   sponsoring: boolean;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  rank: number;
-  /** The viewer's place on this board today, before paying more. */
-  current: number | null;
-  period: Period;
+  /** What the sponsor paid so far, all time. */
+  paid: number;
+  card: CardValue;
+  setCard: React.Dispatch<React.SetStateAction<CardValue>>;
+  close: () => void;
+  label: string;
   dollars: string;
   setDollars: (value: string) => void;
   cents: number;
@@ -216,24 +372,18 @@ function ClaimCard({
   const save = useServerFn(saveSponsorProfileFn);
   const checkout = useServerFn(startCheckoutFn);
   const router = useRouter();
-  const [card, setCard] = useState<CardValue>({
-    anonymous: Boolean(you && sponsoring && you.publicName === null),
-    name: you?.publicName ?? "",
-    tagline: you?.tagline ?? "",
-    description: you?.description ?? "",
-    website: you?.websiteUrl ?? "",
-    logo: you?.logoUrl ?? null,
-  });
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [state, setState] = useState<SaveState>("idle");
   useSavedFades(state, setState);
   const last = useRef<string | null>(null);
-  const amount = useRef<HTMLInputElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (open) amount.current?.focus({ preventScroll: true });
-  }, [open]);
+    root.current
+      ?.querySelector<HTMLInputElement>(".fund-name")
+      ?.focus({ preventScroll: true });
+  }, []);
 
   /** The card as the profile it saves, or an error to show. */
   function profileOf(next: CardValue) {
@@ -302,97 +452,23 @@ function ClaimCard({
     }
   }
 
-  const where = period === "today" ? "today" : "all time";
-  const gains = current === null || rank < current;
-
-  if (!open && mine)
-    return (
-      <li className="sb-card you" data-flip="you">
-        <div className="board-row large">
-          <span className="board-rank">{rank}</span>
-          <Logo name={mine.name} url={mine.logoUrl} size="large" />
-          <span className="board-body">
-            <span className="board-title">
-              <SponsorName name={mine.name} />
-              {mine.tagline && <span> · {mine.tagline}</span>}
-              <span className="sb-you">You</span>
-            </span>
-            {mine.description && (
-              <span className="board-description">{mine.description}</span>
-            )}
-            <span className="board-meta">
-              {mine.websiteUrl && <span>{domain(mine.websiteUrl)}</span>}
-              {mine.name && <span>{plural(mine.clicks, "click")}</span>}
-              <Impact row={mine} />
-            </span>
-          </span>
-          <span className="sb-mine">
-            <Paid row={mine} />
-            <button
-              type="button"
-              className="sb-claim-go small"
-              onClick={() => setOpen(true)}
-            >
-              <Plus size={13} /> Move up
-            </button>
-          </span>
-        </div>
-      </li>
-    );
-
-  if (!open)
-    return (
-      <li className="sb-card ghost" data-flip="you">
-        <button
-          type="button"
-          className="board-row large sb-ghost"
-          onClick={() => setOpen(true)}
-        >
-          <span className="board-rank">{rank}</span>
-          <span className="board-logo large open" aria-hidden="true">
-            +
-          </span>
-          <span className="board-body">
-            <span className="board-title">Your company here</span>
-          </span>
-          <span className="sb-ghost-take">
-            <b>{money(MIN_AMOUNT_CENTS, false)}</b> takes #{rank}
-            <span className="sb-claim-go">
-              Claim <ArrowRight size={13} strokeWidth={2.4} />
-            </span>
-          </span>
-        </button>
-      </li>
-    );
-
   return (
-    <li className="sb-card claiming" data-flip="you">
+    <div className="sb-card" ref={root}>
       <SponsorCardRow
         value={card}
         onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
         onCommit={(patch) => void commit(patch)}
-        rank={rank}
-        stats={mine}
+        rank=""
         amount={
           <span className="sb-amount">
-            {mine && (
-              <span className="sb-paid">{money(mine.paidCents, false)}</span>
+            {sponsoring && (
+              <span className="sb-paid-so-far">{money(paid, false)}</span>
             )}
-            <label className="sb-dollars">
-              {mine ? "+$" : "$"}
-              <input
-                ref={amount}
-                value={dollars}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-label="Amount in dollars"
-                onChange={(event) =>
-                  setDollars(
-                    event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                  )
-                }
-              />
-            </label>
+            <Dollars
+              dollars={dollars}
+              setDollars={setDollars}
+              plus={sponsoring}
+            />
           </span>
         }
       />
@@ -429,7 +505,7 @@ function ClaimCard({
             type="button"
             className="bd-btn bd-btn-ghost"
             onClick={() => {
-              setOpen(false);
+              close();
               setError("");
             }}
           >
@@ -441,13 +517,7 @@ function ClaimCard({
             onClick={() => void claim()}
             aria-disabled={!valid || pending}
           >
-            {!valid
-              ? cents < MIN_AMOUNT_CENTS
-                ? "From $10"
-                : "Up to $1,000"
-              : gains
-                ? `Claim #${rank} ${where}`
-                : `Add ${money(cents, false)}`}
+            {label}
             {pending ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.4} />}
           </button>
         </span>
@@ -457,6 +527,6 @@ function ClaimCard({
           </p>
         )}
       </div>
-    </li>
+    </div>
   );
 }
