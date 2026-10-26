@@ -1,4 +1,5 @@
 import { notFound } from "@tanstack/react-router";
+import { jiraReady } from "@/server/jira.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
@@ -12,7 +13,9 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 /** Both sponsor boards and both shipped boards: the landing and its pages. */
 export const getBoardsFn = createServerFn({ method: "GET" }).handler(
   async () => {
-    if (!databaseConfigured()) return { configured: false as const };
+    // Jira lights up on the landing once its OAuth app is configured.
+    const sources = { jira: jiraReady() };
+    if (!databaseConfigured()) return { configured: false as const, sources };
     return withDb(async (db) => {
       const [today, all, live] = await Promise.all([
         sponsorBoard(db, "today"),
@@ -23,6 +26,7 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
         configured: true as const,
         sponsors: { today, all },
         live,
+        sources,
       };
     });
   },

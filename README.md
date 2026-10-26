@@ -90,7 +90,12 @@ pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # ce
    - Callback URL : `https://<ref Supabase>.supabase.co/auth/v1/callback` ; Setup URL : `<APP_URL>/connect/done`, avec « Redirect on update ».
 4. **Stripe :** webhook `<APP_URL>/api/webhooks/stripe` avec `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` et `charge.dispute.created`. Activer Stripe Tax puis `STRIPE_TAX=on`.
 5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme. `scripts/set-secrets.ps1` propose de créer l'agent Claude et son environnement avec la clé saisie (`pnpm bootstrap:anthropic`) et pose `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`.
-6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers).
+6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers). Jira, une app par environnement (« Yarrow dev », « Yarrow ») sur [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) :
+   - *Create* > *OAuth 2.0 integration* ;
+   - *Permissions* > *Jira API* > *Add*, puis *Configure* > *Edit Scopes* : `read:jira-work` et `write:jira-work` (Yarrow demande aussi `offline_access` à la connexion) ;
+   - *Authorization* > *OAuth 2.0 (3LO)* > *Callback URL* : `<APP_URL>/integrations/jira/callback` ;
+   - *Distribution* > *Sharing*, pour que n'importe quel site Jira puisse se connecter (nom de l'éditeur, politique de confidentialité `<APP_URL>/privacy`) ;
+   - *Settings* : Client ID et Secret, posés dans les deux Workers par `scripts/set-secrets.ps1 -Target <env> -Jira`.
 7. **R2 :** activer R2, créer le bucket `yarrow-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
 8. **Secrets :** chaque secret avec `wrangler secret put` (voir [Environnements](#environnements)), puis un push sur la branche de l'environnement.
 

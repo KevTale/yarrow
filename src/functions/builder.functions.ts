@@ -13,6 +13,13 @@ import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { openIssues } from "@/server/github/issues.server";
+import {
+  jiraReady,
+  labelTrackerTickets,
+  openTrackerTickets,
+  trackerContext,
+} from "@/server/jira.server";
+import { boardsForProject } from "@/db/trackers";
 
 /**
  * The builder side of the dashboard: the viewer's projects, one project's
@@ -46,8 +53,10 @@ export const getBuilderFn = createServerFn({ method: "GET" })
           tickets: [] as TicketRow[],
           issues: null as OpenIssue[] | null,
           review: [] as ReviewRow[],
+          jiraReady: jiraReady(),
         };
       const project = await requireProjectMember(db, viewer.userId, chosen.id);
+      const boards = await boardsForProject(db, project.id);
       return {
         status: "ok" as const,
         projects,
@@ -60,10 +69,17 @@ export const getBuilderFn = createServerFn({ method: "GET" })
           label: project.authorizationLabel,
           logoUrl: chosen.logoUrl,
           uploadedLogo: project.logoUrl !== null,
+          // Linked tracker projects ("APP" on acme.atlassian.net).
+          boards: boards.map(({ board, connection }) => ({
+            tracker: connection.tracker,
+            key: board.externalBoardId,
+            site: connection.name,
+          })),
         },
         tickets: await projectTickets(db, project.id),
-        issues: data.issues ? await openIssues(project) : null,
+        issues: data.issues ? await openTickets(db, project) : null,
         review,
+        jiraReady: jiraReady(),
       };
     });
   });
@@ -88,52 +104,77 @@ export const setProjectLogoFn = createServerFn({ method: "POST" })
     });
   });
 
+/**
+ * GitHub's open issues and the linked trackers' open tickets. Null when
+ * neither answers (the table then shows Yarrow's tickets only).
+ */
+async function openTickets(
+  db: Parameters<typeof openTrackerTickets>[0],
+  project: Parameters<typeof openIssues>[0] & { id: string },
+) {
+  const [github, trackers] = await Promise.all([
+    openIssues(project),
+    openTrackerTickets(db, trackerContext(), project.id),
+  ]);
+  return github === null && trackers === null
+    ? null
+    : [...(github ?? []), ...(trackers ?? [])];
+}
+
 const ticketsInput = z.object({
   projectId: z.uuid(),
-  numbers: z.array(z.number().int().positive()).min(1).max(100),
+  /** "42" for a GitHub issue, "APP-42" for a Jira ticket. */
+  keys: z
+    .array(z.string().regex(/^(\d{1,9}|[A-Z][A-Z0-9_]{0,9}-\d{1,9})$/))
+    .min(1)
+    .max(100),
 });
+const isGithub = (key: string) => /^\d+$/.test(key);
 
-/** Queue: the brain puts the project's label on each issue. */
+/**
+ * Add to the queue (on) or remove from it: GitHub labels go through the
+ * brain; Jira labels are set from here. Running work finishes either way.
+ */
+async function setQueued(
+  userId: string,
+  data: z.infer<typeof ticketsInput>,
+  on: boolean,
+) {
+  await withDb(async (db) => {
+    const project = await requireProjectMember(db, userId, data.projectId);
+    const keys = [...new Set(data.keys)];
+    for (const key of keys.filter(isGithub))
+      await requestGithubTask(db, {
+        projectId: project.id,
+        kind: on ? "label_issue" : "unlabel_issue",
+        issueNumber: Number(key),
+      });
+    const tracked = keys.filter((key) => !isGithub(key));
+    if (tracked.length)
+      await labelTrackerTickets(db, trackerContext(), project, tracked, on);
+  });
+  return { ok: true };
+}
+
 export const queueTicketsFn = createServerFn({ method: "POST" })
   .validator(ticketsInput)
-  .handler(async ({ data }) => {
-    const viewer = await requireViewer();
-    await withDb(async (db) => {
-      await requireProjectMember(db, viewer.userId, data.projectId);
-      for (const issueNumber of new Set(data.numbers))
-        await requestGithubTask(db, {
-          projectId: data.projectId,
-          kind: "label_issue",
-          issueNumber,
-        });
-    });
-    return { ok: true };
-  });
+  .handler(async ({ data }) =>
+    setQueued((await requireViewer()).userId, data, true),
+  );
 
-/** Remove from the queue: the brain takes the label off. Running work finishes. */
 export const unqueueTicketsFn = createServerFn({ method: "POST" })
   .validator(ticketsInput)
-  .handler(async ({ data }) => {
-    const viewer = await requireViewer();
-    await withDb(async (db) => {
-      await requireProjectMember(db, viewer.userId, data.projectId);
-      for (const issueNumber of new Set(data.numbers))
-        await requestGithubTask(db, {
-          projectId: data.projectId,
-          kind: "unlabel_issue",
-          issueNumber,
-        });
-    });
-    return { ok: true };
-  });
+  .handler(async ({ data }) =>
+    setQueued((await requireViewer()).userId, data, false),
+  );
 
 /** Retry an abstained ticket (the label is still on it). */
 export const retryTicketFn = createServerFn({ method: "POST" })
-  .validator(z.object({ projectId: z.uuid(), number: z.number().int() }))
+  .validator(z.object({ projectId: z.uuid(), key: z.string().max(40) }))
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     return withDb(async (db) => {
       await requireProjectMember(db, viewer.userId, data.projectId);
-      return { retried: await retryTicket(db, data.projectId, data.number) };
+      return { retried: await retryTicket(db, data.projectId, data.key) };
     });
   });

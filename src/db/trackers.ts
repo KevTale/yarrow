@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import {
+  accountMembers,
   projects,
   trackerBoards,
   trackerConnections,
@@ -172,4 +173,69 @@ export async function queuedOnBoard(db: Database, boardId: string) {
         eq(workUnits.authorized, true),
       ),
     );
+}
+
+/** A project's mapped boards, each with its connection. */
+export async function boardsForProject(db: Database, projectId: string) {
+  return db
+    .select({ board: trackerBoards, connection: trackerConnections })
+    .from(trackerBoards)
+    .innerJoin(
+      trackerConnections,
+      eq(trackerConnections.id, trackerBoards.connectionId),
+    )
+    .where(eq(trackerBoards.projectId, projectId));
+}
+
+/** The Jira sites connected by the accounts a user belongs to. */
+export async function jiraConnectionsForUser(db: Database, userId: string) {
+  return db
+    .select({
+      id: trackerConnections.id,
+      accountId: trackerConnections.accountId,
+      site: trackerConnections.name,
+    })
+    .from(trackerConnections)
+    .innerJoin(
+      accountMembers,
+      and(
+        eq(accountMembers.accountId, trackerConnections.accountId),
+        eq(accountMembers.userId, userId),
+      ),
+    )
+    .where(eq(trackerConnections.tracker, "jira"));
+}
+
+/** Where a Jira project is mapped among a user's projects, if anywhere. */
+export async function jiraBoardFor(
+  db: Database,
+  userId: string,
+  projectKey: string,
+  site?: string,
+) {
+  const rows = await db
+    .select({
+      projectId: trackerBoards.projectId,
+      site: trackerConnections.name,
+    })
+    .from(trackerBoards)
+    .innerJoin(
+      trackerConnections,
+      eq(trackerConnections.id, trackerBoards.connectionId),
+    )
+    .innerJoin(projects, eq(projects.id, trackerBoards.projectId))
+    .innerJoin(
+      accountMembers,
+      and(
+        eq(accountMembers.accountId, projects.accountId),
+        eq(accountMembers.userId, userId),
+      ),
+    )
+    .where(
+      and(
+        eq(trackerConnections.tracker, "jira"),
+        eq(trackerBoards.externalBoardId, projectKey),
+      ),
+    );
+  return rows.find((row) => !site || row.site === site) ?? null;
 }

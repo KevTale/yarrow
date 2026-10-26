@@ -8,7 +8,8 @@ import { appEnv } from "@/server/env.server";
 /**
  * "Connect GitHub" and "Get a pull request": sign in with GitHub, then install
  * the App on the repositories. Projects are created from the installation;
- * a repository that is already connected skips GitHub entirely.
+ * a repository that is already connected skips GitHub entirely. Jira
+ * tickets start here too: their code lives on GitHub.
  */
 export const Route = createFileRoute("/connect/github")({
   server: {
@@ -34,12 +35,15 @@ export const Route = createFileRoute("/connect/github")({
           1800,
         );
         const repository = intent.repository?.toLowerCase();
+        // A Jira ticket needs a repository, any of them: the dashboard asks
+        // which one. Builders who have one already skip GitHub.
+        const jira = intent.source === "jira";
         const connected =
-          repository && databaseConfigured()
+          (repository || jira) && databaseConfigured()
             ? (await withDb((db) => projectsForUser(db, data.user!.id))).some(
                 (project) =>
                   project.linked &&
-                  project.repository.toLowerCase() === repository,
+                  (jira || project.repository.toLowerCase() === repository),
               )
             : false;
         if (connected) return auth.redirect("/dashboard", [cookie]);

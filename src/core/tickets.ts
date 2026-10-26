@@ -27,17 +27,30 @@ export interface TicketModel {
   costExact: boolean;
 }
 
-export interface TicketRow {
+/** Where a ticket lives. The code always lives on GitHub. */
+export type TicketSourceId = "github" | "linear" | "jira" | "trello";
+
+/** The parts every row of the builder's table shares, Yarrow's or not. */
+interface TicketIdentity {
+  /** Unique in a project: "42" for a GitHub issue, "APP-42" for Jira. */
+  key: string;
+  source: TicketSourceId;
+  /** How people name it: "#42", "APP-42". */
+  ref: string;
+  /** For the order: the issue number, or the number in the key. */
   number: number;
   title: string;
   url: string;
+  updatedAt: string;
+}
+
+export interface TicketRow extends TicketIdentity {
   status: TicketStatus;
-  /** Waiting for the brain to add or remove the label on GitHub. */
+  /** Waiting for the label to be added or removed on GitHub. */
   pending: boolean;
   pullRequest: { number: number; url: string } | null;
   reason: string | null;
   models: TicketModel[];
-  updatedAt: string;
 }
 
 /** A pull request waiting for its builder, from any of their projects. */
@@ -45,13 +58,25 @@ export type ReviewRow = TicketRow & {
   project: { id: string; name: string; logoUrl: string | null };
 };
 
-/** An open issue, read live from GitHub (never stored). */
-export interface OpenIssue {
-  number: number;
-  title: string;
-  url: string;
-  updatedAt: string;
+/** An open ticket, read live from GitHub or Jira (never stored). */
+export type OpenIssue = TicketIdentity;
+
+/** "42" on GitHub, "APP-42" in Jira: the row's key, ref and number. */
+export function ticketIdentity(
+  source: TicketSourceId,
+  externalId: string,
+): Pick<TicketIdentity, "key" | "source" | "ref" | "number"> {
+  return {
+    key: externalId,
+    source,
+    ref: source === "github" ? `#${externalId}` : externalId,
+    number: Number(/\d+$/.exec(externalId)?.[0] ?? 0),
+  };
 }
+
+/** Tracker titles are stored with their key in front ("APP-42 Fix…"). */
+export const bareTitle = (title: string, key: string) =>
+  title.startsWith(`${key} `) ? title.slice(key.length + 1) : title;
 
 /** In Yarrow: queued, worked on, or shipped. */
 export const inYarrow = (row: TicketRow) => row.status !== "none";
@@ -66,39 +91,42 @@ export const moving = (row: TicketRow) =>
   row.pending ||
   ["queued", "writing", "reviewing", "delivering"].includes(row.status);
 
+const sourceOrder: TicketSourceId[] = ["github", "jira", "linear", "trello"];
+
 /**
- * The table: Yarrow's tickets, plus the open issues Yarrow has not touched.
- * Most recently updated first.
+ * The table: Yarrow's tickets, plus the open tickets Yarrow has not
+ * touched. GitHub issues first, then each tracker; newest first in each.
  */
 export function mergeTickets(
   rows: TicketRow[],
   issues: OpenIssue[] | null,
 ): TicketRow[] {
   const merged = rows.map((row) => ({ ...row }));
-  const known = new Map(merged.map((row) => [row.number, row]));
+  const known = new Map(merged.map((row) => [row.key, row]));
   for (const issue of issues ?? []) {
-    const row = known.get(issue.number);
+    const row = known.get(issue.key);
     if (row) {
-      // GitHub has the current title.
+      // The tracker has the current title.
       row.title = issue.title;
       row.url ||= issue.url;
       if (issue.updatedAt > row.updatedAt) row.updatedAt = issue.updatedAt;
       continue;
     }
     merged.push({
-      number: issue.number,
-      title: issue.title,
-      url: issue.url,
+      ...issue,
       status: "none",
       pending: false,
       pullRequest: null,
       reason: null,
       models: [],
-      updatedAt: issue.updatedAt,
     });
   }
-  // Newest tickets first, and a row never moves when its status changes.
-  return merged.sort((a, b) => b.number - a.number);
+  // A row never moves when its status changes.
+  return merged.sort(
+    (a, b) =>
+      sourceOrder.indexOf(a.source) - sourceOrder.indexOf(b.source) ||
+      b.number - a.number,
+  );
 }
 
 /** "claude-opus-5-5:high" → Claude Opus 5.5 at high effort, no stats yet. */

@@ -22,10 +22,16 @@ export const Route = createFileRoute("/integrations/$tracker/callback")({
         const url = new URL(request.url);
         const auth = supabaseForRequest(request);
         const clear = stateCookie(STATE_COOKIE, "", 0);
-        const [expectedTracker, expectedState, projectId] = (
+        const [expectedTracker, expectedState, projectId, next] = (
           readCookie(request, STATE_COOKIE) ?? ""
         ).split(":");
         const back = `/projects/${projectId ?? ""}`;
+        // From the dashboard's Jira card: back there, where the pasted
+        // ticket is linked and queued.
+        const done =
+          next === "dashboard"
+            ? `/dashboard?tab=builder&project=${projectId}&from=${tracker}`
+            : `${back}?connected=${tracker}`;
         if (
           !projectId ||
           expectedTracker !== tracker ||
@@ -59,7 +65,7 @@ export const Route = createFileRoute("/integrations/$tracker/callback")({
               tokens,
             }),
           );
-          return auth.redirect(`${back}?connected=${tracker}`, [clear]);
+          return auth.redirect(done, [clear]);
         } catch (error) {
           return auth.redirect(
             `${back}?error=${encodeURIComponent((error as Error).message)}`,

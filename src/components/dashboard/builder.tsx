@@ -22,6 +22,8 @@ import { Logo } from "@/components/boards";
 import { LogoPicker } from "@/components/logo-picker";
 import { capitalize, timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
+import type { JiraStep } from "@/server/trackers/jira-flow";
+import { JiraCard } from "./jira-card";
 import { ModelsCell } from "./models";
 
 type BuilderData = Extract<
@@ -63,15 +65,18 @@ export function BuilderView({
   waiting,
   projectId,
   view,
+  jira = null,
 }: {
   data: BuilderData;
   /** The ticket just pasted on the landing. */
-  highlight: number | null;
+  highlight: string | null;
   /** A repository still being connected after the GitHub install. */
   waiting: string | null;
   /** The project in the address; the loader's choice otherwise. */
   projectId?: string;
   view?: "review";
+  /** A Jira link waiting for its repository or for Jira itself. */
+  jira?: JiraStep | null;
 }) {
   const navigate = useNavigate({ from: "/dashboard" });
   const refresh = useServerFn(getBuilderFn);
@@ -90,17 +95,23 @@ export function BuilderView({
   });
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [fresh, setFresh] = useState<number | null>(highlight);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [fresh, setFresh] = useState<string | null>(highlight);
   const [error, setError] = useState("");
-  const [source, setSource] = useState({ data, highlight });
+  const [source, setSource] = useState({ data, highlight, jira });
+  const [jiraStep, setJiraStep] = useState(jira);
   const reviewing = view === "review";
   const currentId = reviewing ? null : (projectId ?? data.project?.id ?? null);
   const [shownId, setShownId] = useState(currentId);
 
   // New loader data (a new ticket, a refresh) replaces that project's copy.
-  if (source.data !== data || source.highlight !== highlight) {
-    setSource({ data, highlight });
+  if (
+    source.data !== data ||
+    source.highlight !== highlight ||
+    source.jira !== jira
+  ) {
+    setSource({ data, highlight, jira });
+    setJiraStep(jira);
     if (data.project) {
       const id = data.project.id;
       setStore((current) => ({ ...current, [id]: data }));
@@ -206,11 +217,11 @@ export function BuilderView({
     reviewing ? "review" : (currentId ?? ""),
   );
 
-  async function act(kind: "queue" | "unqueue" | "retry", numbers: number[]) {
-    if (!project || numbers.length === 0) return;
+  async function act(kind: "queue" | "unqueue" | "retry", keys: string[]) {
+    if (!project || keys.length === 0) return;
     const id = project.id;
     setError("");
-    const marked = new Set(numbers);
+    const marked = new Set(keys);
     // Show the change at once; the next poll brings the real state.
     setStore((all) => {
       const current = all[id]!;
@@ -220,7 +231,7 @@ export function BuilderView({
           ...current,
           tickets: [
             ...current.tickets.map((row) =>
-              marked.has(row.number)
+              marked.has(row.key)
                 ? {
                     ...row,
                     status:
@@ -235,8 +246,8 @@ export function BuilderView({
             ...rows
               .filter(
                 (row) =>
-                  marked.has(row.number) &&
-                  !current.tickets.some((known) => known.number === row.number),
+                  marked.has(row.key) &&
+                  !current.tickets.some((known) => known.key === row.key),
               )
               .map((row) => ({
                 ...row,
@@ -250,10 +261,10 @@ export function BuilderView({
     setSelected(new Set());
     try {
       if (kind === "retry")
-        await retry({ data: { projectId: id, number: numbers[0]! } });
+        await retry({ data: { projectId: id, key: keys[0]! } });
       else
         await (kind === "queue" ? queue : unqueue)({
-          data: { projectId: id, numbers },
+          data: { projectId: id, keys },
         });
     } catch {
       setError("That did not go through. Try again in a moment.");
@@ -330,18 +341,18 @@ export function BuilderView({
             : !inYarrow(row)),
     )
     .filter(
-      (row) => !q || `${row.number} ${row.title}`.toLowerCase().includes(q),
+      (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
     );
-  const chosen = rows.filter((row) => selected.has(row.number));
-  const canQueue = chosen.filter(queueable).map((row) => row.number);
-  const canRemove = chosen.filter(removable).map((row) => row.number);
+  const chosen = rows.filter((row) => selected.has(row.key));
+  const canQueue = chosen.filter(queueable).map((row) => row.key);
+  const canRemove = chosen.filter(removable).map((row) => row.key);
   const allShown =
-    shown.length > 0 && shown.every((row) => selected.has(row.number));
-  const toggle = (number: number) =>
+    shown.length > 0 && shown.every((row) => selected.has(row.key));
+  const toggle = (key: string) =>
     setSelected((current) => {
       const next = new Set(current);
-      if (next.has(number)) next.delete(number);
-      else next.add(number);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   const choose = (id: string) =>
@@ -362,6 +373,19 @@ export function BuilderView({
       }),
     });
   const many = meta.projects.length > 1;
+  const jiraCard = jiraStep && jiraStep.projects.length > 0 && (
+    <JiraCard
+      step={jiraStep}
+      onClose={() => setJiraStep(null)}
+      onLinked={(linked) => {
+        setJiraStep(null);
+        setFresh(linked.key);
+        readAt.delete(linked.projectId);
+        if (linked.projectId === currentId) void pull(linked.projectId);
+        else choose(linked.projectId);
+      }}
+    />
+  );
   const loading = currentId !== null && !live;
 
   return (
@@ -401,6 +425,7 @@ export function BuilderView({
         </nav>
       )}
       <div className="bd-main">
+        {jiraCard}
         {many && (
           <select
             className="bd-picker"
@@ -451,12 +476,28 @@ export function BuilderView({
                 <span className="bd-chip">
                   {capitalize(project.visibility)}
                 </span>
+                {project.boards.map((board) => (
+                  <span
+                    className="bd-chip bd-chip-board"
+                    key={`${board.tracker}:${board.key}`}
+                    title={board.site}
+                  >
+                    <i className={`bd-source ${board.tracker}`} />
+                    {board.key}
+                  </span>
+                ))}
                 <span className="bd-head-actions">
                   {!many && (
                     <a className="text-link" href="/connect/github">
                       <Plus size={14} /> Add a project
                     </a>
                   )}
+                  {live?.jiraReady &&
+                    !project.boards.some((board) => board.tracker === "jira") && (
+                      <a className="text-link" href="/connect/github?source=jira">
+                        <Plus size={14} /> Jira
+                      </a>
+                    )}
                   <Link
                     to="/projects/$projectId"
                     params={{ projectId: project.id }}
@@ -538,7 +579,7 @@ export function BuilderView({
                             setSelected(
                               allShown
                                 ? new Set()
-                                : new Set(shown.map((row) => row.number)),
+                                : new Set(shown.map((row) => row.key)),
                             )
                           }
                         />
@@ -554,22 +595,22 @@ export function BuilderView({
                     {shown.map((row) => (
                       <div
                         role="row"
-                        key={row.number}
-                        data-flip={row.number}
+                        key={row.key}
+                        data-flip={row.key}
                         data-flip-value={row.status}
-                        className={`bd-row ${selected.has(row.number) ? "selected" : ""} ${fresh === row.number ? "fresh" : ""}`}
+                        className={`bd-row ${selected.has(row.key) ? "selected" : ""} ${fresh === row.key ? "fresh" : ""}`}
                         onAnimationEnd={() => setFresh(null)}
                       >
                         <span>
                           <input
                             type="checkbox"
-                            aria-label={`Select #${row.number}`}
-                            checked={selected.has(row.number)}
-                            onChange={() => toggle(row.number)}
+                            aria-label={`Select ${row.ref}`}
+                            checked={selected.has(row.key)}
+                            onChange={() => toggle(row.key)}
                           />
                         </span>
                         <span className="bd-ticket">
-                          <span className="bd-num">#{row.number}</span>
+                          <TicketRef row={row} />
                           {row.url ? (
                             <a
                               className="bd-title"
@@ -668,8 +709,8 @@ function ReviewList({
         {rows.map((row) => (
           <div
             role="row"
-            key={`${row.project.id}:${row.number}`}
-            data-flip={`${row.project.id}:${row.number}`}
+            key={`${row.project.id}:${row.key}`}
+            data-flip={`${row.project.id}:${row.key}`}
             className="bd-row"
           >
             <span>
@@ -687,7 +728,7 @@ function ReviewList({
               >
                 {row.project.name}
               </button>
-              <span className="bd-num">#{row.number}</span>
+              <TicketRef row={row} />
               <a
                 className="bd-title"
                 href={row.url}
@@ -721,12 +762,22 @@ function ReviewList({
   );
 }
 
+/** "#42", or a Jira key with Jira's mark in front. */
+function TicketRef({ row }: { row: TicketRow }) {
+  return (
+    <span className={`bd-num ${row.source}`}>
+      {row.source === "jira" && <i className="bd-source" aria-hidden="true" />}
+      {row.ref}
+    </span>
+  );
+}
+
 function Status({
   row,
   act,
 }: {
   row: TicketRow;
-  act: (kind: "queue" | "unqueue" | "retry", numbers: number[]) => void;
+  act: (kind: "queue" | "unqueue" | "retry", keys: string[]) => void;
 }) {
   if (row.status === "none")
     return (
@@ -736,8 +787,8 @@ function Status({
         <button
           type="button"
           className="bd-queue"
-          aria-label={`Add #${row.number} to the queue`}
-          onClick={() => act("queue", [row.number])}
+          aria-label={`Add ${row.ref} to the queue`}
+          onClick={() => act("queue", [row.key])}
         >
           <Plus size={12} strokeWidth={2.4} /> Add
         </button>
@@ -759,7 +810,7 @@ function Status({
         <button
           type="button"
           className="bd-retry"
-          onClick={() => act("retry", [row.number])}
+          onClick={() => act("retry", [row.key])}
         >
           Retry
         </button>

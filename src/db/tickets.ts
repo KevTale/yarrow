@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import {
+  bareTitle,
   phaseStatus,
   runModelsView,
+  ticketIdentity,
   type ReviewRow,
   type TicketModel,
   type TicketRow,
@@ -25,9 +27,10 @@ const latest = (...dates: (Date | string | null | undefined)[]) =>
   dates.map(iso).sort().at(-1) ?? "";
 
 /**
- * The GitHub tickets Yarrow knows for a project, with their status, pull
- * request, models and pending label changes. Open issues Yarrow never
- * touched come from GitHub and are merged in by `mergeTickets`.
+ * The tickets Yarrow knows for a project (GitHub issues and tracker
+ * tickets), with their status, pull request, models and pending label
+ * changes. Open tickets Yarrow never touched come from GitHub or the
+ * tracker and are merged in by `mergeTickets`.
  */
 export async function projectTickets(
   db: Database,
@@ -36,9 +39,7 @@ export async function projectTickets(
   const units = await db
     .select()
     .from(workUnits)
-    .where(
-      and(eq(workUnits.projectId, projectId), eq(workUnits.source, "github")),
-    );
+    .where(eq(workUnits.projectId, projectId));
   const unitIds = units.map((unit) => unit.id);
   const runs = unitIds.length
     ? await db
@@ -97,10 +98,14 @@ export async function projectTickets(
       pulls.some((pull) => pull.workUnitId === unit.id),
   );
   const rows: TicketRow[] = shown.map((unit) => {
-    const number = Number(unit.externalId);
+    const identity = ticketIdentity(unit.source, unit.externalId);
     const run = lastRun.get(unit.id);
     const pull = pulls.find((row) => row.workUnitId === unit.id);
-    const pending = pendingLabel.get(number);
+    // Label changes go through the brain on GitHub only; Jira's are direct.
+    const pending =
+      unit.source === "github"
+        ? pendingLabel.get(Number(unit.externalId))
+        : undefined;
     let status: TicketStatus;
     if (unit.status === "running") status = phaseStatus(run?.phase ?? null);
     else if (unit.status === "delivered") status = "pull_request";
@@ -127,8 +132,8 @@ export async function projectTickets(
         )
       : [];
     return {
-      number,
-      title: unit.title,
+      ...identity,
+      title: bareTitle(unit.title, unit.externalId),
       url: unit.url,
       status,
       pending: settled && pending !== undefined,
@@ -148,9 +153,12 @@ export async function projectTickets(
   });
   // Tickets created by the brain's labeling are not mirrored yet: show them queued.
   for (const [number, kind] of pendingLabel)
-    if (kind === "label_issue" && !rows.some((row) => row.number === number))
+    if (
+      kind === "label_issue" &&
+      !rows.some((row) => row.source === "github" && row.number === number)
+    )
       rows.push({
-        number,
+        ...ticketIdentity("github", String(number)),
         title: `#${number}`,
         url: "",
         status: "queued",
@@ -200,7 +208,7 @@ export async function reviewQueue(
 export async function retryTicket(
   db: Database,
   projectId: string,
-  issueNumber: number,
+  key: string,
 ): Promise<boolean> {
   const [unit] = await db
     .update(workUnits)
@@ -208,8 +216,7 @@ export async function retryTicket(
     .where(
       and(
         eq(workUnits.projectId, projectId),
-        eq(workUnits.source, "github"),
-        eq(workUnits.externalId, String(issueNumber)),
+        eq(workUnits.externalId, key),
         eq(workUnits.status, "abstained"),
         eq(workUnits.authorized, true),
       ),
@@ -220,7 +227,7 @@ export async function retryTicket(
     type: "work_unit.queued",
     projectId,
     workUnitId: unit.id,
-    payload: { source: "github", retried: true },
+    payload: { retried: true },
   });
   return true;
 }

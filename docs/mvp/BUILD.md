@@ -70,7 +70,17 @@ How it runs: "Get a pull request" and "Connect" go to `/connect/github` (GitHub 
    - Secrets are stored write-only and encrypted. They are injected through the providers' vault mechanisms, so the agent never sees the values. A secret can only be used for HTTP calls to allowed hosts.
    - Apps that need a database use the one preinstalled in the sandbox, with the seed.
 
-All four trackers are built. Until each has run live, the landing marks Jira, Linear and Trello as "soon" and only GitHub is offered (decided 2026-10-07). Build order: GitHub Issues → Linear → Trello → Jira. Jira goes last because it is the most complex: Atlassian OAuth, site admin rights, custom fields.
+All four trackers are built. Until each has run live, the landing marks Linear and Trello as "soon" (decided 2026-10-07).
+
+**Jira (decided 2026-10-08):** Jira holds the tickets, GitHub holds the code; GitHub stays the only code host (GitLab, Bitbucket and Azure DevOps would each need their own branch, commit, PR and merge plumbing, later and on demand). The landing offers Jira as soon as the deployment has its Atlassian OAuth app. The builder's journey:
+1. Paste a Jira link (`acme.atlassian.net/browse/APP-42`, or a board link with `selectedIssue=`), or choose Jira and Connect.
+2. GitHub first, as for every source: sign in and install the App. A builder who already has a connected repository skips it.
+3. The dashboard shows a Jira card: the key, the site, and **Code in** (the repository). Without Jira yet: **Connect Jira** (Atlassian's consent, then back to the dashboard). With Jira: **Queue it** (or **Link** without a pasted ticket, with the Jira project to choose).
+4. The Jira project (its key, `APP`) is linked to that repository, and the pasted ticket gets the `yarrow` label in Jira and enters the queue. Later pastes of `APP-*` tickets go straight to the queue.
+5. The project's table lists its Jira tickets next to its GitHub issues (`APP-42` with Jira's blue mark); Add to queue and Remove put and take the label in Jira at once; labels set in Jira itself are picked up by the 5-minute sync.
+6. Delivery: the branch and the PR title keep the key in capitals (`yarrow/APP-42-…`, `APP-42 Fix…`) so Jira links them to the ticket, and Yarrow comments on the ticket with the PR.
+
+One Jira project maps to one repository. Teams with one Jira project for several repositories wait for a V2 (for example, the repository chosen by the ticket's Component). Jira sites are named by their address (`acme.atlassian.net`).
 
 Later: appear as an assignable agent in Linear and Jira, so owners can simply assign a ticket to "Yarrow".
 

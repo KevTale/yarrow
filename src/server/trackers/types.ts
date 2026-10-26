@@ -3,6 +3,8 @@ export type TrackerName = "linear" | "jira" | "trello";
 export interface TrackerTicket {
   externalId: string;
   title: string;
+  /** When the ticket last changed in the tracker (ISO), when it says. */
+  updatedAt?: string;
   body: string;
   url: string;
   labels: string[];
@@ -75,6 +77,20 @@ export interface TrackerAdapter {
     credentials: TrackerCredentials,
     externalId: string,
     body: string,
+  ): Promise<void>;
+  /** Open tickets of a board, labeled or not, for the builder's table (Jira). */
+  openTickets?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    boardId: string,
+  ): Promise<TrackerTicket[]>;
+  /** Puts the label on a ticket, or takes it off (Jira). */
+  setLabel?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    externalId: string,
+    label: string,
+    on: boolean,
   ): Promise<void>;
 }
 

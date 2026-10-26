@@ -164,6 +164,7 @@ export type ConnectedProject = {
   repository: string;
   visibility: "public" | "listed" | "hidden";
   linked: boolean;
+  accountId: string;
 };
 
 /** The viewer's projects, newest first, with their GitHub link state. */
@@ -177,6 +178,7 @@ export async function projectsForUser(
       name: projects.name,
       repository: projects.repository,
       visibility: projects.visibility,
+      accountId: projects.accountId,
       installationId: projects.githubInstallationId,
     })
     .from(projects)

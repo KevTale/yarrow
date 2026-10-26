@@ -41,7 +41,7 @@ function Landing() {
           pull request in minutes. Sponsors pay for the compute, and their names ship with
           every pull request.
         </p>
-        <ShipForm />
+        <ShipForm jira={loaded.sources.jira} />
       </section>
       <div className="container landing-boards">
         <SponsorBoards

@@ -20,15 +20,22 @@ export function splitRepository(fullName: string): Repository {
   return { owner, repo };
 }
 
+/**
+ * yarrow/fix-the-export-button-1a2b3c4d. A Jira key in front of the title
+ * stays in capitals ("yarrow/APP-42-fix-…"): Jira links the branch to the
+ * ticket by it.
+ */
 export function branchName(title: string, workUnitId: string): string {
-  const slug = title
+  const key = /^([A-Z][A-Z0-9_]+-\d+)\s+/.exec(title)?.[1];
+  const slug = (key ? title.slice(key.length) : title)
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40)
     .replace(/-+$/, "");
-  return `yarrow/${slug || "ticket"}-${workUnitId.slice(0, 8)}`;
+  const name = [key, slug].filter(Boolean).join("-") || "ticket";
+  return `yarrow/${name}-${workUnitId.slice(0, 8)}`;
 }
 
 async function branchHead(

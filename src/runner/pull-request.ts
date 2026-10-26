@@ -23,10 +23,13 @@ function cleanTitle(title: string): string {
   return title.replace(/^[A-Z][A-Z0-9]+-\d+\s+/, "").slice(0, 120);
 }
 
+/** Jira keeps its key ("APP-42 Fix…"): Jira links the pull request by it. */
 export function pullRequestTitle(
   input: Pick<PullRequestInput, "ticket">,
 ): string {
-  return cleanTitle(input.ticket.title);
+  return input.ticket.source === "jira"
+    ? input.ticket.title.slice(0, 120)
+    : cleanTitle(input.ticket.title);
 }
 
 /** A PR body readable in two minutes: what, why, how verified, review, risks. */

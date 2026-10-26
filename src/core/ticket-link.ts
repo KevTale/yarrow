@@ -12,7 +12,6 @@ export const ticketSources: TicketSource[] = [
     id: "jira",
     name: "Jira",
     example: "your-site.atlassian.net/browse/APP-42",
-    soon: true,
   },
   {
     id: "linear",
@@ -46,7 +45,15 @@ export type TicketLink = {
   repository?: string;
   /** The issue number for GitHub issue links. */
   issue?: number;
+  /** Jira: the cloud site (`acme.atlassian.net`) and the issue key. */
+  site?: string;
+  ticket?: string;
 };
+
+/** A Jira issue key: project key, dash, number ("APP-42"). */
+export const jiraKeyPattern = /^[A-Z][A-Z0-9_]{0,9}-\d{1,9}$/;
+/** The Jira project of an issue key: "APP-42" → "APP". */
+export const jiraProject = (key: string) => key.replace(/-\d+$/, "");
 
 const bySource = (id: TicketSource["id"]) =>
   ticketSources.find((source) => source.id === id)!;
@@ -67,8 +74,18 @@ export function parseTicketLink(input: string): TicketLink | null {
       repository: `${github[1]}/${github[2]}`,
       ...(github[3] ? { issue: Number(github[3]) } : {}),
     };
-  if (/^[\w-]+\.atlassian\.net\//i.test(text))
-    return { source: bySource("jira") };
+  const jira = /^([\w-]+\.atlassian\.net)(\/.*)?$/i.exec(text);
+  if (jira) {
+    // /browse/APP-42, /issues/APP-42, ?selectedIssue=APP-42…
+    const key = /(?:^|[/=])([A-Z][A-Z0-9_]{0,9}-\d{1,9})(?:$|[/?&#])/.exec(
+      jira[2] ?? "",
+    )?.[1];
+    return {
+      source: bySource("jira"),
+      site: jira[1]!.toLowerCase(),
+      ...(key ? { ticket: key } : {}),
+    };
+  }
   if (/^linear\.app\//i.test(text)) return { source: bySource("linear") };
   if (/^trello\.com\/c\//i.test(text)) return { source: bySource("trello") };
   if (/^gitlab\.com\//i.test(text)) return { source: bySource("gitlab") };

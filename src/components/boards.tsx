@@ -474,9 +474,7 @@ function LiveItem({ row }: { row: LiveRow }) {
         ) : (
           <span className="live-title">{row.title}</span>
         )}
-        {row.issueNumber && (
-          <span className="live-num">#{row.issueNumber}</span>
-        )}
+        {row.issueRef && <span className="live-num">{row.issueRef}</span>}
       </span>
       <span className="live-project" role="cell">
         <Logo name={row.project} url={row.logoUrl} size="small" />

@@ -23,6 +23,8 @@ export const Route = createFileRoute("/dashboard")({
     project: z.uuid().optional(),
     /** The pull requests waiting for review, across projects. */
     view: z.enum(["review"]).optional().catch(undefined),
+    /** Back from connecting Jira from this project: link the pasted ticket. */
+    from: z.enum(["jira"]).optional().catch(undefined),
     checkout: z.enum(["success"]).optional(),
     /** Set by /connect/done: GitHub's webhook may not have landed yet. */
     installation: z.number().int().positive().optional().catch(undefined),
@@ -32,12 +34,13 @@ export const Route = createFileRoute("/dashboard")({
   loader: async ({ location, preload }) => {
     // A ticket pasted on the landing is queued as soon as its repo is
     // connected. Preloading (from any page, signed in) leaves that alone.
+    const search = location.search as { project?: string; from?: string };
     const connect = preload
-      ? { queued: null, waiting: null }
-      : await settleConnectFn();
-    const projectId =
-      (location.search as { project?: string }).project ??
-      connect.queued?.projectId;
+      ? { queued: null, waiting: null, jira: null }
+      : await settleConnectFn({
+          data: { projectId: search.from ? search.project : undefined },
+        });
+    const projectId = search.project ?? connect.queued?.projectId;
     const [builder, sponsor] = await Promise.all([
       getBuilderFn({ data: { projectId, issues: true } }),
       getSponsorDashboardFn(),
@@ -107,6 +110,15 @@ function DashboardPage() {
       });
   }, [search.installation, installing, navigate]);
 
+  // Back from Jira: linked once, so a refresh does not link again.
+  useEffect(() => {
+    if (search.from)
+      navigate({
+        search: (current) => ({ ...current, from: undefined }),
+        replace: true,
+      });
+  }, [search.from, navigate]);
+
   // A guest who paid from this browser has a Sponsor tab, no Builder tab.
   if (sponsor.status === "signed_out")
     return <SignInPrompt next="/dashboard" />;
@@ -174,7 +186,8 @@ function DashboardPage() {
       {tab === "builder" && builder.status === "ok" ? (
         <BuilderView
           data={builder}
-          highlight={connect.queued?.issue ?? null}
+          highlight={connect.queued?.key ?? null}
+          jira={connect.jira}
           waiting={waiting}
           projectId={search.project ?? connect.queued?.projectId}
           view={search.view}

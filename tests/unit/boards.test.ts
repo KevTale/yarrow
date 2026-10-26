@@ -251,7 +251,7 @@ describe("shipped boards", () => {
         status: "reviewing",
         title: "Working ticket",
         repository: "test/live-open",
-        issueNumber: 1,
+        issueRef: "#1",
         issueUrl: "https://github.com/t/1",
         sponsors: [{ name: "Northwind", publicId: expect.any(String) }],
       },

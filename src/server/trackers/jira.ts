@@ -40,6 +40,7 @@ interface JiraIssue {
     summary: string;
     description: unknown;
     labels: string[];
+    updated?: string;
     statusCategory?: { key: string };
     status?: { statusCategory?: { key: string } };
   };
@@ -82,6 +83,9 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
     return {
       externalId: issue.key,
       title: `${issue.key} ${issue.fields.summary}`,
+      ...(issue.fields.updated
+        ? { updatedAt: new Date(issue.fields.updated).toISOString() }
+        : {}),
       body: adfToText(issue.fields.description).trim(),
       url: `${await siteUrl(cloudId, token)}/browse/${issue.key}`,
       labels: issue.fields.labels ?? [],
@@ -107,6 +111,30 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       refreshToken: token.refresh_token ?? null,
       expiresAt: new Date(Date.now() + token.expires_in * 1000),
     };
+  }
+
+  // JQL string values: quotes and backslashes could end the string early.
+  const quote = (value: string) => value.replace(/["\\]/g, "");
+  async function search(
+    cloudId: string,
+    token: string,
+    jql: string,
+  ): Promise<TrackerTicket[]> {
+    const page = await json<{ issues: JiraIssue[] }>(
+      await fetcher(`${base(cloudId)}/search/jql`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({
+          jql,
+          maxResults: 100,
+          fields: ["summary", "description", "labels", "status", "updated"],
+        }),
+      }),
+      "Jira search",
+    );
+    return Promise.all(
+      page.issues.map((issue) => toTicket(issue, cloudId, token)),
+    );
   }
 
   return {
@@ -142,7 +170,9 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       });
     },
     async describe(tokens) {
-      const resources = await json<{ id: string; name: string; url: string }[]>(
+      const resources = await json<
+        { id: string; name: string; url: string; scopes?: string[] }[]
+      >(
         await fetcher(
           "https://api.atlassian.com/oauth/token/accessible-resources",
           {
@@ -151,11 +181,14 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         ),
         "Jira resources",
       );
-      return resources.map((resource) => ({
-        ...tokens,
-        externalId: resource.id,
-        name: resource.name,
-      }));
+      // Named by their address (acme.atlassian.net): what builders paste.
+      return resources
+        .filter((resource) => resource.scopes?.some((scope) => scope.includes("jira")) ?? true)
+        .map((resource) => ({
+          ...tokens,
+          externalId: resource.id,
+          name: new URL(resource.url).host,
+        }));
     },
     async listBoards({ externalId, accessToken }) {
       const page = await json<{ values: { key: string; name: string }[] }>(
@@ -169,32 +202,37 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         name: `${project.key} · ${project.name}`,
       }));
     },
-    async labeledTickets(
-      { externalId, accessToken },
-      _credentials,
-      boardId,
-      label,
-    ) {
-      const jql = `project = "${boardId.replace(/"/g, "")}" AND labels = "${label.replace(/"/g, "")}" AND statusCategory != Done ORDER BY updated DESC`;
-      const page = await json<{ issues: JiraIssue[] }>(
-        await fetcher(`${base(externalId)}/search/jql`, {
-          method: "POST",
+    labeledTickets({ externalId, accessToken }, _credentials, boardId, label) {
+      return search(
+        externalId,
+        accessToken,
+        `project = "${quote(boardId)}" AND labels = "${quote(label)}" AND statusCategory != Done ORDER BY updated DESC`,
+      );
+    },
+    openTickets({ externalId, accessToken }, _credentials, boardId) {
+      return search(
+        externalId,
+        accessToken,
+        `project = "${quote(boardId)}" AND statusCategory != Done ORDER BY updated DESC`,
+      );
+    },
+    async setLabel({ externalId, accessToken }, _credentials, key, label, on) {
+      const response = await fetcher(
+        `${base(externalId)}/issue/${encodeURIComponent(key)}`,
+        {
+          method: "PUT",
           headers: headers(accessToken),
           body: JSON.stringify({
-            jql,
-            maxResults: 100,
-            fields: ["summary", "description", "labels", "status"],
+            update: { labels: [on ? { add: label } : { remove: label }] },
           }),
-        }),
-        "Jira search",
+        },
       );
-      return Promise.all(
-        page.issues.map((issue) => toTicket(issue, externalId, accessToken)),
-      );
+      // 204 No Content on success.
+      if (!response.ok) await json(response, "Jira label");
     },
     async getTicket({ externalId, accessToken }, _credentials, key) {
       const response = await fetcher(
-        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status`,
+        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status,updated`,
         { headers: headers(accessToken) },
       );
       if (response.status === 404) return null;

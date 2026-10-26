@@ -1,4 +1,4 @@
-import type { OpenIssue } from "../../core/tickets";
+import { ticketIdentity, type OpenIssue } from "../../core/tickets";
 import { appEnv } from "../env.server";
 import { GitHubClient, installationToken } from "./app";
 
@@ -68,7 +68,7 @@ export async function openIssues(project: {
     return items
       .filter((item) => !item.pull_request)
       .map((item) => ({
-        number: item.number,
+        ...ticketIdentity("github", String(item.number)),
         title: item.title,
         url: item.html_url,
         updatedAt: new Date(item.updated_at).toISOString(),

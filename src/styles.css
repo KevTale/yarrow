@@ -3380,6 +3380,106 @@ a.bd-review-link:hover {
   text-underline-offset: 3px;
 }
 
+/* Jira: its blue diamond marks keys, linked projects and the setup card. */
+.bd-source {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 1.5px;
+  background: #4c9aff;
+  transform: rotate(45deg) translateY(-1px);
+  vertical-align: middle;
+}
+.bd-num.jira {
+  white-space: nowrap;
+}
+.bd-chip-board {
+  display: inline-flex;
+  align-items: center;
+}
+.bd-jira {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 14px 52px 14px 16px;
+  border: 1px solid #4c9aff40;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #4c9aff12, transparent 60%), var(--surface);
+}
+.bd-jira-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 2.5px;
+  background: #4c9aff;
+  transform: rotate(45deg);
+  flex: none;
+  margin-inline: 4px;
+}
+.bd-jira-what {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.bd-jira-what strong {
+  font:
+    600 15px var(--font-geist-mono),
+    monospace;
+}
+.bd-jira-what .mono {
+  font-size: 12px;
+}
+.bd-jira-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+.bd-jira-form select {
+  background: var(--elevated);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  max-width: 260px;
+}
+.bd-jira-repo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.bd-jira-form .bd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+}
+.bd-jira-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.bd-jira-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .bd-jira-form {
+    margin-left: 0;
+    width: 100%;
+  }
+  .bd-jira-repo,
+  .bd-jira-form select {
+    flex: 1;
+    max-width: none;
+  }
+}
+
 /* The logo tile is its own upload button. */
 .logo-picker {
   position: relative;

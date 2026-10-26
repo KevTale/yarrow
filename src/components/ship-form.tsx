@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   parseTicketLink,
   ticketSources,
+  type TicketLink,
   type TicketSource,
 } from "@/core/ticket-link";
 
@@ -15,31 +16,43 @@ const dots: Record<TicketSource["id"], string> = {
   azure: "#5d9cec",
 };
 
-/** Code lives on GitHub: every source starts with the GitHub connection. */
+/**
+ * Code lives on GitHub: every source starts with the GitHub connection.
+ * A Jira ticket then asks for Jira, on the dashboard.
+ */
 function connectUrl(
   source: TicketSource,
-  link: { repository?: string; issue?: number } | null,
+  link: Omit<TicketLink, "source"> | null,
 ): string {
   const params = new URLSearchParams();
   if (source.id !== "github") params.set("source", source.id);
   if (link?.repository) params.set("repository", link.repository);
   if (link?.issue) params.set("issue", String(link.issue));
+  if (link?.site) params.set("site", link.site);
+  if (link?.ticket) params.set("ticket", link.ticket);
   const query = params.toString();
   return `/connect/github${query ? `?${query}` : ""}`;
 }
 
-/** The next choosable source from `from`, walking `step` (±1); "soon" ones are skipped. */
-function nextSource(from: number, step: 1 | -1): number {
+/** The next choosable source from `from`, walking `step` (±1). */
+function nextSource(
+  from: number,
+  step: 1 | -1,
+  available: (source: TicketSource) => boolean,
+): number {
   const n = ticketSources.length;
   for (let i = 1; i <= n; i++) {
     const at = (from + step * i + n) % n;
-    if (!ticketSources[at]!.soon) return at;
+    if (available(ticketSources[at]!)) return at;
   }
   return from;
 }
 
 /** The hero form: paste a ticket link, or connect the whole backlog. */
-export function ShipForm() {
+export function ShipForm({ jira = false }: { jira?: boolean }) {
+  // Jira opens once its OAuth app is configured on this deployment.
+  const available = (item: TicketSource) =>
+    !item.soon && (item.id !== "jira" || jira);
   const [source, setSource] = useState<TicketSource>(ticketSources[0]!);
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
@@ -58,7 +71,7 @@ export function ShipForm() {
   }, [open]);
 
   function choose(next: TicketSource) {
-    if (next.soon) return;
+    if (!available(next)) return;
     setSource(next);
     setOpen(false);
     setHint(null);
@@ -68,7 +81,7 @@ export function ShipForm() {
     setHint(null);
     if (!value.trim()) return document.getElementById("ship-url")?.focus();
     const link = parseTicketLink(value);
-    if (link?.source.soon)
+    if (link && !available(link.source))
       return setHint(`${link.source.name} is coming soon.`);
     if (!link || link.source.id !== source.id)
       return setHint(`This doesn't look like a ${source.name} link.`);
@@ -100,10 +113,10 @@ export function ShipForm() {
                 setOpen(true);
               } else if (open && event.key === "ArrowDown") {
                 event.preventDefault();
-                setFocus(nextSource(focus, 1));
+                setFocus(nextSource(focus, 1, available));
               } else if (open && event.key === "ArrowUp") {
                 event.preventDefault();
-                setFocus(nextSource(focus, -1));
+                setFocus(nextSource(focus, -1, available));
               } else if (open && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 choose(ticketSources[focus]!);
@@ -124,7 +137,7 @@ export function ShipForm() {
                   key={item.id}
                   role="option"
                   aria-selected={item.id === source.id}
-                  aria-disabled={item.soon}
+                  aria-disabled={!available(item)}
                   className={i === focus ? "focus" : undefined}
                   onMouseDown={(event) => {
                     event.preventDefault();
@@ -136,7 +149,7 @@ export function ShipForm() {
                     style={{ background: dots[item.id] }}
                   />
                   {item.name}
-                  {item.soon && <em>soon</em>}
+                  {!available(item) && <em>soon</em>}
                   {item.id === source.id && (
                     <Check size={13} className="ship-check" />
                   )}
@@ -154,7 +167,7 @@ export function ShipForm() {
           onChange={(event) => {
             setValue(event.target.value);
             const link = parseTicketLink(event.target.value);
-            if (link && !link.source.soon) setSource(link.source);
+            if (link && available(link.source)) setSource(link.source);
           }}
         />
         <button className="go" type="submit" aria-busy={busy}>

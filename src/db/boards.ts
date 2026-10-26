@@ -1,7 +1,13 @@
 import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
 import type { RunSponsor } from "../core/attribution";
-import { phaseStatus, runModelsView, type TicketModel } from "../core/tickets";
+import {
+  bareTitle,
+  phaseStatus,
+  runModelsView,
+  ticketIdentity,
+  type TicketModel,
+} from "../core/tickets";
 import { projectLogo } from "../core/logos";
 import { runSponsors } from "./queries";
 import {
@@ -269,8 +275,8 @@ export interface LiveRow {
   logoUrl: string | null;
   /** owner/name on public projects only. */
   repository: string | null;
-  /** The GitHub issue (public projects only). */
-  issueNumber: number | null;
+  /** "#42" or "APP-42" (public projects only). */
+  issueRef: string | null;
   issueUrl: string | null;
   /** The pull request, once opened (public projects only). */
   prNumber: number | null;
@@ -301,6 +307,7 @@ export async function liveToday(
       createdAt: agentRuns.createdAt,
       title: workUnits.title,
       issue: workUnits.externalId,
+      source: workUnits.source,
       issueUrl: workUnits.url,
       project: projects.name,
       projectLogo: projects.logoUrl,
@@ -323,6 +330,7 @@ export async function liveToday(
       closedAt: pullRequests.closedAt,
       title: workUnits.title,
       issue: workUnits.externalId,
+      source: workUnits.source,
       issueUrl: workUnits.url,
       project: projects.name,
       projectLogo: projects.logoUrl,
@@ -354,14 +362,16 @@ export async function liveToday(
       return {
         key: run.runId,
         status,
-        title: open(run.visibility) ? run.title : null,
+        title: open(run.visibility) ? bareTitle(run.title, run.issue) : null,
         project: run.project,
         logoUrl: projectLogo(
           run.projectLogo,
           open(run.visibility) ? run.repository : null,
         ),
         repository: open(run.visibility) ? run.repository : null,
-        issueNumber: open(run.visibility) ? Number(run.issue) || null : null,
+        issueRef: open(run.visibility)
+          ? ticketIdentity(run.source, run.issue).ref
+          : null,
         issueUrl: open(run.visibility) ? run.issueUrl : null,
         prNumber: null,
         prUrl: null,
@@ -395,14 +405,14 @@ export async function liveToday(
       return {
         key: pull.url,
         status,
-        title: isPublic ? pull.title : null,
+        title: isPublic ? bareTitle(pull.title, pull.issue) : null,
         project: pull.project,
         logoUrl: projectLogo(
           pull.projectLogo,
           isPublic ? pull.repository : null,
         ),
         repository: isPublic ? pull.repository : null,
-        issueNumber: isPublic ? Number(pull.issue) || null : null,
+        issueRef: isPublic ? ticketIdentity(pull.source, pull.issue).ref : null,
         issueUrl: isPublic ? pull.issueUrl : null,
         prNumber: isPublic ? pull.number : null,
         prUrl: isPublic ? pull.url : null,

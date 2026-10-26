@@ -5,6 +5,7 @@ import {
   formatSeconds,
   formatTokens,
   mergeTickets,
+  ticketIdentity,
   type TicketRow,
 } from "../../src/core/tickets";
 import { ensureAccount } from "../../src/db/accounts";
@@ -158,11 +159,11 @@ describe("the builder's ticket table", () => {
       reason: "ticket_unclear",
     });
 
-    expect(await retryTicket(db, projectId, 5)).toBe(true);
+    expect(await retryTicket(db, projectId, "5")).toBe(true);
     expect(byNumber(await projectTickets(db, projectId), 5).status).toBe(
       "queued",
     );
-    expect(await retryTicket(db, projectId, 1)).toBe(false);
+    expect(await retryTicket(db, projectId, "1")).toBe(false);
   });
 
   it("lists the pull requests waiting for review across projects", async () => {
@@ -260,7 +261,7 @@ describe("the builder's ticket table", () => {
 describe("merging GitHub's open issues", () => {
   it("adds untouched issues and keeps GitHub's title", () => {
     const yarrow: TicketRow = {
-      number: 3,
+      ...ticketIdentity("github", "3"),
       title: "Old title",
       url: "",
       status: "queued",
@@ -274,13 +275,13 @@ describe("merging GitHub's open issues", () => {
       [yarrow],
       [
         {
-          number: 3,
+          ...ticketIdentity("github", "3"),
           title: "New title",
           url: "https://github.com/o/r/issues/3",
           updatedAt: "2026-10-07T09:00:00.000Z",
         },
         {
-          number: 9,
+          ...ticketIdentity("github", "9"),
           title: "Untouched",
           url: "https://github.com/o/r/issues/9",
           updatedAt: "2026-10-07T11:00:00.000Z",
@@ -295,22 +296,29 @@ describe("merging GitHub's open issues", () => {
     expect(yarrow.title).toBe("Old title");
   });
 
-  it("orders tickets by number, whatever GitHub last touched", () => {
-    const issue = (number: number, updatedAt: string) => ({
-      number,
-      title: `#${number}`,
-      url: "",
-      updatedAt,
-    });
+  it("orders tickets by number, GitHub first, whatever was last touched", () => {
+    const issue = (
+      source: "github" | "jira",
+      key: string,
+      updatedAt: string,
+    ) => ({ ...ticketIdentity(source, key), title: key, url: "", updatedAt });
     const rows = mergeTickets(
       [],
       [
-        issue(4, "2026-10-07T09:00:00.000Z"),
-        issue(12, "2026-10-07T08:00:00.000Z"),
-        issue(7, "2026-10-07T11:00:00.000Z"),
+        issue("jira", "APP-3", "2026-10-07T12:00:00.000Z"),
+        issue("github", "4", "2026-10-07T09:00:00.000Z"),
+        issue("jira", "APP-10", "2026-10-07T07:00:00.000Z"),
+        issue("github", "12", "2026-10-07T08:00:00.000Z"),
+        issue("github", "7", "2026-10-07T11:00:00.000Z"),
       ],
     );
-    expect(rows.map((row) => row.number)).toEqual([12, 7, 4]);
+    expect(rows.map((row) => row.ref)).toEqual([
+      "#12",
+      "#7",
+      "#4",
+      "APP-10",
+      "APP-3",
+    ]);
   });
 
   it("formats time and tokens", () => {
