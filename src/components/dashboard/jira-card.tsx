@@ -46,10 +46,12 @@ export function JiraCard({
     if (step.ticket || !connectionId) return;
     let stopped = false;
     listProjects({ data: { connectionId } })
-      .then((list) => {
+      .then(({ projects, revoked }) => {
         if (stopped) return;
-        setJiraProjects(list);
-        setJiraKey((current) => current || list[0]?.id || "");
+        if (revoked)
+          return setError("Jira access was removed. Connect Jira again.");
+        setJiraProjects(projects);
+        setJiraKey((current) => current || projects[0]?.id || "");
       })
       .catch(() => !stopped && setError("Jira did not answer. Try again."));
     return () => {

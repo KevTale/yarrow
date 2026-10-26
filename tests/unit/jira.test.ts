@@ -12,9 +12,11 @@ import { encryptToken } from "../../src/server/trackers/crypto";
 import { syncTrackers } from "../../src/server/trackers/index";
 import { jiraAdapter } from "../../src/server/trackers/jira";
 import {
+  JiraAccessError,
+  jiraProjects,
   labelTrackerTickets,
   openTrackerTickets,
-  setJiraProject,
+  setJiraProjects,
   settleJira,
   type TrackerContext,
 } from "../../src/server/trackers/jira-flow";
@@ -232,19 +234,25 @@ describe("Jira for builders", async () => {
       .select({ id: schema.trackerConnections.id })
       .from(schema.trackerConnections);
     const connectionId = connection!.id;
-    await setJiraProject(db, ctx, marie.userId, {
+    await setJiraProjects(db, ctx, marie.userId, {
       projectId,
       connectionId,
-      jiraKey: null,
+      jiraKeys: [],
     });
     expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
     expect(await openTrackerTickets(db, ctx, projectId)).toBeNull();
-    await setJiraProject(db, ctx, marie.userId, {
+    await setJiraProjects(db, ctx, marie.userId, {
       projectId,
       connectionId,
-      jiraKey: "APP",
+      jiraKeys: ["APP"],
     });
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
+    // Access removed in Atlassian: told apart from Jira being down.
+    const refusing = (async () =>
+      new Response("{}", { status: 401 })) as typeof fetch;
+    await expect(
+      jiraProjects(db, { ...ctx, fetcher: refusing }, marie.userId, connectionId),
+    ).rejects.toBeInstanceOf(JiraAccessError);
   });
 
   it("names sites by their address and changes labels in one request", async () => {

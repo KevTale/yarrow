@@ -772,7 +772,11 @@ function ReviewList({
 function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>
-      {row.source === "jira" && <JiraIcon size={12} />}
+      {row.source === "jira" && (
+        <span className="bd-source" data-tip="Jira">
+          <JiraIcon size={12} />
+        </span>
+      )}
       {row.ref}
     </span>
   );

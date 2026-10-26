@@ -1,7 +1,13 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Check, ExternalLink, Github } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  Github,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { capitalize, NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
@@ -9,7 +15,7 @@ import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
 import {
   listJiraProjectsFn,
-  setJiraProjectFn,
+  setJiraProjectsFn,
 } from "@/functions/connect.functions";
 import {
   getProjectFn,
@@ -37,7 +43,8 @@ const visibilities: { value: Visibility; title: string; detail: string }[] = [
   {
     value: "public",
     title: "Public",
-    detail: "The repository, its tickets and pull requests, on the public boards.",
+    detail:
+      "The repository, its tickets and pull requests, on the public boards.",
   },
   {
     value: "listed",
@@ -98,10 +105,7 @@ function ProjectSettings({ data }: { data: Loaded }) {
         </p>
       )}
       <Connections data={data} />
-      <VisibilityChoice
-        projectId={project.id}
-        initial={project.visibility}
-      />
+      <VisibilityChoice projectId={project.id} initial={project.visibility} />
     </main>
   );
 }
@@ -144,43 +148,57 @@ function Connections({ data }: { data: Loaded }) {
 function JiraConnection({ data }: { data: Loaded }) {
   const router = useRouter();
   const listProjects = useServerFn(listJiraProjectsFn);
-  const setJiraProject = useServerFn(setJiraProjectFn);
+  const saveProjects = useServerFn(setJiraProjectsFn);
   const { project } = data;
-  const board = data.boards.find((item) => item.tracker === "jira");
+  const boards = data.boards.filter((item) => item.tracker === "jira");
   const connection =
-    data.connections.find((item) => item.id === board?.connectionId) ??
+    data.connections.find((item) => item.id === boards[0]?.connectionId) ??
     data.connections.find((item) => item.tracker === "jira");
-  const [jiraProjects, setJiraProjects] = useState<
-    { id: string; name: string }[] | null
-  >(null);
+  const connectionId = connection?.id;
+  const [options, setOptions] = useState<{ id: string; name: string }[] | null>(
+    null,
+  );
+  const [revoked, setRevoked] = useState(false);
+  // Atlassian did not answer: the linked projects stay listed.
+  const [failed, setFailed] = useState(false);
+  const [selected, setSelected] = useState(boards.map((board) => board.key));
   const [state, setState] = useState<SaveState>("idle");
   useSavedFades(state, setState);
 
   useEffect(() => {
-    if (!connection) return;
+    if (!connectionId) return;
     let stopped = false;
-    listProjects({ data: { connectionId: connection.id } })
-      .then((list) => !stopped && setJiraProjects(list))
-      .catch(() => !stopped && setState("error"));
+    listProjects({ data: { connectionId } })
+      .then((result) => {
+        if (stopped) return;
+        setRevoked(result.revoked);
+        setOptions(result.projects);
+      })
+      .catch(() => !stopped && setFailed(true));
     return () => {
       stopped = true;
     };
-  }, [connection, listProjects]);
+  }, [connectionId, listProjects]);
 
-  async function choose(jiraKey: string | null) {
-    if (!connection) return;
+  async function change(jiraKeys: string[]) {
+    if (!connectionId) return;
+    const before = selected;
+    setSelected(jiraKeys);
     setState("saving");
     try {
-      await setJiraProject({
-        data: { projectId: project.id, connectionId: connection.id, jiraKey },
+      await saveProjects({
+        data: { projectId: project.id, connectionId, jiraKeys },
       });
       await router.invalidate();
       setState("saved");
     } catch {
+      setSelected(before);
       setState("error");
     }
   }
 
+  const connected = Boolean(connection) && !revoked;
+  const connect = `/integrations/jira/connect?projectId=${project.id}`;
   return (
     <div className="st-card">
       <span className="st-icon" aria-hidden="true">
@@ -190,35 +208,33 @@ function JiraConnection({ data }: { data: Loaded }) {
         <strong>
           Jira <SavedState state={state} />
         </strong>
-        {connection ? (
+        {connected ? (
           <span className="st-jira">
-            <select
-              aria-label="Jira project"
-              value={board?.key ?? ""}
-              disabled={!jiraProjects || state === "saving"}
-              onChange={(event) => void choose(event.target.value || null)}
-            >
-              <option value="">
-                {jiraProjects ? "No Jira project" : "Loading…"}
-              </option>
-              {(jiraProjects ?? (board ? [{ id: board.key, name: board.name }] : [])).map(
-                (item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ),
-              )}
-            </select>
-            <span className="mono muted">{connection.name}</span>
+            <span className="mono muted">{connection!.name}</span>
+            <JiraProjectPicker
+              options={
+                options ??
+                boards.map((board) => ({ id: board.key, name: board.name }))
+              }
+              loading={options === null && !failed}
+              selected={selected}
+              onChange={(keys) => void change(keys)}
+            />
+          </span>
+        ) : revoked ? (
+          <span className="muted">
+            Access removed in Atlassian · {connection!.name}
           </span>
         ) : (
-          <span className="muted">Tickets from a Jira project</span>
+          <span className="muted">Tickets from Jira projects</span>
         )}
       </span>
-      <span className={`st-state ${connection ? "on" : "off"}`}>
-        {connection ? "Connected" : "Not connected"}
+      <span
+        className={`st-state ${connected ? "on" : revoked ? "warn" : "off"}`}
+      >
+        {connected ? "Connected" : revoked ? "Disconnected" : "Not connected"}
       </span>
-      {connection ? (
+      {connected ? (
         // Atlassian lists the apps each person allowed, and revokes them.
         <a
           className="bd-btn bd-btn-line"
@@ -229,12 +245,104 @@ function JiraConnection({ data }: { data: Loaded }) {
           Manage <ExternalLink size={13} />
         </a>
       ) : (
-        <a
-          className="bd-btn bd-btn-amber"
-          href={`/integrations/jira/connect?projectId=${project.id}`}
-        >
-          Connect
+        <a className="bd-btn bd-btn-amber" href={connect}>
+          {revoked ? "Reconnect" : "Connect"}
         </a>
+      )}
+    </div>
+  );
+}
+
+/** Jira projects, ticked in a menu; each tick saves. */
+function JiraProjectPicker({
+  options,
+  loading,
+  selected,
+  onChange,
+}: {
+  options: { id: string; name: string }[];
+  loading: boolean;
+  selected: string[];
+  onChange: (keys: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (
+        event instanceof KeyboardEvent
+          ? event.key === "Escape"
+          : !root.current?.contains(event.target as Node)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  // "KAN · Démo" → key KAN, name Démo.
+  const label = (option: { id: string; name: string }) =>
+    option.name.startsWith(`${option.id} · `)
+      ? option.name.slice(option.id.length + 3)
+      : option.name;
+  const chosen = options.filter((option) => selected.includes(option.id));
+  return (
+    <div className="jp" ref={root}>
+      <button
+        type="button"
+        className="jp-button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {chosen.length === 0 ? (
+          <span className="muted">Choose Jira projects</span>
+        ) : (
+          chosen.map((option) => (
+            <span className="jp-tag" key={option.id}>
+              <b>{option.id}</b> {label(option)}
+            </span>
+          ))
+        )}
+        <ChevronDown size={14} className="jp-chevron" />
+      </button>
+      {open && (
+        <div className="jp-menu" role="listbox" aria-multiselectable="true">
+          {loading && <span className="jp-empty muted">Loading…</span>}
+          {!loading && options.length === 0 && (
+            <span className="jp-empty muted">No Jira project on this site</span>
+          )}
+          {!loading &&
+            options.map((option) => {
+              const on = selected.includes(option.id);
+              return (
+                <label
+                  className="jp-option"
+                  key={option.id}
+                  role="option"
+                  aria-selected={on}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      onChange(
+                        on
+                          ? selected.filter((key) => key !== option.id)
+                          : [...selected, option.id],
+                      )
+                    }
+                  />
+                  <b className="mono">{option.id}</b>
+                  <span>{label(option)}</span>
+                </label>
+              );
+            })}
+        </div>
       )}
     </div>
   );

@@ -173,30 +173,44 @@ export async function linkJiraProject(
 }
 
 /**
- * The settings page's Jira project: another one replaces the current link,
- * null removes it (queued tickets of the old one leave the queue).
+ * The settings page's Jira projects: the repository takes the tickets of
+ * exactly these (none at all with an empty list). Queued tickets of a
+ * project taken off leave the queue.
  */
-export async function setJiraProject(
+export async function setJiraProjects(
   db: Database,
   ctx: TrackerContext,
   userId: string,
-  input: { projectId: string; connectionId: string; jiraKey: string | null },
+  input: { projectId: string; connectionId: string; jiraKeys: string[] },
 ): Promise<void> {
   const project = await requireProjectMember(db, userId, input.projectId);
-  for (const { board, connection } of await boardsForProject(db, project.id))
+  const kept = new Set<string>();
+  for (const { board, connection } of await boardsForProject(db, project.id)) {
+    if (connection.tracker !== "jira") continue;
     if (
-      connection.tracker === "jira" &&
-      (connection.id !== input.connectionId ||
-        board.externalBoardId !== input.jiraKey)
+      connection.id === input.connectionId &&
+      input.jiraKeys.includes(board.externalBoardId)
     )
-      await removeBoard(db, project.id, board.id);
-  if (input.jiraKey)
-    await linkJiraProject(db, ctx, userId, {
-      projectId: project.id,
-      connectionId: input.connectionId,
-      jiraKey: input.jiraKey,
-    });
+      kept.add(board.externalBoardId);
+    else await removeBoard(db, project.id, board.id);
+  }
+  for (const jiraKey of input.jiraKeys)
+    if (!kept.has(jiraKey))
+      await linkJiraProject(db, ctx, userId, {
+        projectId: project.id,
+        connectionId: input.connectionId,
+        jiraKey,
+      });
 }
+
+/** Atlassian refused the token: the person removed Yarrow's access. */
+export class JiraAccessError extends Error {
+  constructor() {
+    super("Jira access was removed in Atlassian");
+  }
+}
+const refused = (error: unknown) =>
+  error instanceof Error && /\((401|403)\)/.test(error.message);
 
 /** The Jira projects a connection reaches, for the dashboard's link card. */
 export async function jiraProjects(
@@ -210,8 +224,12 @@ export async function jiraProjects(
     (row) => row.id === connectionId,
   );
   if (!connection || !reachable) throw new Error("Connection not found");
-  const tracker = await api(db, ctx, connection);
-  return tracker.adapter.listBoards(tracker.scope, tracker.credentials);
+  try {
+    const tracker = await api(db, ctx, connection);
+    return await tracker.adapter.listBoards(tracker.scope, tracker.credentials);
+  } catch (error) {
+    throw refused(error) ? new JiraAccessError() : error;
+  }
 }
 
 /** What the dashboard shows until a Jira ticket or site is set up. */

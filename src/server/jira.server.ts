@@ -7,7 +7,8 @@ export {
   labelTrackerTickets,
   linkJiraProject,
   openTrackerTickets,
-  setJiraProject,
+  JiraAccessError,
+  setJiraProjects,
   settleJira,
   type JiraStep,
 } from "./trackers/jira-flow";

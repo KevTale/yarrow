@@ -10,7 +10,8 @@ import {
   jiraProjects,
   jiraReady,
   linkJiraProject,
-  setJiraProject,
+  JiraAccessError,
+  setJiraProjects,
   settleJira,
   trackerContext,
   type JiraStep,
@@ -62,14 +63,24 @@ export const settleConnectFn = createServerFn({ method: "POST" })
     return { ...none, queued: { projectId, key: String(issue) } };
   });
 
-/** The Jira projects of a connected site, for the dashboard's link card. */
+/**
+ * The Jira projects of a connected site. `revoked` when Atlassian refuses
+ * the token: the person removed Yarrow's access there.
+ */
 export const listJiraProjectsFn = createServerFn({ method: "GET" })
   .validator(z.object({ connectionId: z.uuid() }))
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
-    return withDb((db) =>
-      jiraProjects(db, trackerContext(), viewer.userId, data.connectionId),
-    );
+    try {
+      const projects = await withDb((db) =>
+        jiraProjects(db, trackerContext(), viewer.userId, data.connectionId),
+      );
+      return { projects, revoked: false };
+    } catch (error) {
+      if (error instanceof JiraAccessError)
+        return { projects: [] as { id: string; name: string }[], revoked: true };
+      throw error;
+    }
   });
 
 /** Links a Jira project to a repository; the pasted ticket is queued. */
@@ -91,22 +102,19 @@ export const linkJiraFn = createServerFn({ method: "POST" })
     return linked;
   });
 
-/** The settings page's Jira project, saved as soon as it is chosen. */
-export const setJiraProjectFn = createServerFn({ method: "POST" })
+/** The settings page's Jira projects, saved at each tick. */
+export const setJiraProjectsFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       projectId: z.uuid(),
       connectionId: z.uuid(),
-      jiraKey: z
-        .string()
-        .regex(/^[A-Z][A-Z0-9_]{0,9}$/)
-        .nullable(),
+      jiraKeys: z.array(z.string().regex(/^[A-Z][A-Z0-9_]{0,9}$/)).max(50),
     }),
   )
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     await withDb((db) =>
-      setJiraProject(db, trackerContext(), viewer.userId, data),
+      setJiraProjects(db, trackerContext(), viewer.userId, data),
     );
     return { saved: true };
   });
