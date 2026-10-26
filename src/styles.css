@@ -6296,7 +6296,7 @@ a.tk:hover {
   margin-right: 3px;
   font-variant-numeric: tabular-nums;
 }
-@media (max-width: 960px) {
+@media (max-width: 1040px) {
   .landing-hero {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
@@ -6577,8 +6577,17 @@ a.tk:hover {
     padding: 14px;
   }
   .sb-card .board-row > :last-child {
-    grid-column: 2 / -1;
+    grid-column: 3 / -1;
     justify-items: start;
+    padding-top: 0;
+  }
+  .sb-card .board-row.large .board-logo {
+    align-self: start;
+    width: 40px;
+    height: 40px;
+  }
+  .sb-card .board-spent {
+    justify-content: flex-start;
   }
   .sb-ghost-take {
     justify-content: space-between;
