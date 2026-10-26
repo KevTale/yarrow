@@ -6645,8 +6645,7 @@ a.sb-row-link:hover .sb-site {
   min-height: 0;
   overflow: hidden;
 }
-/* Claim, then under it in small what the amount buys, then the terms:
-   everything held to the right. */
+/* Under the row once used: Claim, held to the right */
 .sb-pay-body {
   display: grid;
   justify-items: end;
@@ -6660,27 +6659,141 @@ a.sb-row-link:hover .sb-site {
   align-items: center;
   gap: 8px;
 }
-.sb-fees {
-  margin-top: -2px;
+.sb-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--red);
+}
+
+/* The payment, over the page */
+body:has(.sb-dialog[open]) {
+  overflow: hidden;
+}
+.sb-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 30px 80px #000000a6;
+  overflow: auto;
+}
+.sb-dialog[open] {
+  animation: sb-dialog-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sb-dialog::backdrop {
+  background: #0c0d0fb8;
+  backdrop-filter: blur(3px);
+}
+@keyframes sb-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+.sb-dialog-body {
+  display: grid;
+  gap: 18px;
+  padding: 20px 22px 18px;
+}
+.sb-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sb-dialog-head h2 {
   font:
-    11.5px var(--font-geist-mono),
-    monospace;
+    500 18px var(--font-display),
+    sans-serif;
+  letter-spacing: -0.01em;
+}
+.sb-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
   color: var(--muted);
+  cursor: pointer;
+}
+.sb-dialog-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.sb-dialog-card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.sb-dialog-card-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: 15px;
+}
+.sb-dialog-card-body b {
+  font-weight: 600;
+}
+.sb-dialog-lines {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
+}
+.sb-dialog-lines > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sb-dialog-lines dt {
+  color: var(--secondary);
+}
+.sb-dialog-lines dd {
+  margin: 0;
+}
+.sb-dialog-lines .sb-amount-field {
+  font:
+    500 20px var(--font-display),
+    sans-serif;
+}
+.sb-dialog-lines .total {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+}
+.sb-dialog-lines .total dt {
+  color: var(--text);
+}
+.sb-dialog-checks {
+  display: grid;
+  gap: 10px;
 }
 .sb-check {
   display: inline-flex;
   align-items: flex-start;
-  gap: 8px;
-  font-size: 12.5px;
+  gap: 9px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--secondary);
-  text-align: left;
   cursor: pointer;
 }
 .sb-check input {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   margin: 2px 0 0;
   flex: none;
   accent-color: var(--amber);
@@ -6693,15 +6806,27 @@ a.sb-row-link:hover .sb-site {
 .sb-terms:hover {
   color: var(--amber);
 }
-.sb-error {
-  margin: 0;
-  font-size: 13px;
-  color: var(--red);
+.sb-dialog-pay {
+  justify-content: center;
+  width: 100%;
+  height: 46px;
+  font-size: 15px;
+}
+.sb-dialog-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
 }
 @media (prefers-reduced-motion: reduce) {
   .sb-pay-wrap,
   .sb-row.you.form {
     transition: none;
+  }
+  .sb-dialog[open] {
+    animation: none;
   }
 }
 

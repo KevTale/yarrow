@@ -1,6 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LockKeyhole, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { estimateBreakdown } from "@/core/pricing";
@@ -183,8 +183,9 @@ type Saver = ReturnType<typeof useSaver>;
  * Today and all time side by side, every row three lines (name and amount,
  * description, website and stats), the viewer's own row in both as a form
  * of the same size: typed in place, the other board following.
- * A sponsor's row shows as everyone sees it until they edit it. Once the
- * row is used, the payment opens under it.
+ * A sponsor's row shows as everyone sees it until they edit it. Claim
+ * opens the payment over the page once the card has a name; before, it
+ * moves into the row.
  */
 export function SponsorBoard({
   today,
@@ -211,26 +212,40 @@ export function SponsorBoard({
   const claim = useClaim(today, all, you, editing);
   const saver = useSaver(claim);
   const form = editing || !claim.sponsoring;
+  const [paying, setPaying] = useState(false);
   const open = (period: Period) => {
     setEditing(true);
     setEngaged(period);
     setFocus((current) => ({ period, tick: current.tick + 1 }));
+  };
+  // A card that can be paid opens the payment; otherwise, into the row,
+  // saying what is missing once the row was used.
+  const claimFrom = (period: Period) => {
+    const result = claim.profileOf(claim.card);
+    if (claim.valid && result.profile) {
+      saver.setError("");
+      setEditing(true);
+      return setPaying(true);
+    }
+    if (engaged !== null)
+      saver.setError(
+        result.error ?? "Choose a whole-dollar amount from $10 to $1,000.",
+      );
+    open(period);
   };
 
   return (
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-head">
         <h2 id="sponsors-title">Sponsors</h2>
-        {engaged === null && (
-          <button
-            type="button"
-            className="sb-claim-go"
-            onClick={() => open("today")}
-          >
-            {claim.label}
-            <ArrowRight size={14} strokeWidth={2.4} />
-          </button>
-        )}
+        <button
+          type="button"
+          className="sb-claim-go"
+          onClick={() => claimFrom(engaged ?? "today")}
+        >
+          {claim.label}
+          <ArrowRight size={14} strokeWidth={2.4} />
+        </button>
       </div>
       <div className="sb-boards">
         {claim.boards.map((board) => (
@@ -243,10 +258,16 @@ export function SponsorBoard({
             engaged={engaged === board.period}
             onEngage={() => setEngaged(board.period)}
             onOpen={() => open(board.period)}
+            onClaim={() => claimFrom(board.period)}
             focus={focus.period === board.period ? focus.tick : 0}
           />
         ))}
       </div>
+      <ClaimDialog
+        claim={claim}
+        open={paying}
+        onClose={() => setPaying(false)}
+      />
     </section>
   );
 }
@@ -337,6 +358,7 @@ function Column({
   engaged,
   onEngage,
   onOpen,
+  onClaim,
   focus,
 }: {
   board: Board;
@@ -348,6 +370,7 @@ function Column({
   engaged: boolean;
   onEngage: () => void;
   onOpen: () => void;
+  onClaim: () => void;
   /** Changes when the focus should move into this row. */
   focus: number;
 }) {
@@ -388,7 +411,12 @@ function Column({
             stats={stats}
             focus={focus}
           />
-          <PayBand claim={claim} saver={saver} open={engaged} />
+          <PayBand
+            saver={saver}
+            open={engaged}
+            label={claim.label}
+            onClaim={onClaim}
+          />
         </>
       ) : (
         <button type="button" className="sb-row-button" onClick={onOpen}>
@@ -606,24 +634,68 @@ function FormRow({
   );
 }
 
-/**
- * Under the row, opening as it is used: what the amount buys, Claim, which
- * opens Stripe Checkout, and the waiver under it.
- */
+/** Under the row, opening as it is used: Claim, which opens the payment. */
 function PayBand({
-  claim,
   saver,
   open,
+  label,
+  onClaim,
 }: {
-  claim: Claim;
   saver: Saver;
   open: boolean;
+  label: string;
+  onClaim: () => void;
 }) {
+  return (
+    <div className="sb-pay-wrap" inert={!open}>
+      <div className="sb-pay">
+        <div className="sb-pay-body">
+          <span className="sb-claim-actions">
+            <SavedState state={saver.state} />
+            <button type="button" className="sb-claim-go" onClick={onClaim}>
+              {label}
+              <ArrowRight size={14} strokeWidth={2.4} />
+            </button>
+          </span>
+          {saver.error && (
+            <p className="sb-error" role="alert">
+              {saver.error}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The payment, over the page: the card as it will show, the amount, the
+ * fees and the compute it buys, the two boxes the law and the Terms ask
+ * for, and Pay, which opens Stripe Checkout (where the card, the billing
+ * address and the VAT are taken).
+ */
+function ClaimDialog({
+  claim,
+  open,
+  onClose,
+}: {
+  claim: Claim;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
   const checkout = useServerFn(startCheckoutFn);
+  const [terms, setTerms] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
-  const { card, valid, cents, label, fees } = claim;
-  const { error, setError } = saver;
+  const [error, setError] = useState("");
+  const { card, valid, cents, fees } = claim;
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
   // Back from Stripe: the browser may restore the page as it was left.
   useEffect(() => {
     const reset = () => setPending(false);
@@ -637,7 +709,7 @@ function PayBand({
       return setError("Choose a whole-dollar amount from $10 to $1,000.");
     const result = claim.profileOf(card);
     if (!result.profile) return setError(result.error);
-    if (!waiver) return setError("Agree to the Terms of Service to continue.");
+    if (!terms || !waiver) return setError("Tick both boxes to continue.");
     setPending(true);
     try {
       const { url } = await checkout({
@@ -654,37 +726,80 @@ function PayBand({
     }
   }
 
+  const name = card.name.trim() || null;
+  const site = host(websiteAddress(card.website) || null);
+  const ready = valid && terms && waiver && !pending;
   return (
-    <div className="sb-pay-wrap" inert={!open}>
-      <div className="sb-pay">
-        <div className="sb-pay-body">
-          <span className="sb-claim-actions">
-            <SavedState state={saver.state} />
-            <button
-              type="button"
-              className="sb-claim-go"
-              onClick={() => void pay()}
-              aria-disabled={!valid || pending}
-            >
-              {label}
-              {pending ? (
-                <Spinner />
-              ) : (
-                <ArrowRight size={14} strokeWidth={2.4} />
-              )}
-            </button>
+    <dialog
+      ref={ref}
+      className="sb-dialog"
+      aria-labelledby="sb-dialog-title"
+      onClose={onClose}
+      onClick={(event) => {
+        // A click on the backdrop closes it.
+        if (event.target === event.currentTarget) event.currentTarget.close();
+      }}
+    >
+      <div className="sb-dialog-body">
+        <div className="sb-dialog-head">
+          <h2 id="sb-dialog-title">{claim.label}</h2>
+          <button
+            type="button"
+            className="sb-dialog-close"
+            aria-label="Close"
+            onClick={() => ref.current?.close()}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="sb-dialog-card">
+          <Logo name={name} url={name ? card.logo : null} size="large" />
+          <span className="sb-dialog-card-body">
+            <SponsorName name={name} />
+            {card.description.trim() && (
+              <span className="sb-description">{card.description.trim()}</span>
+            )}
+            {site && <span className="sb-site">{site}</span>}
           </span>
-          {fees && (
-            <small className="sb-fees">
-              ≈ {money(fees.creditCents)} of compute (
-              {money(fees.feeCents + fees.marginCents)} fees)
-            </small>
-          )}
+        </div>
+        <dl className="sb-dialog-lines">
+          <div>
+            <dt>Amount</dt>
+            <dd>
+              <label className="sb-amount-field">
+                $
+                <input
+                  value={claim.dollars}
+                  size={Math.max(claim.dollars.length, 2)}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-label="Amount in dollars"
+                  onChange={(event) =>
+                    claim.setDollars(
+                      event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                    )
+                  }
+                />
+              </label>
+            </dd>
+          </div>
+          <div>
+            <dt>Fees</dt>
+            <dd>
+              {fees ? `≈ ${money(fees.feeCents + fees.marginCents)}` : "–"}
+            </dd>
+          </div>
+          <div className="total">
+            <dt>Compute</dt>
+            <dd>{fees ? `≈ ${money(fees.creditCents)}` : "–"}</dd>
+          </div>
+        </dl>
+        <div className="sb-dialog-checks">
           <label className="sb-check">
             <input
               type="checkbox"
-              checked={waiver}
-              onChange={(event) => setWaiver(event.target.checked)}
+              checked={terms}
+              onChange={(event) => setTerms(event.target.checked)}
             />
             <span>
               I have read and agree to the{" "}
@@ -694,13 +809,36 @@ function PayBand({
               of yarrow.run
             </span>
           </label>
-          {error && (
-            <p className="sb-error" role="alert">
-              {error}
-            </p>
-          )}
+          <label className="sb-check">
+            <input
+              type="checkbox"
+              checked={waiver}
+              onChange={(event) => setWaiver(event.target.checked)}
+            />
+            <span>
+              Compute starts right away: I give up my 14-day withdrawal right
+            </span>
+          </label>
         </div>
+        <button
+          type="button"
+          className="sb-claim-go sb-dialog-pay"
+          onClick={() => void pay()}
+          aria-disabled={!ready}
+        >
+          {valid ? `Pay ${money(cents, false)}` : claim.label}
+          {pending ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.4} />}
+        </button>
+        {error && (
+          <p className="sb-error" role="alert">
+            {error}
+          </p>
+        )}
+        <small className="sb-dialog-note">
+          <LockKeyhole size={12} /> Paid on Stripe · VAT included where it
+          applies
+        </small>
       </div>
-    </div>
+    </dialog>
   );
 }
