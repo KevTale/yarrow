@@ -12,3 +12,4 @@ test-results/
 .DS_Store
 dist/
 .tanstack/
+.claude/settings.local.json
