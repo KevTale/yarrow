@@ -36,8 +36,8 @@ export const INITIAL_RESERVATION_CENTS = 300;
 const displayNames: Record<string, string> = {
   "claude-opus-5-5:high": "Claude Opus 5.5",
   "claude-opus-5-5": "Claude Opus 5.5",
-  "openai-astra": "OpenAI Astra",
-  "gpt-6-astra": "OpenAI Astra",
+  "openai-astra": "GPT Astra",
+  "gpt-6-astra": "GPT Astra",
 };
 
 /** Factual attribution ("Implemented by Claude Opus 5.5"), never product branding. */

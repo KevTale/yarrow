@@ -1,4 +1,4 @@
-import { modelDisplayName } from "./pipeline";
+import { defaultReviewerEffort, modelDisplayName } from "./pipeline";
 
 /** Where a ticket stands, from the builder's point of view. */
 export type TicketStatus =
@@ -106,7 +106,7 @@ export function plannedModel(
   return {
     role,
     name: modelDisplayName(model!),
-    effort: effort ?? null,
+    effort: effort ?? (role === "reviewer" ? defaultReviewerEffort : null),
     active,
     seconds: null,
     secondsExact: false,

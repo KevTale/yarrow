@@ -310,13 +310,13 @@ describe("attribution", () => {
       runUrl: "https://yarrow.run/runs/1",
     });
     expect(footer).toContain(
-      "Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra",
+      "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
     );
     expect(footer).toContain(
       "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/1)",
     );
     expect(assistedByTrailer(defaultPipelineRoles)).toBe(
-      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
+      "Assisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     );
   });
 });
@@ -340,8 +340,8 @@ describe("review", () => {
     expect(blockingComments(review)).toHaveLength(1);
   });
   it("summarizes the review for GitHub", () => {
-    const body = reviewBody(review, "OpenAI Astra");
-    expect(body).toContain("Code review by OpenAI Astra");
+    const body = reviewBody(review, "GPT Astra");
+    expect(body).toContain("Code review by GPT Astra");
     expect(body).toContain("after one fix round");
     expect(body).toContain("1 blocking, 1 nit");
     expect(body).toContain("**Nit:** Typo in the title");

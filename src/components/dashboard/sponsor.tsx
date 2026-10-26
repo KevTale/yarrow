@@ -48,7 +48,10 @@ export function SponsorActions({
   return (
     <span className="dashboard-actions sd-actions">
       <span className="sd-left">
-        <b>{money(Math.max(0, data.leftCents), false)}</b> left
+        <b>{money(Math.max(0, data.balanceCents))}</b> balance
+        {data.inUseCents > 0 && (
+          <small>{money(data.inUseCents)} in use</small>
+        )}
       </span>
       <a className="button button-small button-secondary" href="/fund">
         Add funds
@@ -119,25 +122,9 @@ export function SponsorView({
           onEdit={onSettings}
         />
       </div>
-      <Claim today={standings.today} all={standings.all} />
-
-      {data.isSponsor && (
-        <p className="sd-activity" role="status">
-          <span
-            className={`sd-pulse ${activity.working > 0 ? "on" : ""}`}
-            aria-hidden="true"
-          />
-          <span>
-            <b>{activity.working}</b> working now
-          </span>
-          <span className="claim-sep">·</span>
-          <span>
-            <b>{activity.waiting}</b> waiting
-          </span>
-          <span className="sd-activity-note">
-            Your credit funds them automatically, one ticket after another
-          </span>
-        </p>
+      {/* First everywhere: nothing to claim. */}
+      {!(standings.today.rank === 1 && standings.all.rank === 1) && (
+        <Claim today={standings.today} all={standings.all} />
       )}
 
       <div className="sd-shipped" ref={shippedList}>
@@ -173,7 +160,11 @@ export function SponsorView({
                 <span className="dot" aria-hidden="true" />
                 {statusLabel[row.status]}
               </span>
-              <span className="sd-cost">{money(row.costCents)}</span>
+              <span className="sd-cost">
+                {["writing", "reviewing", "delivering"].includes(row.status)
+                  ? "—"
+                  : money(row.costCents)}
+              </span>
             </>
           );
           return row.url ? (

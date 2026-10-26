@@ -3,8 +3,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   liveToday,
-  mergedTotals,
-  projectBoard,
   sponsorBoard,
 } from "@/db/boards";
 import { runDetail, showcase, workFeed } from "@/db/queries";
@@ -16,17 +14,15 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
   async () => {
     if (!databaseConfigured()) return { configured: false as const };
     return withDb(async (db) => {
-      const [today, all, live, projects, totals] = await Promise.all([
+      const [today, all, live] = await Promise.all([
         sponsorBoard(db, "today"),
         sponsorBoard(db, "all"),
         liveToday(db),
-        projectBoard(db),
-        mergedTotals(db),
       ]);
       return {
         configured: true as const,
         sponsors: { today, all },
-        shipped: { live, projects, totals },
+        live,
       };
     });
   },

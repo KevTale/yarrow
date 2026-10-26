@@ -237,19 +237,27 @@ describe("shipped boards", () => {
       row.project.startsWith("live-"),
     );
     expect(rows).toMatchObject([
-      { project: "live-listed", status: "reviewing", title: null, url: null },
+      {
+        project: "live-listed",
+        status: "reviewing",
+        title: null,
+        issueUrl: null,
+        repository: null,
+      },
       {
         project: "live-open",
         status: "reviewing",
         title: "Working ticket",
         repository: "test/live-open",
-        sponsors: [{ name: "Northwind" }],
+        issueNumber: 1,
+        issueUrl: "https://github.com/t/1",
+        sponsors: [{ name: "Northwind", publicId: expect.any(String) }],
       },
       {
         project: "live-open",
         status: "pull_request",
         title: expect.stringMatching(/^Ticket/),
-        url: expect.stringContaining("/pull/"),
+        prUrl: expect.stringContaining("/pull/"),
       },
     ]);
   });

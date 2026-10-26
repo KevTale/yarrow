@@ -31,7 +31,7 @@ export function WelcomeView({ data }: { data: SponsorData }) {
               <span className="wf-dot writing" /> Claude Opus 5.5 writes
             </div>
             <div className="wf-step">
-              <span className="wf-dot reviewing" /> OpenAI Astra reviews
+              <span className="wf-dot reviewing" /> GPT Astra reviews
             </div>
             <div className="wf-pr">
               <span className="wf-dot done" /> Pull request #13

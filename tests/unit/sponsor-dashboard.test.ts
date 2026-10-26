@@ -131,7 +131,7 @@ describe("shipped with your money", () => {
     ]);
     expect(rows[0]!.models.map((model) => model.name)).toEqual([
       "Claude Opus 5.5",
-      "OpenAI Astra",
+      "GPT Astra",
     ]);
   });
 });

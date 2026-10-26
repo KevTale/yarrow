@@ -47,12 +47,6 @@ export type SponsorRow = {
   clicks: number;
   pullRequests: number;
 };
-type ProjectRow = {
-  id: string;
-  name: string;
-  repository: string | null;
-  merged: number;
-};
 
 const tiles = [
   "#e6ae38",
@@ -191,7 +185,7 @@ export function SponsorBoards({
     >
       <h2 id="sponsors-title">Sponsors</h2>
       <div className="board-grid">
-        <div className="board-box" ref={todayBox}>
+        <div className="board-box" ref={todayBox} data-board="today">
           <div className="board-head">
             <span>
               Today <ResetsIn />
@@ -205,6 +199,7 @@ export function SponsorBoards({
               <li
                 className={`board-row large ${i === 0 ? "first" : ""}`}
                 key={row.publicId}
+                data-sponsor={row.publicId}
                 data-flip={row.publicId}
                 data-flip-value={row.paidCents}
               >
@@ -256,7 +251,7 @@ export function SponsorBoards({
             )}
           </ol>
         </div>
-        <div className="board-box" ref={allBox}>
+        <div className="board-box" ref={allBox} data-board="all">
           <div className="board-head">
             <span>All time</span>
             <span className="board-total">
@@ -268,6 +263,7 @@ export function SponsorBoards({
               <li
                 className={`board-row small ${i === 0 ? "first" : ""}`}
                 key={row.publicId}
+                data-sponsor={row.publicId}
                 data-flip={row.publicId}
                 data-flip-value={row.paidCents}
               >
@@ -334,167 +330,151 @@ export function SponsorBoards({
   );
 }
 
-/** Today's work as it happens beside the projects ranked by merges. */
-export function ShippedBoards({
-  live,
-  projects,
-  totals,
-}: {
-  live: LiveRow[];
-  projects: ProjectRow[];
-  totals: { today: number; all: number };
-}) {
-  const liveList = useFlip<HTMLOListElement>(live);
-  const projectList = useFlip<HTMLOListElement>(projects);
-  const working = live.filter((row) => isWorking(row.status)).length;
-  return (
-    <section
-      className="board-section"
-      id="shipped"
-      aria-labelledby="shipped-title"
-    >
-      <h2 id="shipped-title">Live</h2>
-      <div className="board-grid">
-        <div className="board-box">
-          <div className="board-head">
-            <span>
-              Today <ResetsIn />
-            </span>
-            <span className="board-total live-counts">
-              {working > 0 && (
-                <>
-                  <span className="live-dot" aria-hidden="true" />
-                  <small>working</small> {working}
-                </>
-              )}
-              <small>PRs</small> {live.length - working}
-            </span>
-          </div>
-          <ol className="board-list" ref={liveList}>
-            {live.length === 0 && (
-              <li className="board-row large open">
-                <span className="board-rank" />
-                <span className="board-logo large open" aria-hidden="true">
-                  +
-                </span>
-                <span className="board-body">
-                  <span className="board-title">
-                    The next ticket starts here
-                  </span>
-                </span>
-                <span />
-              </li>
-            )}
-            {live.map((row) => (
-              <LiveItem row={row} key={row.key} />
-            ))}
-          </ol>
-        </div>
-        <div className="board-box">
-          <div className="board-head">
-            <span>All time</span>
-            <span className="board-total">
-              <small>merged</small> {totals.all.toLocaleString("en-US")}
-            </span>
-          </div>
-          <ol className="board-list" ref={projectList}>
-            {projects.map((project, i) => (
-              <li
-                className={`board-row small ${i === 0 ? "first" : ""} ${project.repository ? "linked" : ""}`}
-                key={project.id}
-                data-flip={project.id}
-                data-flip-value={project.merged}
-              >
-                <span className="board-rank">{i + 1}</span>
-                <Logo name={project.name} size="small" />
-                <span className="board-body">
-                  {project.repository ? (
-                    <a
-                      className="board-title"
-                      href={`https://github.com/${project.repository}`}
-                      target="_blank"
-                      rel="noopener"
-                    >
-                      {project.repository}
-                    </a>
-                  ) : (
-                    <span className="board-title">{project.name}</span>
-                  )}
-                  <span className="board-meta">pull requests merged</span>
-                </span>
-                <span className="board-amount">
-                  {project.merged.toLocaleString("en-US")}
-                </span>
-              </li>
-            ))}
-          </ol>
-          {projects.length === 0 && (
-            <p className="board-empty">
-              <a href="/connect/github">Add your project</a>
-            </p>
-          )}
-        </div>
-      </div>
-    </section>
-  );
+/**
+ * Brings a sponsor's row on the boards into view and lights it up: the
+ * Today board when they are on it, All time otherwise.
+ */
+export function focusSponsor(publicId: string) {
+  for (const box of document.querySelectorAll<HTMLElement>("[data-board]")) {
+    const row = [...box.querySelectorAll<HTMLElement>("[data-sponsor]")].find(
+      (item) => item.dataset.sponsor === publicId,
+    );
+    if (!row) continue;
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    box.scrollTo({
+      top: row.offsetTop - box.clientHeight / 2 + row.clientHeight / 2,
+      behavior: "smooth",
+    });
+    row.classList.remove("flash");
+    void row.offsetWidth;
+    row.classList.add("flash");
+    return;
+  }
 }
 
 const isWorking = (status: LiveRow["status"]) =>
   status !== "pull_request" && status !== "merged";
 
 const liveLabel: Record<LiveRow["status"], string> = {
-  writing: "writing",
-  reviewing: "reviewing",
-  delivering: "opening the PR",
-  pull_request: "pull request",
-  merged: "merged",
+  writing: "Writing",
+  reviewing: "Reviewing",
+  delivering: "Opening the PR",
+  pull_request: "Pull request",
+  merged: "Merged",
 };
 
-/** One line of the live board: a ticket at work, or a pull request out. */
+/** Today's work as it happens: tickets at work first, then pull requests. */
+export function LiveBoard({ live }: { live: LiveRow[] }) {
+  const list = useFlip<HTMLDivElement>(live);
+  const working = live.filter((row) => isWorking(row.status)).length;
+  return (
+    <section className="board-section" id="shipped" aria-labelledby="live-title">
+      <h2 id="live-title">Live</h2>
+      <div className="live-table" role="table" aria-label="Today's work" ref={list}>
+        <div className="board-head live-caption">
+          <span>
+            Today <ResetsIn />
+          </span>
+          <span className="board-total live-counts">
+            {working > 0 && <span className="live-dot" aria-hidden="true" />}
+            <small>working</small> {working}
+            <small>PRs</small> {live.length - working}
+          </span>
+        </div>
+        <div className="live-row live-thead" role="row">
+          <span>Ticket</span>
+          <span>Project</span>
+          <span>Models</span>
+          <span>Status</span>
+          <span>Sponsors</span>
+          <span className="right">When</span>
+        </div>
+        {live.length === 0 && (
+          <p className="live-empty">The next ticket shows up here as it starts</p>
+        )}
+        {live.map((row) => (
+          <LiveItem row={row} key={row.key} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LiveItem({ row }: { row: LiveRow }) {
   const working = isWorking(row.status);
-  const title = row.title ? (
-    <b>{row.title}</b>
-  ) : (
-    <b className="anonymous">Private ticket</b>
-  );
+  const ticketUrl = row.prUrl ?? row.issueUrl;
   return (
-    <li
-      className={`board-row large live-row ${working ? "working" : ""} ${row.url ? "linked" : ""}`}
+    <div
+      role="row"
+      className={`live-row ${working ? "working" : ""}`}
       data-flip={row.key}
       data-flip-value={row.status}
     >
-      <span className="board-rank" />
-      <Logo name={row.project} size="large" />
-      <span className="board-body">
-        {row.url ? (
-          <a className="board-title" href={row.url} target="_blank" rel="noopener">
-            {title}
+      <span className="live-ticket" role="cell">
+        {row.title === null ? (
+          <span className="live-title private">Private ticket</span>
+        ) : ticketUrl ? (
+          <a className="live-title" href={ticketUrl} target="_blank" rel="noopener">
+            {row.title}
           </a>
         ) : (
-          <span className="board-title">{title}</span>
+          <span className="live-title">{row.title}</span>
         )}
-        <span className="board-meta">
-          <span className={`live-chip s-${row.status}`}>
-            {working && <span className="live-dot" aria-hidden="true" />}
-            {liveLabel[row.status]}
-          </span>
-          <span>
-            {row.repository ?? row.project}
-            {row.number ? ` #${row.number}` : ""}
-          </span>
-          <ModelsCell models={row.models} inline />
-          {row.sponsors.length > 0 && (
-            <span>
-              sponsored by{" "}
-              {row.sponsors
-                .map((sponsor) => sponsor.name ?? "an anonymous sponsor")
-                .join(", ")}
-            </span>
+        {row.issueNumber && (
+          <span className="live-num">#{row.issueNumber}</span>
+        )}
+      </span>
+      <span className="live-project" role="cell">
+        <Logo name={row.project} size="small" />
+        {row.repository ? (
+          <a
+            href={`https://github.com/${row.repository}`}
+            target="_blank"
+            rel="noopener"
+          >
+            {row.repository}
+          </a>
+        ) : (
+          <span>{row.project}</span>
+        )}
+      </span>
+      <span role="cell">
+        <ModelsCell models={row.models} />
+      </span>
+      <span role="cell">
+        <span className={`live-chip s-${row.status}`}>
+          {working && <span className="live-dot" aria-hidden="true" />}
+          {row.prUrl ? (
+            <a href={row.prUrl} target="_blank" rel="noopener">
+              {liveLabel[row.status]} #{row.prNumber}
+            </a>
+          ) : (
+            liveLabel[row.status]
           )}
         </span>
       </span>
-      <span className="board-when">{timeAgo(row.at)}</span>
-    </li>
+      <span className="live-sponsors" role="cell">
+        {row.sponsors.length === 0 && <span className="muted">—</span>}
+        {row.sponsors.map((sponsor, i) =>
+          sponsor.publicId ? (
+            <button
+              type="button"
+              key={`${sponsor.publicId}-${i}`}
+              className={sponsor.name ? "" : "anonymous"}
+              onClick={() => focusSponsor(sponsor.publicId!)}
+            >
+              {sponsor.name ?? "Anonymous sponsor"}
+            </button>
+          ) : (
+            <span key={i} className={sponsor.name ? "" : "anonymous"}>
+              {sponsor.name ?? "Anonymous sponsor"}
+            </span>
+          ),
+        )}
+      </span>
+      <span className="live-when" role="cell">
+        {timeAgo(row.at)}
+      </span>
+    </div>
   );
 }

@@ -320,14 +320,14 @@ describe("run pipeline", async () => {
     expect(body).toContain("Closes #5");
     expect(body).toContain("pnpm test → 42 passed");
     expect(body).toContain(
-      "Implemented by Claude Opus 5.5 · Reviewed by OpenAI Astra",
+      "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
     );
     expect(body).toContain(
       "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/",
     );
     const commit = calls.find((call) => call.url.endsWith("/git/commits"))!;
     expect((commit.body as { message: string }).message).toContain(
-      "Assisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
+      "Assisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     );
     const reviewPost = calls.find((call) => call.url.endsWith("/reviews"))!;
     expect(reviewPost.body).toMatchObject({

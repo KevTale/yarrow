@@ -265,8 +265,12 @@ export interface LiveRow {
   project: string;
   /** owner/name on public projects only. */
   repository: string | null;
-  number: number | null;
-  url: string | null;
+  /** The GitHub issue (public projects only). */
+  issueNumber: number | null;
+  issueUrl: string | null;
+  /** The pull request, once opened (public projects only). */
+  prNumber: number | null;
+  prUrl: string | null;
   /** When the run started, the PR opened or merged. */
   at: string;
   sponsors: RunSponsor[];
@@ -292,6 +296,8 @@ export async function liveToday(
       reviewer: agentRuns.reviewer,
       createdAt: agentRuns.createdAt,
       title: workUnits.title,
+      issue: workUnits.externalId,
+      issueUrl: workUnits.url,
       project: projects.name,
       visibility: projects.visibility,
       repository: projects.repository,
@@ -311,6 +317,8 @@ export async function liveToday(
       openedAt: pullRequests.openedAt,
       closedAt: pullRequests.closedAt,
       title: workUnits.title,
+      issue: workUnits.externalId,
+      issueUrl: workUnits.url,
       project: projects.name,
       visibility: projects.visibility,
       repository: projects.repository,
@@ -343,8 +351,10 @@ export async function liveToday(
         title: open(run.visibility) ? run.title : null,
         project: run.project,
         repository: open(run.visibility) ? run.repository : null,
-        number: null,
-        url: null,
+        issueNumber: open(run.visibility) ? Number(run.issue) || null : null,
+        issueUrl: open(run.visibility) ? run.issueUrl : null,
+        prNumber: null,
+        prUrl: null,
         at: run.createdAt.toISOString(),
         sponsors: await runSponsors(db, run.runId),
         models: runModelsView([], run, status),
@@ -378,8 +388,10 @@ export async function liveToday(
         title: isPublic ? pull.title : null,
         project: pull.project,
         repository: isPublic ? pull.repository : null,
-        number: isPublic ? pull.number : null,
-        url: isPublic ? pull.url : null,
+        issueNumber: isPublic ? Number(pull.issue) || null : null,
+        issueUrl: isPublic ? pull.issueUrl : null,
+        prNumber: isPublic ? pull.number : null,
+        prUrl: isPublic ? pull.url : null,
         at: (pull.closedAt ?? pull.openedAt).toISOString(),
         sponsors: run ? await runSponsors(db, run.id) : [],
         models: run

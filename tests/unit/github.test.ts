@@ -101,7 +101,7 @@ describe("PR delivery", () => {
         { path: "old.ts", content: null },
       ],
       message:
-        "Fix export\n\nAssisted-by: Claude Opus 5.5, OpenAI Astra (Yarrow)",
+        "Fix export\n\nAssisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     });
     expect(sha).toBe("new-commit");
     // Text rides in the tree request; only the binary file needs a blob.

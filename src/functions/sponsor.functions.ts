@@ -49,8 +49,10 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
         userId: viewer.userId,
         guest: viewer.guest,
         isSponsor: contributions.length > 0,
-        leftCents:
-          totals.creditCents - totals.consumedCents - totals.reservedCents,
+        // Spent only when a run finishes, at its real cost; what a running
+        // ticket set aside is shown apart, still part of the balance.
+        balanceCents: totals.creditCents - totals.consumedCents,
+        inUseCents: totals.reservedCents,
         standings: await sponsorStandings(db, viewer.userId),
         shipped: await sponsorShipped(db, viewer.userId),
         activity: await queueActivity(db),

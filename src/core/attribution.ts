@@ -3,6 +3,8 @@ import { modelDisplayName, type PipelineRoles } from "./pipeline";
 /** Funding sponsors of a run; `null` name means anonymous. */
 export interface RunSponsor {
   name: string | null;
+  /** Their row on the boards (anonymous sponsors rank too). */
+  publicId?: string | null;
 }
 
 function list(items: string[]): string {

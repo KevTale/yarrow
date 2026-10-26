@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
-import { ShippedBoards, SponsorBoards } from "@/components/boards";
+import { LiveBoard, SponsorBoards } from "@/components/boards";
 import { useLive } from "@/components/live";
 import { ShipForm } from "@/components/ship-form";
 import { getBoardsFn } from "@/functions/public.functions";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
 
 const empty = {
   sponsors: { today: [], all: [] },
-  shipped: { live: [], projects: [], totals: { today: 0, all: 0 } },
+  live: [],
 };
 
 function Landing() {
@@ -47,11 +47,7 @@ function Landing() {
           today={boards.sponsors.today}
           all={boards.sponsors.all}
         />
-        <ShippedBoards
-          live={boards.shipped.live}
-          projects={boards.shipped.projects}
-          totals={boards.shipped.totals}
-        />
+        <LiveBoard live={boards.live} />
       </div>
     </main>
   );

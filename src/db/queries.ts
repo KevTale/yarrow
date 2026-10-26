@@ -38,13 +38,19 @@ export async function runSponsors(
   runId: string,
 ): Promise<RunSponsor[]> {
   const rows = await db
-    .select({ name: sponsorProfiles.publicName })
+    .select({
+      name: sponsorProfiles.publicName,
+      publicId: sponsorProfiles.publicId,
+    })
     .from(runFundings)
     .innerJoin(contributions, eq(contributions.id, runFundings.contributionId))
     .leftJoin(sponsorProfiles, eq(sponsorProfiles.userId, contributions.userId))
     .where(eq(runFundings.agentRunId, runId))
     .orderBy(asc(contributions.createdAt));
-  return rows.map((row) => ({ name: row.name ?? null }));
+  return rows.map((row) => ({
+    name: row.name ?? null,
+    publicId: row.publicId ?? null,
+  }));
 }
 
 export async function homeStats(db: Database) {
