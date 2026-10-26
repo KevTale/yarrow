@@ -196,7 +196,8 @@ export function reachedStages(
 ): Set<Stage> {
   const reached = new Set<Stage>();
   for (const line of lines) {
-    if (line.kind === "read" || line.kind === "search") reached.add("read");
+    // Agents often read through the shell (cat, ls): any work reads first.
+    if (line.actor === "implementer") reached.add("read");
     if (line.kind === "edit" || line.kind === "write") reached.add("write");
     if (line.kind === "test") reached.add("test");
     if (line.kind === "review") reached.add("review");
