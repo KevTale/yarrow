@@ -3,6 +3,9 @@ import { z } from "zod";
 import { checkoutSchema, sponsorProfileSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
 import { sponsorBoard } from "@/db/boards";
+import { resolveLogo } from "@/db/images";
+import type { Database } from "@/db/client";
+import type { SponsorProfile } from "@/core/forms";
 import {
   queueActivity,
   sponsorSettings,
@@ -24,6 +27,12 @@ import {
   createCheckout,
 } from "@/server/stripe/stripe.server";
 import { supabaseServer } from "@/server/auth.server";
+
+/** The form's profile, its logo stored and replaced by its URL. */
+async function profileValues(db: Database, profile: SponsorProfile) {
+  const { logo, ...rest } = profile;
+  return { ...rest, logoUrl: await resolveLogo(db, logo) };
+}
 
 /** The signed-in user, or the guest who paid from this browser. */
 async function sponsorIdentity() {
@@ -81,9 +90,12 @@ export const saveSponsorSettingsFn = createServerFn({ method: "POST" })
     const viewer = await sponsorIdentity();
     if (!viewer) throw new UnauthorizedError();
     await withDb(async (db) => {
-      await saveSponsorProfile(db, viewer.userId, data.profile, {
-        guest: viewer.guest,
-      });
+      await saveSponsorProfile(
+        db,
+        viewer.userId,
+        await profileValues(db, data.profile),
+        { guest: viewer.guest },
+      );
       const filters = await getSponsorFilters(db, viewer.userId);
       await saveSponsorFilters(db, viewer.userId, {
         ...filters,
@@ -136,7 +148,9 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
     const userId =
       viewer?.userId ?? (await currentGuest()) ?? crypto.randomUUID();
     const url = await withDb(async (db) => {
-      await saveSponsorProfile(db, userId, data.profile, { guest: !viewer });
+      await saveSponsorProfile(db, userId, await profileValues(db, data.profile), {
+        guest: !viewer,
+      });
       return createCheckout(db, {
         userId,
         email,

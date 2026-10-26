@@ -479,7 +479,7 @@ function LiveItem({ row }: { row: LiveRow }) {
         )}
       </span>
       <span className="live-project" role="cell">
-        <Logo name={row.project} size="small" />
+        <Logo name={row.project} url={row.logoUrl} size="small" />
         {row.repository ? (
           <a
             href={`https://github.com/${row.repository}`}

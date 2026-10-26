@@ -12,6 +12,7 @@ import {
   unique,
   index,
   primaryKey,
+  customType,
 } from "drizzle-orm/pg-core";
 import type { StoredArtifact, StoredReview } from "../core/review";
 
@@ -94,6 +95,9 @@ export const projects = pgTable(
     name: text("name").notNull(),
     description: text("description").default("").notNull(),
     productUrl: text("product_url"),
+    // An uploaded logo (/images/<sha256>.<ext>). Public projects fall back to
+    // the GitHub owner's avatar.
+    logoUrl: text("logo_url"),
     visibility: visibilityEnum("visibility").default("listed").notNull(),
     categories: text("categories")
       .array()
@@ -205,6 +209,25 @@ export const projectSecrets = pgTable(
     primaryKey({ columns: [t.projectId, t.name] }),
     check("secret_name", sql`${t.name} ~ '^[A-Z_][A-Z0-9_]*$'`),
   ],
+).enableRLS();
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+});
+
+/**
+ * Uploaded logos, small and public, served at /images/<id>.<ext>. The id is
+ * the content's SHA-256, so a URL never changes meaning and caches forever.
+ */
+export const images = pgTable(
+  "images",
+  {
+    id: text("id").primaryKey(),
+    contentType: text("content_type").notNull(),
+    bytes: bytea("bytes").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [check("image_id", sql`${t.id} ~ '^[0-9a-f]{64}$'`)],
 ).enableRLS();
 
 /** One row per sponsor. Missing row means the defaults: all_except, no hidden projects. */

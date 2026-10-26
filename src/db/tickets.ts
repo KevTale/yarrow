@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import {
   phaseStatus,
   runModelsView,
+  type ReviewRow,
   type TicketModel,
   type TicketRow,
   type TicketStatus,
@@ -160,6 +161,36 @@ export async function projectTickets(
         updatedAt: new Date().toISOString(),
       });
   return rows;
+}
+
+/**
+ * Draft pull requests waiting for their builder, across projects, newest
+ * first. Only projects with a delivered ticket are read in full.
+ */
+export async function reviewQueue(
+  db: Database,
+  projects: { id: string; name: string; logoUrl: string | null }[],
+): Promise<ReviewRow[]> {
+  if (projects.length === 0) return [];
+  const withPulls = await db
+    .selectDistinct({ projectId: workUnits.projectId })
+    .from(workUnits)
+    .where(
+      and(
+        inArray(
+          workUnits.projectId,
+          projects.map((project) => project.id),
+        ),
+        eq(workUnits.status, "delivered"),
+      ),
+    );
+  const rows: ReviewRow[] = [];
+  for (const { projectId } of withPulls) {
+    const project = projects.find((item) => item.id === projectId)!;
+    for (const row of await projectTickets(db, projectId))
+      if (row.status === "pull_request") rows.push({ ...row, project });
+  }
+  return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 /**

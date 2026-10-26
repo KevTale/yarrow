@@ -6,6 +6,7 @@ import { z } from "zod";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money, packs } from "@/core/packs";
 import { estimateBreakdown } from "@/core/pricing";
 import { Logo, SponsorName } from "@/components/boards";
+import { LogoPicker } from "@/components/logo-picker";
 import { Spinner } from "@/components/navigation-feedback";
 import { PageHeading } from "@/components/ui";
 import {
@@ -42,6 +43,7 @@ function FundPage() {
   const [tagline, setTagline] = useState(saved?.tagline ?? "");
   const [description, setDescription] = useState(saved?.description ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(saved?.websiteUrl ?? "");
+  const [logo, setLogo] = useState<string | null>(saved?.logoUrl ?? null);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
   // Back from Stripe: the browser may restore the page as it was left.
@@ -90,12 +92,14 @@ function FundPage() {
                 tagline: null,
                 description: null,
                 websiteUrl: null,
+                logo: null,
               }
             : {
                 publicName: name,
                 tagline,
                 description,
                 websiteUrl: site ?? "",
+                logo,
               },
         },
       });
@@ -186,7 +190,11 @@ function FundPage() {
               </div>
               <div className="board-row large first fund-row">
                 <span className="board-rank">{valid ? rank : "–"}</span>
-                <Logo name={anonymous ? null : name || "?"} size="large" />
+                {anonymous ? (
+                  <Logo name={null} size="large" />
+                ) : (
+                  <LogoPicker name={name} value={logo} onChange={setLogo} />
+                )}
                 <span className="board-body">
                   {anonymous ? (
                     <>

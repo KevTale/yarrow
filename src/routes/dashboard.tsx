@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  getRouteApi,
-  useRouter,
-  useRouterState,
-} from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
@@ -26,15 +21,23 @@ export const Route = createFileRoute("/dashboard")({
   validateSearch: z.object({
     tab: z.enum(["builder", "sponsor"]).optional(),
     project: z.uuid().optional(),
+    /** The pull requests waiting for review, across projects. */
+    view: z.enum(["review"]).optional().catch(undefined),
     checkout: z.enum(["success"]).optional(),
     /** Set by /connect/done: GitHub's webhook may not have landed yet. */
     installation: z.number().int().positive().optional().catch(undefined),
   }),
-  loaderDeps: ({ search }) => ({ project: search.project }),
-  loader: async ({ deps }) => {
-    // A ticket pasted on the landing is queued as soon as its repo is connected.
-    const connect = await settleConnectFn();
-    const projectId = deps.project ?? connect.queued?.projectId;
+  // Switching projects stays on the page: the builder view keeps every
+  // project's copy and loads them in the background (see BuilderView).
+  loader: async ({ location, preload }) => {
+    // A ticket pasted on the landing is queued as soon as its repo is
+    // connected. Preloading (from any page, signed in) leaves that alone.
+    const connect = preload
+      ? { queued: null, waiting: null }
+      : await settleConnectFn();
+    const projectId =
+      (location.search as { project?: string }).project ??
+      connect.queued?.projectId;
     const [builder, sponsor] = await Promise.all([
       getBuilderFn({ data: { projectId, issues: true } }),
       getSponsorDashboardFn(),
@@ -44,9 +47,6 @@ export const Route = createFileRoute("/dashboard")({
   // Switching tabs or coming back soon after does not reload everything;
   // the views refresh themselves (realtime and polling).
   staleTime: 30_000,
-  // Another project's tickets are never shown from memory: an old copy
-  // would flash before the fresh one replaces it.
-  gcTime: 0,
   head: () => ({ meta: [{ title: "Dashboard · Yarrow" }] }),
   component: DashboardPage,
 });
@@ -78,16 +78,6 @@ function DashboardPage() {
         replace: true,
       });
   }, [search.checkout, navigate]);
-  // The project being opened from the rail, while its tickets load.
-  const switching = useRouterState({
-    select: (state) => {
-      if (!state.isLoading) return null;
-      const next = (state.location.search as { project?: string }).project;
-      const now = (state.resolvedLocation?.search as { project?: string })
-        ?.project;
-      return next && next !== now ? next : null;
-    },
-  });
   const projectCount = builder.status === "ok" ? builder.projects.length : 0;
   const [startCount] = useState(projectCount);
   // New repositories showed up, or the install only changed existing ones.
@@ -186,7 +176,8 @@ function DashboardPage() {
           data={builder}
           highlight={connect.queued?.issue ?? null}
           waiting={waiting}
-          switching={switching}
+          projectId={search.project ?? connect.queued?.projectId}
+          view={search.view}
         />
       ) : (
         <SponsorView

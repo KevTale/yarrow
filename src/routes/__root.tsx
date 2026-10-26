@@ -13,7 +13,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionFromLink } from "@/components/session-from-link";
 import { LiveProvider } from "@/components/live";
-import { NavProgress, PendingLinks } from "@/components/navigation-feedback";
+import {
+  NavProgress,
+  PendingLinks,
+  WarmDashboard,
+} from "@/components/navigation-feedback";
 import {
   getGuestFn,
   getLiveConfigFn,
@@ -73,6 +77,7 @@ function RootComponent() {
       <SessionFromLink />
       <NavProgress />
       <PendingLinks />
+      <WarmDashboard signedIn={viewer !== null} />
     </>
   );
 }

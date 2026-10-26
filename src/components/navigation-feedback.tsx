@@ -1,5 +1,25 @@
-import { useRouterState } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+
+/**
+ * Signed in: the dashboard loads in the background once the page is idle,
+ * so opening it shows everything at once (it then refreshes itself).
+ */
+export function WarmDashboard({ signedIn }: { signedIn: boolean }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (!signedIn || router.state.location.pathname === "/dashboard") return;
+    const warm = () =>
+      void router.preloadRoute({ to: "/dashboard", search: {} }).catch(() => {});
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(warm, { timeout: 4_000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = setTimeout(warm, 1_500);
+    return () => clearTimeout(timer);
+  }, [signedIn, router]);
+  return null;
+}
 
 /** A spinner sized to the text around it. */
 export function Spinner() {

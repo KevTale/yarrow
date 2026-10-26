@@ -64,6 +64,13 @@
       "when": 1791400175480,
       "tag": "0008_live_boards",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791415965727,
+      "tag": "0009_logos",
+      "breakpoints": true
     }
   ]
 }

@@ -27,6 +27,7 @@ import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
 import { Route as ConnectDoneRouteImport } from './routes/connect/done'
 import { Route as ConnectGithubRouteImport } from './routes/connect/github'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
+import { Route as ImagesNameRouteImport } from './routes/images/$name'
 import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
 import { Route as OutSponsorIdRouteImport } from './routes/out/$sponsorId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
@@ -127,6 +128,11 @@ const EvidenceSplatRoute = EvidenceSplatRouteImport.update({
   path: '/evidence/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImagesNameRoute = ImagesNameRouteImport.update({
+  id: '/images/$name',
+  path: '/images/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntegrationsTrelloCallbackRoute =
   IntegrationsTrelloCallbackRouteImport.update({
     id: '/integrations/trello-callback',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
+  '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
+  '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
   '/evidence/$': typeof EvidenceSplatRoute
+  '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -285,6 +294,7 @@ export interface FileRouteTypes {
     | '/connect/done'
     | '/connect/github'
     | '/evidence/$'
+    | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
     | '/projects/$projectId'
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
     | '/connect/done'
     | '/connect/github'
     | '/evidence/$'
+    | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
     | '/projects/$projectId'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '/connect/done'
     | '/connect/github'
     | '/evidence/$'
+    | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
     | '/projects/$projectId'
@@ -373,6 +385,7 @@ export interface RootRouteChildren {
   ConnectDoneRoute: typeof ConnectDoneRoute
   ConnectGithubRoute: typeof ConnectGithubRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
+  ImagesNameRoute: typeof ImagesNameRoute
   IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
   OutSponsorIdRoute: typeof OutSponsorIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
@@ -512,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvidenceSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/images/$name': {
+      id: '/images/$name'
+      path: '/images/$name'
+      fullPath: '/images/$name'
+      preLoaderRoute: typeof ImagesNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/integrations/trello-callback': {
       id: '/integrations/trello-callback'
       path: '/integrations/trello-callback'
@@ -597,6 +617,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectDoneRoute: ConnectDoneRoute,
   ConnectGithubRoute: ConnectGithubRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,
+  ImagesNameRoute: ImagesNameRoute,
   IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,
   OutSponsorIdRoute: OutSponsorIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,

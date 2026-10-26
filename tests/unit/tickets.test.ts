@@ -11,7 +11,11 @@ import { ensureAccount } from "../../src/db/accounts";
 import { requestGithubTask, projectsForUser } from "../../src/db/github-tasks";
 import { recordRunModels } from "../../src/db/runs";
 import * as schema from "../../src/db/schema";
-import { projectTickets, retryTicket } from "../../src/db/tickets";
+import {
+  projectTickets,
+  retryTicket,
+  reviewQueue,
+} from "../../src/db/tickets";
 import { upsertTicket } from "../../src/db/workunits";
 import { runGithubTasks } from "../../src/server/github/tasks";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -159,6 +163,28 @@ describe("the builder's ticket table", () => {
       "queued",
     );
     expect(await retryTicket(db, projectId, 1)).toBe(false);
+  });
+
+  it("lists the pull requests waiting for review across projects", async () => {
+    await ticket(1);
+    const shipped = await ticket(3);
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "delivered" })
+      .where(eq(schema.workUnits.id, shipped));
+    await run(shipped, { status: "completed" });
+    await raw.insert(schema.pullRequests).values({
+      workUnitId: shipped,
+      url: "https://github.com/marie/halyard/pull/4",
+      number: 4,
+      branch: "yarrow/3",
+    });
+    const halyard = { id: projectId, name: "halyard", logoUrl: null };
+    const empty = { id: crypto.randomUUID(), name: "empty", logoUrl: null };
+    expect(await reviewQueue(db, [halyard, empty])).toMatchObject([
+      { number: 3, pullRequest: { number: 4 }, project: { name: "halyard" } },
+    ]);
+    expect(await reviewQueue(db, [])).toEqual([]);
   });
 
   it("shows label changes the brain has not made yet", async () => {

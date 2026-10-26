@@ -239,6 +239,7 @@ describe("shipped boards", () => {
     expect(rows).toMatchObject([
       {
         project: "live-listed",
+        logoUrl: null,
         status: "reviewing",
         title: null,
         issueUrl: null,
@@ -246,6 +247,7 @@ describe("shipped boards", () => {
       },
       {
         project: "live-open",
+        logoUrl: "https://github.com/test.png?size=96",
         status: "reviewing",
         title: "Working ticket",
         repository: "test/live-open",

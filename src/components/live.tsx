@@ -95,18 +95,23 @@ const reduced = () =>
  * Animates rows when the data moves: a row that changes place slides to it,
  * a new row fades in, a row whose value changed flashes. Rows carry
  * `data-flip` (a stable key) and optionally `data-flip-value`. Only a new
- * `data` (not a filter or a search) animates.
+ * `data` (not a filter or a search) animates; a new `scope` (another
+ * project) starts over without animating.
  */
-export function useFlip<T extends HTMLElement>(data: unknown) {
+export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
   const ref = useRef<T>(null);
   const tops = useRef<Map<string, number> | null>(null);
   const values = useRef(new Map<string, string>());
   const seen = useRef<unknown>(data);
+  const seenScope = useRef(scope);
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
-    const before = seen.current === data ? null : tops.current;
+    const sameScope = seenScope.current === scope;
+    if (!sameScope) values.current.clear();
+    const before = seen.current === data || !sameScope ? null : tops.current;
     seen.current = data;
+    seenScope.current = scope;
     const now = new Map<string, number>();
     const motion = !reduced();
     for (const row of root.querySelectorAll<HTMLElement>("[data-flip]")) {

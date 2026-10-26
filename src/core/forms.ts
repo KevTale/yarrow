@@ -97,6 +97,12 @@ const optionalText = (max: number) =>
     .nullable()
     .transform((value) => value || null);
 
+/**
+ * A logo from a form: undefined keeps it, null removes it, a data URL is a
+ * new upload (drawn small by the browser), an /images/ URL is unchanged.
+ */
+export const logoSchema = z.string().max(140_000).nullable().optional();
+
 /** What a sponsor shows on the boards. NULL publicName means anonymous. */
 export const sponsorProfileSchema = z.object({
   publicName: z.string().trim().min(2).max(60).nullable(),
@@ -106,6 +112,7 @@ export const sponsorProfileSchema = z.object({
     .union([z.literal(""), z.url({ protocol: /^https$/ }).max(300)])
     .nullable()
     .transform((value) => value || null),
+  logo: logoSchema,
 });
 export type SponsorProfile = z.infer<typeof sponsorProfileSchema>;
 

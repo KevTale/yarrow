@@ -89,6 +89,8 @@ export type SponsorProfileInput = {
   tagline: string | null;
   description: string | null;
   websiteUrl: string | null;
+  /** Undefined keeps the current logo. */
+  logoUrl?: string | null;
 };
 
 export async function getSponsorProfile(
@@ -101,6 +103,7 @@ export async function getSponsorProfile(
       tagline: sponsorProfiles.tagline,
       description: sponsorProfiles.description,
       websiteUrl: sponsorProfiles.websiteUrl,
+      logoUrl: sponsorProfiles.logoUrl,
       foundingSponsor: sponsorProfiles.foundingSponsor,
     })
     .from(sponsorProfiles)
@@ -187,6 +190,7 @@ export async function recordGuestEmail(
         tagline: profile.tagline,
         description: profile.description,
         websiteUrl: profile.websiteUrl,
+        logoUrl: profile.logoUrl,
         updatedAt: new Date(),
       })
       .where(eq(sponsorProfiles.userId, earlier.userId));

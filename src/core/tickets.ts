@@ -40,6 +40,11 @@ export interface TicketRow {
   updatedAt: string;
 }
 
+/** A pull request waiting for its builder, from any of their projects. */
+export type ReviewRow = TicketRow & {
+  project: { id: string; name: string; logoUrl: string | null };
+};
+
 /** An open issue, read live from GitHub (never stored). */
 export interface OpenIssue {
   number: number;

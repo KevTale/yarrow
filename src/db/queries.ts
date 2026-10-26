@@ -324,6 +324,7 @@ export async function ownerDashboard(db: Database, userId: string) {
       name: projects.name,
       repository: projects.repository,
       visibility: projects.visibility,
+      logoUrl: projects.logoUrl,
       linked: sql<boolean>`${projects.githubInstallationId} is not null`,
       suspended: sql<boolean>`${projects.suspendedAt} is not null`,
       queued: sql<number>`count(distinct ${workUnits.id}) filter (where ${workUnits.status} = 'queued' and ${workUnits.authorized})::int`,

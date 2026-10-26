@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
 import type { RunSponsor } from "../core/attribution";
 import { phaseStatus, runModelsView, type TicketModel } from "../core/tickets";
+import { projectLogo } from "../core/logos";
 import { runSponsors } from "./queries";
 import {
   agentRuns,
@@ -264,6 +265,8 @@ export interface LiveRow {
   /** Null on a listed project: its tickets stay private. */
   title: string | null;
   project: string;
+  /** Uploaded, or the GitHub owner's avatar on public projects. */
+  logoUrl: string | null;
   /** owner/name on public projects only. */
   repository: string | null;
   /** The GitHub issue (public projects only). */
@@ -300,6 +303,7 @@ export async function liveToday(
       issue: workUnits.externalId,
       issueUrl: workUnits.url,
       project: projects.name,
+      projectLogo: projects.logoUrl,
       visibility: projects.visibility,
       repository: projects.repository,
     })
@@ -321,6 +325,7 @@ export async function liveToday(
       issue: workUnits.externalId,
       issueUrl: workUnits.url,
       project: projects.name,
+      projectLogo: projects.logoUrl,
       visibility: projects.visibility,
       repository: projects.repository,
     })
@@ -351,6 +356,10 @@ export async function liveToday(
         status,
         title: open(run.visibility) ? run.title : null,
         project: run.project,
+        logoUrl: projectLogo(
+          run.projectLogo,
+          open(run.visibility) ? run.repository : null,
+        ),
         repository: open(run.visibility) ? run.repository : null,
         issueNumber: open(run.visibility) ? Number(run.issue) || null : null,
         issueUrl: open(run.visibility) ? run.issueUrl : null,
@@ -388,6 +397,10 @@ export async function liveToday(
         status,
         title: isPublic ? pull.title : null,
         project: pull.project,
+        logoUrl: projectLogo(
+          pull.projectLogo,
+          isPublic ? pull.repository : null,
+        ),
         repository: isPublic ? pull.repository : null,
         issueNumber: isPublic ? Number(pull.issue) || null : null,
         issueUrl: isPublic ? pull.issueUrl : null,

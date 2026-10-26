@@ -121,7 +121,7 @@ The leaderboard is the game layer on top.
 
 Decided 2026-10-07 (mockup: claude.ai/artifact/GnHLGnxDoGuDdikpUk3T8i). One page, two tabs, **Builder** and **Sponsor**, shown only when the account has both roles. The avatar menu is Dashboard and Sign out.
 
-- **Builder:** one table per project (a project rail appears from two projects; a select on phones). Rows are the repo's open GitHub issues, read live and never stored, plus the tickets Yarrow works on. Filters with counts (All, In Yarrow, Not queued) and search. Queue and Remove from queue, row by row or in batch, add or remove the label through the brain; Retry requeues an abstained ticket. Statuses: Queue, Queued, Writing, Reviewing, Pull request #n, Merged, Abstained. A pasted ticket lands here highlighted.
+- **Builder:** one table per project (a project rail appears from two projects; a select on phones). Rows are the repo's open GitHub issues, read live and never stored, plus the tickets Yarrow works on. Filters with counts (All, In Yarrow, To review, Not queued) and search. Queue and Remove from queue, row by row or in batch, add or remove the label through the brain; Retry requeues an abstained ticket. Statuses: Not queued, Queued, Writing, Reviewing, Pull request #n, Merged, Abstained. A pasted ticket lands here highlighted. The rail opens with **To review**: the draft PRs of every project in one list, the only count in the rail. Every project loads in the background as soon as the dashboard opens, and the dashboard itself preloads from any page once a signed-in visitor is idle, so switching shows a copy at once and refreshes it (decided 2026-10-08). The project's logo tile in its head is the upload button.
 - **Models** column (dashboard and landing): who wrote and who reviewed, with the reasoning level; hover or tap shows time, tokens and cost. Claude's numbers come from Anthropic (exact); the reviewer's tokens come from OpenAI, its cost is tokens × list price and its time is measured by Yarrow, both marked ≈.
 - **Sponsor:** where you stand first (Today, with the time left before the reset, and All time, each showing the sponsor ahead and behind), then the Claim control priced for the next rank, then "Shipped with your money" (public tickets link their PR, others stay private). Credit left, Add funds and Settings sit beside the tabs. Settings is a drawer: leaderboard profile, Every project or Only the projects I choose (a searchable list opens under the option), payments.
 
@@ -281,7 +281,8 @@ The operating entity is the founder's existing EURL, TOTEM (RCS Nanterre 881 263
 
 **v1**
 - Landing.
-- Sponsor checkout (packs + custom amount). The profile form is the sponsor's own board row, edited in place, with the rank today for the amount chosen (decided 2026-10-07).
+- Sponsor checkout (packs + custom amount). The profile form is the sponsor's own board row, edited in place, with the rank today for the amount chosen (decided 2026-10-07). Its logo tile is the upload button.
+- Logos (sponsors and projects): the browser draws the file at 128 px (WebP, PNG fallback) and the server keeps it in Postgres (`images`, by SHA-256), served at `/images/<hash>.<ext>` with a one-year immutable cache. PNG, JPEG and WebP only, checked by their bytes; never SVG. A project without a logo shows its GitHub owner's avatar, on public projects only for the public boards (decided 2026-10-08).
 - Sponsor dashboard with filters, including the hidden opt-in.
 - Leaderboard and projects showcase.
 - Add project: the GitHub App, plus **all four trackers** (GitHub Issues, Linear, Jira, Trello) behind one `TrackerAdapter` interface. The interface lists tagged tickets, reads a ticket, comments, and receives webhooks or polls.

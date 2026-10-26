@@ -36,8 +36,9 @@ function Landing() {
       <section className="landing-hero container">
         <h1>Frontier AI for free</h1>
         <p className="landing-sub">
-          Paste an issue: Claude Opus and GPT Astra turn it into a pull request
-          in minutes. Sponsors pay for the compute, and their names ship with
+          Paste an issue: <span className="model model-claude">Claude Opus</span>{" "}
+          and <span className="model model-gpt">GPT Astra</span> turn it into a
+          pull request in minutes. Sponsors pay for the compute, and their names ship with
           every pull request.
         </p>
         <ShipForm />

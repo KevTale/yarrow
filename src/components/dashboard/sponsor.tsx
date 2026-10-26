@@ -16,6 +16,7 @@ import {
   ResetsIn,
   SponsorName,
 } from "@/components/boards";
+import { LogoPicker } from "@/components/logo-picker";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -348,6 +349,7 @@ export function SponsorSettings({
   const [tagline, setTagline] = useState(profile.tagline ?? "");
   const [website, setWebsite] = useState(profile.websiteUrl ?? "");
   const [description, setDescription] = useState(profile.description ?? "");
+  const [logo, setLogo] = useState<string | null>(profile.logoUrl);
   const [mode, setMode] = useState(data.funding.mode);
   const [chosen, setChosen] = useState(
     new Set(data.funding.selectedProjectIds),
@@ -387,12 +389,14 @@ export function SponsorSettings({
                 tagline: null,
                 description: null,
                 websiteUrl: null,
+                logo: null,
               }
             : {
                 publicName: name.trim(),
                 tagline,
                 description,
                 websiteUrl: site,
+                logo,
               },
           mode,
           selectedProjectIds: [...chosen],
@@ -400,8 +404,12 @@ export function SponsorSettings({
       });
       await router.invalidate();
       onClose();
-    } catch {
-      setError("Not saved. Try again in a moment.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error && /image/i.test(cause.message)
+          ? cause.message
+          : "Not saved. Try again in a moment.",
+      );
     } finally {
       setPending(false);
     }
@@ -441,15 +449,18 @@ export function SponsorSettings({
             </label>
             {!anonymous && (
               <>
-                <label className="field">
-                  Name
-                  <input
-                    value={name}
-                    maxLength={60}
-                    autoFocus
-                    onChange={(event) => setName(event.target.value)}
-                  />
-                </label>
+                <div className="sd-identity">
+                  <LogoPicker name={name} value={logo} onChange={setLogo} />
+                  <label className="field">
+                    Name
+                    <input
+                      value={name}
+                      maxLength={60}
+                      autoFocus
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                  </label>
+                </div>
                 <label className="field">
                   Tagline
                   <input
