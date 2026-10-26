@@ -9,6 +9,7 @@ import {
   getConnection,
   jiraBoardFor,
   jiraConnectionsForUser,
+  removeBoard,
 } from "../../db/trackers";
 import { upsertTicket } from "../../db/workunits";
 import {
@@ -169,6 +170,32 @@ export async function linkJiraProject(
   if (input.ticket)
     await labelTrackerTickets(db, ctx, project, [input.ticket], true);
   return { projectId: project.id, key: input.ticket ?? null };
+}
+
+/**
+ * The settings page's Jira project: another one replaces the current link,
+ * null removes it (queued tickets of the old one leave the queue).
+ */
+export async function setJiraProject(
+  db: Database,
+  ctx: TrackerContext,
+  userId: string,
+  input: { projectId: string; connectionId: string; jiraKey: string | null },
+): Promise<void> {
+  const project = await requireProjectMember(db, userId, input.projectId);
+  for (const { board, connection } of await boardsForProject(db, project.id))
+    if (
+      connection.tracker === "jira" &&
+      (connection.id !== input.connectionId ||
+        board.externalBoardId !== input.jiraKey)
+    )
+      await removeBoard(db, project.id, board.id);
+  if (input.jiraKey)
+    await linkJiraProject(db, ctx, userId, {
+      projectId: project.id,
+      connectionId: input.connectionId,
+      jiraKey: input.jiraKey,
+    });
 }
 
 /** The Jira projects a connection reaches, for the dashboard's link card. */

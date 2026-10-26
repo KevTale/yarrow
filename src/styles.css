@@ -3380,23 +3380,13 @@ a.bd-review-link:hover {
   text-underline-offset: 3px;
 }
 
-/* Jira: its blue diamond marks keys, linked projects and the setup card. */
-.bd-source {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
+/* Jira's mark in front of its keys and on its setup card. */
+.bd-num .jira-icon {
   margin-right: 6px;
-  border-radius: 1.5px;
-  background: #4c9aff;
-  transform: rotate(45deg) translateY(-1px);
-  vertical-align: middle;
+  vertical-align: -1px;
 }
 .bd-num.jira {
   white-space: nowrap;
-}
-.bd-chip-board {
-  display: inline-flex;
-  align-items: center;
 }
 .bd-jira {
   position: relative;
@@ -3410,13 +3400,9 @@ a.bd-review-link:hover {
   background: linear-gradient(90deg, #4c9aff12, transparent 60%), var(--surface);
 }
 .bd-jira-mark {
-  width: 12px;
-  height: 12px;
-  border-radius: 2.5px;
-  background: #4c9aff;
-  transform: rotate(45deg);
+  display: grid;
+  place-items: center;
   flex: none;
-  margin-inline: 4px;
 }
 .bd-jira-what {
   display: grid;
@@ -5509,19 +5495,14 @@ a.live-title:hover {
   position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
   flex: none;
-  border-radius: 9px;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  transition:
-    color 0.16s,
-    background 0.16s;
+  /* On the title's x-height, not its line box. */
+  margin-top: 0.2em;
+  color: var(--secondary);
+  transition: color 0.16s;
 }
 .st-back:hover {
   color: var(--text);
-  background: var(--hover);
 }
 .st-section {
   display: grid;
@@ -5565,13 +5546,6 @@ a.live-title:hover {
   border: 1px solid var(--line);
   color: var(--text);
 }
-.st-icon.jira i {
-  width: 12px;
-  height: 12px;
-  border-radius: 2.5px;
-  background: #4c9aff;
-  transform: rotate(45deg);
-}
 .st-card-body {
   flex: 1;
   display: grid;
@@ -5588,28 +5562,6 @@ a.live-title:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.st-board {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-.st-unlink {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin-left: 6px;
-  padding: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--muted);
-}
-.st-unlink:hover {
-  color: var(--red);
-  background: var(--hover);
 }
 .st-state {
   display: inline-flex;
@@ -5632,6 +5584,27 @@ a.live-title:hover {
 .st-state.on::before {
   background: var(--green);
   box-shadow: 0 0 0 3px #5ccb9526;
+}
+.st-jira {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+.st-jira select {
+  background: var(--elevated);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  max-width: 100%;
+}
+.st-card-body strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .st-card .bd-btn {
   display: inline-flex;

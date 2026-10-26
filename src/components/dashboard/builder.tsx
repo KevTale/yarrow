@@ -21,6 +21,7 @@ import {
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
+import { JiraIcon } from "@/components/brand-icons";
 import { LogoPicker } from "@/components/logo-picker";
 import { timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
@@ -491,28 +492,12 @@ export function BuilderView({
                 >
                   <Settings size={16} />
                 </Link>
-                {project.boards.map((board) => (
-                  <span
-                    className="bd-chip bd-chip-board"
-                    key={`${board.tracker}:${board.key}`}
-                    title={board.site}
-                  >
-                    <i className={`bd-source ${board.tracker}`} />
-                    {board.key}
-                  </span>
-                ))}
                 <span className="bd-head-actions">
                   {!many && (
                     <a className="text-link" href="/connect/github">
                       <Plus size={14} /> Add a project
                     </a>
                   )}
-                  {live?.jiraReady &&
-                    !project.boards.some((board) => board.tracker === "jira") && (
-                      <a className="text-link" href="/connect/github?source=jira">
-                        <Plus size={14} /> Jira
-                      </a>
-                    )}
                 </span>
               </div>
               {waiting && (
@@ -787,7 +772,7 @@ function ReviewList({
 function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>
-      {row.source === "jira" && <i className="bd-source" aria-hidden="true" />}
+      {row.source === "jira" && <JiraIcon size={12} />}
       {row.ref}
     </span>
   );

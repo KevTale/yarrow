@@ -10,6 +10,7 @@ import {
   jiraProjects,
   jiraReady,
   linkJiraProject,
+  setJiraProject,
   settleJira,
   trackerContext,
   type JiraStep,
@@ -88,6 +89,26 @@ export const linkJiraFn = createServerFn({ method: "POST" })
     );
     forget();
     return linked;
+  });
+
+/** The settings page's Jira project, saved as soon as it is chosen. */
+export const setJiraProjectFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      projectId: z.uuid(),
+      connectionId: z.uuid(),
+      jiraKey: z
+        .string()
+        .regex(/^[A-Z][A-Z0-9_]{0,9}$/)
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    await withDb((db) =>
+      setJiraProject(db, trackerContext(), viewer.userId, data),
+    );
+    return { saved: true };
   });
 
 /** "Not now" on the Jira card: the pasted link is forgotten. */

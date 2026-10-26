@@ -7,6 +7,7 @@ import {
   linkJiraFn,
   listJiraProjectsFn,
 } from "@/functions/connect.functions";
+import { JiraIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 
@@ -76,7 +77,9 @@ export function JiraCard({
 
   return (
     <section className="bd-jira" aria-label="Jira">
-      <span className="bd-jira-mark" aria-hidden="true" />
+      <span className="bd-jira-mark" aria-hidden="true">
+        <JiraIcon size={20} />
+      </span>
       <div className="bd-jira-what">
         <strong>{step.ticket ?? "Jira"}</strong>
         {step.site && <span className="mono muted">{step.site}</span>}

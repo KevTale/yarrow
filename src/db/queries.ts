@@ -371,7 +371,9 @@ export async function projectForOwner(db: Database, projectId: string) {
     .select({
       id: trackerBoards.id,
       name: trackerBoards.name,
+      key: trackerBoards.externalBoardId,
       tracker: trackerConnections.tracker,
+      connectionId: trackerConnections.id,
       connection: trackerConnections.name,
     })
     .from(trackerBoards)

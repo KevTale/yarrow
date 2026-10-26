@@ -14,6 +14,7 @@ import { jiraAdapter } from "../../src/server/trackers/jira";
 import {
   labelTrackerTickets,
   openTrackerTickets,
+  setJiraProject,
   settleJira,
   type TrackerContext,
 } from "../../src/server/trackers/jira-flow";
@@ -226,6 +227,24 @@ describe("Jira for builders", async () => {
     await expect(
       labelTrackerTickets(db, ctx, project, ["OPS-3"], true),
     ).rejects.toThrow("not in a linked Jira project");
+    // From the settings page: no Jira project any more, then APP again.
+    const [connection] = await raw
+      .select({ id: schema.trackerConnections.id })
+      .from(schema.trackerConnections);
+    const connectionId = connection!.id;
+    await setJiraProject(db, ctx, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKey: null,
+    });
+    expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
+    expect(await openTrackerTickets(db, ctx, projectId)).toBeNull();
+    await setJiraProject(db, ctx, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKey: "APP",
+    });
+    expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
   });
 
   it("names sites by their address and changes labels in one request", async () => {
