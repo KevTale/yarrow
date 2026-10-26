@@ -93,14 +93,16 @@ export interface TrackerAdapter {
     boardId: string,
   ): Promise<TrackerStatus[]>;
   /**
-   * Moves a ticket to a status, never backwards: "already" when it is
-   * there or further, "blocked" when the workflow has no way there (Jira).
+   * Moves a ticket to a status, never backwards unless `backwards`:
+   * "already" when it is there (or further), "blocked" when the workflow
+   * has no way there (Jira).
    */
   moveTo?(
     connection: { externalId: string; accessToken: string },
     credentials: TrackerCredentials,
     externalId: string,
     statusId: string,
+    backwards?: boolean,
   ): Promise<"moved" | "already" | "blocked">;
   /** Puts the label on a ticket, or takes it off (Jira). */
   setLabel?(

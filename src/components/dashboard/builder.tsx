@@ -35,7 +35,7 @@ type BuilderData = Extract<
   { status: "ok" }
 >;
 /** The ticket's stage: each ticket is in exactly one. */
-type Filter = "todo" | "progress" | "review" | "done";
+type Filter = "todo" | "progress" | "stopped" | "review" | "done";
 
 const statusLabel: Record<TicketRow["status"], string> = {
   none: "",
@@ -335,7 +335,12 @@ export function BuilderView({
   const filters: Record<Filter, (row: TicketRow) => boolean> = {
     todo: (row) => !inYarrow(row),
     progress: (row) =>
-      inYarrow(row) && !done(row) && row.status !== "pull_request",
+      inYarrow(row) &&
+      !done(row) &&
+      row.status !== "pull_request" &&
+      row.status !== "abstained",
+    // Abandoned by the agents: the builder's turn (edit, then retry).
+    stopped: (row) => row.status === "abstained",
     review: (row) => row.status === "pull_request",
     done,
   };
@@ -519,22 +524,31 @@ export function BuilderView({
                         [
                           ["todo", "To queue"],
                           ["progress", "In progress"],
+                          ["stopped", "Stopped"],
                           ["review", "To review"],
                           ["done", "Done"],
                         ] as const
-                      ).map(([key, label]) => (
-                        <button
-                          type="button"
-                          key={key}
-                          aria-pressed={!everywhere && filter === key}
-                          onClick={() => {
-                            setFilter(key);
-                            if (q) setNarrowed(true);
-                          }}
-                        >
-                          {label} <span>{counts[key]}</span>
-                        </button>
-                      ))}
+                      )
+                        // Stopped shows only when a ticket is there.
+                        .filter(
+                          ([key]) =>
+                            key !== "stopped" ||
+                            counts.stopped > 0 ||
+                            filter === "stopped",
+                        )
+                        .map(([key, label]) => (
+                          <button
+                            type="button"
+                            key={key}
+                            aria-pressed={!everywhere && filter === key}
+                            onClick={() => {
+                              setFilter(key);
+                              if (q) setNarrowed(true);
+                            }}
+                          >
+                            {label} <span>{counts[key]}</span>
+                          </button>
+                        ))}
                     </div>
                     <input
                       className="bd-search"

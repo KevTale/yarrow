@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Ban,
   Check,
   ChevronDown,
   ExternalLink,
@@ -282,6 +283,7 @@ const moveRows: { event: MoveEvent; label: string; icon: ReactNode }[] = [
     label: "Pull request merged",
     icon: <GitMerge size={14} />,
   },
+  { event: "stopped", label: "Yarrow stopped", icon: <Ban size={14} /> },
 ];
 
 /**
@@ -348,7 +350,7 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
               {board ? (
                 <StatusSelect
                   statuses={board.statuses}
-                  value={board.moves[row.event]}
+                  value={board.moves[row.event] ?? null}
                   onChange={(statusId) => void change(row.event, statusId)}
                 />
               ) : (

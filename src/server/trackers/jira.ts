@@ -255,7 +255,13 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         (a, b) => categoryRank[a.category] - categoryRank[b.category],
       );
     },
-    async moveTo({ externalId, accessToken }, _credentials, key, statusId) {
+    async moveTo(
+      { externalId, accessToken },
+      _credentials,
+      key,
+      statusId,
+      backwards = false,
+    ) {
       const issue = `${base(externalId)}/issue/${encodeURIComponent(key)}`;
       const current = await json<{
         fields: {
@@ -283,6 +289,7 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       if (!transition) return "blocked";
       // Never backwards: a ticket already further stays where it is.
       if (
+        !backwards &&
         categoryRank[categoryOf(current.fields.status.statusCategory.key)] >
         categoryRank[categoryOf(transition.to.statusCategory.key)]
       )

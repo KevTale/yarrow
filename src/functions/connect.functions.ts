@@ -142,6 +142,7 @@ export const setJiraMovesFn = createServerFn({ method: "POST" })
         started: statusId,
         pullRequest: statusId,
         merged: statusId,
+        stopped: statusId.default(null),
       }),
     }),
   )

@@ -430,6 +430,10 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             summary: stop.message.slice(0, 2000),
             evidence: [],
           });
+          // The board follows the builder's choice for stopped tickets.
+          await pipeline(env, db)
+            .moveRunTicket(runId, "stopped")
+            .catch(() => {});
         }),
       );
       return { outcome: "abstained", reason: stop.reason };

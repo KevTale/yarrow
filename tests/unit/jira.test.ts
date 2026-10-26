@@ -356,7 +356,7 @@ describe("moving Jira tickets", async () => {
     ]);
     // Defaults: work → In Progress, PR → the review status, merge → stay.
     expect(settings).toMatchObject({
-      moves: { started: "20", pullRequest: "30", merged: null },
+      moves: { started: "20", pullRequest: "30", merged: null, stopped: null },
       chosen: false,
     });
 
@@ -390,6 +390,20 @@ describe("moving Jira tickets", async () => {
       "APP-1 already",
     );
     expect(jira.issues.get("APP-1")!.status).toBe("40");
+    // Stopped: nowhere by default, then where the builder said, even back.
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
+      "not moved (builder's choice)",
+    );
+    await setJiraMoves(db, owner.userId, board!.id, {
+      started: "20",
+      pullRequest: "30",
+      merged: "40",
+      stopped: "20",
+    });
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
+      "APP-1 moved",
+    );
+    expect(jira.issues.get("APP-1")!.status).toBe("20");
   });
 });
 

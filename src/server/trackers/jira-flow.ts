@@ -388,6 +388,7 @@ const eventLabel: Record<MoveEvent, string> = {
   started: "when Yarrow started",
   pullRequest: "when the pull request opened",
   merged: "when the pull request was merged",
+  stopped: "when Yarrow stopped",
 };
 
 /**
@@ -423,9 +424,16 @@ export async function moveTrackerTicket(
     credentials,
     row.board.externalBoardId,
   );
-  const target = (row.board.moves ?? defaultMoves(statuses))[event];
+  const target = (row.board.moves ?? defaultMoves(statuses))[event] ?? null;
   if (!target) return "not moved (builder's choice)";
-  const result = await adapter.moveTo(scope, credentials, row.key, target);
+  // A stopped ticket goes where the builder said, back to "to do" included.
+  const result = await adapter.moveTo(
+    scope,
+    credentials,
+    row.key,
+    target,
+    event === "stopped",
+  );
   if (result === "blocked") {
     const name = statuses.find((status) => status.id === target)?.name;
     await db

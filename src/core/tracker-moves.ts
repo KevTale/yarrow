@@ -3,11 +3,21 @@
  * statuses, which every team names its own way; each status belongs to one
  * of three fixed categories, used only to propose the defaults.
  */
-export type MoveEvent = "started" | "pullRequest" | "merged";
-export const moveEvents: MoveEvent[] = ["started", "pullRequest", "merged"];
+export type MoveEvent = "started" | "pullRequest" | "merged" | "stopped";
+export const moveEvents: MoveEvent[] = [
+  "started",
+  "pullRequest",
+  "merged",
+  "stopped",
+];
 
-/** Target status per event (its id in the tracker); null: don't move. */
-export type TicketMoves = Record<MoveEvent, string | null>;
+/**
+ * Target status per event (its id in the tracker); null: don't move.
+ * "stopped" may be missing from moves saved before it existed.
+ */
+export type TicketMoves = Record<Exclude<MoveEvent, "stopped">, string | null> & {
+  stopped?: string | null;
+};
 
 export interface TrackerStatus {
   id: string;
@@ -36,5 +46,7 @@ export function defaultMoves(statuses: TrackerStatus[]): TicketMoves {
     started: started?.id ?? null,
     pullRequest: review?.id ?? null,
     merged: null,
+    // Where an abandoned ticket goes is the builder's call.
+    stopped: null,
   };
 }

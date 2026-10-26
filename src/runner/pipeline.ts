@@ -724,6 +724,12 @@ export class RunPipeline {
     );
   }
 
+  /** Moves the run's tracker ticket, if it has one. */
+  async moveRunTicket(runId: string, event: MoveEvent): Promise<void> {
+    const { workUnit, tracker } = await runContext(this.deps.db, runId);
+    if (tracker) await this.moveTicket(workUnit.id, event);
+  }
+
   /** Comments on the GitHub issue or the tracker ticket. */
   async commentOnTicket(run: PreparedRun, body: string): Promise<void> {
     const context = await runContext(this.deps.db, run.runId);
