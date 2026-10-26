@@ -15,12 +15,12 @@ import {
   type Review,
   type StoredReview,
 } from "../src/core/review";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { recordRunModels } from "../src/db/runs";
-import { agentRuns } from "../src/db/schema";
+import { agentRuns, events } from "../src/db/schema";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -459,29 +459,75 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
       db,
       new Date(Date.now() - 10 * 60_000),
     )) {
+      let instance: WorkflowInstance | null = null;
       try {
-        await env.WORKFLOW.get(stale.runId);
+        instance = await env.WORKFLOW.get(stale.runId);
       } catch {
-        await env.WORKFLOW.create({
-          id: stale.runId,
-          params: {
-            runId: stale.runId,
-            workUnitId: stale.workUnitId,
-            kind: stale.kind,
-            budgetCents: stale.reservedCents || INITIAL_RESERVATION_CENTS,
-            ...(stale.kind === "correction"
-              ? {
-                  instruction: stale.instruction ?? "",
-                  correctionRequestId: stale.correctionRequestId ?? undefined,
-                }
-              : {}),
-          } as RunRequest,
-        });
-        log.push(`recovered ${stale.runId}`);
+        instance = null;
       }
+      if (instance) {
+        log.push(
+          ...(await reviveDeadRun(db, instance, stale.runId).catch(
+            (error: Error) => [`revive ${stale.runId}: ${describe(error)}`],
+          )),
+        );
+        continue;
+      }
+      await env.WORKFLOW.create({
+        id: stale.runId,
+        params: {
+          runId: stale.runId,
+          workUnitId: stale.workUnitId,
+          kind: stale.kind,
+          budgetCents: stale.reservedCents || INITIAL_RESERVATION_CENTS,
+          ...(stale.kind === "correction"
+            ? {
+                instruction: stale.instruction ?? "",
+                correctionRequestId: stale.correctionRequestId ?? undefined,
+              }
+            : {}),
+        } as RunRequest,
+      });
+      log.push(`recovered ${stale.runId}`);
     }
     return log;
   });
+}
+
+/**
+ * A workflow that died on an uncaught error leaves its run "running" and the
+ * sponsor money reserved. Restart it once; if it dies again, abstain and
+ * release the money (the platform absorbs what the run may have spent).
+ */
+async function reviveDeadRun(
+  db: Database,
+  instance: WorkflowInstance,
+  runId: string,
+): Promise<string[]> {
+  const { status } = await instance.status();
+  if (status !== "errored" && status !== "terminated") return [];
+  const [restarted] = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(and(eq(events.type, "run.restarted"), eq(events.agentRunId, runId)));
+  if (!restarted) {
+    await instance.restart();
+    await recordEvent(db, { type: "run.restarted", agentRunId: runId });
+    return [`restarted ${runId}`];
+  }
+  await recordEvent(db, {
+    type: "run.failed",
+    agentRunId: runId,
+    payload: { message: "The run stopped twice on a platform error." },
+  });
+  await new PostgresLedger(db).settle(runId, {
+    outcome: "abstained",
+    actualCostCents: 0,
+    reason: "provider_error",
+    summary: "The run stopped twice on a platform error.",
+    evidence: [],
+  });
+  return [`abstained dead run ${runId}`];
 }
 
 /** Drizzle wraps driver errors ("Failed query: …"); the cause says why. */

@@ -21,6 +21,7 @@ export type EventType =
   | "work_unit.unqueued"
   | "correction.requested"
   | "run.started"
+  | "run.restarted"
   | "run.reserved_more"
   | "run.finished"
   | "run.failed"
