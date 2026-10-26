@@ -6336,6 +6336,10 @@ a.tk:hover {
   .tk-when {
     display: none;
   }
+  /* The title keeps most of the row; the sponsor's name gives way. */
+  .tk-paid {
+    max-width: 44%;
+  }
   .tk-totals {
     justify-content: center;
   }
@@ -6657,6 +6661,11 @@ a.sb-row-link:hover .sb-title b {
   .sb-boards {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
+  }
+  /* Names keep their room: no description, merged PRs only. */
+  .sb-description,
+  .sb-clicks {
+    display: none;
   }
   .sb-claim-bar {
     width: 100%;

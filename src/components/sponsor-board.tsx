@@ -289,7 +289,9 @@ function Stats({
 }) {
   return (
     <small>
-      {row.name && <span>{plural(row.clicks, "click")}</span>}
+      {row.name && (
+        <span className="sb-clicks">{plural(row.clicks, "click")}</span>
+      )}
       <span>{plural(row.merged, "merged PR")}</span>
     </small>
   );
