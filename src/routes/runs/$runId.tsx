@@ -4,6 +4,7 @@ import { sponsorNames } from "@/core/attribution";
 import { money } from "@/core/packs";
 import { modelDisplayName } from "@/core/pipeline";
 import { getRunFn } from "@/functions/public.functions";
+import { RunFeed } from "@/components/run-activity";
 import {
   capitalize,
   RunStatus,
@@ -91,14 +92,7 @@ function RunPage() {
               </div>
             </section>
           )}
-          {run.abstentionReason && (
-            <section className="outcome-panel">
-              <div>
-                <strong>Abstained: {capitalize(run.abstentionReason)}</strong>
-                {run.summary && <p className="muted">{run.summary}</p>}
-              </div>
-            </section>
-          )}
+          <RunFeed runId={run.runId} />
           {run.instruction && (
             <section className="panel">
               <p className="eyebrow">CORRECTION REQUESTED</p>

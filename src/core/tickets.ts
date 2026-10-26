@@ -46,6 +46,8 @@ interface TicketIdentity {
 
 export interface TicketRow extends TicketIdentity {
   status: TicketStatus;
+  /** The latest run, whose activity opens from the status. */
+  runId: string | null;
   /** Waiting for the label to be added or removed on GitHub. */
   pending: boolean;
   pullRequest: { number: number; url: string } | null;
@@ -119,6 +121,7 @@ export function mergeTickets(
     merged.push({
       ...issue,
       status: "none",
+      runId: null,
       pending: false,
       pullRequest: null,
       reason: null,

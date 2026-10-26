@@ -36,6 +36,9 @@ import {
   type TrackerSecrets,
 } from "../server/trackers/index";
 import { moveTrackerTicket } from "../server/trackers/jira-flow";
+import { syncRunActivity } from "../db/activity";
+import { agentRuns } from "../db/schema";
+import { eq } from "drizzle-orm";
 import type { MoveEvent } from "../core/tracker-moves";
 import { listCostCents, type ManagedAgentsClient } from "./anthropic";
 import {
@@ -330,13 +333,30 @@ export class RunPipeline {
         runConfig: run.runConfig,
       }),
     });
+    // Kept for the activity feed (corrections reuse the run row's latest).
+    await this.deps.db
+      .update(agentRuns)
+      .set({ implementerSession: session.id })
+      .where(eq(agentRuns.id, run.runId));
     return session.id;
   }
 
-  /** "done" when the implementer session has finished its turn. */
+  /** Brings the implementer session's new actions into the run's feed. */
+  async syncActivity(runId: string): Promise<void> {
+    await syncRunActivity(this.deps.db, this.deps.anthropic, runId, 0).catch(
+      (error: Error) => console.warn("activity:", error.message),
+    );
+  }
+
+  /**
+   * "done" when the implementer session has finished its turn. Each check
+   * also brings the session's new actions into the run's activity feed.
+   */
   async implementerState(
     sessionId: string,
+    runId?: string,
   ): Promise<"working" | "done" | "failed"> {
+    if (runId) await this.syncActivity(runId);
     const session = await this.deps.anthropic.getSession(sessionId);
     if (session.status === "terminated") return "failed";
     return session.status === "idle" ? "done" : "working";

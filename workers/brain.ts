@@ -20,6 +20,7 @@ import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { recordRunModels } from "../src/db/runs";
+import { recordActivity } from "../src/db/activity";
 import { agentRuns, events } from "../src/db/schema";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
@@ -166,9 +167,28 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
     await step.do("reserve", () =>
       withDb(env, (db) => new PostgresLedger(db).reserve(request)),
     );
+    // A line in the run's activity feed; `key` dedupes retried steps.
+    const note = (
+      db: Database,
+      key: string,
+      kind: "phase" | "review" | "outcome",
+      detail: Record<string, unknown>,
+    ) =>
+      recordActivity(db, runId, [
+        {
+          externalId: key,
+          at: new Date().toISOString(),
+          actor: kind === "review" ? "reviewer" : "yarrow",
+          kind,
+          detail,
+        },
+      ]).catch((error: Error) => console.warn("activity:", error.message));
     const phase = (name: string) =>
       step.do(`phase:${name}`, () =>
-        withDb(env, (db) => new PostgresLedger(db).setPhase(runId, name)),
+        withDb(env, async (db) => {
+          await new PostgresLedger(db).setPhase(runId, name);
+          await note(db, `phase:${name}`, "phase", { phase: name });
+        }),
       );
 
     let implementer: string | null = null;
@@ -190,7 +210,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       const implementerDone = (label: string) =>
         waitFor(step, label, () =>
           withDb(env, (db) =>
-            pipeline(env, db).implementerState(implementerId),
+            pipeline(env, db).implementerState(implementerId, runId),
           ),
         );
       const readImplementation = (label: string) =>
@@ -294,7 +314,16 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         if (state !== "done")
           throw new StopRun("provider_error", "The review did not finish.");
         return step.do(`review:${round}:read`, () =>
-          withDb(env, (db) => pipeline(env, db).readReview(reviewerId)),
+          withDb(env, async (db) => {
+            const read = await pipeline(env, db).readReview(reviewerId);
+            const blocking = blockingComments(read).length;
+            await note(db, `review:${round}`, "review", {
+              text: read.summary,
+              failed: blocking,
+              passed: read.comments.length - blocking,
+            });
+            return read;
+          }),
         );
       };
       let finalReview = await review(1);
@@ -335,6 +364,12 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       await step.do("settle", () =>
         withDb(env, async (db) => {
           const runner = pipeline(env, db);
+          await runner.syncActivity(runId);
+          await note(db, "outcome", "outcome", {
+            phase: "pull_request",
+            url: delivered.url,
+            text: snapshot.summary,
+          });
           const ledger = new PostgresLedger(db);
           const { costCents: cost, models } = await runner.usage(
             implementerId,
@@ -371,6 +406,11 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       await step.do("abstain", () =>
         withDb(env, async (db) => {
           const ledger = new PostgresLedger(db);
+          await pipeline(env, db).syncActivity(runId);
+          await note(db, "outcome", "outcome", {
+            phase: "abstained",
+            text: stop.message.slice(0, 2000),
+          });
           const usage = await pipeline(env, db)
             .usage(implementerId, reviewerRuns)
             .catch(() => ({ costCents: 0, models: [] }));

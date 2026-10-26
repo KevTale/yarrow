@@ -265,6 +265,7 @@ describe("merging GitHub's open issues", () => {
       title: "Old title",
       url: "",
       status: "queued",
+      runId: null,
       pending: true,
       pullRequest: null,
       reason: null,

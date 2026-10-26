@@ -5919,3 +5919,257 @@ a.live-title:hover {
     margin-left: auto;
   }
 }
+
+/* ---------- Run activity: hover card and run page feed ---------- */
+.ra-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.bd-run-link {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-decoration-color: #ffffff40;
+  text-underline-offset: 4px;
+}
+.bd-run-link:hover {
+  text-decoration-color: currentColor;
+}
+.ra-card {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 10px);
+  left: -14px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--elevated);
+  box-shadow: 0 22px 50px #00000080;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+  animation: ra-in 0.16s ease-out;
+}
+@keyframes ra-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* A bridge, so the pointer can travel from the status into the card. */
+.ra-card::before {
+  content: "";
+  position: absolute;
+  inset: -12px 0 auto;
+  height: 12px;
+}
+.ra-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ra-stages {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.ra-stage {
+  display: grid;
+  gap: 6px;
+  font:
+    500 11px var(--font-geist-mono),
+    monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5d636d;
+}
+.ra-stage::before {
+  content: "";
+  height: 3px;
+  border-radius: 99px;
+  background: #ffffff12;
+}
+.ra-stage.on {
+  color: var(--secondary);
+}
+.ra-stage.on::before {
+  background: var(--green);
+}
+.ra-stage.now {
+  color: var(--amber);
+}
+.ra-stage.now::before {
+  background: var(--amber);
+  animation: ra-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ra-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.ra-stop {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f2b5441a;
+  border: 1px solid #f2b54433;
+}
+.ra-stop strong {
+  color: var(--amber);
+  font-weight: 500;
+}
+.ra-stop p {
+  color: var(--text);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.ra-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ra-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: 7px;
+  animation: ra-in 0.3s ease-out;
+}
+.ra-icon {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  color: var(--muted);
+}
+.ra-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+  min-width: 0;
+  line-height: 20px;
+  color: var(--secondary);
+}
+.ra-text strong {
+  color: var(--text);
+  font-weight: 500;
+}
+.ra-time {
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  color: #5d636d;
+  line-height: 20px;
+}
+.ra-code {
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--text);
+  background: #ffffff0d;
+  padding: 1px 6px;
+  border-radius: 5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ra-diff {
+  display: inline-flex;
+  gap: 6px;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+}
+.ra-diff .add {
+  color: var(--green);
+}
+.ra-diff .del {
+  color: var(--red);
+}
+.ra-result {
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+}
+.ra-result.ok {
+  color: var(--green);
+}
+.ra-result.ko {
+  color: var(--red);
+}
+.ra-note {
+  color: var(--text);
+  font-style: italic;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ra-error {
+  color: var(--red);
+}
+.ra-line.k-phase .ra-icon,
+.ra-line.k-review .ra-icon {
+  color: var(--amber);
+}
+.ra-line.k-outcome .ra-icon {
+  color: var(--green);
+}
+.ra-line.stopped .ra-icon {
+  color: var(--amber);
+}
+.ra-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  color: var(--amber);
+  font-size: 13px;
+}
+.ra-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ra-feed {
+  display: grid;
+  gap: 14px;
+}
+.ra-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ra-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--amber);
+}
+.ra-feed .ra-list {
+  max-height: none;
+}
+.ra-private {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  .ra-card {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 16px;
+    width: auto;
+  }
+}

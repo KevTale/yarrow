@@ -6,7 +6,10 @@ import {
   liveToday,
   sponsorBoard,
 } from "@/db/boards";
-import { runDetail, showcase, workFeed } from "@/db/queries";
+import { runActivityFor, runDetail, showcase, workFeed } from "@/db/queries";
+import { syncRunActivity } from "@/db/activity";
+import { appEnv } from "@/server/env.server";
+import { ManagedAgentsClient } from "@/runner/anthropic";
 import { getViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 
@@ -51,6 +54,32 @@ export const getWorkFeedFn = createServerFn({ method: "GET" }).handler(
     }));
   },
 );
+
+/**
+ * A run's activity feed. While the run works, a viewer's request also reads
+ * the session's newest actions (at most every few seconds, whoever asks).
+ */
+export const getRunActivityFn = createServerFn({ method: "GET" })
+  .validator(z.object({ runId: z.uuid() }))
+  .handler(async ({ data }) => {
+    if (!databaseConfigured()) throw notFound();
+    const viewer = await getViewer().catch(() => null);
+    const apiKey = appEnv().ANTHROPIC_API_KEY;
+    const activity = await withDb(async (db) => {
+      const first = await runActivityFor(db, data.runId, viewer?.userId ?? null);
+      if (!first || first.status !== "running" || !apiKey) return first;
+      const read = await syncRunActivity(
+        db,
+        new ManagedAgentsClient(apiKey),
+        data.runId,
+      ).catch(() => false);
+      return read
+        ? runActivityFor(db, data.runId, viewer?.userId ?? null)
+        : first;
+    });
+    if (!activity) throw notFound();
+    return activity;
+  });
 
 export const getRunFn = createServerFn({ method: "GET" })
   .validator(z.object({ runId: z.uuid() }))

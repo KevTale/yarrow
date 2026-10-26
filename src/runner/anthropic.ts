@@ -1,3 +1,5 @@
+import type { SessionEvent } from "../core/activity";
+
 /**
  * Minimal client for Claude Managed Agents (beta). Fetch-based so it runs in
  * Workers and tests. Only the calls the platform needs.
@@ -181,6 +183,38 @@ export class ManagedAgentsClient {
 
   getSession(sessionId: string): Promise<ManagedSession> {
     return this.call("GET", `/sessions/${sessionId}`);
+  }
+
+  /**
+   * The session's actions after `after` (its processed_at), oldest first:
+   * tool calls and results, the agent's messages, errors. At most `pages`
+   * pages; the next read picks up from the last line kept.
+   */
+  async listEvents(
+    sessionId: string,
+    after: string | null,
+    pages = 5,
+  ): Promise<SessionEvent[]> {
+    const events: SessionEvent[] = [];
+    let page: string | null = null;
+    for (let i = 0; i < pages; i++) {
+      const query = new URLSearchParams({ limit: "100", order: "asc" });
+      for (const type of [
+        "agent.tool_use",
+        "agent.tool_result",
+        "agent.message",
+        "session.error",
+      ])
+        query.append("types[]", type);
+      if (after) query.set("created_at[gt]", after);
+      if (page) query.set("page", page);
+      const result: { data: SessionEvent[]; next_page?: string | null } =
+        await this.call("GET", `/sessions/${sessionId}/events?${query}`);
+      events.push(...result.data);
+      page = result.next_page ?? null;
+      if (!page) break;
+    }
+    return events;
   }
 
   async listFiles(sessionId: string): Promise<SessionFile[]> {

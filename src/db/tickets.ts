@@ -136,6 +136,7 @@ export async function projectTickets(
       title: bareTitle(unit.title, unit.externalId),
       url: unit.url,
       status,
+      runId: run?.id ?? null,
       pending: settled && pending !== undefined,
       pullRequest: pull ? { number: pull.number, url: pull.url } : null,
       reason:
@@ -162,6 +163,7 @@ export async function projectTickets(
         title: `#${number}`,
         url: "",
         status: "queued",
+        runId: null,
         pending: true,
         pullRequest: null,
         reason: null,

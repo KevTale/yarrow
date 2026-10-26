@@ -10,6 +10,8 @@ import {
   sql,
 } from "drizzle-orm";
 import type { RunSponsor } from "../core/attribution";
+import { redactActivity } from "../core/activity";
+import { runActivityLines } from "./activity";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { Database } from "./client";
 import {
@@ -268,6 +270,55 @@ export async function runDetail(
     timeline,
   };
 }
+
+/**
+ * A run's activity feed for one viewer: every line in full for the
+ * project's members and public projects, the kinds and counts only for
+ * everyone else on listed projects. Hidden projects stay invisible.
+ */
+export async function runActivityFor(
+  db: Database,
+  runId: string,
+  viewerUserId: string | null,
+) {
+  const [row] = await db
+    .select({
+      status: agentRuns.status,
+      phase: agentRuns.phase,
+      createdAt: agentRuns.createdAt,
+      finishedAt: agentRuns.finishedAt,
+      outcome: results.outcome,
+      abstentionReason: results.abstentionReason,
+      summary: results.summary,
+      pullRequestUrl: results.pullRequestUrl,
+      visibility: projects.visibility,
+      accountId: projects.accountId,
+    })
+    .from(agentRuns)
+    .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .leftJoin(results, eq(results.agentRunId, agentRuns.id))
+    .where(eq(agentRuns.id, runId));
+  if (!row) return null;
+  const member = await isMember(db, viewerUserId, row.accountId);
+  if (row.visibility === "hidden" && !member) return null;
+  const detailed = member || row.visibility === "public";
+  const lines = await runActivityLines(db, runId);
+  return {
+    runId,
+    status: row.status,
+    phase: row.phase,
+    createdAt: row.createdAt.toISOString(),
+    finishedAt: row.finishedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+    abstentionReason: row.abstentionReason,
+    summary: detailed ? row.summary : null,
+    pullRequestUrl: detailed ? row.pullRequestUrl : null,
+    detailed,
+    lines: detailed ? lines : lines.map(redactActivity),
+  };
+}
+export type RunActivity = NonNullable<Awaited<ReturnType<typeof runActivityFor>>>;
 
 export async function sponsorDashboard(db: Database, userId: string) {
   const rows = await db

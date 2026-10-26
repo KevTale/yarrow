@@ -399,6 +399,8 @@ export const agentRuns = pgTable(
     uncoveredCents: integer("uncovered_cents").default(0).notNull(),
     implementer: text("implementer").notNull(),
     reviewer: text("reviewer").notNull(),
+    // The implementer's Claude session, read for the run's activity feed.
+    implementerSession: text("implementer_session"),
     createdAt: createdAt(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
@@ -415,6 +417,39 @@ export const agentRuns = pgTable(
     index("runs_status").on(t.status),
   ],
 ).enableRLS();
+
+/**
+ * What happened during a run, one line per action: files read and edited,
+ * commands and their results, the agent's notes, phases, the review. Read
+ * from the provider session (externalId dedupes) or written by Yarrow.
+ */
+export const runActivity = pgTable(
+  "run_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentRunId: uuid("agent_run_id")
+      .notNull()
+      .references(() => agentRuns.id),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    actor: text("actor").notNull(), // implementer, reviewer, yarrow
+    kind: text("kind").notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().default({}).notNull(),
+    externalId: text("external_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("run_activity_external").on(t.agentRunId, t.externalId),
+    index("run_activity_run").on(t.agentRunId, t.at),
+  ],
+).enableRLS();
+
+/** When each run's session was last read, to space the reads (no realtime). */
+export const runActivityReads = pgTable("run_activity_reads", {
+  agentRunId: uuid("agent_run_id")
+    .primaryKey()
+    .references(() => agentRuns.id),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull(),
+}).enableRLS();
 
 export const correctionStatusEnum = pgEnum("correction_status", [
   "queued",

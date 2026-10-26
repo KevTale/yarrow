@@ -20,6 +20,7 @@ import { LogoPicker } from "@/components/logo-picker";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
+import { RunHover } from "@/components/run-activity";
 import { ModelsCell } from "./models";
 
 export type SponsorData = Extract<
@@ -160,7 +161,9 @@ export function SponsorView({
               </span>
               <span className={`bd-status s-${row.status}`}>
                 <span className="dot" aria-hidden="true" />
-                {statusLabel[row.status]}
+                <RunHover runId={row.runId} link={false}>
+                  <span>{statusLabel[row.status]}</span>
+                </RunHover>
               </span>
               <span className="sd-cost">
                 {["writing", "reviewing", "delivering"].includes(row.status)

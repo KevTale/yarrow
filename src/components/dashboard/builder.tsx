@@ -22,6 +22,7 @@ import {
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
 import { JiraIcon } from "@/components/brand-icons";
+import { RunHover } from "@/components/run-activity";
 import { LogoPicker } from "@/components/logo-picker";
 import { timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
@@ -462,11 +463,7 @@ export function BuilderView({
           </select>
         )}
         {reviewing ? (
-          <ReviewList
-            rows={meta.review}
-            table={table}
-            onProject={choose}
-          />
+          <ReviewList rows={meta.review} table={table} onProject={choose} />
         ) : loading ? (
           <BuilderSkeleton
             name={meta.projects.find((item) => item.id === currentId)?.name}
@@ -748,16 +745,18 @@ function ReviewList({
               <ModelsCell models={row.models} />
             </span>
             <span>
-              {row.pullRequest && (
-                <a
-                  className="bd-status s-pull_request bd-review-link"
-                  href={`${row.pullRequest.url}/files`}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  <span className="dot" aria-hidden="true" />
-                  Review #{row.pullRequest.number}
-                </a>
+              {row.pullRequest && row.runId && (
+                <RunHover runId={row.runId}>
+                  <a
+                    className="bd-status s-pull_request bd-review-link"
+                    href={`${row.pullRequest.url}/files`}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <span className="dot" aria-hidden="true" />
+                    Review #{row.pullRequest.number}
+                  </a>
+                </RunHover>
               )}
             </span>
             <span className="bd-when">{timeAgo(row.updatedAt)}</span>
@@ -805,21 +804,35 @@ function Status({
       </span>
     );
   const label = statusLabel[row.status];
+  const text = ["pull_request", "merged", "pr_closed"].includes(row.status) ? (
+    // "PR #4", "PR #4 merged": the pull request, never the issue.
+    row.pullRequest ? (
+      <a href={row.pullRequest.url} target="_blank" rel="noopener">
+        PR #{row.pullRequest.number}
+        {label}
+      </a>
+    ) : (
+      <span>PR{label}</span>
+    )
+  ) : row.runId && row.status !== "queued" ? (
+    <Link
+      to="/runs/$runId"
+      params={{ runId: row.runId }}
+      className="bd-run-link"
+    >
+      {label}
+    </Link>
+  ) : (
+    <span>{label}</span>
+  );
   return (
     <span className={`bd-status s-${row.status}`}>
       <span className="dot" aria-hidden="true" />
-      {["pull_request", "merged", "pr_closed"].includes(row.status) ? (
-        // "PR #4", "PR #4 merged": the pull request, never the issue.
-        row.pullRequest ? (
-          <a href={row.pullRequest.url} target="_blank" rel="noopener">
-            PR #{row.pullRequest.number}
-            {label}
-          </a>
-        ) : (
-          <span>PR{label}</span>
-        )
+      {/* Hovering the status shows what the agents did, live. */}
+      {row.runId && row.status !== "queued" ? (
+        <RunHover runId={row.runId}>{text}</RunHover>
       ) : (
-        <span title={row.reason ?? undefined}>{label}</span>
+        text
       )}
       {row.status === "abstained" && (
         <button
