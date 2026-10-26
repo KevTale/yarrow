@@ -4,6 +4,7 @@ import { checkoutSchema, sponsorProfileSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
 import { sponsorBoard } from "@/db/boards";
 import {
+  queueActivity,
   sponsorSettings,
   sponsorShipped,
   sponsorStandings,
@@ -52,6 +53,7 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
           totals.creditCents - totals.consumedCents - totals.reservedCents,
         standings: await sponsorStandings(db, viewer.userId),
         shipped: await sponsorShipped(db, viewer.userId),
+        activity: await queueActivity(db),
         settings: await sponsorSettings(db, viewer.userId),
         funding: {
           mode: filters.mode,

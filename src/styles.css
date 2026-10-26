@@ -4677,3 +4677,116 @@ a[data-loading]:not(.go)::after {
   color: var(--muted);
   margin: -4px 0 14px;
 }
+
+/* ---------- Sponsor: thanks after paying, and the queue at work ---------- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 150;
+  pointer-events: none;
+}
+.sd-thanks {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 34px 20px 30px;
+  margin-bottom: 26px;
+  border: 1px solid #f2b5444d;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 140% at 50% 0%, #f2b54424, #f2b54400 60%),
+    var(--surface);
+  animation: thanks-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sd-thanks-kicker {
+  font:
+    500 11px var(--font-geist-mono),
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.sd-thanks h2 {
+  font:
+    500 clamp(30px, 5vw, 42px) / 1.1 var(--font-display),
+    sans-serif;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.sd-thanks p {
+  color: var(--secondary);
+  font-size: 16px;
+  max-width: 52ch;
+}
+.sd-thanks p b {
+  color: var(--amber);
+  font-weight: 600;
+}
+.sd-thanks-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+@keyframes thanks-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.sd-activity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 34px 0 -18px;
+  font-size: 14px;
+  color: var(--secondary);
+}
+.sd-activity b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.sd-activity-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 4px;
+}
+.sd-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4a4f57;
+}
+.sd-pulse.on {
+  background: var(--green);
+  box-shadow: 0 0 0 0 #5ccb9566;
+  animation: live-pulse 1.6s ease-out infinite;
+}
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 7px #5ccb9500;
+  }
+  100% {
+    box-shadow: 0 0 0 0 #5ccb9500;
+  }
+}
+.sd-live {
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--green);
+  background: #5ccb951a;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-thanks {
+    animation: none;
+  }
+  .sd-pulse.on {
+    animation: none;
+  }
+}

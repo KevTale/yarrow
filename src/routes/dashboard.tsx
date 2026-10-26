@@ -64,6 +64,20 @@ function DashboardPage() {
   const router = useRouter();
   const [polls, setPolls] = useState(0);
   const [settings, setSettings] = useState(false);
+  // Back from Stripe: celebrate once, then drop the flag from the address
+  // so a refresh does not replay it.
+  const [celebrate] = useState(search.checkout === "success");
+  useEffect(() => {
+    if (search.checkout)
+      navigate({
+        search: (current) => ({
+          ...current,
+          checkout: undefined,
+          tab: "sponsor",
+        }),
+        replace: true,
+      });
+  }, [search.checkout, navigate]);
   // The project being opened from the rail, while its tickets load.
   const switching = useRouterState({
     select: (state) => {
@@ -167,11 +181,6 @@ function DashboardPage() {
           <SponsorActions data={sponsor} onSettings={() => setSettings(true)} />
         )}
       </div>
-      {search.checkout === "success" && tab === "sponsor" && (
-        <p className="feedback" role="status">
-          Payment received. Your credit appears once Stripe confirms it.
-        </p>
-      )}
       {tab === "builder" && builder.status === "ok" ? (
         <BuilderView
           data={builder}
@@ -180,7 +189,11 @@ function DashboardPage() {
           switching={switching}
         />
       ) : (
-        <SponsorView data={sponsor} onSettings={() => setSettings(true)} />
+        <SponsorView
+          data={sponsor}
+          onSettings={() => setSettings(true)}
+          celebrate={celebrate}
+        />
       )}
       {tab === "sponsor" && (
         <SponsorSettings

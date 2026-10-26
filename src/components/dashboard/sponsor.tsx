@@ -15,7 +15,9 @@ import {
   ResetsIn,
   SponsorName,
 } from "@/components/boards";
+import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
+import { Spinner } from "@/components/navigation-feedback";
 import { ModelsCell } from "./models";
 
 export type SponsorData = Extract<
@@ -62,11 +64,14 @@ export function SponsorActions({
 export function SponsorView({
   data,
   onSettings,
+  celebrate = false,
 }: {
   data: SponsorData;
   onSettings: () => void;
+  /** Just back from Stripe: thank the sponsor. */
+  celebrate?: boolean;
 }) {
-  const { standings, shipped } = data;
+  const { standings, shipped, activity } = data;
   const router = useRouter();
   // Someone passing you, your runs moving: refetch at once.
   useLive(
@@ -75,9 +80,19 @@ export function SponsorView({
     ["boards", data.guest ? null : `sponsor:${data.userId}`],
     () => router.invalidate(),
   );
+  // Guests get no private signal when their runs move: poll instead.
+  useEffect(() => {
+    if (!data.guest) return;
+    const timer = setInterval(() => void router.invalidate(), 10_000);
+    return () => clearInterval(timer);
+  }, [data.guest, router]);
   const shippedList = useFlip<HTMLDivElement>(shipped);
+  const working = shipped.filter((row) =>
+    ["writing", "reviewing", "delivering"].includes(row.status),
+  ).length;
   return (
     <div className="sd">
+      {celebrate && <ThankYou data={data} />}
       {standings.anonymous && data.isSponsor && (
         <p className="sd-anonymous">
           You sponsor anonymously.{" "}
@@ -106,10 +121,30 @@ export function SponsorView({
       </div>
       <Claim today={standings.today} all={standings.all} />
 
+      {data.isSponsor && (
+        <p className="sd-activity" role="status">
+          <span
+            className={`sd-pulse ${activity.working > 0 ? "on" : ""}`}
+            aria-hidden="true"
+          />
+          <span>
+            <b>{activity.working}</b> working now
+          </span>
+          <span className="claim-sep">·</span>
+          <span>
+            <b>{activity.waiting}</b> waiting
+          </span>
+          <span className="sd-activity-note">
+            Your credit funds them automatically, one ticket after another
+          </span>
+        </p>
+      )}
+
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
           <span>
-            Shipped with your money <em>{shipped.length}</em>
+            Funded by you <em>{shipped.length}</em>
+            {working > 0 && <span className="sd-live">{working} live</span>}
           </span>
           <span>Project</span>
           <span>Models</span>
@@ -117,7 +152,11 @@ export function SponsorView({
           <span className="right">Cost</span>
         </div>
         {shipped.length === 0 && (
-          <p className="bd-none muted">Nothing shipped with your money yet</p>
+          <p className="bd-none muted">
+            {data.isSponsor && activity.waiting > 0
+              ? "Your first ticket starts within a minute"
+              : "Nothing funded yet"}
+          </p>
         )}
         {shipped.map((row) => {
           const cells = (
@@ -253,6 +292,8 @@ export function Claim({ today, all }: { today: Standing; all: Standing }) {
   const [dollars, setDollars] = useState(String(suggested / 100));
   const cents = Math.round(Number(dollars || 0) * 100);
   const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
+  // Already first today: the control is about keeping the lead.
+  const leading = today.rank === 1;
   return (
     <form
       className="claim"
@@ -262,9 +303,11 @@ export function Claim({ today, all }: { today: Standing; all: Standing }) {
       }}
     >
       <p>
-        Claim <strong>{valid ? `#${rankWith(today, cents)}` : "–"}</strong>{" "}
-        today <span className="claim-sep">·</span>{" "}
-        <strong>{valid ? `#${rankWith(all, cents)}` : "–"}</strong> all time for{" "}
+        {leading ? "Stay" : "Claim"}{" "}
+        <strong>{valid ? `#${rankWith(today, cents)}` : "–"}</strong> today{" "}
+        <span className="claim-sep">·</span>{" "}
+        <strong>{valid ? `#${rankWith(all, cents)}` : "–"}</strong> all time{" "}
+        {leading ? "with" : "for"}{" "}
         <label className="claim-amount">
           <span>$</span>
           <input
@@ -283,7 +326,9 @@ export function Claim({ today, all }: { today: Standing; all: Standing }) {
           ? "From $10"
           : cents > MAX_AMOUNT_CENTS
             ? "Up to $1,000"
-            : "Claim"}
+            : leading
+              ? "Add funds"
+              : "Claim"}
         <i>
           <ArrowRight size={14} strokeWidth={2.2} />
         </i>
@@ -551,5 +596,32 @@ export function SponsorSettings({
         </form>
       </aside>
     </>
+  );
+}
+
+/** Back from Stripe: thanks, the place reached, and what happens next. */
+function ThankYou({ data }: { data: SponsorData }) {
+  const name = data.settings.profile.publicName;
+  const rank = data.standings.today.rank;
+  return (
+    <section className="sd-thanks" aria-live="polite">
+      <Confetti />
+      <span className="sd-thanks-kicker">Payment received</span>
+      <h2>Thank you{name ? `, ${name}` : ""}!</h2>
+      {data.isSponsor ? (
+        <p>
+          {rank && (
+            <>
+              You are <b>#{rank}</b> today.{" "}
+            </>
+          )}
+          Your credit is already funding builders&apos; tickets.
+        </p>
+      ) : (
+        <p className="sd-thanks-wait">
+          <Spinner /> Confirming with Stripe
+        </p>
+      )}
+    </section>
   );
 }

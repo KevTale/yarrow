@@ -206,3 +206,19 @@ export async function sponsorSettings(db: Database, userId: string) {
     payments,
   };
 }
+
+/**
+ * The whole queue at a glance: tickets being worked on now and tickets
+ * waiting for compute. Sponsor money is spent on them automatically.
+ */
+export async function queueActivity(
+  db: Database,
+): Promise<{ working: number; waiting: number }> {
+  const [row] = await db
+    .select({
+      working: sql<number>`count(*) filter (where ${workUnits.status} = 'running')::int`,
+      waiting: sql<number>`count(*) filter (where ${workUnits.status} = 'queued' and ${workUnits.authorized})::int`,
+    })
+    .from(workUnits);
+  return { working: row?.working ?? 0, waiting: row?.waiting ?? 0 };
+}
