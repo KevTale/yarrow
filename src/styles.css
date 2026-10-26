@@ -6656,8 +6656,8 @@ a.sb-row-link:hover .sb-name b {
 .sb-edit-row .sb-paid {
   gap: 6px;
 }
-/* Under the fields, aligned with them: the two choices, then what the
-   amount buys beside the buttons. */
+/* Under the fields, aligned with them, the two choices; then a band the
+   whole width with what the amount buys beside the buttons. */
 .sb-edit-checks {
   display: grid;
   gap: 8px;
@@ -6671,7 +6671,7 @@ a.sb-row-link:hover .sb-name b {
   align-items: center;
   justify-content: space-between;
   gap: 12px 18px;
-  padding: 12px 12px 12px 84px;
+  padding: 12px 12px 12px 16px;
   border-top: 1px solid var(--line);
   border-radius: 0 0 11px 11px;
   background: #ffffff05;
@@ -6713,6 +6713,7 @@ a.sb-row-link:hover .sb-name b {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 .sb-error {
   flex-basis: 100%;
@@ -6896,8 +6897,7 @@ a.sb-row-link:hover .sb-name b {
     grid-column: 3;
     justify-items: start;
   }
-  .sb-edit-checks,
-  .sb-edit-pay {
+  .sb-edit-checks {
     padding-left: 12px;
   }
   .sb-claim-actions {
