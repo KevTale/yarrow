@@ -6338,9 +6338,10 @@ a.tk:hover {
   }
   /* The title keeps most of the row: the sponsor's logo and name only. */
   .tk-paid {
-    max-width: 44%;
+    max-width: 50%;
   }
-  .tk-paid-label {
+  .tk-paid-label,
+  .tk-more {
     display: none;
   }
   .tk-totals {
@@ -6670,7 +6671,7 @@ a.sb-row-link:hover .sb-title b {
   .sb-clicks {
     display: none;
   }
-  .sb-paid small > span::before {
+  .sb-paid small > span + span::before {
     content: none;
   }
   .sb-claim-bar {

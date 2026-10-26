@@ -139,7 +139,9 @@ export function TicketStack({
                       {sponsor.name ?? "Anonymous sponsor"}
                     </b>
                     {row.sponsors.length > 1 && (
-                      <span>+{row.sponsors.length - 1}</span>
+                      <span className="tk-more">
+                        +{row.sponsors.length - 1}
+                      </span>
                     )}
                   </span>
                 )}
