@@ -5550,9 +5550,10 @@ a.live-title:hover {
   display: grid;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid #ffffff0d;
   border-radius: 10px;
-  background: var(--bg);
+  /* A shade above the card, not a hole in it. */
+  background: #ffffff06;
 }
 .st-board-head {
   display: flex;
