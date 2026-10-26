@@ -6570,6 +6570,11 @@ a.sb-row-link:hover .sb-site {
 }
 
 /* The viewer's row as a form: each field where its text prints */
+/* The field underlines and the frame take what the padding gives back:
+   the form is as tall as any row. */
+.sb-form-row {
+  padding-block: 10px;
+}
 .sb-form-row .logo-picker .board-logo.large {
   border: 1px dashed #f2b54480;
 }
@@ -6637,12 +6642,12 @@ a.sb-row-link:hover .sb-site {
   grid-template-rows: 1fr;
 }
 .sb-pay {
-  display: grid;
-  gap: 10px;
   min-height: 0;
   overflow: hidden;
 }
-.sb-row.engaged .sb-pay {
+.sb-pay-body {
+  display: grid;
+  gap: 10px;
   padding: 12px 12px 14px 16px;
   border-top: 1px solid var(--line);
 }

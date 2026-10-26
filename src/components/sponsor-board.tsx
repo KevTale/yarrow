@@ -658,51 +658,53 @@ function PayBand({
   return (
     <div className="sb-pay-wrap" inert={!open}>
       <div className="sb-pay">
-        <div className="sb-edit-pay">
-          {fees ? (
-            <span className="sb-fees">
-              <b>≈ {money(fees.creditCents)} of compute</b>
-              <small>−{money(fees.feeCents + fees.marginCents)} fees</small>
+        <div className="sb-pay-body">
+          <div className="sb-edit-pay">
+            {fees ? (
+              <span className="sb-fees">
+                <b>≈ {money(fees.creditCents)} of compute</b>
+                <small>−{money(fees.feeCents + fees.marginCents)} fees</small>
+              </span>
+            ) : (
+              <span />
+            )}
+            <span className="sb-claim-actions">
+              <SavedState state={saver.state} />
+              <button
+                type="button"
+                className="sb-claim-go"
+                onClick={() => void pay()}
+                aria-disabled={!valid || pending}
+              >
+                {label}
+                {pending ? (
+                  <Spinner />
+                ) : (
+                  <ArrowRight size={14} strokeWidth={2.4} />
+                )}
+              </button>
             </span>
-          ) : (
-            <span />
+          </div>
+          <label className="sb-check">
+            <input
+              type="checkbox"
+              checked={waiver}
+              onChange={(event) => setWaiver(event.target.checked)}
+            />
+            <span>
+              Compute starts right away: I give up my 14-day withdrawal right (
+              <a href="/terms" target="_blank" className="text-link">
+                Terms
+              </a>
+              )
+            </span>
+          </label>
+          {error && (
+            <p className="sb-error" role="alert">
+              {error}
+            </p>
           )}
-          <span className="sb-claim-actions">
-            <SavedState state={saver.state} />
-            <button
-              type="button"
-              className="sb-claim-go"
-              onClick={() => void pay()}
-              aria-disabled={!valid || pending}
-            >
-              {label}
-              {pending ? (
-                <Spinner />
-              ) : (
-                <ArrowRight size={14} strokeWidth={2.4} />
-              )}
-            </button>
-          </span>
         </div>
-        <label className="sb-check">
-          <input
-            type="checkbox"
-            checked={waiver}
-            onChange={(event) => setWaiver(event.target.checked)}
-          />
-          <span>
-            Compute starts right away: I give up my 14-day withdrawal right (
-            <a href="/terms" target="_blank" className="text-link">
-              Terms
-            </a>
-            )
-          </span>
-        </label>
-        {error && (
-          <p className="sb-error" role="alert">
-            {error}
-          </p>
-        )}
       </div>
     </div>
   );
