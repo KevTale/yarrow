@@ -637,8 +637,7 @@ function PayBand({
       return setError("Choose a whole-dollar amount from $10 to $1,000.");
     const result = claim.profileOf(card);
     if (!result.profile) return setError(result.error);
-    if (!waiver)
-      return setError("Confirm that compute starts right away to continue.");
+    if (!waiver) return setError("Agree to the Terms of Service to continue.");
     setPending(true);
     try {
       const { url } = await checkout({
@@ -659,32 +658,28 @@ function PayBand({
     <div className="sb-pay-wrap" inert={!open}>
       <div className="sb-pay">
         <div className="sb-pay-body">
-          <div className="sb-edit-pay">
-            {fees ? (
-              <span className="sb-fees">
-                <b>≈ {money(fees.creditCents)} of compute</b>
-                <small>−{money(fees.feeCents + fees.marginCents)} fees</small>
-              </span>
-            ) : (
-              <span />
-            )}
-            <span className="sb-claim-actions">
-              <SavedState state={saver.state} />
-              <button
-                type="button"
-                className="sb-claim-go"
-                onClick={() => void pay()}
-                aria-disabled={!valid || pending}
-              >
-                {label}
-                {pending ? (
-                  <Spinner />
-                ) : (
-                  <ArrowRight size={14} strokeWidth={2.4} />
-                )}
-              </button>
-            </span>
-          </div>
+          <span className="sb-claim-actions">
+            <SavedState state={saver.state} />
+            <button
+              type="button"
+              className="sb-claim-go"
+              onClick={() => void pay()}
+              aria-disabled={!valid || pending}
+            >
+              {label}
+              {pending ? (
+                <Spinner />
+              ) : (
+                <ArrowRight size={14} strokeWidth={2.4} />
+              )}
+            </button>
+          </span>
+          {fees && (
+            <small className="sb-fees">
+              ≈ {money(fees.creditCents)} of compute (
+              {money(fees.feeCents + fees.marginCents)} fees)
+            </small>
+          )}
           <label className="sb-check">
             <input
               type="checkbox"
@@ -692,11 +687,11 @@ function PayBand({
               onChange={(event) => setWaiver(event.target.checked)}
             />
             <span>
-              Compute starts right away: I give up my 14-day withdrawal right (
-              <a href="/terms" target="_blank" className="text-link">
-                Terms
-              </a>
-              )
+              I have read and agree to the{" "}
+              <a href="/terms" target="_blank" className="sb-terms">
+                Terms of Service
+              </a>{" "}
+              of yarrow.run
             </span>
           </label>
           {error && (

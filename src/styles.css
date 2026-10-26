@@ -6645,52 +6645,37 @@ a.sb-row-link:hover .sb-site {
   min-height: 0;
   overflow: hidden;
 }
+/* Claim, then under it in small what the amount buys, then the terms:
+   everything held to the right. */
 .sb-pay-body {
   display: grid;
-  gap: 10px;
+  justify-items: end;
+  gap: 8px;
   padding: 12px 12px 14px 16px;
   border-top: 1px solid var(--line);
-}
-.sb-edit-pay {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 18px;
-}
-.sb-fees {
-  display: grid;
-  gap: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.sb-fees b {
-  font:
-    500 15px var(--font-display),
-    sans-serif;
-  color: var(--text);
-}
-.sb-fees small {
-  font:
-    11.5px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
+  text-align: right;
 }
 .sb-claim-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
-/* Under Claim, held to the right. */
+.sb-fees {
+  margin-top: -2px;
+  font:
+    11.5px var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .sb-check {
   display: inline-flex;
   align-items: flex-start;
-  justify-self: end;
   gap: 8px;
-  max-width: 60ch;
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--secondary);
+  text-align: left;
   cursor: pointer;
 }
 .sb-check input {
@@ -6700,9 +6685,16 @@ a.sb-row-link:hover .sb-site {
   flex: none;
   accent-color: var(--amber);
 }
+.sb-terms {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sb-terms:hover {
+  color: var(--amber);
+}
 .sb-error {
   margin: 0;
-  justify-self: end;
   font-size: 13px;
   color: var(--red);
 }
