@@ -14,12 +14,6 @@ export function Brand() {
   );
 }
 
-/** Sections of the landing, not pages. */
-const links = [
-  { hash: "sponsors", label: "Leaderboard" },
-  { hash: "shipped", label: "Live" },
-] as const;
-
 type HeaderViewer = {
   name: string | null;
   githubLogin: string | null;
@@ -45,16 +39,11 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link to="/" aria-label="Yarrow home">
+        {/* Balances the account menu so the logo sits in the middle. */}
+        <span aria-hidden="true" />
+        <Link to="/" aria-label="Yarrow home" className="header-brand">
           <Brand />
         </Link>
-        <nav aria-label="Primary" className="main-nav">
-          {links.map((link) => (
-            <a key={link.hash} href={`/#${link.hash}`}>
-              {link.label}
-            </a>
-          ))}
-        </nav>
         <div className="header-actions" ref={menu}>
           {viewer ? (
             <>

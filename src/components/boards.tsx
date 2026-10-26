@@ -378,7 +378,8 @@ export function LiveBoard({ live }: { live: LiveRow[] }) {
           <span className="board-total live-counts">
             {working > 0 && <span className="live-dot" aria-hidden="true" />}
             <small>working</small> {working}
-            <small>PRs</small> {live.length - working}
+            <small>merged</small>{" "}
+            {live.filter((row) => row.status === "merged").length}
           </span>
         </div>
         <div className="live-row live-thead" role="row">

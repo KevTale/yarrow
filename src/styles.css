@@ -266,16 +266,20 @@ select:focus-visible {
   position: sticky;
   top: 0;
   z-index: 40;
-  height: 72px;
+  height: 60px;
   border-bottom: 1px solid var(--line);
   background: #0c0d0feb;
   backdrop-filter: blur(16px);
 }
 .header-inner {
   height: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 44px;
+  gap: 16px;
+}
+.header-brand {
+  justify-self: center;
 }
 .brand {
   display: block;
@@ -2008,7 +2012,7 @@ tbody tr:hover {
     padding-inline: 20px;
   }
   .site-header {
-    height: 64px;
+    height: 56px;
   }
   .header-inner {
     gap: 10px;
@@ -2747,7 +2751,6 @@ tbody tr:hover {
   scrollbar-width: thin;
   scrollbar-color: #2c3036 transparent;
   scrollbar-gutter: stable;
-  overscroll-behavior: contain;
 }
 .board-head {
   position: sticky;
