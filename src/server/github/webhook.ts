@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { repoName } from "../../core/forms";
 import { accountIdsForGithubLogin } from "../../db/accounts";
 import type { Database } from "../../db/client";
 import { PostgresLedger } from "../../db/ledger";
@@ -149,7 +150,10 @@ export async function handleGitHubEvent(
     if (project && payload.repository)
       await db
         .update(projects)
-        .set({ repository: payload.repository.full_name })
+        .set({
+          repository: payload.repository.full_name,
+          name: repoName(payload.repository.full_name),
+        })
         .where(eq(projects.id, project.id));
     return "repository renamed";
   }

@@ -18,6 +18,7 @@ import {
   queueTicketsFn,
   retryTicketFn,
   setProjectLogoFn,
+  setProjectVisibilityFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
@@ -32,7 +33,14 @@ type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
   { status: "ok" }
 >;
-type Filter = "open" | "in" | "review" | "out" | "done";
+/** The ticket's stage: each ticket is in exactly one. */
+type Filter = "todo" | "progress" | "review" | "done";
+
+const visibilityHint = {
+  public: "On the public boards with its repository, tickets and pull requests",
+  listed: "On the public boards with its repository's name only",
+  hidden: "Never on the public boards",
+} as const;
 
 const statusLabel: Record<TicketRow["status"], string> = {
   none: "",
@@ -86,6 +94,7 @@ export function BuilderView({
   const unqueue = useServerFn(unqueueTicketsFn);
   const retry = useServerFn(retryTicketFn);
   const saveLogo = useServerFn(setProjectLogoFn);
+  const saveVisibility = useServerFn(setProjectVisibilityFn);
   const [store, setStore] = useState<Record<string, BuilderData>>(() => ({
     ...Object.fromEntries(cache),
     ...(data.project ? { [data.project.id]: data } : {}),
@@ -95,7 +104,8 @@ export function BuilderView({
     projects: data.projects,
     review: data.review,
   });
-  const [filter, setFilter] = useState<Filter>("open");
+  // Null: the default, In progress, or To queue while nothing is.
+  const [chosenFilter, setFilter] = useState<Filter | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fresh, setFresh] = useState<string | null>(highlight);
@@ -124,6 +134,7 @@ export function BuilderView({
   if (shownId !== currentId) {
     setShownId(currentId);
     setSelected(new Set());
+    setFilter(null);
   }
   useEffect(() => {
     if (!data.project) return;
@@ -273,6 +284,24 @@ export function BuilderView({
     }
   }
 
+  async function changeVisibility(visibility: "public" | "listed" | "hidden") {
+    if (!project) return;
+    const id = project.id;
+    const show = (value: typeof visibility) =>
+      setStore((all) => ({
+        ...all,
+        [id]: { ...all[id]!, project: { ...all[id]!.project!, visibility: value } },
+      }));
+    const before = project.visibility;
+    show(visibility);
+    try {
+      await saveVisibility({ data: { projectId: id, visibility } });
+    } catch {
+      show(before);
+      setError("The visibility was not saved. Try again in a moment.");
+    }
+  }
+
   async function changeLogo(logo: string | null) {
     if (!project) return;
     const id = project.id;
@@ -324,17 +353,19 @@ export function BuilderView({
       </div>
     );
 
-  // Merged or closed pull requests leave the open views for Done.
+  // A pipeline: to queue, in progress, to review, done.
   const filters: Record<Filter, (row: TicketRow) => boolean> = {
-    open: (row) => !done(row),
-    in: (row) => inYarrow(row) && !done(row),
+    todo: (row) => !inYarrow(row),
+    progress: (row) =>
+      inYarrow(row) && !done(row) && row.status !== "pull_request",
     review: (row) => row.status === "pull_request",
-    out: (row) => !inYarrow(row),
     done,
   };
   const counts = Object.fromEntries(
     Object.entries(filters).map(([key, test]) => [key, rows.filter(test).length]),
   ) as Record<Filter, number>;
+  const filter: Filter =
+    chosenFilter ?? (counts.progress > 0 ? "progress" : "todo");
   const q = query.trim().toLowerCase();
   const shown = rows
     .filter(filters[filter])
@@ -470,11 +501,25 @@ export function BuilderView({
                   onChange={(logo) => void changeLogo(logo)}
                   size="small"
                 />
-                <h2>{project.name}</h2>
-                <span className="mono muted">{project.repository}</span>
-                <span className="bd-chip">
-                  {capitalize(project.visibility)}
-                </span>
+                <h2 title={project.repository}>{project.name}</h2>
+                {/* Who sees it on the public boards; changed in place. */}
+                <select
+                  className="bd-chip bd-visibility"
+                  aria-label="Visibility on the public boards"
+                  title={visibilityHint[project.visibility]}
+                  value={project.visibility}
+                  onChange={(event) =>
+                    void changeVisibility(
+                      event.target.value as typeof project.visibility,
+                    )
+                  }
+                >
+                  {(["public", "listed", "hidden"] as const).map((value) => (
+                    <option key={value} value={value}>
+                      {capitalize(value)}
+                    </option>
+                  ))}
+                </select>
                 {project.boards.map((board) => (
                   <span
                     className="bd-chip bd-chip-board"
@@ -526,10 +571,9 @@ export function BuilderView({
                     <div className="bd-filters" role="group" aria-label="Show">
                       {(
                         [
-                          ["open", "Open"],
-                          ["in", "In Yarrow"],
+                          ["todo", "To queue"],
+                          ["progress", "In progress"],
                           ["review", "To review"],
-                          ["out", "Not queued"],
                           ["done", "Done"],
                         ] as const
                       ).map(([key, label]) => (

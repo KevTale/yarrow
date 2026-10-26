@@ -3612,6 +3612,27 @@ a.bd-review-link:hover {
   padding: 2px 9px;
   color: var(--secondary);
 }
+select.bd-visibility {
+  appearance: none;
+  background: none;
+  cursor: pointer;
+  padding-right: 22px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(-45deg, transparent 50%, var(--muted) 50%);
+  background-position:
+    calc(100% - 11px) 52%,
+    calc(100% - 7px) 52%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+select.bd-visibility:hover {
+  color: var(--text);
+  border-color: #3a3e45;
+}
+select.bd-visibility option {
+  background: var(--elevated);
+  color: var(--text);
+}
 .bd-head-actions {
   margin-left: auto;
   display: flex;

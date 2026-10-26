@@ -270,10 +270,11 @@ export interface LiveRow {
   status: LiveStatus;
   /** Null on a listed project: its tickets stay private. */
   title: string | null;
+  /** owner/name, on public and listed projects alike. */
   project: string;
   /** Uploaded, or the GitHub owner's avatar on public projects. */
   logoUrl: string | null;
-  /** owner/name on public projects only. */
+  /** owner/name when the repository can be opened (public projects). */
   repository: string | null;
   /** "#42" or "APP-42" (public projects only). */
   issueRef: string | null;
@@ -290,7 +291,8 @@ export interface LiveRow {
 /**
  * Today's work as it happens, on public and listed projects: tickets being
  * worked on now first, then pull requests opened or merged since midnight
- * UTC, newest first. Listed projects show their name, never their tickets.
+ * UTC, newest first. Listed projects show their repository's name, never
+ * their tickets.
  */
 export async function liveToday(
   db: Database,
@@ -309,7 +311,6 @@ export async function liveToday(
       issue: workUnits.externalId,
       source: workUnits.source,
       issueUrl: workUnits.url,
-      project: projects.name,
       projectLogo: projects.logoUrl,
       visibility: projects.visibility,
       repository: projects.repository,
@@ -332,7 +333,6 @@ export async function liveToday(
       issue: workUnits.externalId,
       source: workUnits.source,
       issueUrl: workUnits.url,
-      project: projects.name,
       projectLogo: projects.logoUrl,
       visibility: projects.visibility,
       repository: projects.repository,
@@ -363,7 +363,7 @@ export async function liveToday(
         key: run.runId,
         status,
         title: open(run.visibility) ? bareTitle(run.title, run.issue) : null,
-        project: run.project,
+        project: run.repository,
         logoUrl: projectLogo(
           run.projectLogo,
           open(run.visibility) ? run.repository : null,
@@ -406,7 +406,7 @@ export async function liveToday(
         key: pull.url,
         status,
         title: isPublic ? bareTitle(pull.title, pull.issue) : null,
-        project: pull.project,
+        project: pull.repository,
         logoUrl: projectLogo(
           pull.projectLogo,
           isPublic ? pull.repository : null,

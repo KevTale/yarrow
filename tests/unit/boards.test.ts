@@ -234,11 +234,11 @@ describe("shipped boards", () => {
     await shipped(open, paid, "open", null);
 
     const rows = (await liveToday(db)).filter((row) =>
-      row.project.startsWith("live-"),
+      row.project.startsWith("test/live-"),
     );
     expect(rows).toMatchObject([
       {
-        project: "live-listed",
+        project: "test/live-listed",
         logoUrl: null,
         status: "reviewing",
         title: null,
@@ -246,7 +246,7 @@ describe("shipped boards", () => {
         repository: null,
       },
       {
-        project: "live-open",
+        project: "test/live-open",
         logoUrl: "https://github.com/test.png?size=96",
         status: "reviewing",
         title: "Working ticket",
@@ -256,7 +256,7 @@ describe("shipped boards", () => {
         sponsors: [{ name: "Northwind", publicId: expect.any(String) }],
       },
       {
-        project: "live-open",
+        project: "test/live-open",
         status: "pull_request",
         title: expect.stringMatching(/^Ticket/),
         prUrl: expect.stringContaining("/pull/"),

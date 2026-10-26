@@ -49,15 +49,6 @@ export function ProjectFields({
         <legend className="eyebrow">01 / The project</legend>
         <div className="field-grid">
           <label className="field">
-            Name
-            <input
-              required
-              value={value.name}
-              maxLength={80}
-              onChange={(event) => onChange({ name: event.target.value })}
-            />
-          </label>
-          <label className="field">
             GitHub repository
             <input
               required

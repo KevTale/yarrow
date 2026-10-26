@@ -71,6 +71,13 @@
       "when": 1791415965727,
       "tag": "0009_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791476296909,
+      "tag": "0010_names_follow_repositories",
+      "breakpoints": true
     }
   ]
 }

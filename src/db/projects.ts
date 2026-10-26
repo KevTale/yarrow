@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { ProjectForm, RunConfig } from "../core/forms";
+import { repoName, type ProjectForm, type RunConfig } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import { setAnthropicResources } from "./runs";
@@ -18,7 +18,7 @@ export class DuplicateProjectError extends Error {
 
 function projectValues(form: ProjectForm) {
   return {
-    name: form.name,
+    name: repoName(form.repository),
     description: form.description,
     productUrl: form.productUrl || null,
     repository: form.repository,
@@ -134,7 +134,10 @@ export async function linkGithubRepositories(
       if (row.repository !== repository.fullName)
         await db
           .update(projects)
-          .set({ repository: repository.fullName })
+          .set({
+            repository: repository.fullName,
+            name: repoName(repository.fullName),
+          })
           .where(eq(projects.id, row.id));
       await recordEvent(db, {
         type: "project.github_linked",

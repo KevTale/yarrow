@@ -144,7 +144,7 @@ describe("Jira for builders", async () => {
         projects: [
           {
             id: projectId,
-            name: "Halyard",
+            name: "halyard",
             repository: "marie/halyard",
             connectionId: null,
           },

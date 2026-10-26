@@ -121,6 +121,30 @@ async function openTickets(
     : [...(github ?? []), ...(trackers ?? [])];
 }
 
+/** The visibility chip in the project's head: saved as soon as it changes. */
+export const setProjectVisibilityFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      projectId: z.uuid(),
+      visibility: z.enum(["public", "listed", "hidden"]),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    await withDb(async (db) => {
+      const project = await requireProjectMember(
+        db,
+        viewer.userId,
+        data.projectId,
+      );
+      await db
+        .update(projectsTable)
+        .set({ visibility: data.visibility })
+        .where(eq(projectsTable.id, project.id));
+    });
+    return { saved: true };
+  });
+
 const ticketsInput = z.object({
   projectId: z.uuid(),
   /** "42" for a GitHub issue, "APP-42" for a Jira ticket. */

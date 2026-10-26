@@ -353,7 +353,7 @@ describe("visibility", () => {
     const runId = await deliveredRun("listed");
     const detail = await runDetail(db, runId, null);
     expect(detail).toMatchObject({
-      projectName: "Halyard",
+      projectName: "Ledger",
       ticketTitle: "A ticket",
       pullRequestUrl: null,
       summary: null,

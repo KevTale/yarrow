@@ -33,8 +33,13 @@ export const repositorySchema = z
   .trim()
   .regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/, "Use owner/repository");
 
+/** "acme/webapp" → "webapp": a project is named after its repository. */
+export const repoName = (repository: string) =>
+  repository.split("/")[1] ?? repository;
+
 export const projectFormSchema = z.object({
-  name: z.string().trim().min(2).max(80),
+  /** Ignored: the name always follows the repository (decided 2026-10-08). */
+  name: z.string().optional(),
   description: z.string().trim().max(500),
   productUrl: z.union([z.literal(""), z.url().max(300)]),
   repository: repositorySchema,
