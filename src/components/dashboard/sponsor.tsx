@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
@@ -9,7 +9,7 @@ import {
   getSponsorDashboardFn,
   saveSponsorFundingFn,
 } from "@/functions/sponsor.functions";
-import { plural } from "@/components/boards";
+import { Logo, plural, SponsorName } from "@/components/boards";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -19,7 +19,6 @@ import {
   useSavedFades,
   type SaveState,
 } from "@/components/saved-state";
-import { SponsorCard, useClaim } from "@/components/sponsor-board";
 import { timeAgo } from "@/components/ui";
 
 export type SponsorData = Extract<
@@ -183,8 +182,26 @@ function FundingPicker({ data }: { data: SponsorData }) {
   );
 }
 
-/** Beside the role tabs: the credit left, what it still buys, where it goes. */
-export function SponsorActions({ data }: { data: SponsorData }) {
+/** "https://acme.com/" → "acme.com". */
+function host(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * The sponsor's card as the boards show it, with the way back to it on the
+ * landing, where it is edited and topped up; beside it, what it did and the
+ * credit left.
+ */
+function SponsorSummary({ data }: { data: SponsorData }) {
+  const you = data.you;
+  const name = data.isSponsor ? (you?.publicName ?? null) : null;
+  const mine = you
+    ? data.boards.all.find((row) => row.publicId === you.publicId)
+    : undefined;
   // What a ticket cost this sponsor so far, to say what the balance buys.
   const done = data.shipped.filter(
     (row) => !working.includes(row.status) && row.costCents > 0,
@@ -194,19 +211,108 @@ export function SponsorActions({ data }: { data: SponsorData }) {
     : 0;
   const balance = Math.max(0, data.balanceCents);
   const left = average ? Math.floor(balance / average) : null;
+  const toRow = { to: "/", search: { edit: true }, hash: "sponsors" } as const;
   return (
-    <span className="dashboard-actions sd-actions">
-      <span className="sd-left">
-        <b>{money(balance)}</b>
-        {left !== null ? ` ≈ ${plural(left, "ticket")}` : " balance"}
-        {data.inUseCents > 0 && <small>{money(data.inUseCents)} at work</small>}
-      </span>
-      <FundingPicker data={data} />
-    </span>
+    <section className="sd-me" aria-label="Your card">
+      <div className="sd-me-card">
+        {data.isSponsor ? (
+          <Logo
+            name={name}
+            url={name ? (you?.logoUrl ?? null) : null}
+            size="large"
+          />
+        ) : (
+          <span className="board-logo large open" aria-hidden="true">
+            +
+          </span>
+        )}
+        <div className="sd-me-body">
+          <p className="sd-me-name">
+            {data.isSponsor ? (
+              <SponsorName name={name} />
+            ) : (
+              <span className="muted">Your company here</span>
+            )}
+            {name && you?.tagline && <span> · {you.tagline}</span>}
+          </p>
+          {name && you?.description && (
+            <p className="sd-me-description">{you.description}</p>
+          )}
+          {name && you?.websiteUrl && (
+            <a
+              className="sd-me-site"
+              href={you.websiteUrl}
+              target="_blank"
+              rel="noopener"
+            >
+              {host(you.websiteUrl)}
+            </a>
+          )}
+          <div className="sd-me-actions">
+            <Link {...toRow} className="sb-claim-go">
+              {data.isSponsor ? "Add credit" : "Claim a place"}
+              <ArrowRight size={14} strokeWidth={2.4} />
+            </Link>
+            {data.isSponsor && (
+              <Link {...toRow} className="bd-btn bd-btn-line">
+                Edit
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="sd-me-side">
+        <dl className="sd-metrics">
+          <div className="sd-metric balance">
+            <dt>Balance</dt>
+            <dd>
+              <b>{money(balance)}</b>
+              {left !== null && <small>≈ {plural(left, "ticket")}</small>}
+              {data.inUseCents > 0 && (
+                <small>{money(data.inUseCents)} at work</small>
+              )}
+            </dd>
+          </div>
+          <div className="sd-metric">
+            <dt>Today</dt>
+            <dd>
+              <b>
+                {data.standings.today.rank
+                  ? `#${data.standings.today.rank}`
+                  : "–"}
+              </b>
+            </dd>
+          </div>
+          <div className="sd-metric">
+            <dt>All time</dt>
+            <dd>
+              <b>
+                {data.standings.all.rank ? `#${data.standings.all.rank}` : "–"}
+              </b>
+            </dd>
+          </div>
+          {name && (
+            <div className="sd-metric">
+              <dt>Clicks</dt>
+              <dd>
+                <b>{(mine?.clicks ?? 0).toLocaleString("en-US")}</b>
+              </dd>
+            </div>
+          )}
+          <div className="sd-metric">
+            <dt>Merged PRs</dt>
+            <dd>
+              <b>{data.impact.merged.toLocaleString("en-US")}</b>
+            </dd>
+          </div>
+        </dl>
+        {data.isSponsor && <FundingPicker data={data} />}
+      </div>
+    </section>
   );
 }
 
-/** Sponsor tab: your card, open to edit or add credit, then where your name went. */
+/** Sponsor tab: your card and what it did, then the tickets you funded. */
 export function SponsorView({
   data,
   celebrate = false,
@@ -232,21 +338,15 @@ export function SponsorView({
   }, [data.guest, router]);
   const shippedList = useFlip<HTMLDivElement>(shipped);
   const live = shipped.filter((row) => working.includes(row.status)).length;
-  const claim = useClaim(data.boards.today, data.boards.all, data.you, true);
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      <section className="sd-card" aria-labelledby="sd-card-title">
-        <h2 id="sd-card-title" className="sd-card-title">
-          Your card
-        </h2>
-        <SponsorCard claim={claim} />
-      </section>
+      <SponsorSummary data={data} />
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
           <span>
-            Your name on <em>{shipped.length}</em>
+            Funded by you <em>{shipped.length}</em>
             {live > 0 && <span className="sd-live">{live} live</span>}
           </span>
           <span>Project</span>

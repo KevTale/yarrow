@@ -1,4 +1,3 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { workLabel } from "@/core/tickets";
 import type { LiveRow } from "@/db/boards";
 import { Logo, plural, type SponsorRow } from "./boards";
@@ -35,14 +34,13 @@ function Status({ row }: { row: LiveRow }) {
   );
 }
 
-/** A row turns every this often; the slide itself is in CSS. */
-const STEP_MS = 4_000;
-const SLIDE_MS = 600;
+/** Seconds each card takes to slide by: slow enough to read on the move. */
+const SECONDS_PER_CARD = 5;
 
 /**
- * The latest tickets as a column that turns: one card each, the newest on
- * top, the next one coming in from the top every few seconds while the
- * cards above and below fade out at the edges. Each card says who paid.
+ * The latest tickets as a column of cards that slides down slowly and
+ * without end, stopping while a card is hovered; the cards above and below
+ * fade out at the edges. Each card says who paid.
  */
 export function TicketStack({
   live,
@@ -55,68 +53,24 @@ export function TicketStack({
   sponsors: SponsorRow[];
 }) {
   const n = live.length;
-  // Fewer rows than the window: nothing to turn.
+  // Fewer cards than the window: nothing to slide.
   const turning = n > 3;
-  // The rows three times over; the window sits in the middle copy and
-  // slides down one row at a time, then jumps back a copy, unseen.
-  const rows = turning ? [...live, ...live, ...live] : live;
-  const [offset, setOffset] = useState(2 * n);
-  const [paused, setPaused] = useState(false);
-  const [seen, setSeen] = useState(live);
-  const list = useRef<HTMLOListElement>(null);
-  // The offset last painted: a step goes down one; anything up is a jump.
-  const painted = useRef(offset);
-  // New work: back to the newest.
-  if (seen !== live) {
-    setSeen(live);
-    setOffset(2 * n);
-  }
-  useEffect(() => {
-    if (!turning || paused) return;
-    const timer = setInterval(
-      () => setOffset((current) => current - 1),
-      STEP_MS,
-    );
-    return () => clearInterval(timer);
-  }, [turning, paused, n]);
-  // Back at the first copy's edge: once the slide ends, jump a copy up.
-  useEffect(() => {
-    if (!turning || offset > n) return;
-    const timer = setTimeout(() => setOffset(offset + n), SLIDE_MS);
-    return () => clearTimeout(timer);
-  }, [turning, offset, n]);
-  // A jump is painted with no transition, which then comes back.
-  useLayoutEffect(() => {
-    const element = list.current;
-    const jumped = offset > painted.current;
-    painted.current = offset;
-    if (!jumped || !element) return;
-    element.style.transition = "none";
-    void element.offsetHeight;
-    element.style.transition = "";
-  }, [offset]);
-
+  // The cards twice over: the list slides by one copy, then starts again.
+  const rows = turning ? [...live, ...live] : live;
   const logos = new Map(sponsors.map((row) => [row.publicId, row.logoUrl]));
 
   return (
     <div
       className="tk-stack"
-      style={{ "--max": Math.max(1, n - 1) } as React.CSSProperties}
+      style={
+        {
+          "--max": Math.max(1, n - 1),
+          "--loop": `${n * SECONDS_PER_CARD}s`,
+        } as React.CSSProperties
+      }
     >
-      <div
-        className={`tk-window ${turning ? "turning" : ""}`}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        <ol
-          className="tk-list"
-          ref={list}
-          style={
-            turning
-              ? { transform: `translateY(calc(var(--row) * ${0.5 - offset}))` }
-              : undefined
-          }
-        >
+      <div className={`tk-window ${turning ? "turning" : ""}`}>
+        <ol className="tk-list">
           {n === 0 && (
             <li>
               <div className="tk tk-empty">The first tickets show up here</div>
@@ -157,15 +111,15 @@ export function TicketStack({
             );
             const href =
               row.prUrl ?? (working(row.status) ? `/runs/${row.key}` : null);
-            // The copies repeat the rows: only the middle one is read out.
-            const copy = turning ? Math.floor(i / n) : 1;
+            // The second copy repeats the first: only the first is read out.
+            const copy = turning ? Math.floor(i / n) : 0;
             return (
-              <li key={`${copy}-${row.key}`} aria-hidden={copy !== 1}>
+              <li key={`${copy}-${row.key}`} aria-hidden={copy !== 0}>
                 {href ? (
                   <a
                     className="tk"
                     href={href}
-                    tabIndex={copy === 1 ? undefined : -1}
+                    tabIndex={copy === 0 ? undefined : -1}
                     {...(row.prUrl
                       ? { target: "_blank", rel: "noopener" }
                       : {})}

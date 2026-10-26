@@ -6146,7 +6146,7 @@ button.st-back {
 
 /* The tickets as a column of cards that turns, its edges fading out */
 .tk-stack {
-  --row: 76px;
+  --row: 66px;
   --shown: 3;
   display: grid;
   gap: 6px;
@@ -6179,7 +6179,22 @@ button.st-back {
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* One copy slides by, then the next starts where it began: no seam. */
+.tk-window.turning .tk-list {
+  animation: tk-slide var(--loop, 40s) linear infinite;
+}
+.tk-window.turning .tk-list:has(.tk:hover),
+.tk-window.turning .tk-list:focus-within {
+  animation-play-state: paused;
+}
+@keyframes tk-slide {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: none;
+  }
 }
 .tk-list > li {
   box-sizing: border-box;
@@ -6191,7 +6206,7 @@ button.st-back {
   grid-template-columns: 26px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   column-gap: 11px;
-  row-gap: 4px;
+  row-gap: 2px;
   align-items: center;
   height: 100%;
   padding: 0 14px;
@@ -6352,7 +6367,7 @@ a.tk:hover {
   }
   /* Three lines per card: the title and the sponsor each get the width. */
   .tk-stack {
-    --row: 104px;
+    --row: 94px;
   }
   .tk {
     grid-template-rows: auto auto auto;
@@ -6374,8 +6389,8 @@ a.tk:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tk-list {
-    transition: none;
+  .tk-window.turning .tk-list {
+    animation: none;
   }
 }
 
@@ -6405,13 +6420,112 @@ a.tk:hover {
 /* Sponsors: today and all time side by side, the viewer's row in both */
 .sb {
   display: grid;
-  gap: 28px;
+  gap: 22px;
   padding-block: 24px 48px;
   scroll-margin-top: 80px;
 }
-.sb-title {
-  text-align: center;
-  font-size: 34px;
+.sb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  min-height: 40px;
+}
+.sb-head h2 {
+  font-size: 32px;
+}
+.sb-head-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+/* Where the viewer stands; it opens their row. */
+.sb-standing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.sb-standing-all::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--muted);
+}
+.sb-standing b {
+  font:
+    500 16px var(--font-display),
+    sans-serif;
+  color: var(--amber);
+}
+.sb-claim-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-dollars {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 6px 0 12px;
+  border: 1px solid #f2b54480;
+  border-radius: 10px;
+  background: var(--surface);
+  font:
+    500 18px var(--font-display),
+    sans-serif;
+  color: var(--amber);
+  cursor: text;
+}
+.sb-dollars:focus-within {
+  border-color: var(--amber);
+}
+.sb-dollars input {
+  width: 56px;
+  padding: 0 0 0 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.sb-dollars.large {
+  height: 46px;
+  padding-left: 12px;
+  font-size: 22px;
+}
+.sb-dollars.large input {
+  width: 70px;
+}
+.sb-claim-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--amber);
+  color: #1a1408;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 #ffffff59,
+    0 6px 20px #e6ae382e;
+}
+.sb-claim-go[aria-disabled="true"] {
+  background: var(--elevated);
+  color: var(--muted);
+  box-shadow: none;
 }
 .sb-boards {
   display: grid;
@@ -6440,7 +6554,10 @@ a.tk:hover {
     sans-serif;
   font-variant-numeric: tabular-nums;
 }
+/* The rows move through `order`: the page order stays put. */
 .sb-list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -6532,16 +6649,20 @@ a.sb-row-link:hover .sb-name b {
     500 17px var(--font-display),
     sans-serif;
 }
-.sb-paid small {
+.sb-stats {
   display: flex;
   font:
     11px var(--font-geist-mono),
     monospace;
   color: var(--muted);
+  white-space: nowrap;
 }
-.sb-paid small > span + span::before {
+.sb-stats > span + span::before {
   content: "·";
   margin: 0 6px;
+}
+.sb-stats-under {
+  display: none;
 }
 .sb-you {
   flex: none;
@@ -6551,6 +6672,17 @@ a.sb-row-link:hover .sb-name b {
   font:
     500 11px var(--font-geist-mono),
     monospace;
+  color: var(--amber);
+}
+.sb-edit {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.sb-row-button:hover .sb-edit {
   color: var(--amber);
 }
 .sb-row.you {
@@ -6574,111 +6706,57 @@ a.sb-row-link:hover .sb-name b {
   color: var(--muted);
 }
 
-/* Under the boards: the amount and Claim, or the card in their place */
-.sb-foot {
+/* The viewer's row as its own form, right where it shows */
+.sb-row.editing {
+  margin-block: 4px;
+  border: 1px solid #f2b5448c;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px #00000052;
+}
+.sb-edit-row {
   display: grid;
-  justify-items: center;
+  grid-template-columns: 26px 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 12px 12px 6px;
 }
-.sb-claim-bar {
+.sb-edit-row .sb-rank {
+  padding-top: 3px;
+}
+.sb-fields {
+  gap: 5px;
+}
+.sb-fields-line {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 15px;
 }
-.sb-dollars {
-  display: flex;
-  align-items: center;
-  height: 40px;
-  padding: 0 6px 0 12px;
-  border: 1px solid #f2b54480;
-  border-radius: 10px;
-  background: var(--surface);
-  font:
-    500 18px var(--font-display),
-    sans-serif;
-  color: var(--amber);
-  cursor: text;
+.sb-fields .fund-description {
+  font-size: 13px;
 }
-.sb-dollars:focus-within {
-  border-color: var(--amber);
+.sb-fields .fund-site {
+  justify-self: start;
 }
-.sb-dollars input {
-  width: 56px;
-  padding: 0 0 0 2px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  outline: none;
+.sb-edit-row .sb-paid {
+  gap: 6px;
 }
-.sb-dollars.large {
-  height: 48px;
-  padding-left: 14px;
-  font-size: 24px;
-}
-.sb-dollars.large input {
-  width: 76px;
-}
-.sb-claim-go {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--amber);
-  color: #1a1408;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 #ffffff59,
-    0 6px 20px #e6ae382e;
-}
-.sb-claim-go[aria-disabled="true"] {
-  background: var(--elevated);
-  color: var(--muted);
-  box-shadow: none;
-}
-
-/* The card: the profile as a form, then the amount and what it buys */
-.sb-card {
-  width: min(100%, 600px);
-  border: 1px solid #2a2e35;
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: 0 24px 60px #0000005c;
-  animation: sb-card-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes sb-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-.sb-card .fund-row {
-  grid-template-columns: auto minmax(0, 1fr);
-  padding: 18px 20px 16px;
-  border-bottom: 0;
-  background: none;
-}
-.sb-card .board-rank {
-  display: none;
-}
-.sb-pay {
+.sb-edit-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px 20px;
-  padding: 14px 20px;
+  gap: 10px 18px;
+  padding: 12px 12px 14px;
   border-top: 1px solid var(--line);
+  font-size: 13px;
 }
 .sb-fees {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  gap: 4px 14px;
   font:
     12px var(--font-geist-mono),
     monospace;
@@ -6688,15 +6766,6 @@ a.sb-row-link:hover .sb-name b {
 .sb-fees b {
   font-weight: 500;
   color: var(--text);
-}
-.sb-claim {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-  padding: 14px 20px 16px;
-  border-top: 1px solid var(--line);
-  font-size: 13px;
 }
 .sb-check {
   display: inline-flex;
@@ -6726,13 +6795,89 @@ a.sb-row-link:hover .sb-name b {
   color: var(--red);
 }
 
-/* The dashboard's Sponsor tab: the card open, no second board */
-.sd-card {
+/* The dashboard's Sponsor tab: the card as the boards show it, its numbers */
+.sd-me {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px 48px;
+  align-items: start;
+}
+.sd-me-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.sd-me-card .board-logo.large {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+.sd-me-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.sd-me-name {
+  font-size: 18px;
+}
+.sd-me-name b {
+  font-weight: 600;
+}
+.sd-me-name > span {
+  color: var(--secondary);
+}
+.sd-me-description {
+  font-size: 14px;
+  color: var(--muted);
+}
+.sd-me-site {
+  justify-self: start;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--secondary);
+}
+.sd-me-site:hover {
+  color: var(--amber);
+}
+.sd-me-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sd-me-actions .bd-btn {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 16px;
+  border-radius: 10px;
+}
+.sd-me-side {
+  display: grid;
+  gap: 16px;
   justify-items: start;
 }
-.sd-card-title {
+.sd-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: start;
+  gap: 18px 32px;
+  margin: 0;
+}
+.sd-metric {
+  display: grid;
+  gap: 4px;
+}
+.sd-metric.balance {
+  grid-column: 1 / -1;
+}
+.sd-metric dt {
   font:
     500 11px var(--font-geist-mono),
     monospace;
@@ -6740,24 +6885,49 @@ a.sb-row-link:hover .sb-name b {
   letter-spacing: 0.07em;
   color: var(--muted);
 }
-.sd-card .sb-card {
-  animation: none;
-  box-shadow: none;
+.sd-metric dd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+}
+.sd-metric b {
+  font:
+    500 22px var(--font-display),
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.sd-metric.balance b {
+  font-size: 32px;
+}
+.sd-metric small {
+  font-size: 13px;
+  color: var(--muted);
 }
 
+@media (max-width: 900px) {
+  .sd-me {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 760px) {
   .sb-boards {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  /* Names keep their room: no description, merged PRs only. */
-  .sb-description,
-  .sb-clicks {
+  /* Names keep their room: the stats go under the name, descriptions
+     only on the viewer's own row. */
+  .sb-row:not(.you) .sb-description {
     display: none;
   }
-  .sb-paid small > span + span::before {
-    content: none;
+  .sb-stats-side {
+    display: none;
   }
+  .sb-stats-under {
+    display: block;
+  }
+  .sb-head-side,
   .sb-claim-bar {
     width: 100%;
   }
@@ -6765,15 +6935,20 @@ a.sb-row-link:hover .sb-name b {
     flex: 1;
     justify-content: center;
   }
-  .sb-pay {
-    justify-content: flex-start;
+  /* The form: the amount under the fields. */
+  .sb-edit-row {
+    grid-template-columns: 26px 28px minmax(0, 1fr);
   }
-  .sb-fees {
+  .sb-edit-row .sb-paid {
+    grid-column: 3;
     justify-items: start;
   }
   .sb-claim-actions {
     margin-left: 0;
     width: 100%;
     justify-content: flex-end;
+  }
+  .sd-metrics {
+    grid-template-columns: repeat(2, auto);
   }
 }

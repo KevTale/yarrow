@@ -1,4 +1,9 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
 import { z } from "zod";
 import { useLive } from "@/components/live";
 import { ShipForm } from "@/components/ship-form";
@@ -8,7 +13,11 @@ import { getBoardsFn } from "@/functions/public.functions";
 
 export const Route = createFileRoute("/")({
   // Guests come back here from Stripe Checkout.
-  validateSearch: z.object({ checkout: z.enum(["success"]).optional() }),
+  // `edit`: from the dashboard, the viewer's row opens as its form.
+  validateSearch: z.object({
+    checkout: z.enum(["success"]).optional(),
+    edit: z.boolean().optional(),
+  }),
   loader: () => getBoardsFn(),
   component: Landing,
 });
@@ -23,8 +32,19 @@ const empty = {
 function Landing() {
   const loaded = Route.useLoaderData();
   const boards = loaded.configured ? loaded : empty;
-  const { checkout } = Route.useSearch();
+  const { checkout, edit } = Route.useSearch();
   const router = useRouter();
+  const navigate = useNavigate();
+  // The row opened once: a refresh does not open it again.
+  useEffect(() => {
+    if (edit)
+      void navigate({
+        to: "/",
+        search: { checkout },
+        replace: true,
+        resetScroll: false,
+      });
+  }, [edit, checkout, navigate]);
   // A payment or a merge anywhere moves the boards for every visitor.
   useLive(["boards"], () => router.invalidate(), 2_000);
   return (
@@ -59,6 +79,7 @@ function Landing() {
           today={boards.sponsors.today}
           all={boards.sponsors.all}
           you={boards.you}
+          startEditing={edit === true}
         />
       </div>
     </main>
