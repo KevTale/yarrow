@@ -15,6 +15,7 @@ import {
   customType,
 } from "drizzle-orm/pg-core";
 import type { StoredArtifact, StoredReview } from "../core/review";
+import type { TicketMoves } from "../core/tracker-moves";
 
 export const visibilityEnum = pgEnum("visibility", [
   "public",
@@ -163,6 +164,11 @@ export const trackerBoards = pgTable(
       .references(() => projects.id),
     externalBoardId: text("external_board_id").notNull(),
     name: text("name").notNull(),
+    // Where tickets move as Yarrow works; NULL until the builder chooses
+    // (the defaults then apply, see core/tracker-moves).
+    moves: jsonb("moves").$type<TicketMoves>(),
+    // The last move the tracker refused, shown on the settings page.
+    moveWarning: text("move_warning"),
     createdAt: createdAt(),
   },
   (t) => [

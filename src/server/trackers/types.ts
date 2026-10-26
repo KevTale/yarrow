@@ -1,3 +1,5 @@
+import type { TrackerStatus } from "../../core/tracker-moves";
+
 export type TrackerName = "linear" | "jira" | "trello";
 
 export interface TrackerTicket {
@@ -84,6 +86,22 @@ export interface TrackerAdapter {
     credentials: TrackerCredentials,
     boardId: string,
   ): Promise<TrackerTicket[]>;
+  /** A board's statuses, in board order as far as the tracker tells (Jira). */
+  statuses?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    boardId: string,
+  ): Promise<TrackerStatus[]>;
+  /**
+   * Moves a ticket to a status, never backwards: "already" when it is
+   * there or further, "blocked" when the workflow has no way there (Jira).
+   */
+  moveTo?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    externalId: string,
+    statusId: string,
+  ): Promise<"moved" | "already" | "blocked">;
   /** Puts the label on a ticket, or takes it off (Jira). */
   setLabel?(
     connection: { externalId: string; accessToken: string },

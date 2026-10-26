@@ -5526,15 +5526,163 @@ a.live-title:hover {
   border: 1px solid var(--line);
   border-radius: 12px;
 }
-/* Rounded by the cards themselves: the Jira menu may overflow. */
-.st-card:first-child {
+/* Rounded by the cards themselves: the Jira menus may overflow. */
+.st-cards > :first-child {
   border-radius: 11px 11px 0 0;
 }
-.st-card:last-child {
+.st-cards > :last-child {
   border-radius: 0 0 11px 11px;
 }
-.st-card:only-child {
+.st-cards > :only-child {
   border-radius: 11px;
+}
+.st-card-wrap > .st-card {
+  border-radius: inherit;
+  background: none;
+}
+/* Where Jira tickets move: one block per linked Jira project. */
+.st-moves {
+  display: grid;
+  gap: 12px;
+  padding: 0 18px 18px 70px;
+}
+.st-board {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.st-board-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.st-board-name b {
+  color: #7fb2ff;
+  font-size: 12.5px;
+  margin-right: 4px;
+}
+.st-move-list {
+  display: grid;
+  gap: 6px;
+}
+.st-move {
+  display: grid;
+  grid-template-columns: minmax(170px, 210px) 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+}
+.st-move-when {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--secondary);
+}
+.st-move-when svg {
+  color: var(--muted);
+  flex: none;
+}
+.st-move-arrow {
+  color: #4a4f58;
+}
+.st-move-sk {
+  height: 30px;
+  width: 150px;
+  border-radius: 8px;
+}
+.st-board-note {
+  font-size: 13px;
+}
+.st-board-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--amber);
+}
+.st-board-warning svg {
+  flex: none;
+  margin-top: 2px;
+}
+/* Jira's own lozenges: grey to do, blue in progress, green done. */
+.lozenge {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font:
+    700 11.5px var(--font-geist-sans),
+    sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.lozenge.todo {
+  background: #a1bdd914;
+  color: #b6c2cf;
+}
+.lozenge.progress {
+  background: #1d7afc2e;
+  color: #85b8ff;
+}
+.lozenge.done {
+  background: #22a06b2e;
+  color: #7ee2b8;
+}
+.ss {
+  position: relative;
+  min-width: 0;
+  justify-self: start;
+}
+.ss-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 4px 34px 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--elevated);
+  position: relative;
+  transition: border-color 0.16s;
+}
+.ss-button:hover,
+.ss-button[aria-expanded="true"] {
+  border-color: #3a3e45;
+}
+.ss-none {
+  font-size: 13px;
+  color: var(--muted);
+}
+.ss-menu {
+  min-width: 220px;
+}
+.ss-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+}
+.ss-option:hover,
+.ss-option:focus-visible {
+  background: var(--hover);
+}
+.ss-check {
+  color: var(--amber);
+  flex: none;
 }
 .st-card {
   display: flex;
@@ -5543,8 +5691,11 @@ a.live-title:hover {
   padding: 16px 18px;
   background: var(--surface);
 }
-.st-card + .st-card {
+.st-cards > * + * {
   border-top: 1px solid var(--line);
+}
+.st-card-wrap {
+  background: var(--surface);
 }
 .st-icon {
   display: grid;
@@ -5740,6 +5891,16 @@ a.live-title:hover {
   line-height: 1.6;
 }
 @media (max-width: 760px) {
+  .st-moves {
+    padding: 0 12px 14px;
+  }
+  .st-move {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .st-move-arrow {
+    display: none;
+  }
   .st {
     padding-top: 28px;
     gap: 34px;

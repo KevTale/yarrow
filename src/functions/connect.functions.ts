@@ -11,6 +11,8 @@ import {
   jiraReady,
   linkJiraProject,
   JiraAccessError,
+  jiraBoardSettings,
+  setJiraMoves,
   setJiraProjects,
   settleJira,
   trackerContext,
@@ -115,6 +117,38 @@ export const setJiraProjectsFn = createServerFn({ method: "POST" })
     const viewer = await requireViewer();
     await withDb((db) =>
       setJiraProjects(db, trackerContext(), viewer.userId, data),
+    );
+    return { saved: true };
+  });
+
+/** A linked Jira project's statuses and where its tickets move. */
+export const getJiraBoardFn = createServerFn({ method: "GET" })
+  .validator(z.object({ boardId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    return withDb((db) =>
+      jiraBoardSettings(db, trackerContext(), viewer.userId, data.boardId),
+    );
+  });
+
+const statusId = z.string().max(40).nullable();
+
+/** Where the tickets move, saved at each change. */
+export const setJiraMovesFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      boardId: z.uuid(),
+      moves: z.object({
+        started: statusId,
+        pullRequest: statusId,
+        merged: statusId,
+      }),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    await withDb((db) =>
+      setJiraMoves(db, viewer.userId, data.boardId, data.moves),
     );
     return { saved: true };
   });

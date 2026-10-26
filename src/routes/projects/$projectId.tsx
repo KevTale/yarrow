@@ -1,20 +1,28 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Check,
   ChevronDown,
   ExternalLink,
+  GitMerge,
+  GitPullRequest,
   Github,
+  Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { MoveEvent, TrackerStatus } from "@/core/tracker-moves";
 import { z } from "zod";
 import { capitalize, NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
 import {
+  getJiraBoardFn,
   listJiraProjectsFn,
+  setJiraMovesFn,
   setJiraProjectsFn,
 } from "@/functions/connect.functions";
 import {
@@ -200,54 +208,247 @@ function JiraConnection({ data }: { data: Loaded }) {
   const connected = Boolean(connection) && !revoked;
   const connect = `/integrations/jira/connect?projectId=${project.id}`;
   return (
-    <div className="st-card">
-      <span className="st-icon" aria-hidden="true">
-        <JiraIcon size={18} />
-      </span>
-      <span className="st-card-body">
-        <strong>
-          Jira <SavedState state={state} />
-        </strong>
-        {connected ? (
-          <span className="st-jira">
-            <span className="mono muted">{connection!.name}</span>
-            <JiraProjectPicker
-              options={
-                options ??
-                boards.map((board) => ({ id: board.key, name: board.name }))
-              }
-              loading={options === null && !failed}
-              selected={selected}
-              onChange={(keys) => void change(keys)}
-            />
-          </span>
-        ) : revoked ? (
-          <span className="muted">
-            Access removed in Atlassian · {connection!.name}
-          </span>
-        ) : (
-          <span className="muted">Tickets from Jira projects</span>
-        )}
-      </span>
-      <span
-        className={`st-state ${connected ? "on" : revoked ? "warn" : "off"}`}
-      >
-        {connected ? "Connected" : revoked ? "Disconnected" : "Not connected"}
-      </span>
-      {connected ? (
-        // Atlassian lists the apps each person allowed, and revokes them.
-        <a
-          className="bd-btn bd-btn-line"
-          href="https://id.atlassian.com/manage-profile/apps"
-          target="_blank"
-          rel="noopener"
+    <div className="st-card-wrap">
+      <div className="st-card">
+        <span className="st-icon" aria-hidden="true">
+          <JiraIcon size={18} />
+        </span>
+        <span className="st-card-body">
+          <strong>
+            Jira <SavedState state={state} />
+          </strong>
+          {connected ? (
+            <span className="st-jira">
+              <span className="mono muted">{connection!.name}</span>
+              <JiraProjectPicker
+                options={
+                  options ??
+                  boards.map((board) => ({ id: board.key, name: board.name }))
+                }
+                loading={options === null && !failed}
+                selected={selected}
+                onChange={(keys) => void change(keys)}
+              />
+            </span>
+          ) : revoked ? (
+            <span className="muted">
+              Access removed in Atlassian · {connection!.name}
+            </span>
+          ) : (
+            <span className="muted">Tickets from Jira projects</span>
+          )}
+        </span>
+        <span
+          className={`st-state ${connected ? "on" : revoked ? "warn" : "off"}`}
         >
-          Manage <ExternalLink size={13} />
-        </a>
+          {connected ? "Connected" : revoked ? "Disconnected" : "Not connected"}
+        </span>
+        {connected ? (
+          // Atlassian lists the apps each person allowed, and revokes them.
+          <a
+            className="bd-btn bd-btn-line"
+            href="https://id.atlassian.com/manage-profile/apps"
+            target="_blank"
+            rel="noopener"
+          >
+            Manage <ExternalLink size={13} />
+          </a>
+        ) : (
+          <a className="bd-btn bd-btn-amber" href={connect}>
+            {revoked ? "Reconnect" : "Connect"}
+          </a>
+        )}
+      </div>
+      {connected && boards.length > 0 && (
+        <div className="st-moves">
+          {boards.map((board) => (
+            <JiraMoves key={board.id} boardId={board.id} name={board.name} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const moveRows: { event: MoveEvent; label: string; icon: ReactNode }[] = [
+  { event: "started", label: "Yarrow starts", icon: <Sparkles size={14} /> },
+  {
+    event: "pullRequest",
+    label: "Pull request opened",
+    icon: <GitPullRequest size={14} />,
+  },
+  {
+    event: "merged",
+    label: "Pull request merged",
+    icon: <GitMerge size={14} />,
+  },
+];
+
+/**
+ * Where a Jira project's tickets move as Yarrow works: one status per
+ * event, or "Don't move". The project's own status names, saved at once.
+ */
+function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
+  const load = useServerFn(getJiraBoardFn);
+  const save = useServerFn(setJiraMovesFn);
+  const [board, setBoard] = useState<Awaited<
+    ReturnType<typeof getJiraBoardFn>
+  > | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [state, setState] = useState<SaveState>("idle");
+  useSavedFades(state, setState);
+
+  useEffect(() => {
+    let stopped = false;
+    load({ data: { boardId } })
+      .then((result) => !stopped && setBoard(result))
+      .catch(() => !stopped && setFailed(true));
+    return () => {
+      stopped = true;
+    };
+  }, [boardId, load]);
+
+  async function change(event: MoveEvent, statusId: string | null) {
+    if (!board) return;
+    const before = board;
+    const moves = { ...board.moves, [event]: statusId };
+    setBoard({ ...board, moves, chosen: true, warning: null });
+    setState("saving");
+    try {
+      await save({ data: { boardId, moves } });
+      setState("saved");
+    } catch {
+      setBoard(before);
+      setState("error");
+    }
+  }
+
+  const [key, title] = name.includes(" · ") ? name.split(" · ") : [name, ""];
+  return (
+    <div className="st-board">
+      <div className="st-board-head">
+        <span className="st-board-name">
+          <b className="mono">{key}</b> {title}
+        </span>
+        <SavedState state={state} />
+      </div>
+      {failed ? (
+        <p className="muted st-board-note">
+          Jira did not answer. Reload the page in a moment.
+        </p>
       ) : (
-        <a className="bd-btn bd-btn-amber" href={connect}>
-          {revoked ? "Reconnect" : "Connect"}
-        </a>
+        <div className="st-move-list">
+          {moveRows.map((row) => (
+            <div className="st-move" key={row.event}>
+              <span className="st-move-when">
+                {row.icon}
+                {row.label}
+              </span>
+              <ArrowRight size={14} className="st-move-arrow" />
+              {board ? (
+                <StatusSelect
+                  statuses={board.statuses}
+                  value={board.moves[row.event]}
+                  onChange={(statusId) => void change(row.event, statusId)}
+                />
+              ) : (
+                <span className="sk st-move-sk" />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {board?.warning && (
+        <p className="st-board-warning" role="status">
+          <AlertTriangle size={14} />
+          {board.warning}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A Jira-like status lozenge, colored by its category. */
+function Lozenge({ status }: { status: TrackerStatus }) {
+  return <span className={`lozenge ${status.category}`}>{status.name}</span>;
+}
+
+/** The status a ticket moves to, or "Don't move". */
+function StatusSelect({
+  statuses,
+  value,
+  onChange,
+}: {
+  statuses: TrackerStatus[];
+  value: string | null;
+  onChange: (statusId: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (
+        event instanceof KeyboardEvent
+          ? event.key === "Escape"
+          : !root.current?.contains(event.target as Node)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  const current = statuses.find((status) => status.id === value);
+  const pick = (statusId: string | null) => {
+    setOpen(false);
+    if (statusId !== value) onChange(statusId);
+  };
+  return (
+    <div className="ss" ref={root}>
+      <button
+        type="button"
+        className="ss-button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {current ? (
+          <Lozenge status={current} />
+        ) : (
+          <span className="ss-none">Don't move</span>
+        )}
+        <ChevronDown size={14} className="jp-chevron" />
+      </button>
+      {open && (
+        <div className="jp-menu ss-menu" role="listbox">
+          <button
+            type="button"
+            role="option"
+            aria-selected={value === null}
+            className="ss-option"
+            onClick={() => pick(null)}
+          >
+            <span className="ss-none">Don't move</span>
+            {value === null && <Check size={14} className="ss-check" />}
+          </button>
+          {statuses.map((status) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={status.id === value}
+              className="ss-option"
+              key={status.id}
+              onClick={() => pick(status.id)}
+            >
+              <Lozenge status={status} />
+              {status.id === value && <Check size={14} className="ss-check" />}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

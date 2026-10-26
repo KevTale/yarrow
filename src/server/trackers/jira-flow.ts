@@ -12,6 +12,14 @@ import {
   removeBoard,
 } from "../../db/trackers";
 import { upsertTicket } from "../../db/workunits";
+import { eq } from "drizzle-orm";
+import { trackerBoards, trackerConnections, workUnits } from "../../db/schema";
+import {
+  defaultMoves,
+  type MoveEvent,
+  type TicketMoves,
+  type TrackerStatus,
+} from "../../core/tracker-moves";
 import {
   accessTokenFor,
   trackerAdapter,
@@ -315,4 +323,117 @@ export async function settleJira(
       })),
     },
   };
+}
+
+/** A linked board with its connection, checked against the user's projects. */
+async function memberBoard(db: Database, userId: string, boardId: string) {
+  const [row] = await db
+    .select({ board: trackerBoards, connection: trackerConnections })
+    .from(trackerBoards)
+    .innerJoin(
+      trackerConnections,
+      eq(trackerConnections.id, trackerBoards.connectionId),
+    )
+    .where(eq(trackerBoards.id, boardId));
+  if (!row) throw new Error("Board not found");
+  await requireProjectMember(db, userId, row.board.projectId);
+  return row;
+}
+
+/**
+ * The settings page's "Board" block: the Jira project's statuses, where
+ * tickets move (the builder's choice, or the defaults), and the last move
+ * Jira refused.
+ */
+export async function jiraBoardSettings(
+  db: Database,
+  ctx: TrackerContext,
+  userId: string,
+  boardId: string,
+): Promise<{
+  statuses: TrackerStatus[];
+  moves: TicketMoves;
+  chosen: boolean;
+  warning: string | null;
+}> {
+  const { board, connection } = await memberBoard(db, userId, boardId);
+  const tracker = await api(db, ctx, connection);
+  const statuses = await tracker.adapter.statuses!(
+    tracker.scope,
+    tracker.credentials,
+    board.externalBoardId,
+  );
+  return {
+    statuses,
+    moves: board.moves ?? defaultMoves(statuses),
+    chosen: board.moves !== null,
+    warning: board.moveWarning,
+  };
+}
+
+export async function setJiraMoves(
+  db: Database,
+  userId: string,
+  boardId: string,
+  moves: TicketMoves,
+): Promise<void> {
+  await memberBoard(db, userId, boardId);
+  await db
+    .update(trackerBoards)
+    .set({ moves, moveWarning: null })
+    .where(eq(trackerBoards.id, boardId));
+}
+
+const eventLabel: Record<MoveEvent, string> = {
+  started: "when Yarrow started",
+  pullRequest: "when the pull request opened",
+  merged: "when the pull request was merged",
+};
+
+/**
+ * Moves a tracker ticket as its work advances, as the builder chose. Never
+ * blocks the work: a move the workflow refuses is kept as a warning for the
+ * settings page. Returns what happened, for logs.
+ */
+export async function moveTrackerTicket(
+  db: Database,
+  ctx: TrackerContext,
+  workUnitId: string,
+  event: MoveEvent,
+): Promise<string> {
+  const [row] = await db
+    .select({
+      key: workUnits.externalId,
+      board: trackerBoards,
+      connection: trackerConnections,
+    })
+    .from(workUnits)
+    .innerJoin(trackerBoards, eq(trackerBoards.id, workUnits.boardId))
+    .innerJoin(
+      trackerConnections,
+      eq(trackerConnections.id, trackerBoards.connectionId),
+    )
+    .where(eq(workUnits.id, workUnitId));
+  if (!row) return "no tracker board";
+  const tracker = await api(db, ctx, row.connection);
+  const { adapter, scope, credentials } = tracker;
+  if (!adapter.moveTo || !adapter.statuses) return "tracker cannot move tickets";
+  const statuses = await adapter.statuses(
+    scope,
+    credentials,
+    row.board.externalBoardId,
+  );
+  const target = (row.board.moves ?? defaultMoves(statuses))[event];
+  if (!target) return "not moved (builder's choice)";
+  const result = await adapter.moveTo(scope, credentials, row.key, target);
+  if (result === "blocked") {
+    const name = statuses.find((status) => status.id === target)?.name;
+    await db
+      .update(trackerBoards)
+      .set({
+        moveWarning: `${row.key} could not move to ${name ?? "its status"} ${eventLabel[event]}: the workflow does not allow it from where it was.`,
+      })
+      .where(eq(trackerBoards.id, row.board.id));
+  }
+  return `${row.key} ${result}`;
 }

@@ -13,7 +13,10 @@ import { syncTrackers } from "../../src/server/trackers/index";
 import { jiraAdapter } from "../../src/server/trackers/jira";
 import {
   JiraAccessError,
+  jiraBoardSettings,
   jiraProjects,
+  moveTrackerTicket,
+  setJiraMoves,
   labelTrackerTickets,
   openTrackerTickets,
   setJiraProjects,
@@ -34,9 +37,23 @@ function fakeJira() {
       ["APP-2", "Dark mode", ["yarrow"]],
     ].map(([id, summary, labels]) => [
       id as string,
-      { summary: summary as string, labels: labels as string[] },
+      { summary: summary as string, labels: labels as string[], status: "10" },
     ]),
   );
+  // A workflow: To Do → In Progress → Code review → Done (no shortcut).
+  const statuses = [
+    { id: "10", name: "To Do", statusCategory: { key: "new" } },
+    { id: "20", name: "In Progress", statusCategory: { key: "indeterminate" } },
+    { id: "30", name: "Code review", statusCategory: { key: "indeterminate" } },
+    { id: "40", name: "Done", statusCategory: { key: "done" } },
+  ];
+  const status = (id: string) => statuses.find((item) => item.id === id)!;
+  const next: Record<string, string[]> = {
+    "10": ["20"],
+    "20": ["30", "40"],
+    "30": ["20", "40"],
+    "40": ["20"],
+  };
   const api = "https://api.atlassian.com/ex/jira/cloud-1/rest/api/3";
   const issue = (id: string) => ({
     id,
@@ -45,7 +62,7 @@ function fakeJira() {
       ...issues.get(id)!,
       description: null,
       updated: "2026-10-08T09:00:00.000+0000",
-      status: { statusCategory: { key: "new" } },
+      status: status(issues.get(id)!.status),
     },
   });
   const fetcher = (async (url: string, init: RequestInit = {}) => {
@@ -69,6 +86,25 @@ function fakeJira() {
         issues: [...issues.keys()]
           .filter((id) => !labeled || issues.get(id)!.labels.includes("yarrow"))
           .map(issue),
+      });
+    }
+    if (url === `${api}/project/APP/statuses`)
+      return json([{ statuses: statuses.slice(0, 3) }, { statuses }]);
+    const moves = /\/issue\/([A-Z]+-\d+)\/transitions$/.exec(url);
+    if (moves) {
+      const ticket = issues.get(moves[1]!)!;
+      if (init.method === "POST") {
+        const { transition } = JSON.parse(String(init.body)) as {
+          transition: { id: string };
+        };
+        ticket.status = transition.id.replace("t", "");
+        return new Response(null, { status: 204 });
+      }
+      return json({
+        transitions: next[ticket.status]!.map((id) => ({
+          id: `t${id}`,
+          to: status(id),
+        })),
       });
     }
     const match = /\/issue\/([A-Z]+-\d+)(\?.*)?$/.exec(url);
@@ -269,6 +305,91 @@ describe("Jira for builders", async () => {
       true,
     );
     expect(jira.issues.get("APP-1")!.labels).toEqual(["yarrow"]);
+  });
+});
+
+describe("moving Jira tickets", async () => {
+  const t = await createTestDatabase();
+  const { db, raw } = t;
+  afterAll(() => t.pg.close());
+
+  it("proposes moves from the statuses, follows the builder's choice, and never moves a ticket back", async () => {
+    const owner = { userId: crypto.randomUUID(), githubLogin: "lea", name: null };
+    const accountId = await ensureAccount(db, owner);
+    const projectId = await createProject(db, accountId, owner.userId, {
+      repository: "lea/app",
+      description: "",
+      productUrl: "",
+      visibility: "public",
+      categories: ["saas"],
+      stacks: [],
+      authorizationLabel: "yarrow",
+    });
+    await raw
+      .update(schema.projects)
+      .set({ githubInstallationId: "1", githubRepositoryId: "2" })
+      .where(eq(schema.projects.id, projectId));
+    const jira = fakeJira();
+    const ctx: TrackerContext = {
+      secrets: { encryptionKey: key, jira: { clientId: "c", clientSecret: "s" } },
+      fetcher: jira.fetcher,
+    };
+    await saveTrackerConnection(db, {
+      accountId,
+      tracker: "jira",
+      externalId: "cloud-1",
+      name: "acme.atlassian.net",
+      encryptedAccessToken: await encryptToken(key, "token"),
+      encryptedRefreshToken: null,
+      tokenExpiresAt: null,
+    });
+    await settleJira(db, ctx, owner.userId, { ticket: "APP-1" }, projectId);
+    const [board] = await raw.select().from(schema.trackerBoards);
+    const [unit] = await raw.select().from(schema.workUnits);
+
+    const settings = await jiraBoardSettings(db, ctx, owner.userId, board!.id);
+    expect(settings.statuses.map((status) => [status.name, status.category])).toEqual([
+      ["To Do", "todo"],
+      ["In Progress", "progress"],
+      ["Code review", "progress"],
+      ["Done", "done"],
+    ]);
+    // Defaults: work → In Progress, PR → the review status, merge → stay.
+    expect(settings).toMatchObject({
+      moves: { started: "20", pullRequest: "30", merged: null },
+      chosen: false,
+    });
+
+    // From To Do, the workflow has no way straight to Code review.
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "pullRequest")).toBe(
+      "APP-1 blocked",
+    );
+    expect(
+      (await jiraBoardSettings(db, ctx, owner.userId, board!.id)).warning,
+    ).toContain("APP-1 could not move to Code review");
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "started")).toBe(
+      "APP-1 moved",
+    );
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "pullRequest")).toBe(
+      "APP-1 moved",
+    );
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "merged")).toBe(
+      "not moved (builder's choice)",
+    );
+    await setJiraMoves(db, owner.userId, board!.id, {
+      started: "20",
+      pullRequest: "30",
+      merged: "40",
+    });
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "merged")).toBe(
+      "APP-1 moved",
+    );
+    expect(jira.issues.get("APP-1")!.status).toBe("40");
+    // A retried start never pulls a done ticket back.
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "started")).toBe(
+      "APP-1 already",
+    );
+    expect(jira.issues.get("APP-1")!.status).toBe("40");
   });
 });
 

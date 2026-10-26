@@ -2,7 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { verifyGitHubSignature } from "@/server/github/app";
+import { eq } from "drizzle-orm";
+import type { Database } from "@/db/client";
+import { pullRequests } from "@/db/schema";
 import { handleGitHubEvent, type GitHubPayload } from "@/server/github/webhook";
+import { moveTrackerTicket, trackerContext } from "@/server/jira.server";
+
+async function moveMergedTicket(db: Database, url: string) {
+  const [pull] = await db
+    .select({ workUnitId: pullRequests.workUnitId })
+    .from(pullRequests)
+    .where(eq(pullRequests.url, url));
+  if (pull)
+    await moveTrackerTicket(db, trackerContext(), pull.workUnitId, "merged").catch(
+      (error: Error) => console.warn("move merged:", error.message),
+    );
+}
 
 export const Route = createFileRoute("/api/webhooks/github")({
   server: {
@@ -24,9 +39,14 @@ export const Route = createFileRoute("/api/webhooks/github")({
         )
           return Response.json({ error: "Invalid signature" }, { status: 401 });
         const event = request.headers.get("x-github-event") ?? "";
-        const result = await withDb((db) =>
-          handleGitHubEvent(db, event, JSON.parse(body) as GitHubPayload),
-        );
+        const payload = JSON.parse(body) as GitHubPayload;
+        const result = await withDb(async (db) => {
+          const result = await handleGitHubEvent(db, event, payload);
+          // A merged pull request may move its Jira ticket (see settings).
+          if (result === "pull request merged" && payload.pull_request)
+            await moveMergedTicket(db, payload.pull_request.html_url);
+          return result;
+        });
         return Response.json({ received: true, result });
       },
     },

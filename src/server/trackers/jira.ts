@@ -1,4 +1,8 @@
 import {
+  categoryRank,
+  type TrackerStatus,
+} from "../../core/tracker-moves";
+import {
   json,
   type Fetch,
   type TrackerAdapter,
@@ -20,6 +24,11 @@ export function adfToText(node: unknown): string {
   if (["paragraph", "heading", "codeBlock", "blockquote"].includes(type ?? ""))
     return `${inner}\n\n`;
   return inner;
+}
+
+/** Jira's status categories: new, indeterminate, done. */
+function categoryOf(key: string): TrackerStatus["category"] {
+  return key === "done" ? "done" : key === "indeterminate" ? "progress" : "todo";
 }
 
 function adfDocument(body: string) {
@@ -215,6 +224,78 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         accessToken,
         `project = "${quote(boardId)}" AND statusCategory != Done ORDER BY updated DESC`,
       );
+    },
+    async statuses({ externalId, accessToken }, _credentials, boardId) {
+      // Statuses per issue type; one list, in the order Jira gives them.
+      const types = await json<
+        {
+          statuses: {
+            id: string;
+            name: string;
+            statusCategory: { key: string };
+          }[];
+        }[]
+      >(
+        await fetcher(
+          `${base(externalId)}/project/${encodeURIComponent(boardId)}/statuses`,
+          { headers: headers(accessToken) },
+        ),
+        "Jira statuses",
+      );
+      const seen = new Map<string, TrackerStatus>();
+      for (const type of types)
+        for (const status of type.statuses)
+          if (!seen.has(status.id))
+            seen.set(status.id, {
+              id: status.id,
+              name: status.name,
+              category: categoryOf(status.statusCategory.key),
+            });
+      return [...seen.values()].sort(
+        (a, b) => categoryRank[a.category] - categoryRank[b.category],
+      );
+    },
+    async moveTo({ externalId, accessToken }, _credentials, key, statusId) {
+      const issue = `${base(externalId)}/issue/${encodeURIComponent(key)}`;
+      const current = await json<{
+        fields: {
+          status: { id: string; statusCategory: { key: string } };
+        };
+      }>(
+        await fetcher(`${issue}?fields=status`, {
+          headers: headers(accessToken),
+        }),
+        "Jira issue",
+      );
+      if (current.fields.status.id === statusId) return "already";
+      const { transitions } = await json<{
+        transitions: {
+          id: string;
+          to: { id: string; statusCategory: { key: string } };
+        }[];
+      }>(
+        await fetcher(`${issue}/transitions`, {
+          headers: headers(accessToken),
+        }),
+        "Jira transitions",
+      );
+      const transition = transitions.find((item) => item.to.id === statusId);
+      if (!transition) return "blocked";
+      // Never backwards: a ticket already further stays where it is.
+      if (
+        categoryRank[categoryOf(current.fields.status.statusCategory.key)] >
+        categoryRank[categoryOf(transition.to.statusCategory.key)]
+      )
+        return "already";
+      const response = await fetcher(`${issue}/transitions`, {
+        method: "POST",
+        headers: headers(accessToken),
+        body: JSON.stringify({ transition: { id: transition.id } }),
+      });
+      // 400: the transition needs fields its screen asks for.
+      if (response.status === 400) return "blocked";
+      if (!response.ok) await json(response, "Jira transition");
+      return "moved";
     },
     async setLabel({ externalId, accessToken }, _credentials, key, label, on) {
       const response = await fetcher(

@@ -35,6 +35,8 @@ import {
   type TrackerName,
   type TrackerSecrets,
 } from "../server/trackers/index";
+import { moveTrackerTicket } from "../server/trackers/jira-flow";
+import type { MoveEvent } from "../core/tracker-moves";
 import { listCostCents, type ManagedAgentsClient } from "./anthropic";
 import {
   usageCostCents,
@@ -275,6 +277,8 @@ export class RunPipeline {
       default_branch: string;
     }>("GET", `/repos/${owner}/${repo}`);
     const ticket = await this.freshTicket(context, readToken);
+    if (run.kind === "implementation" && context.tracker)
+      await this.moveTicket(workUnit.id, "started");
     const workBranch =
       pullRequest?.branch ?? branchName(ticket.title, workUnit.id);
     return {
@@ -672,17 +676,32 @@ export class RunPipeline {
             body: inlineCommentBody(comment),
           })),
       });
-    if (run.ticket.source !== "github" && run.kind === "implementation")
+    if (run.ticket.source !== "github" && run.kind === "implementation") {
       await this.commentOnTicket(
         run,
         `Yarrow opened a draft pull request for this ticket: ${pull.url}`,
       ).catch(() => undefined);
+      const { workUnit } = await runContext(this.deps.db, run.runId);
+      await this.moveTicket(workUnit.id, "pullRequest");
+    }
     return {
       url: pull.url,
       number: pull.number,
       branch: run.workBranch,
       artifacts,
     };
+  }
+
+  /** Moves the tracker ticket on its board, as the builder chose. Never fails the run. */
+  async moveTicket(workUnitId: string, event: MoveEvent): Promise<void> {
+    await moveTrackerTicket(
+      this.deps.db,
+      { secrets: this.deps.trackers, fetcher: this.deps.fetcher },
+      workUnitId,
+      event,
+    ).catch((error: Error) =>
+      console.warn(`move ${event}:`, error.message),
+    );
   }
 
   /** Comments on the GitHub issue or the tracker ticket. */
