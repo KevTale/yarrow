@@ -197,10 +197,13 @@ function FundPage() {
                 onChange={(patch) =>
                   setCard((current) => ({ ...current, ...patch }))
                 }
-                rank={valid ? String(rank) : "–"}
-                amount={valid ? money(cents, false) : "–"}
-                clicks={0}
-                pullRequests={0}
+                className="first"
+                rank={valid ? rank : "–"}
+                amount={
+                  <span className="board-amount">
+                    {valid ? money(cents, false) : "–"}
+                  </span>
+                }
               />
             </div>
           </fieldset>

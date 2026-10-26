@@ -6311,56 +6311,7 @@ button.st-back {
 
 
 
-/* Sponsor tab: impact, card, funding menu */
-.sd-impact {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-}
-.sd-impact b {
-  font:
-    500 17px var(--font-display),
-    sans-serif;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  margin-right: 3px;
-}
-.sd-impact svg {
-  color: var(--amber);
-}
-.sd-impact span + span::before {
-  content: "·";
-  margin-right: 14px;
-  color: #ffffff30;
-}
-.sd-card .board-head {
-  align-items: center;
-}
-.sd-card-tools {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.sd-card .fund-switch {
-  margin: 0;
-  padding: 2px;
-  border-radius: 8px;
-}
-.sd-card .fund-switch span {
-  padding: 4px 10px;
-  font-size: 12px;
-  text-transform: none;
-  letter-spacing: 0;
-  font-family: var(--font-geist-sans), sans-serif;
-}
-.sd-card .feedback {
-  margin: 0;
-  padding: 0 16px 14px;
-}
+/* Sponsor tab: funding menu */
 .sd-funds .jp-button {
   min-height: 32px;
   padding-left: 4px;
@@ -6525,5 +6476,146 @@ button.st-back {
   }
   .ac-pay > .muted {
     display: none;
+  }
+}
+
+/* Boards: what the money paid for, under the amount */
+.board-spent {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
+}
+.board-spent-bar {
+  width: 40px;
+  height: 3px;
+  border-radius: 99px;
+  background: #ffffff14;
+  overflow: hidden;
+}
+.board-spent-bar i {
+  display: block;
+  height: 100%;
+  background: var(--green);
+}
+.board-amount:has(.board-spent) {
+  display: grid;
+  justify-items: end;
+}
+
+/* Sponsor tab: the viewer's card inside Today */
+.sd-you-row .fund-row {
+  border-bottom: 1px solid #1d2025;
+}
+.sd-you-row .fund-row.ghost {
+  background: #f2b5440a;
+  outline: 1px dashed #f2b54459;
+  outline-offset: -1px;
+  border-radius: 10px;
+}
+.sd-you-row .board-rank {
+  color: var(--amber);
+}
+.sd-you-row .board-rank small {
+  display: block;
+  font-size: 12px;
+}
+.sd-take {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 10px;
+}
+.sd-take .board-amount {
+  padding-top: 4px;
+}
+.sd-take-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sd-take-amount {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 4px 0 9px;
+  border: 1px solid #3a3e46;
+  border-radius: 8px;
+  background: var(--bg);
+  font:
+    500 14px var(--font-geist-mono),
+    monospace;
+  color: var(--secondary);
+  cursor: text;
+}
+.sd-take-amount:focus-within {
+  border-color: #f2b54499;
+}
+.sd-take-amount input {
+  width: 42px;
+  height: 30px;
+  padding: 0 0 0 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.sd-take-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--amber);
+  color: #1a1408;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sd-take-go[aria-disabled="true"] {
+  background: var(--elevated);
+  color: var(--muted);
+  cursor: default;
+}
+.sd-today-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 12px 4px 0;
+  font-size: 13px;
+}
+.sd-anon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--secondary);
+  cursor: pointer;
+}
+.sd-anon input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--amber);
+}
+.sd-error {
+  color: var(--red);
+}
+@media (max-width: 760px) {
+  .sd-you-row .fund-row {
+    grid-template-columns: 26px 40px minmax(0, 1fr);
+  }
+  .sd-take {
+    grid-column: 2 / -1;
+    justify-items: start;
   }
 }

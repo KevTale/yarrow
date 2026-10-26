@@ -42,8 +42,14 @@ export type SponsorRow = {
   logoUrl: string | null;
   foundingSponsor: boolean;
   paidCents: number;
+  /** Of the credit those payments bought, what runs have used. */
+  creditCents: number;
+  spentCents: number;
   clicks: number;
+  /** All time: tickets worked on, their pull requests, those merged. */
+  tickets: number;
   pullRequests: number;
+  merged: number;
 };
 
 /**
@@ -69,6 +75,8 @@ export async function sponsorBoard(
       logoUrl: sponsorProfiles.logoUrl,
       foundingSponsor: sponsorProfiles.foundingSponsor,
       paidCents: paid,
+      creditCents: sql<number>`sum(${contributions.creditCents})::int`,
+      spentCents: sql<number>`sum(${contributions.debitedCents})::int`,
     })
     .from(contributions)
     .innerJoin(
@@ -103,7 +111,9 @@ export async function sponsorBoard(
     db
       .select({
         userId: contributions.userId,
-        pullRequests: sql<number>`count(distinct ${agentRuns.workUnitId})::int`,
+        tickets: sql<number>`count(distinct ${agentRuns.workUnitId})::int`,
+        pullRequests: sql<number>`(count(distinct ${agentRuns.workUnitId}) filter (where ${results.outcome} = 'pull_request'))::int`,
+        merged: sql<number>`(count(distinct ${pullRequests.id}) filter (where ${pullRequests.state} = 'merged'))::int`,
       })
       .from(runFundings)
       .innerJoin(
@@ -111,17 +121,13 @@ export async function sponsorBoard(
         eq(contributions.id, runFundings.contributionId),
       )
       .innerJoin(agentRuns, eq(agentRuns.id, runFundings.agentRunId))
-      .innerJoin(results, eq(results.agentRunId, agentRuns.id))
-      .where(
-        and(
-          eq(results.outcome, "pull_request"),
-          inArray(contributions.userId, userIds),
-        ),
-      )
+      .leftJoin(results, eq(results.agentRunId, agentRuns.id))
+      .leftJoin(pullRequests, eq(pullRequests.workUnitId, agentRuns.workUnitId))
+      .where(inArray(contributions.userId, userIds))
       .groupBy(contributions.userId),
   ]);
   const clicksBy = new Map(clicks.map((row) => [row.userId, row.clicks]));
-  const fundedBy = new Map(funded.map((row) => [row.userId, row.pullRequests]));
+  const fundedBy = new Map(funded.map((row) => [row.userId, row]));
   return rows.map(({ userId, name, ...row }) => ({
     ...row,
     name,
@@ -129,7 +135,9 @@ export async function sponsorBoard(
       ? {}
       : { tagline: null, description: null, websiteUrl: null, logoUrl: null }),
     clicks: clicksBy.get(userId) ?? 0,
-    pullRequests: fundedBy.get(userId) ?? 0,
+    tickets: fundedBy.get(userId)?.tickets ?? 0,
+    pullRequests: fundedBy.get(userId)?.pullRequests ?? 0,
+    merged: fundedBy.get(userId)?.merged ?? 0,
   }));
 }
 

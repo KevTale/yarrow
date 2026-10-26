@@ -44,8 +44,12 @@ export type SponsorRow = {
   websiteUrl: string | null;
   logoUrl: string | null;
   paidCents: number;
+  creditCents: number;
+  spentCents: number;
   clicks: number;
+  tickets: number;
   pullRequests: number;
+  merged: number;
 };
 
 const tiles = [
@@ -146,6 +150,44 @@ export function ClaimPlace({
       {verb} <strong>#{today}</strong> today{" "}
       <small className="claim-all">#{all} all time</small>
     </>
+  );
+}
+
+/** What a sponsor's money produced: "8 tickets · 6 PRs · 2 merged". */
+export function Impact({
+  row,
+}: {
+  row: Pick<SponsorRow, "tickets" | "pullRequests" | "merged">;
+}) {
+  return (
+    <span>
+      {plural(row.tickets, "ticket")} · {plural(row.pullRequests, "PR")} ·{" "}
+      {row.merged} merged
+    </span>
+  );
+}
+
+/** The amount paid, and under it how much of its credit is already work. */
+export function Paid({
+  row,
+}: {
+  row: Pick<SponsorRow, "paidCents" | "creditCents" | "spentCents">;
+}) {
+  const share = row.creditCents
+    ? Math.min(100, Math.round((row.spentCents / row.creditCents) * 100))
+    : 0;
+  return (
+    <span className="board-amount">
+      {money(row.paidCents, false)}
+      {row.spentCents > 0 && (
+        <span className="board-spent">
+          <span className="board-spent-bar" aria-hidden="true">
+            <i style={{ width: `${share}%` }} />
+          </span>
+          {money(row.spentCents)} spent
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -271,12 +313,10 @@ export function SponsorBoards({
                       </span>
                     )}
                     {row.name && <span>{plural(row.clicks, "click")}</span>}
-                    <span>{plural(row.pullRequests, "PR")} funded</span>
+                    <Impact row={row} />
                   </span>
                 </span>
-                <span className="board-amount">
-                  {money(row.paidCents, false)}
-                </span>
+                <Paid row={row} />
               </li>
             ))}
             {Array.from(
@@ -322,7 +362,9 @@ export function SponsorBoards({
                     <SponsorName name={row.name} />
                   </span>
                   <span className="board-meta">
-                    <span>{plural(row.pullRequests, "PR")} funded</span>
+                    <span>
+                      {plural(row.pullRequests, "PR")} · {row.merged} merged
+                    </span>
                   </span>
                 </span>
                 <span className="board-amount">

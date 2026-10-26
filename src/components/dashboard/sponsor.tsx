@@ -11,9 +11,10 @@ import {
   saveSponsorProfileFn,
 } from "@/functions/sponsor.functions";
 import {
-  ClaimPlace,
   domain,
+  Impact,
   Logo,
+  Paid,
   plural,
   ResetsIn,
   SponsorName,
@@ -217,16 +218,23 @@ const anonymousProfile = {
   logo: null,
 };
 
+/** Rank reached on a board when the viewer adds `cents`. */
+const rankWith = (standing: Standing, cents: number) =>
+  standing.others.filter((paid) => paid >= standing.paidCents + cents).length +
+  1;
+
 /**
- * The sponsor's card as the boards show it, edited in place and saved when
- * a field is left.
+ * Today's board with the viewer's card in it, edited in place: at their
+ * place once they paid today, otherwise where $10 would put them. The
+ * amount beside it says the place it takes, and pays it.
  */
-function YourCard({ data }: { data: SponsorData }) {
+function TodayBoard({ data }: { data: SponsorData }) {
   const save = useServerFn(saveSponsorProfileFn);
   const router = useRouter();
+  const today = data.standings.today;
   const { profile } = data.settings;
   const [card, setCard] = useState<CardValue>({
-    anonymous: profile.publicName === null,
+    anonymous: profile.publicName === null && data.isSponsor,
     name: profile.publicName ?? "",
     tagline: profile.tagline ?? "",
     description: profile.description ?? "",
@@ -237,25 +245,35 @@ function YourCard({ data }: { data: SponsorData }) {
   const [error, setError] = useState("");
   useSavedFades(state, setState);
   const last = useRef<string | null>(null);
+  const [dollars, setDollars] = useState(String(MIN_AMOUNT_CENTS / 100));
+  const [going, setGoing] = useState(false);
+  const list = useFlip<HTMLOListElement>(today);
 
-  async function commit(patch: Partial<CardValue> = {}) {
+  async function commit(patch: Partial<CardValue> = {}): Promise<boolean> {
     const next = { ...card, ...patch };
+    const name = next.name.trim();
     const site = websiteAddress(next.website);
-    if (!next.anonymous && next.name.trim().length < 2)
-      return setError("Choose a name of two letters or more.");
-    if (!next.anonymous && site === null)
-      return setError("That website address does not look right.");
+    // Nothing typed yet: nothing to save, nothing to complain about.
+    if (!next.anonymous && name.length === 0) return true;
+    if (!next.anonymous && name.length < 2) {
+      setError("Use a name of two letters or more.");
+      return false;
+    }
+    if (!next.anonymous && site === null) {
+      setError("That website address does not look right.");
+      return false;
+    }
     const values = next.anonymous
       ? anonymousProfile
       : {
-          publicName: next.name.trim(),
+          publicName: name,
           tagline: next.tagline,
           description: next.description,
           websiteUrl: site ?? "",
           logo: next.logo,
         };
     const key = JSON.stringify(values);
-    if (key === last.current) return;
+    if (key === last.current) return true;
     setError("");
     setState("saving");
     try {
@@ -263,86 +281,224 @@ function YourCard({ data }: { data: SponsorData }) {
       last.current = key;
       setState("saved");
       void router.invalidate();
+      return true;
     } catch (cause) {
       setState("error");
       if (cause instanceof Error && /image/i.test(cause.message))
         setError(cause.message);
+      return false;
     }
   }
 
-  const all = data.standings.all;
-  const you = all.rows.find((row) => row.you);
-  const anonymous = (value: boolean) => {
-    setCard((current) => ({ ...current, anonymous: value }));
-    void commit({ anonymous: value });
-  };
-  return (
-    <section className="fund-card sd-card" aria-label="Your card">
-      <div className="board-head">
-        <span>Your card</span>
-        <span className="sd-card-tools">
-          <SavedState state={state} />
-          <span className="fund-switch" role="radiogroup" aria-label="Name">
-            <label>
-              <input
-                type="radio"
-                name="sd-visibility"
-                checked={!card.anonymous}
-                onChange={() => anonymous(false)}
-              />
-              <span>Show my name</span>
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="sd-visibility"
-                checked={card.anonymous}
-                onChange={() => anonymous(true)}
-              />
-              <span>Anonymous</span>
-            </label>
-          </span>
-        </span>
-      </div>
+  const cents = Math.round(Number(dollars || 0) * 100);
+  const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
+  const onBoard = today.rank !== null;
+  const target = rankWith(today, valid ? cents : MIN_AMOUNT_CENTS);
+  const yours =
+    today.rows.find((row) => row.you) ??
+    data.standings.all.rows.find((row) => row.you);
+  const label = !valid
+    ? cents < MIN_AMOUNT_CENTS
+      ? "From $10"
+      : "Up to $1,000"
+    : onBoard && target >= today.rank!
+      ? "Add"
+      : `Take #${target}`;
+
+  async function take() {
+    if (!valid) return;
+    setGoing(true);
+    // The card first: the checkout carries what was just typed.
+    if (!(await commit())) return setGoing(false);
+    window.location.href = `/fund?amount=${cents / 100}`;
+  }
+
+  const youRow = (
+    <li key="you" className="sd-you-row">
       <SponsorCardRow
+        className={onBoard ? "you" : "ghost"}
         value={card}
         onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
         onCommit={(patch) => void commit(patch)}
-        rank={all.rank ? String(all.rank) : "–"}
-        amount={money(all.paidCents, false)}
-        clicks={you?.clicks ?? 0}
-        pullRequests={data.impact.pullRequests}
+        rank={
+          onBoard && target < today.rank! ? (
+            <>
+              {today.rank}
+              <small>→{target}</small>
+            </>
+          ) : onBoard ? (
+            today.rank
+          ) : (
+            target
+          )
+        }
+        stats={yours}
+        amount={
+          <span className="sd-take">
+            {onBoard && yours && <Paid row={{ ...yours, paidCents: today.paidCents }} />}
+            <form
+              className="sd-take-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void take();
+              }}
+            >
+              <label className="sd-take-amount">
+                {onBoard ? "+$" : "$"}
+                <input
+                  value={dollars}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-label="Amount in dollars"
+                  onChange={(event) =>
+                    setDollars(
+                      event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                    )
+                  }
+                />
+              </label>
+              <button type="submit" className="sd-take-go" aria-disabled={!valid}>
+                {label}
+                {going ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.2} />}
+              </button>
+            </form>
+          </span>
+        }
       />
-      {error && (
-        <p className="feedback feedback-error" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
+    </li>
   );
-}
 
-/** What the money produced, in one line. */
-function Impact({ data }: { data: SponsorData }) {
-  const { tickets, pullRequests, merged } = data.impact;
+  // Off the board: the card slides in at the place the amount takes, and
+  // whoever it passes moves one down.
+  const rows: React.ReactNode[] = [];
+  let placed = false;
+  for (const row of today.rows) {
+    if (row.you) {
+      rows.push(youRow);
+      placed = true;
+      continue;
+    }
+    if (!onBoard && !placed && row.rank >= target) {
+      rows.push(youRow);
+      placed = true;
+    }
+    rows.push(
+      <BoardRow
+        key={row.publicId}
+        row={row}
+        rank={!onBoard && placed ? row.rank + 1 : row.rank}
+        size="large"
+      />,
+    );
+  }
+  if (!placed) rows.push(youRow);
+
   return (
-    <p className="sd-impact">
-      <b>{money(data.spentCents)}</b> spent
-      <ArrowRight size={14} aria-hidden="true" />
-      <span>
-        <b>{tickets}</b> {tickets === 1 ? "ticket" : "tickets"}
-      </span>
-      <span>
-        <b>{pullRequests}</b> {pullRequests === 1 ? "PR" : "PRs"}
-      </span>
-      <span>
-        <b>{merged}</b> merged
-      </span>
-    </p>
+    <div className="sd-today">
+      <div className="board-head">
+        <span>
+          Today <ResetsIn />
+        </span>
+        <span className="board-total">
+          <small>total</small> {money(today.totalCents, false)}
+        </span>
+      </div>
+      <ol className="board-list" ref={list}>
+        {rows}
+      </ol>
+      <div className="sd-today-foot">
+        <label className="sd-anon">
+          <input
+            type="checkbox"
+            checked={card.anonymous}
+            onChange={(event) => {
+              const anonymous = event.target.checked;
+              setCard((current) => ({ ...current, anonymous }));
+              void commit({ anonymous });
+            }}
+          />
+          Stay anonymous
+        </label>
+        <SavedState state={state} />
+        {error && (
+          <span className="sd-error" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
-/** Sponsor tab: what the money did, your card, where you stand, the runs. */
+/** A sponsor on the boards, as everyone sees them. */
+function BoardRow({
+  row,
+  rank,
+  size,
+}: {
+  row: Standing["rows"][number];
+  rank: number;
+  size: "large" | "small";
+}) {
+  return (
+    <li
+      data-flip={row.publicId}
+      data-flip-value={row.paidCents}
+      className={`board-row ${size} ${rank === 1 ? "first" : ""} ${row.you ? "you" : ""}`}
+    >
+      <span className="board-rank">{rank}</span>
+      <Logo name={row.name} url={row.logoUrl} size={size} />
+      <span className="board-body">
+        <span className="board-title">
+          <SponsorName name={row.name} />
+          {size === "large" && row.tagline && <span> · {row.tagline}</span>}
+          {row.you && <span className="sd-you">You</span>}
+        </span>
+        <span className="board-meta">
+          {size === "large" && row.websiteUrl && (
+            <span>{domain(row.websiteUrl)}</span>
+          )}
+          {size === "large" && row.name && (
+            <span>{plural(row.clicks, "click")}</span>
+          )}
+          {size === "large" ? (
+            <Impact row={row} />
+          ) : (
+            <span>
+              {plural(row.pullRequests, "PR")} · {row.merged} merged
+            </span>
+          )}
+        </span>
+      </span>
+      {size === "large" ? (
+        <Paid row={row} />
+      ) : (
+        <span className="board-amount">{money(row.paidCents, false)}</span>
+      )}
+    </li>
+  );
+}
+
+function AllTimeBoard({ standing }: { standing: Standing }) {
+  const list = useFlip<HTMLOListElement>(standing);
+  return (
+    <div>
+      <div className="board-head">
+        <span>All time</span>
+        <span className="board-total">
+          <small>total</small> {money(standing.totalCents, false)}
+        </span>
+      </div>
+      <ol className="board-list" ref={list}>
+        {standing.rows.map((row) => (
+          <BoardRow key={row.publicId} row={row} rank={row.rank} size="small" />
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** Sponsor tab: where you stand, your card in it, then the runs. */
 export function SponsorView({
   data,
   celebrate = false,
@@ -371,21 +527,10 @@ export function SponsorView({
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      {data.isSponsor && <Impact data={data} />}
-      {data.isSponsor && <YourCard data={data} />}
       <div className="sd-standings">
-        <Board
-          title={
-            <>
-              Today <ResetsIn />
-            </>
-          }
-          standing={standings.today}
-          size="large"
-        />
-        <Board title="All time" standing={standings.all} size="small" />
+        <TodayBoard data={data} />
+        <AllTimeBoard standing={standings.all} />
       </div>
-      <Claim today={standings.today} all={standings.all} />
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
@@ -454,133 +599,6 @@ export function SponsorView({
         })}
       </div>
     </div>
-  );
-}
-
-function Board({
-  title,
-  standing,
-  size,
-}: {
-  title: React.ReactNode;
-  standing: Standing;
-  size: "large" | "small";
-}) {
-  const list = useFlip<HTMLOListElement>(standing);
-  return (
-    <div>
-      <div className="board-head">
-        <span>{title}</span>
-        <span className="board-total">
-          <small>total</small> {money(standing.totalCents, false)}
-        </span>
-      </div>
-      <ol className="board-list" ref={list}>
-        {standing.rows.length === 0 && (
-          <li className={`board-row ${size} open`}>
-            <span className="board-rank">1</span>
-            <span className={`board-logo ${size} open`} aria-hidden="true">
-              +
-            </span>
-            <span className="board-body">
-              <span className="board-title">Open spot</span>
-            </span>
-            <span className="board-amount open">$10 takes it</span>
-          </li>
-        )}
-        {standing.rows.map((row) => (
-          <li
-            key={row.publicId}
-            data-flip={row.publicId}
-            data-flip-value={row.paidCents}
-            className={`board-row ${size} ${row.rank === 1 ? "first" : ""} ${row.you ? "you" : ""}`}
-          >
-            <span className="board-rank">{row.rank}</span>
-            <Logo name={row.name} url={row.logoUrl} size={size} />
-            <span className="board-body">
-              <span className="board-title">
-                <SponsorName name={row.name} />
-                {size === "large" && row.tagline && (
-                  <span> · {row.tagline}</span>
-                )}
-                {row.you && <span className="sd-you">You</span>}
-              </span>
-              {size === "large" && (
-                <span className="board-meta">
-                  {row.websiteUrl && <span>{domain(row.websiteUrl)}</span>}
-                  {row.name && <span>{plural(row.clicks, "click")}</span>}
-                  <span>{plural(row.pullRequests, "PR")} funded</span>
-                </span>
-              )}
-            </span>
-            <span className="board-amount">{money(row.paidCents, false)}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-/** Rank reached on a board when the viewer adds `cents`. */
-const rankWith = (standing: Standing, cents: number) =>
-  standing.others.filter((paid) => paid >= standing.paidCents + cents).length +
-  1;
-
-/** Priced for #1 today by default; any amount shows where it lands. */
-export function Claim({ today, all }: { today: Standing; all: Standing }) {
-  const top = Math.max(0, ...today.others);
-  const needed =
-    today.rank === 1 ? MIN_AMOUNT_CENTS : top - today.paidCents + 100;
-  const suggested = Math.min(
-    MAX_AMOUNT_CENTS,
-    Math.max(MIN_AMOUNT_CENTS, Math.ceil(needed / 100) * 100),
-  );
-  const [dollars, setDollars] = useState(String(suggested / 100));
-  const cents = Math.round(Number(dollars || 0) * 100);
-  const valid = cents >= MIN_AMOUNT_CENTS && cents <= MAX_AMOUNT_CENTS;
-  // Already first today: the control is about keeping the lead.
-  const leading = today.rank === 1;
-  return (
-    <form
-      className="claim"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (valid) window.location.href = `/fund?amount=${cents / 100}`;
-      }}
-    >
-      <p>
-        <ClaimPlace
-          today={valid ? rankWith(today, cents) : null}
-          all={valid ? rankWith(all, cents) : null}
-          verb={leading ? "Stay" : "Claim"}
-        />{" "}
-        {leading ? "with" : "for"}{" "}
-        <label className="claim-amount">
-          <span>$</span>
-          <input
-            value={dollars}
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label="Amount in dollars"
-            onChange={(event) =>
-              setDollars(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))
-            }
-          />
-        </label>
-      </p>
-      <button className="go" type="submit" aria-disabled={!valid}>
-        {cents < MIN_AMOUNT_CENTS
-          ? "From $10"
-          : cents > MAX_AMOUNT_CENTS
-            ? "Up to $1,000"
-            : leading
-              ? "Add funds"
-              : "Claim"}
-        <i>
-          <ArrowRight size={14} strokeWidth={2.2} />
-        </i>
-      </button>
-    </form>
   );
 }
 

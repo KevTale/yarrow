@@ -1,4 +1,5 @@
-import { Logo, plural, SponsorName } from "@/components/boards";
+import type { ReactNode } from "react";
+import { Impact, Logo, plural, SponsorName } from "@/components/boards";
 import { LogoPicker } from "@/components/logo-picker";
 
 export interface CardValue {
@@ -20,16 +21,18 @@ export function SponsorCardRow({
   onCommit,
   rank,
   amount,
-  clicks,
-  pullRequests,
+  stats,
+  className = "",
 }: {
   value: CardValue;
   onChange: (patch: Partial<CardValue>) => void;
   onCommit?: (patch?: Partial<CardValue>) => void;
-  rank: string;
-  amount: string;
-  clicks: number;
-  pullRequests: number;
+  rank: ReactNode;
+  /** The amount column: a price, or the controls to pay it. */
+  amount: ReactNode;
+  /** What the sponsor's money already did, once there is something. */
+  stats?: { clicks: number; tickets: number; pullRequests: number; merged: number };
+  className?: string;
 }) {
   const field = (key: "name" | "tagline" | "description" | "website") => ({
     value: value[key],
@@ -39,7 +42,7 @@ export function SponsorCardRow({
     onBlur: () => onCommit?.(),
   });
   return (
-    <div className="board-row large first fund-row">
+    <div className={`board-row large fund-row ${className}`}>
       <span className="board-rank">{rank}</span>
       {value.anonymous ? (
         <Logo name={null} size="large" />
@@ -59,9 +62,11 @@ export function SponsorCardRow({
             <span className="board-title">
               <SponsorName name={null} />
             </span>
-            <span className="board-meta">
-              <span>{plural(pullRequests, "PR")} funded</span>
-            </span>
+            {stats && (
+              <span className="board-meta">
+                <Impact row={stats} />
+              </span>
+            )}
           </>
         ) : (
           <>
@@ -70,7 +75,7 @@ export function SponsorCardRow({
                 className="fund-input fund-name"
                 maxLength={60}
                 size={Math.max(value.name.length, 12)}
-                placeholder="Your name or company"
+                placeholder="Your company name"
                 aria-label="Public name"
                 {...field("name")}
               />
@@ -105,13 +110,17 @@ export function SponsorCardRow({
                 aria-label="Website (optional)"
                 {...field("website")}
               />
-              <span>{plural(clicks, "click")}</span>
-              <span>{plural(pullRequests, "PR")} funded</span>
+              {stats && (
+                <>
+                  <span>{plural(stats.clicks, "click")}</span>
+                  <Impact row={stats} />
+                </>
+              )}
             </span>
           </>
         )}
       </span>
-      <span className="board-amount">{amount}</span>
+      {amount}
     </div>
   );
 }
