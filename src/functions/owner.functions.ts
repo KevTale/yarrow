@@ -12,6 +12,7 @@ import {
   deleteSecretReference,
   recordSecretReference,
   saveRunConfig,
+  setProjectVisibility,
   updateProject,
 } from "@/db/projects";
 import { ownerDashboard, projectForOwner } from "@/db/queries";
@@ -96,6 +97,25 @@ export const updateProjectFn = createServerFn({ method: "POST" })
     await withDb(async (db) => {
       await requireProjectMember(db, viewer.userId, id);
       await updateProject(db, id, viewer.userId, form);
+    });
+    return { saved: true };
+  });
+
+/** The visibility on the settings page: saved as soon as it is chosen. */
+export const setProjectVisibilityFn = createServerFn({ method: "POST" })
+  .validator(
+    projectId.extend({ visibility: z.enum(["public", "listed", "hidden"]) }),
+  )
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    await withDb(async (db) => {
+      await requireProjectMember(db, viewer.userId, data.projectId);
+      await setProjectVisibility(
+        db,
+        data.projectId,
+        viewer.userId,
+        data.visibility,
+      );
     });
     return { saved: true };
   });

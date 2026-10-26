@@ -288,3 +288,19 @@ export async function suspendProject(
     payload: { reason },
   });
 }
+
+/** Who sees the project on the public boards, from its settings page. */
+export async function setProjectVisibility(
+  db: Database,
+  projectId: string,
+  userId: string,
+  visibility: "public" | "listed" | "hidden",
+): Promise<void> {
+  await db.update(projects).set({ visibility }).where(eq(projects.id, projectId));
+  await recordEvent(db, {
+    type: "project.updated",
+    projectId,
+    userId,
+    payload: { visibility },
+  });
+}
