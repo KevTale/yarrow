@@ -238,14 +238,6 @@ export function SponsorBoard({
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-head">
         <h2 id="sponsors-title">Sponsors</h2>
-        <button
-          type="button"
-          className="sb-claim-go"
-          onClick={() => claimFrom(engaged ?? "today")}
-        >
-          {claim.label}
-          <ArrowRight size={14} strokeWidth={2.4} />
-        </button>
       </div>
       <div className="sb-boards">
         {claim.boards.map((board) => (
@@ -328,7 +320,7 @@ function RowBody({
 }) {
   return (
     <>
-      <span className="sb-rank">{rank}</span>
+      <Rank rank={rank} />
       {logo}
       <span className="sb-body">
         <span className="sb-line">
@@ -410,11 +402,6 @@ function Column({
             rank={place}
             stats={stats}
             focus={focus}
-          />
-          <PayBand
-            saver={saver}
-            open={engaged}
-            label={claim.label}
             onClaim={onClaim}
           />
         </>
@@ -534,14 +521,26 @@ function FormRow({
   rank,
   stats,
   focus,
+  onClaim,
 }: {
   claim: Claim;
   saver: Saver;
   rank: number;
   stats: React.ReactNode;
   focus: number;
+  onClaim: () => void;
 }) {
   const { card, setCard } = claim;
+  const claimButton = (where: "inline" | "below") => (
+    <button
+      type="button"
+      className={`sb-claim-go sb-row-claim ${where}`}
+      onClick={onClaim}
+    >
+      Claim #{rank}
+      <ArrowRight size={13} strokeWidth={2.4} />
+    </button>
+  );
   const root = useRef<HTMLDivElement>(null);
   // Asked for (Claim, Edit, the dashboard): into the first empty field.
   useEffect(() => {
@@ -564,10 +563,10 @@ function FormRow({
 
   return (
     <div className="sb-form-row" ref={root}>
-      <span className="sb-rank">{rank}</span>
+      <Rank rank={rank} />
       <LogoPicker
         size="large"
-        name={card.name.trim()}
+        name={card.name.trim() || "+"}
         value={card.logo}
         onChange={(logo) => {
           setCard((current) => ({ ...current, logo }));
@@ -587,7 +586,8 @@ function FormRow({
             onBlur={() => void saver.commit()}
           />
           <span className="sb-you">You</span>
-          <label className="sb-amount sb-amount-field">
+          <SavedState state={saver.state} />
+          <label className="sb-amount sb-amount-field" title="Type an amount">
             $
             <input
               value={claim.dollars}
@@ -604,6 +604,7 @@ function FormRow({
               }
             />
           </label>
+          {claimButton("inline")}
         </span>
         <input
           className="fund-input fund-description"
@@ -630,41 +631,23 @@ function FormRow({
           {stats}
         </span>
       </span>
+      {/* On phones Claim takes the whole width, under the card. */}
+      {claimButton("below")}
+      {saver.error && (
+        <p className="sb-error" role="alert">
+          {saver.error}
+        </p>
+      )}
     </div>
   );
 }
 
-/** Under the row, opening as it is used: Claim, which opens the payment. */
-function PayBand({
-  saver,
-  open,
-  label,
-  onClaim,
-}: {
-  saver: Saver;
-  open: boolean;
-  label: string;
-  onClaim: () => void;
-}) {
+/** The place: a medal for the first three, a plain figure after. */
+function Rank({ rank }: { rank: number }) {
   return (
-    <div className="sb-pay-wrap" inert={!open}>
-      <div className="sb-pay">
-        <div className="sb-pay-body">
-          <span className="sb-claim-actions">
-            <SavedState state={saver.state} />
-            <button type="button" className="sb-claim-go" onClick={onClaim}>
-              {label}
-              <ArrowRight size={14} strokeWidth={2.4} />
-            </button>
-          </span>
-          {saver.error && (
-            <p className="sb-error" role="alert">
-              {saver.error}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+    <span className={`sb-rank ${rank <= 3 ? `medal r${rank}` : ""}`}>
+      {rank}
+    </span>
   );
 }
 

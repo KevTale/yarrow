@@ -6434,7 +6434,7 @@ a.tk:hover {
 .sb-row-button,
 .sb-form-row {
   display: grid;
-  grid-template-columns: 24px 40px minmax(0, 1fr);
+  grid-template-columns: 30px 40px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   width: 100%;
@@ -6455,16 +6455,37 @@ a.sb-row-link:hover,
   background: var(--hover);
 }
 .sb-rank {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
   font:
-    500 14px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.sb-row.top .sb-rank {
-  font:
-    500 20px var(--font-display),
+    500 17px var(--font-display),
     sans-serif;
-  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  color: #6d737e;
+}
+.sb-rank.medal {
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1408;
+  box-shadow:
+    inset 0 1px 0 #ffffff80,
+    inset 0 -2px 0 #00000026,
+    0 4px 14px var(--glow);
+}
+.sb-rank.r1 {
+  --glow: #f2b54459;
+  background: linear-gradient(150deg, #ffe39a, #f2b544 55%, #c98a1c);
+}
+.sb-rank.r2 {
+  --glow: #c9ced840;
+  background: linear-gradient(150deg, #ffffff, #c9ced8 55%, #8e95a3);
+}
+.sb-rank.r3 {
+  --glow: #d48a5a40;
+  background: linear-gradient(150deg, #ffd2b0, #d48a5a 55%, #9a5a30);
 }
 .sb-body {
   display: grid;
@@ -6558,7 +6579,7 @@ a.sb-row-link:hover .sb-site {
 .sb-row.you {
   background: linear-gradient(90deg, #f2b54414, #f2b54400);
 }
-.sb-row.you .sb-rank,
+.sb-row.you .sb-rank:not(.medal),
 .sb-row.you .sb-amount {
   color: var(--amber);
 }
@@ -6594,29 +6615,62 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .fund-site {
   min-width: 8ch;
 }
-/* The amount, where every amount prints, typed in place. */
+/* The amount, where every amount prints, on a tinted field: no border
+   inside the card's border, the fill says it can be typed in. */
 .sb-amount-field {
   display: inline-flex;
   align-items: baseline;
+  padding: 1px 8px 2px;
+  border-radius: 8px;
+  background: #f2b54421;
   color: var(--amber);
   cursor: text;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.sb-amount-field:hover {
+  background: #f2b54433;
+}
+.sb-amount-field:focus-within {
+  background: #f2b54433;
+  box-shadow: inset 0 -2px 0 var(--amber);
 }
 .sb-amount-field input {
   min-width: 2ch;
   field-sizing: content;
   padding: 0;
   border: 0;
-  border-bottom: 1px dashed #f2b54480;
   background: none;
-  color: var(--amber);
+  color: var(--text);
   font: inherit;
   text-align: right;
   outline: none;
 }
-.sb-amount-field input:focus {
-  border-bottom: 1px solid var(--amber);
+.sb-form-row .sb-amount-field {
+  margin-left: auto;
 }
-/* Used, the row and the payment under it read as one card. */
+.sb-form-row .sb-line > .sb-row-claim {
+  margin-left: 0;
+}
+.sb-row-claim {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  gap: 6px;
+  box-shadow:
+    inset 0 1px 0 #ffffff59,
+    0 4px 14px #e6ae382e;
+}
+.sb-row-claim.below {
+  display: none;
+}
+.sb-form-row > .sb-error {
+  grid-column: 3;
+  margin-top: 2px;
+}
+/* Used, the row reads as a card. */
 .sb-row.you.form {
   border: 1px solid transparent;
   border-bottom-color: #1d2025;
@@ -6632,32 +6686,45 @@ a.sb-row-link:hover .sb-site {
   background: var(--surface);
   box-shadow: 0 16px 40px #00000052;
 }
-/* The payment opens by its height. */
-.sb-pay-wrap {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+/* The open place: amber light sweeping across, a dashed tile with a plus,
+   the placeholders in amber. */
+.sb-row.you.ghost {
+  margin-block: 4px;
+  border-color: #f2b54466;
+  border-radius: 12px;
+  background: linear-gradient(
+      110deg,
+      #f2b5440d 30%,
+      #f2b5442e 48%,
+      #f2b5440d 66%
+    )
+    0 0 / 300% 100%;
+  box-shadow: 0 10px 30px #f2b54414;
+  animation: sb-open-place 5s ease-in-out infinite;
 }
-.sb-row.engaged .sb-pay-wrap {
-  grid-template-rows: 1fr;
+.sb-row.you.ghost.engaged {
+  border-color: #f2b544b3;
 }
-.sb-pay {
-  min-height: 0;
-  overflow: hidden;
+@keyframes sb-open-place {
+  0%,
+  30% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
 }
-/* Under the row once used: Claim, held to the right */
-.sb-pay-body {
-  display: grid;
-  justify-items: end;
-  gap: 8px;
-  padding: 12px 12px 14px 16px;
-  border-top: 1px solid var(--line);
-  text-align: right;
+.sb-row.you.ghost .logo-picker .board-logo.large {
+  background: #f2b5441a;
+  color: var(--amber);
+  font-size: 20px;
+  font-weight: 400;
 }
-.sb-claim-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.sb-row.you.ghost .fund-name::placeholder {
+  color: #f2c86b;
+}
+.sb-row.you.ghost .fund-input::placeholder {
+  color: #a08a5c;
 }
 .sb-error {
   margin: 0;
@@ -6821,9 +6888,11 @@ body:has(.sb-dialog[open]) {
   color: var(--muted);
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pay-wrap,
   .sb-row.you.form {
     transition: none;
+  }
+  .sb-row.you.ghost {
+    animation: none;
   }
   .sb-dialog[open] {
     animation: none;
@@ -6979,13 +7048,19 @@ body:has(.sb-dialog[open]) {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  .sb-head > .sb-claim-go {
-    width: 100%;
-    justify-content: center;
+  .sb-row-claim.inline,
+  .sb-form-row .sb-you {
+    display: none;
   }
-  .sb-claim-actions {
-    width: 100%;
-    justify-content: flex-end;
+  .sb-row-claim.below {
+    display: inline-flex;
+    grid-column: 1 / -1;
+    justify-content: center;
+    height: 38px;
+    margin-top: 4px;
+  }
+  .sb-form-row > .sb-error {
+    grid-column: 1 / -1;
   }
   /* The site gives way to the stats. */
   .sb-form-row .fund-site {
