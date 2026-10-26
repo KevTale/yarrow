@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  Link,
-  useCanGoBack,
-  useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -19,6 +14,7 @@ import { modelDisplayName } from "@/core/pipeline";
 import { bareTitle, ticketIdentity } from "@/core/tickets";
 import { getRunFn } from "@/functions/public.functions";
 import { JiraIcon } from "@/components/brand-icons";
+import { BackArrow } from "@/components/back-arrow";
 import { Rich, RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
 
@@ -38,26 +34,6 @@ export const Route = createFileRoute("/runs/$runId")({
     </main>
   ),
 });
-
-/** Back where the visitor came from; home when the run was opened first. */
-function BackArrow() {
-  const router = useRouter();
-  const canGoBack = useCanGoBack();
-  return canGoBack ? (
-    <button
-      type="button"
-      className="st-back"
-      aria-label="Back"
-      onClick={() => router.history.back()}
-    >
-      <ArrowLeft size={18} />
-    </button>
-  ) : (
-    <Link to="/" className="st-back" aria-label="Home">
-      <ArrowLeft size={18} />
-    </Link>
-  );
-}
 
 function RunPage() {
   const run = Route.useLoaderData();

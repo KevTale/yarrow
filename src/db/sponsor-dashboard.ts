@@ -79,6 +79,12 @@ export interface ShippedRow {
   title: string | null;
   url: string | null;
   projectName: string;
+  /** Null on hidden projects, like the logo. */
+  repository: string | null;
+  logoUrl: string | null;
+  /** The run's page opens for everyone but on hidden projects. */
+  linkable: boolean;
+  createdAt: string;
   status: TicketStatus;
   models: TicketModel[];
   /** The viewer's share of the run's cost. */
@@ -104,7 +110,10 @@ export async function sponsorShipped(
       workUnitId: agentRuns.workUnitId,
       title: workUnits.title,
       projectName: projects.name,
+      repository: projects.repository,
+      logoUrl: projects.logoUrl,
       visibility: projects.visibility,
+      createdAt: agentRuns.createdAt,
       pullRequestUrl: results.pullRequestUrl,
       shareCents: sql<number>`sum(${runFundings.debitedCents})::int`,
     })
@@ -160,12 +169,16 @@ export async function sponsorShipped(
       status,
     );
     const open = run.visibility === "public";
+    const hidden = run.visibility === "hidden";
     return {
       runId: run.runId,
       title: open ? run.title : null,
       url: open ? run.pullRequestUrl : null,
-      projectName:
-        run.visibility === "hidden" ? "a private project" : run.projectName,
+      projectName: hidden ? "a private project" : run.projectName,
+      repository: hidden ? null : run.repository,
+      logoUrl: hidden ? null : run.logoUrl,
+      linkable: !hidden,
+      createdAt: run.createdAt.toISOString(),
       status,
       models,
       costCents: run.shareCents,
@@ -174,6 +187,29 @@ export async function sponsorShipped(
 }
 
 /** The viewer's leaderboard profile and where their money goes. */
+/**
+ * What the viewer's money produced: the tickets it worked on, the pull
+ * requests they got, and how many were merged.
+ */
+export async function sponsorImpact(db: Database, userId: string) {
+  const funded = db
+    .selectDistinct({ workUnitId: agentRuns.workUnitId })
+    .from(runFundings)
+    .innerJoin(contributions, eq(contributions.id, runFundings.contributionId))
+    .innerJoin(agentRuns, eq(agentRuns.id, runFundings.agentRunId))
+    .where(eq(contributions.userId, userId))
+    .as("funded");
+  const [row] = await db
+    .select({
+      tickets: sql<number>`count(distinct ${funded.workUnitId})::int`,
+      pullRequests: sql<number>`count(distinct ${pullRequests.id})::int`,
+      merged: sql<number>`(count(distinct ${pullRequests.id}) filter (where ${pullRequests.state} = 'merged'))::int`,
+    })
+    .from(funded)
+    .leftJoin(pullRequests, eq(pullRequests.workUnitId, funded.workUnitId));
+  return row ?? { tickets: 0, pullRequests: 0, merged: 0 };
+}
+
 export async function sponsorSettings(db: Database, userId: string) {
   const [profile] = await db
     .select()

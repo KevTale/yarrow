@@ -19,6 +19,8 @@ import { Route as ShippedRouteImport } from './routes/shipped'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AccountIndexRouteImport } from './routes/account/index'
+import { Route as AccountEmailRouteImport } from './routes/account/email'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthConfirmRouteImport } from './routes/auth/confirm'
 import { Route as AuthGithubRouteImport } from './routes/auth/github'
@@ -85,6 +87,16 @@ const SignInRoute = SignInRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountIndexRoute = AccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountEmailRoute = AccountEmailRouteImport.update({
+  id: '/account/email',
+  path: '/account/email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -187,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -200,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -216,6 +230,7 @@ export interface FileRoutesByTo {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -229,6 +244,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/account': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -246,6 +262,7 @@ export interface FileRoutesById {
   '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/github': typeof AuthGithubRoute
@@ -259,6 +276,7 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
@@ -277,6 +295,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
+    | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -290,6 +309,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/account/'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -306,6 +326,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
+    | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -319,6 +340,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/account'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -335,6 +357,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/sign-in'
     | '/terms'
+    | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
     | '/auth/github'
@@ -348,6 +371,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/account/'
     | '/api/webhooks/github'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
@@ -365,6 +389,7 @@ export interface RootRouteChildren {
   ShowcaseRoute: typeof ShowcaseRoute
   SignInRoute: typeof SignInRoute
   TermsRoute: typeof TermsRoute
+  AccountEmailRoute: typeof AccountEmailRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
   AuthGithubRoute: typeof AuthGithubRoute
@@ -378,6 +403,7 @@ export interface RootRouteChildren {
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
+  AccountIndexRoute: typeof AccountIndexRoute
   ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
@@ -454,6 +480,20 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/': {
+      id: '/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/email': {
+      id: '/account/email'
+      path: '/account/email'
+      fullPath: '/account/email'
+      preLoaderRoute: typeof AccountEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -589,6 +629,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShowcaseRoute: ShowcaseRoute,
   SignInRoute: SignInRoute,
   TermsRoute: TermsRoute,
+  AccountEmailRoute: AccountEmailRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthConfirmRoute: AuthConfirmRoute,
   AuthGithubRoute: AuthGithubRoute,
@@ -602,6 +643,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   RunsRunIdRoute: RunsRunIdRoute,
+  AccountIndexRoute: AccountIndexRoute,
   ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,

@@ -8,6 +8,7 @@ import type { Database } from "@/db/client";
 import type { SponsorProfile } from "@/core/forms";
 import {
   queueActivity,
+  sponsorImpact,
   sponsorSettings,
   sponsorShipped,
   sponsorStandings,
@@ -62,6 +63,8 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
         // ticket set aside is shown apart, still part of the balance.
         balanceCents: totals.creditCents - totals.consumedCents,
         inUseCents: totals.reservedCents,
+        spentCents: totals.consumedCents,
+        impact: await sponsorImpact(db, viewer.userId),
         standings: await sponsorStandings(db, viewer.userId),
         shipped: await sponsorShipped(db, viewer.userId),
         activity: await queueActivity(db),
@@ -77,29 +80,37 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Settings drawer: the leaderboard profile and where the money goes. */
-export const saveSponsorSettingsFn = createServerFn({ method: "POST" })
+/** The sponsor's card on the boards, saved as it is edited. */
+export const saveSponsorProfileFn = createServerFn({ method: "POST" })
+  .validator(z.object({ profile: sponsorProfileSchema }))
+  .handler(async ({ data }) => {
+    const viewer = await sponsorIdentity();
+    if (!viewer) throw new UnauthorizedError();
+    await withDb(async (db) =>
+      saveSponsorProfile(db, viewer.userId, await profileValues(db, data.profile), {
+        guest: viewer.guest,
+      }),
+    );
+    return { saved: true };
+  });
+
+/** Where the money goes: every project, or only the ones chosen. */
+export const saveSponsorFundingFn = createServerFn({ method: "POST" })
   .validator(
-    z.object({
-      profile: sponsorProfileSchema,
-      mode: z.enum(["all_except", "only"]),
-      selectedProjectIds: z.array(z.uuid()).max(500),
-    }),
+    z
+      .object({
+        mode: z.enum(["all_except", "only"]),
+        selectedProjectIds: z.array(z.uuid()).max(500),
+      })
+      .refine((value) => value.mode === "all_except" || value.selectedProjectIds.length > 0),
   )
   .handler(async ({ data }) => {
     const viewer = await sponsorIdentity();
     if (!viewer) throw new UnauthorizedError();
     await withDb(async (db) => {
-      await saveSponsorProfile(
-        db,
-        viewer.userId,
-        await profileValues(db, data.profile),
-        { guest: viewer.guest },
-      );
       const filters = await getSponsorFilters(db, viewer.userId);
       await saveSponsorFilters(db, viewer.userId, {
         ...filters,
-        publicName: data.profile.publicName,
         mode: data.mode,
         // In all_except mode, selections mean "excluded": none from here.
         selectedProjectIds: data.mode === "only" ? data.selectedProjectIds : [],

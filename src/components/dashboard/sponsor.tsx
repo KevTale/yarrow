@@ -1,12 +1,14 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, Settings, X } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
+import { projectLogo } from "@/core/logos";
 import type { Standing } from "@/db/sponsor-dashboard";
 import {
   getSponsorDashboardFn,
-  saveSponsorSettingsFn,
+  saveSponsorFundingFn,
+  saveSponsorProfileFn,
 } from "@/functions/sponsor.functions";
 import {
   ClaimPlace,
@@ -16,12 +18,21 @@ import {
   ResetsIn,
   SponsorName,
 } from "@/components/boards";
-import { LogoPicker } from "@/components/logo-picker";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
 import { RunHover } from "@/components/run-activity";
-import { ModelsCell } from "./models";
+import {
+  SavedState,
+  useSavedFades,
+  type SaveState,
+} from "@/components/saved-state";
+import {
+  SponsorCardRow,
+  websiteAddress,
+  type CardValue,
+} from "@/components/sponsor-card";
+import { timeAgo } from "@/components/ui";
 
 export type SponsorData = Extract<
   Awaited<ReturnType<typeof getSponsorDashboardFn>>,
@@ -40,14 +51,10 @@ const statusLabel = {
   none: "",
 } as const;
 
-/** Beside the role tabs: credit left, add funds, settings. */
-export function SponsorActions({
-  data,
-  onSettings,
-}: {
-  data: SponsorData;
-  onSettings: () => void;
-}) {
+const working = ["writing", "reviewing", "delivering"];
+
+/** Beside the role tabs: the credit left, and where it goes. */
+export function SponsorActions({ data }: { data: SponsorData }) {
   return (
     <span className="dashboard-actions sd-actions">
       <span className="sd-left">
@@ -56,24 +63,291 @@ export function SponsorActions({
           <small>{money(data.inUseCents)} in use</small>
         )}
       </span>
-      <a className="button button-small button-secondary" href="/fund">
-        Add funds
-      </a>
-      <button type="button" className="bd-settings" onClick={onSettings}>
-        <Settings size={15} /> <span>Settings</span>
-      </button>
+      <FundingPicker data={data} />
     </span>
   );
 }
 
-/** Sponsor tab: where you stand, then what your money shipped. */
+/** Every project, or only the ones ticked; saved at each change. */
+function FundingPicker({ data }: { data: SponsorData }) {
+  const save = useServerFn(saveSponsorFundingFn);
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState(data.funding.mode);
+  const [chosen, setChosen] = useState<string[]>(
+    data.funding.selectedProjectIds,
+  );
+  const [search, setSearch] = useState("");
+  const [state, setState] = useState<SaveState>("idle");
+  useSavedFades(state, setState);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (
+        event instanceof KeyboardEvent
+          ? event.key === "Escape"
+          : !root.current?.contains(event.target as Node)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  async function apply(nextMode: typeof mode, nextChosen: string[]) {
+    setMode(nextMode);
+    setChosen(nextChosen);
+    // "Only" with nothing ticked funds nothing: wait for a first tick.
+    if (nextMode === "only" && nextChosen.length === 0)
+      return setState("idle");
+    setState("saving");
+    try {
+      await save({
+        data: { mode: nextMode, selectedProjectIds: nextChosen },
+      });
+      setState("saved");
+      void router.invalidate();
+    } catch {
+      setState("error");
+    }
+  }
+
+  const q = search.trim().toLowerCase();
+  const projects = data.projects.filter(
+    (project) => !q || project.name.toLowerCase().includes(q),
+  );
+  const savedMode = data.funding.mode;
+  const savedCount = data.funding.selectedProjectIds.length;
+  return (
+    <div className="jp sd-funds" ref={root}>
+      <button
+        type="button"
+        className="jp-button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="muted">funds</span>
+        {savedMode === "only" ? plural(savedCount, "project") : "every project"}
+        <ChevronDown size={14} className="jp-chevron" />
+      </button>
+      {open && (
+        <div className="jp-menu sd-funds-menu" role="dialog" aria-label="Your money funds">
+          <div className="sd-funds-head">
+            <span className="bd-label">Your money funds</span>
+            <SavedState state={state} />
+          </div>
+          <label className="jp-option">
+            <input
+              type="radio"
+              name="funding"
+              checked={mode === "all_except"}
+              onChange={() => void apply("all_except", [])}
+            />
+            <span>Every project</span>
+          </label>
+          <label className="jp-option">
+            <input
+              type="radio"
+              name="funding"
+              checked={mode === "only"}
+              onChange={() => void apply("only", chosen)}
+            />
+            <span>Only the projects I choose</span>
+          </label>
+          {mode === "only" && (
+            <div className="sd-funds-pick">
+              <input
+                className="bd-search"
+                type="search"
+                placeholder="Search projects"
+                aria-label="Search projects"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <div className="sd-funds-list">
+                {projects.map((project) => {
+                  const on = chosen.includes(project.id);
+                  return (
+                    <label className="jp-option" key={project.id}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() =>
+                          void apply(
+                            "only",
+                            on
+                              ? chosen.filter((id) => id !== project.id)
+                              : [...chosen, project.id],
+                          )
+                        }
+                      />
+                      <span>{project.name}</span>
+                      <span className="muted small">
+                        {project.visibility}
+                      </span>
+                    </label>
+                  );
+                })}
+                {projects.length === 0 && (
+                  <span className="jp-empty muted">No project</span>
+                )}
+              </div>
+              {chosen.length === 0 && (
+                <span className="jp-empty muted">Tick at least one</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const anonymousProfile = {
+  publicName: null,
+  tagline: null,
+  description: null,
+  websiteUrl: null,
+  logo: null,
+};
+
+/**
+ * The sponsor's card as the boards show it, edited in place and saved when
+ * a field is left.
+ */
+function YourCard({ data }: { data: SponsorData }) {
+  const save = useServerFn(saveSponsorProfileFn);
+  const router = useRouter();
+  const { profile } = data.settings;
+  const [card, setCard] = useState<CardValue>({
+    anonymous: profile.publicName === null,
+    name: profile.publicName ?? "",
+    tagline: profile.tagline ?? "",
+    description: profile.description ?? "",
+    website: profile.websiteUrl ?? "",
+    logo: profile.logoUrl,
+  });
+  const [state, setState] = useState<SaveState>("idle");
+  const [error, setError] = useState("");
+  useSavedFades(state, setState);
+  const last = useRef<string | null>(null);
+
+  async function commit(patch: Partial<CardValue> = {}) {
+    const next = { ...card, ...patch };
+    const site = websiteAddress(next.website);
+    if (!next.anonymous && next.name.trim().length < 2)
+      return setError("Choose a name of two letters or more.");
+    if (!next.anonymous && site === null)
+      return setError("That website address does not look right.");
+    const values = next.anonymous
+      ? anonymousProfile
+      : {
+          publicName: next.name.trim(),
+          tagline: next.tagline,
+          description: next.description,
+          websiteUrl: site ?? "",
+          logo: next.logo,
+        };
+    const key = JSON.stringify(values);
+    if (key === last.current) return;
+    setError("");
+    setState("saving");
+    try {
+      await save({ data: { profile: values } });
+      last.current = key;
+      setState("saved");
+      void router.invalidate();
+    } catch (cause) {
+      setState("error");
+      if (cause instanceof Error && /image/i.test(cause.message))
+        setError(cause.message);
+    }
+  }
+
+  const all = data.standings.all;
+  const you = all.rows.find((row) => row.you);
+  const anonymous = (value: boolean) => {
+    setCard((current) => ({ ...current, anonymous: value }));
+    void commit({ anonymous: value });
+  };
+  return (
+    <section className="fund-card sd-card" aria-label="Your card">
+      <div className="board-head">
+        <span>Your card</span>
+        <span className="sd-card-tools">
+          <SavedState state={state} />
+          <span className="fund-switch" role="radiogroup" aria-label="Name">
+            <label>
+              <input
+                type="radio"
+                name="sd-visibility"
+                checked={!card.anonymous}
+                onChange={() => anonymous(false)}
+              />
+              <span>Show my name</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="sd-visibility"
+                checked={card.anonymous}
+                onChange={() => anonymous(true)}
+              />
+              <span>Anonymous</span>
+            </label>
+          </span>
+        </span>
+      </div>
+      <SponsorCardRow
+        value={card}
+        onChange={(patch) => setCard((current) => ({ ...current, ...patch }))}
+        onCommit={(patch) => void commit(patch)}
+        rank={all.rank ? String(all.rank) : "–"}
+        amount={money(all.paidCents, false)}
+        clicks={you?.clicks ?? 0}
+        pullRequests={data.impact.pullRequests}
+      />
+      {error && (
+        <p className="feedback feedback-error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** What the money produced, in one line. */
+function Impact({ data }: { data: SponsorData }) {
+  const { tickets, pullRequests, merged } = data.impact;
+  return (
+    <p className="sd-impact">
+      <b>{money(data.spentCents)}</b> spent
+      <ArrowRight size={14} aria-hidden="true" />
+      <span>
+        <b>{tickets}</b> {tickets === 1 ? "ticket" : "tickets"}
+      </span>
+      <span>
+        <b>{pullRequests}</b> {pullRequests === 1 ? "PR" : "PRs"}
+      </span>
+      <span>
+        <b>{merged}</b> merged
+      </span>
+    </p>
+  );
+}
+
+/** Sponsor tab: what the money did, your card, where you stand, the runs. */
 export function SponsorView({
   data,
-  onSettings,
   celebrate = false,
 }: {
   data: SponsorData;
-  onSettings: () => void;
   /** Just back from Stripe: thank the sponsor. */
   celebrate?: boolean;
 }) {
@@ -93,20 +367,12 @@ export function SponsorView({
     return () => clearInterval(timer);
   }, [data.guest, router]);
   const shippedList = useFlip<HTMLDivElement>(shipped);
-  const working = shipped.filter((row) =>
-    ["writing", "reviewing", "delivering"].includes(row.status),
-  ).length;
+  const live = shipped.filter((row) => working.includes(row.status)).length;
   return (
     <div className="sd">
       {celebrate && <ThankYou data={data} />}
-      {standings.anonymous && data.isSponsor && (
-        <p className="sd-anonymous">
-          You sponsor anonymously.{" "}
-          <button type="button" className="bd-retry" onClick={onSettings}>
-            Show my name
-          </button>
-        </p>
-      )}
+      {data.isSponsor && <Impact data={data} />}
+      {data.isSponsor && <YourCard data={data} />}
       <div className="sd-standings">
         <Board
           title={
@@ -116,28 +382,19 @@ export function SponsorView({
           }
           standing={standings.today}
           size="large"
-          onEdit={onSettings}
         />
-        <Board
-          title="All time"
-          standing={standings.all}
-          size="small"
-          onEdit={onSettings}
-        />
+        <Board title="All time" standing={standings.all} size="small" />
       </div>
-      {/* First everywhere: nothing to claim. */}
-      {!(standings.today.rank === 1 && standings.all.rank === 1) && (
-        <Claim today={standings.today} all={standings.all} />
-      )}
+      <Claim today={standings.today} all={standings.all} />
 
       <div className="sd-shipped" ref={shippedList}>
         <div className="sd-row sd-shipped-head">
           <span>
             Funded by you <em>{shipped.length}</em>
-            {working > 0 && <span className="sd-live">{working} live</span>}
+            {live > 0 && <span className="sd-live">{live} live</span>}
           </span>
           <span>Project</span>
-          <span>Models</span>
+          <span>When</span>
           <span>Status</span>
           <span className="right">Cost</span>
         </div>
@@ -149,16 +406,19 @@ export function SponsorView({
           </p>
         )}
         {shipped.map((row) => {
+          const logo = projectLogo(row.logoUrl, row.repository);
           const cells = (
             <>
               <span className={row.title ? "sd-title" : "sd-title private"}>
                 {row.title ?? "Private ticket"}
-                {row.url && <span className="sd-go">↗</span>}
               </span>
-              <span className="sd-project">{row.projectName}</span>
-              <span>
-                <ModelsCell models={row.models} />
+              <span className="sd-project">
+                <span className="sd-project-logo" aria-hidden="true">
+                  {logo && <img src={logo} alt="" width={18} height={18} />}
+                </span>
+                <span>{row.projectName}</span>
               </span>
+              <span className="sd-when">{timeAgo(row.createdAt)}</span>
               <span className={`bd-status s-${row.status}`}>
                 <span className="dot" aria-hidden="true" />
                 <RunHover runId={row.runId} link={false}>
@@ -166,24 +426,21 @@ export function SponsorView({
                 </RunHover>
               </span>
               <span className="sd-cost">
-                {["writing", "reviewing", "delivering"].includes(row.status)
-                  ? "—"
-                  : money(row.costCents)}
+                {working.includes(row.status) ? "—" : money(row.costCents)}
               </span>
             </>
           );
-          return row.url ? (
-            <a
+          return row.linkable ? (
+            <Link
               key={row.runId}
               data-flip={row.runId}
               data-flip-value={row.status}
               className="sd-row linked"
-              href={row.url}
-              target="_blank"
-              rel="noopener"
+              to="/runs/$runId"
+              params={{ runId: row.runId }}
             >
               {cells}
-            </a>
+            </Link>
           ) : (
             <div
               key={row.runId}
@@ -204,12 +461,10 @@ function Board({
   title,
   standing,
   size,
-  onEdit,
 }: {
   title: React.ReactNode;
   standing: Standing;
   size: "large" | "small";
-  onEdit: () => void;
 }) {
   const list = useFlip<HTMLOListElement>(standing);
   return (
@@ -255,11 +510,6 @@ function Board({
                   {row.websiteUrl && <span>{domain(row.websiteUrl)}</span>}
                   {row.name && <span>{plural(row.clicks, "click")}</span>}
                   <span>{plural(row.pullRequests, "PR")} funded</span>
-                  {row.you && (
-                    <button type="button" className="sd-edit" onClick={onEdit}>
-                      Edit
-                    </button>
-                  )}
                 </span>
               )}
             </span>
@@ -331,278 +581,6 @@ export function Claim({ today, all }: { today: Standing; all: Standing }) {
         </i>
       </button>
     </form>
-  );
-}
-
-/** Settings drawer: leaderboard profile, where the money goes, payments. */
-export function SponsorSettings({
-  data,
-  open,
-  onClose,
-}: {
-  data: SponsorData;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const save = useServerFn(saveSponsorSettingsFn);
-  const { profile } = data.settings;
-  const [name, setName] = useState(profile.publicName ?? "");
-  const [anonymous, setAnonymous] = useState(profile.publicName === null);
-  const [tagline, setTagline] = useState(profile.tagline ?? "");
-  const [website, setWebsite] = useState(profile.websiteUrl ?? "");
-  const [description, setDescription] = useState(profile.description ?? "");
-  const [logo, setLogo] = useState<string | null>(profile.logoUrl);
-  const [mode, setMode] = useState(data.funding.mode);
-  const [chosen, setChosen] = useState(
-    new Set(data.funding.selectedProjectIds),
-  );
-  const [search, setSearch] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    const site = website.trim();
-    if (!anonymous && name.trim().length < 2)
-      return setError("Choose a name, or stay anonymous.");
-    if (!anonymous && site && !site.startsWith("https://"))
-      return setError("Use a website address starting with https://");
-    if (mode === "only" && chosen.size === 0)
-      return setError("Choose at least one project.");
-    setPending(true);
-    try {
-      await save({
-        data: {
-          profile: anonymous
-            ? {
-                publicName: null,
-                tagline: null,
-                description: null,
-                websiteUrl: null,
-                logo: null,
-              }
-            : {
-                publicName: name.trim(),
-                tagline,
-                description,
-                websiteUrl: site,
-                logo,
-              },
-          mode,
-          selectedProjectIds: [...chosen],
-        },
-      });
-      await router.invalidate();
-      onClose();
-    } catch (cause) {
-      setError(
-        cause instanceof Error && /image/i.test(cause.message)
-          ? cause.message
-          : "Not saved. Try again in a moment.",
-      );
-    } finally {
-      setPending(false);
-    }
-  }
-
-  const q = search.trim().toLowerCase();
-  const projects = data.projects.filter(
-    (project) => !q || project.name.toLowerCase().includes(q),
-  );
-
-  return (
-    <>
-      <div className="sd-scrim" onClick={onClose} aria-hidden="true" />
-      <aside className="sd-drawer" aria-label="Sponsor settings">
-        <form onSubmit={submit}>
-          <div className="sd-drawer-head">
-            <h3>Settings</h3>
-            <button
-              type="button"
-              className="bd-btn bd-btn-ghost"
-              aria-label="Close"
-              onClick={onClose}
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <section>
-            <span className="bd-label">On the leaderboard</span>
-            <label className="sd-check">
-              <input
-                type="checkbox"
-                checked={anonymous}
-                onChange={(event) => setAnonymous(event.target.checked)}
-              />
-              Stay anonymous
-            </label>
-            {!anonymous && (
-              <>
-                <div className="sd-identity">
-                  <LogoPicker name={name} value={logo} onChange={setLogo} />
-                  <label className="field">
-                    Name
-                    <input
-                      value={name}
-                      maxLength={60}
-                      autoFocus
-                      onChange={(event) => setName(event.target.value)}
-                    />
-                  </label>
-                </div>
-                <label className="field">
-                  Tagline
-                  <input
-                    value={tagline}
-                    maxLength={80}
-                    onChange={(event) => setTagline(event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  Website
-                  <input
-                    type="url"
-                    value={website}
-                    maxLength={300}
-                    placeholder="https://"
-                    onChange={(event) => setWebsite(event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  Description
-                  <textarea
-                    value={description}
-                    maxLength={280}
-                    onChange={(event) => setDescription(event.target.value)}
-                  />
-                </label>
-              </>
-            )}
-          </section>
-
-          <section>
-            <span className="bd-label">Your money funds</span>
-            <label className="sd-check">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === "all_except"}
-                onChange={() => setMode("all_except")}
-              />
-              Every project
-            </label>
-            <label className="sd-check">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === "only"}
-                onChange={() => setMode("only")}
-              />
-              Only the projects I choose
-            </label>
-            {mode === "only" && (
-              <div className="sd-pick">
-                <input
-                  className="bd-search"
-                  type="search"
-                  placeholder="Search projects"
-                  aria-label="Search projects"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-                <div className="sd-pick-list">
-                  {projects.map((project) => (
-                    <label key={project.id} className="sd-pick-row">
-                      <input
-                        type="checkbox"
-                        checked={chosen.has(project.id)}
-                        onChange={() =>
-                          setChosen((current) => {
-                            const next = new Set(current);
-                            if (next.has(project.id)) next.delete(project.id);
-                            else next.add(project.id);
-                            return next;
-                          })
-                        }
-                      />
-                      <span className="sd-pick-name">
-                        <b>{project.name}</b>
-                        <span>{project.visibility}</span>
-                      </span>
-                      <span className="sd-pick-stack">
-                        {project.stacks.slice(0, 2).join(" · ")}
-                      </span>
-                    </label>
-                  ))}
-                  {projects.length === 0 && (
-                    <p className="bd-none muted">No project</p>
-                  )}
-                </div>
-                <span className="bd-count">{chosen.size} selected</span>
-              </div>
-            )}
-          </section>
-
-          {data.settings.payments.length > 0 && (
-            <section>
-              <span className="bd-label">Payments</span>
-              <div>
-                {data.settings.payments.map((payment) => (
-                  <div className="sd-pay" key={payment.id}>
-                    <span>
-                      {new Date(payment.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <span className="muted">
-                      {payment.source === "promo"
-                        ? "Founding credit"
-                        : payment.paymentStatus === "refunded"
-                          ? "Refunded"
-                          : "Card"}
-                    </span>
-                    <span className="sd-cost">
-                      {money(payment.amountCents)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {error && (
-            <p className="feedback feedback-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="sd-drawer-foot">
-            <button
-              type="submit"
-              className="bd-btn bd-btn-amber"
-              disabled={pending}
-            >
-              {pending ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </form>
-      </aside>
-    </>
   );
 }
 

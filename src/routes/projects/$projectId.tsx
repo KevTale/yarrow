@@ -18,8 +18,12 @@ import type { MoveEvent, TrackerStatus } from "@/core/tracker-moves";
 import { z } from "zod";
 import { capitalize, NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
-import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
+import {
+  SavedState,
+  useSavedFades,
+  type SaveState,
+} from "@/components/saved-state";
 import {
   getJiraBoardFn,
   listJiraProjectsFn,
@@ -548,31 +552,6 @@ function JiraProjectPicker({
         </div>
       )}
     </div>
-  );
-}
-
-type SaveState = "idle" | "saving" | "saved" | "error";
-
-/** "Saved" fades out after a moment. */
-function useSavedFades(state: SaveState, set: (next: SaveState) => void) {
-  useEffect(() => {
-    if (state !== "saved") return;
-    const timer = setTimeout(() => set("idle"), 1800);
-    return () => clearTimeout(timer);
-  }, [state, set]);
-}
-
-function SavedState({ state }: { state: SaveState }) {
-  return (
-    <span className={`st-saved ${state}`} role="status">
-      {state === "saving" && <Spinner />}
-      {state === "saved" && (
-        <>
-          <Check size={13} /> Saved
-        </>
-      )}
-      {state === "error" && "Not saved, try again"}
-    </span>
   );
 }
 

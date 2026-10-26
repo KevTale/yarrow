@@ -4,7 +4,6 @@ import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
 import {
   SponsorActions,
-  SponsorSettings,
   SponsorView,
 } from "@/components/dashboard/sponsor";
 import { WelcomeView } from "@/components/dashboard/welcome";
@@ -66,7 +65,6 @@ function DashboardPage() {
   const navigate = Route.useNavigate();
   const router = useRouter();
   const [polls, setPolls] = useState(0);
-  const [settings, setSettings] = useState(false);
   // Back from Stripe: celebrate once, then drop the flag from the address
   // so a refresh does not replay it.
   const [celebrate] = useState(search.checkout === "success");
@@ -173,12 +171,7 @@ function DashboardPage() {
               {role === "builder" ? "Builder" : "Sponsor"}
             </button>
           ))}
-          {tab === "sponsor" && (
-            <SponsorActions
-              data={sponsor}
-              onSettings={() => setSettings(true)}
-            />
-          )}
+          {tab === "sponsor" && <SponsorActions data={sponsor} />}
         </div>
       ) : (
         <>
@@ -187,10 +180,7 @@ function DashboardPage() {
           </h1>
           {tab === "sponsor" && (
             <div className="dashboard-roles">
-              <SponsorActions
-                data={sponsor}
-                onSettings={() => setSettings(true)}
-              />
+              <SponsorActions data={sponsor} />
             </div>
           )}
         </>
@@ -205,18 +195,7 @@ function DashboardPage() {
           view={search.view}
         />
       ) : (
-        <SponsorView
-          data={sponsor}
-          onSettings={() => setSettings(true)}
-          celebrate={celebrate}
-        />
-      )}
-      {tab === "sponsor" && (
-        <SponsorSettings
-          data={sponsor}
-          open={settings}
-          onClose={() => setSettings(false)}
-        />
+        <SponsorView data={sponsor} celebrate={celebrate} />
       )}
     </main>
   );

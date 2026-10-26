@@ -69,6 +69,15 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
                   >
                     Dashboard
                   </Link>
+                  {!viewer.guest && (
+                    <Link
+                      to="/account"
+                      role="menuitem"
+                      onClick={() => setOpen(false)}
+                    >
+                      Account
+                    </Link>
+                  )}
                   {viewer.guest && (
                     <a href="/sign-in?next=/dashboard" role="menuitem">
                       Sign in

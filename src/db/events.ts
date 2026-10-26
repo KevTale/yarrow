@@ -5,6 +5,8 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type EventType =
   | "account.created"
+  | "account.deleted"
+  | "account.email_changed"
   | "project.created"
   | "project.updated"
   | "project.github_linked"

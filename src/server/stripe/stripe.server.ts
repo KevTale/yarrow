@@ -76,6 +76,18 @@ export async function createCheckout(
   return session.url;
 }
 
+/**
+ * The invoice Stripe made for a payment (Checkout creates one per payment):
+ * its PDF, or its hosted page. Null when Stripe has none.
+ */
+export async function invoiceUrl(checkoutId: string): Promise<string | null> {
+  const session = await stripeClient().checkout.sessions.retrieve(checkoutId, {
+    expand: ["invoice"],
+  });
+  const invoice = session.invoice as Stripe.Invoice | null;
+  return invoice?.invoice_pdf ?? invoice?.hosted_invoice_url ?? null;
+}
+
 /** Verifies and applies one Stripe webhook. Returns a log line. */
 export async function handleStripeWebhook(
   db: Database,

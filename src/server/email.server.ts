@@ -12,6 +12,14 @@ export function emailConfigured(): boolean {
   return Boolean(env.RESEND_API_KEY && env.SUPABASE_SECRET_KEY);
 }
 
+/** Supabase Auth with the secret key: links, email changes, deletions. */
+export function supabaseAdmin() {
+  const env = appEnv();
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 /**
  * A one-time sign-in link for this address, to put in our own email. A new
  * address gets an account on the first click (Supabase then reports a
@@ -19,10 +27,7 @@ export function emailConfigured(): boolean {
  */
 export async function signInLink(email: string, next: string): Promise<string> {
   const env = appEnv();
-  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await admin.auth.admin.generateLink({
+  const { data, error } = await supabaseAdmin().auth.admin.generateLink({
     type: "magiclink",
     email,
     options: { redirectTo: `${env.APP_URL}${next}` },
@@ -164,5 +169,31 @@ export async function sendThanks(input: {
     note: input.signsIn
       ? "The button signs you in on any device. It works once and expires in 24 hours; after that, sign in with this email on yarrow.run."
       : undefined,
+  });
+}
+
+/** To the new address: one click confirms it. */
+export async function sendEmailChangeLink(to: string, url: string) {
+  await send(to, "Confirm your new Yarrow email", {
+    preheader: "One click to use this address on Yarrow.",
+    title: "Confirm your new email",
+    paragraphs: [
+      "You asked to sign in to Yarrow with this address. Confirm it, and it replaces the old one.",
+    ],
+    button: { label: "Confirm this email", url },
+    note: "Open it in the browser where you are signed in. The link expires in 24 hours. If you did not ask for it, you can ignore this email.",
+  });
+}
+
+/** To the old address, once the change is made. */
+export async function sendEmailChangedNotice(to: string, email: string) {
+  const env = appEnv();
+  await send(to, "Your Yarrow email changed", {
+    preheader: `Yarrow now uses ${email}.`,
+    title: "Your email changed",
+    paragraphs: [
+      `Your Yarrow account now uses ${email}. If you did not make this change, reply to this email.`,
+    ],
+    button: { label: "Open your account", url: `${env.APP_URL}/account` },
   });
 }
