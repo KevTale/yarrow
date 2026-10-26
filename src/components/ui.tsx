@@ -147,16 +147,16 @@ export function timeAgo(value: Date | string | null): string {
   return `${Math.floor(seconds / 86400)} d ago`;
 }
 
-/** "48 s", "2 min 34 s", "1 h 05 min". */
+/** "48s", "2m 34s", "1h 05m". */
 export function duration(from: Date | string, to: Date | string): string {
   const seconds = Math.max(
     0,
     Math.round((new Date(to).getTime() - new Date(from).getTime()) / 1000),
   );
-  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`;
-  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
+  if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 export function initials(name: string): string {

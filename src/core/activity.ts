@@ -58,9 +58,16 @@ export interface SessionEvent {
   error?: { message?: string };
 }
 
-const REPO = /^\/workspace\/repo\/?/;
+// The repository's checkout, and where the session keeps its outputs.
+const REPO = /^\/workspace\/repo\/?|^\/mnt\/session\/outputs\//;
 const relative = (path: unknown) =>
   typeof path === "string" ? path.replace(REPO, "") || "." : undefined;
+
+/** A command as the agent means it: without the cd into the repository. */
+export const shortCommand = (command: string) =>
+  command
+    .replace(/^cd \/workspace\/repo\s*(&&|;)\s*/, "")
+    .replaceAll("/workspace/repo/", "");
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 const lineCount = (text: unknown) =>
@@ -116,7 +123,7 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
           },
         };
       case "bash": {
-        const command = clip(String(input.command ?? "").trim(), 300);
+        const command = clip(shortCommand(String(input.command ?? "").trim()), 300);
         return {
           ...base,
           kind: testCommand.test(command) ? "test" : "command",
@@ -133,8 +140,14 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
   }
   if (event.type === "agent.tool_result" && event.tool_use_id) {
     const output = text(event);
-    const passed = /(\d+) (?:tests? )?passed/i.exec(output)?.[1];
-    const failed = /(\d+) (?:tests? )?failed/i.exec(output)?.[1];
+    // "12 passed" (Vitest, Jest, pytest), "# pass 12" (node:test, TAP).
+    const count = (word: string) =>
+      new RegExp(`(\\d+) (?:tests? )?${word}ed\\b|^\\s*[#ℹ]\\s*${word} (\\d+)`, "im")
+        .exec(output)
+        ?.slice(1)
+        .find(Boolean);
+    const passed = count("pass");
+    const failed = count("fail");
     return {
       ...base,
       kind: "command",

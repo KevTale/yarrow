@@ -65,6 +65,15 @@ describe("reading a session into lines", () => {
     expect(
       activityFromEvent(tool("e4", 4, "bash", { command: "ls -la" })),
     ).toMatchObject({ kind: "command" });
+    // Without the cd into the checkout; node:test counts too.
+    expect(
+      activityFromEvent(
+        tool("e8", 8, "bash", { command: "cd /workspace/repo && npm test" }),
+      ),
+    ).toMatchObject({ kind: "test", detail: { command: "npm test" } });
+    expect(
+      activityFromEvent(result("e9", 9, "e8", "# tests 5\n# pass 5\n# fail 0")),
+    ).toMatchObject({ detail: { ok: true, passed: 5, failed: 0 } });
     expect(
       activityFromEvent(result("e5", 5, "e3", "Tests  12 passed | 2 failed")),
     ).toMatchObject({

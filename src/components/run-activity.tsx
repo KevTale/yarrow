@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   groupActivity,
   reachedStages,
+  shortCommand,
   stages,
   type ActivityGroup as Group,
   type ActivityLine,
@@ -55,6 +56,9 @@ const icons: Record<ActivityLine["kind"], ReactNode> = {
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
+
+/** A script shows as its first line. */
+const oneLine = (command: string) => shortCommand(command).split("\n")[0];
 
 function Code({ children }: { children: ReactNode }) {
   return <code className="ra-code">{children}</code>;
@@ -121,14 +125,15 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
     case "test":
       return (
         <>
-          Ran the tests {detail.command && <Code>{detail.command}</Code>}
+          Ran the tests {detail.command && <Code>{oneLine(detail.command)}</Code>}
           {result}
         </>
       );
     case "command":
       return (
         <>
-          Ran {detail.command ? <Code>{detail.command}</Code> : "a command"}
+          Ran{" "}
+          {detail.command ? <Code>{oneLine(detail.command)}</Code> : "a command"}
           {detail.ok === false && result}
         </>
       );
