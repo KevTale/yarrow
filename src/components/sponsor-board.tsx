@@ -180,8 +180,9 @@ function useSaver(claim: Claim) {
 type Saver = ReturnType<typeof useSaver>;
 
 /**
- * Today and all time side by side, the viewer's own row in both, as a form
- * the size of every other row: typed in place, the other board following.
+ * Today and all time side by side, every row three lines (name and amount,
+ * description, website and stats), the viewer's own row in both as a form
+ * of the same size: typed in place, the other board following.
  * A sponsor's row shows as everyone sees it until they edit it. Once the
  * row is used, the payment opens under it.
  */
@@ -250,6 +251,16 @@ export function SponsorBoard({
   );
 }
 
+/** "https://www.acme.com/" → "acme.com". */
+function host(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 /** What the sponsor's money did, zeros included. Anonymous rows get no clicks. */
 function Stats({
   clicks,
@@ -268,13 +279,16 @@ function Stats({
   );
 }
 
-/** A row's content, the viewer's and everyone else's alike. */
+/**
+ * A row's three lines, the viewer's and everyone else's alike: the name
+ * and the amount, the description, the website and the stats.
+ */
 function RowBody({
   rank,
   logo,
   name,
-  tagline,
   description,
+  website,
   amount,
   stats,
   you = false,
@@ -283,8 +297,8 @@ function RowBody({
   rank: number;
   logo: React.ReactNode;
   name: React.ReactNode;
-  tagline: string | null;
   description: string | null;
+  website: string | null;
   amount: number;
   stats: React.ReactNode;
   you?: boolean;
@@ -296,25 +310,19 @@ function RowBody({
       <span className="sb-rank">{rank}</span>
       {logo}
       <span className="sb-body">
-        <span className="sb-title-row">
-          <span className="sb-name">
-            {name}
-            {tagline && <span> · {tagline}</span>}
-          </span>
+        <span className="sb-line">
+          <span className="sb-name">{name}</span>
           {you && <span className="sb-you">You</span>}
           {edit && <span className="sb-edit">Edit</span>}
+          <b className="sb-amount">{money(amount, false)}</b>
         </span>
-        {description && (
-          <span className="sb-description" title={description}>
-            {description}
-          </span>
-        )}
-        {/* On phones the stats sit under the name, where there is room. */}
-        <span className="sb-stats-under">{stats}</span>
-      </span>
-      <span className="sb-paid">
-        <b>{money(amount, false)}</b>
-        <span className="sb-stats-side">{stats}</span>
+        <span className="sb-description" title={description ?? undefined}>
+          {description}
+        </span>
+        <span className="sb-line">
+          <span className="sb-site">{host(website)}</span>
+          {stats}
+        </span>
       </span>
     </>
   );
@@ -336,7 +344,7 @@ function Column({
   saver: Saver;
   /** The viewer's row is a form (a visitor's always, a sponsor's on Edit). */
   form: boolean;
-  /** This board's row was used: the payment shows under it. */
+  /** This board's row was used: the payment opens under it. */
   engaged: boolean;
   onEngage: () => void;
   onOpen: () => void;
@@ -380,7 +388,7 @@ function Column({
             stats={stats}
             focus={focus}
           />
-          {engaged && <PayBand claim={claim} saver={saver} />}
+          <PayBand claim={claim} saver={saver} open={engaged} />
         </>
       ) : (
         <button type="button" className="sb-row-button" onClick={onOpen}>
@@ -390,13 +398,12 @@ function Column({
               <Logo
                 name={mine?.name ?? null}
                 url={mine?.logoUrl ?? null}
-                size="small"
+                size="large"
               />
             }
             name={<SponsorName name={mine?.name ?? null} />}
-            tagline={mine?.tagline ?? null}
-            // Their own description always shows, whatever their place.
             description={mine?.description ?? null}
+            website={mine?.websiteUrl ?? null}
             amount={mine?.paidCents ?? 0}
             stats={stats}
             you
@@ -452,10 +459,10 @@ function SponsorLine({
   const body = (
     <RowBody
       rank={rank}
-      logo={<Logo name={row.name} url={row.logoUrl} size="small" />}
+      logo={<Logo name={row.name} url={row.logoUrl} size="large" />}
       name={<SponsorName name={row.name} />}
-      tagline={row.tagline}
-      description={rank <= 3 ? row.description : null}
+      description={row.description}
+      website={row.name ? row.websiteUrl : null}
       amount={row.paidCents}
       stats={
         <Stats
@@ -490,9 +497,8 @@ function SponsorLine({
 }
 
 /**
- * The viewer's row as a form the size of any other row: logo, name and
- * tagline on the first line, the description on the second, and the
- * amount where every amount prints.
+ * The viewer's row as a form the size of any other row, each field where
+ * its text prints: the name and the amount, the description, the website.
  */
 function FormRow({
   claim,
@@ -522,7 +528,7 @@ function FormRow({
   }, [focus]);
 
   const change =
-    (key: "name" | "tagline" | "description") =>
+    (key: "name" | "description" | "website") =>
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
       setCard((current) => ({ ...current, [key]: value }));
@@ -532,7 +538,7 @@ function FormRow({
     <div className="sb-form-row" ref={root}>
       <span className="sb-rank">{rank}</span>
       <LogoPicker
-        size="small"
+        size="large"
         name={card.name.trim()}
         value={card.logo}
         onChange={(logo) => {
@@ -541,33 +547,35 @@ function FormRow({
         }}
       />
       <span className="sb-body">
-        <span className="sb-title-row">
-          <span className="sb-fields-line">
-            <input
-              className="fund-input fund-name"
-              maxLength={60}
-              size={Math.max(card.name.length, 10)}
-              placeholder="Your company name"
-              aria-label="Public name"
-              value={card.name}
-              onChange={change("name")}
-              onBlur={() => void saver.commit()}
-            />
-            <span className="fund-sep" aria-hidden="true">
-              ·
-            </span>
-            <input
-              className="fund-input fund-tagline"
-              maxLength={80}
-              size={Math.max(card.tagline.length, 7)}
-              placeholder="Tagline"
-              aria-label="Tagline (optional)"
-              value={card.tagline}
-              onChange={change("tagline")}
-              onBlur={() => void saver.commit()}
-            />
-          </span>
+        <span className="sb-line">
+          <input
+            className="fund-input fund-name"
+            maxLength={60}
+            size={Math.max(card.name.length, 10)}
+            placeholder="Your company name"
+            aria-label="Public name"
+            value={card.name}
+            onChange={change("name")}
+            onBlur={() => void saver.commit()}
+          />
           <span className="sb-you">You</span>
+          <label className="sb-amount sb-amount-field">
+            $
+            <input
+              value={claim.dollars}
+              size={Math.max(claim.dollars.length, 2)}
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label={
+                claim.sponsoring ? "Dollars to add" : "Amount in dollars"
+              }
+              onChange={(event) =>
+                claim.setDollars(
+                  event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                )
+              }
+            />
+          </label>
         </span>
         <input
           className="fund-input fund-description"
@@ -578,41 +586,43 @@ function FormRow({
           onChange={change("description")}
           onBlur={() => void saver.commit()}
         />
-        <span className="sb-stats-under">{stats}</span>
-      </span>
-      <span className="sb-paid">
-        <label className="sb-amount-field">
-          $
+        <span className="sb-line">
           <input
-            value={claim.dollars}
-            size={Math.max(claim.dollars.length, 2)}
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label={
-              claim.sponsoring ? "Dollars to add" : "Amount in dollars"
-            }
-            onChange={(event) =>
-              claim.setDollars(
-                event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-              )
-            }
+            className="fund-input fund-site"
+            maxLength={300}
+            inputMode="url"
+            autoComplete="url"
+            size={Math.max(card.website.length, 16)}
+            placeholder="yourcompany.com"
+            aria-label="Website (optional)"
+            value={card.website}
+            onChange={change("website")}
+            onBlur={() => void saver.commit()}
           />
-        </label>
-        <span className="sb-stats-side">{stats}</span>
+          {stats}
+        </span>
       </span>
     </div>
   );
 }
 
 /**
- * Under the row once it is used: the website, the waiver, what the amount
- * buys after fees, and Claim, which opens Stripe Checkout.
+ * Under the row, opening as it is used: what the amount buys, Claim, which
+ * opens Stripe Checkout, and the waiver under it.
  */
-function PayBand({ claim, saver }: { claim: Claim; saver: Saver }) {
+function PayBand({
+  claim,
+  saver,
+  open,
+}: {
+  claim: Claim;
+  saver: Saver;
+  open: boolean;
+}) {
   const checkout = useServerFn(startCheckoutFn);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
-  const { card, setCard, valid, cents, label, fees } = claim;
+  const { card, valid, cents, label, fees } = claim;
   const { error, setError } = saver;
   // Back from Stripe: the browser may restore the page as it was left.
   useEffect(() => {
@@ -646,23 +656,34 @@ function PayBand({ claim, saver }: { claim: Claim; saver: Saver }) {
   }
 
   return (
-    <div className="sb-pay-band">
-      <div className="sb-edit-checks">
-        <input
-          className="fund-input fund-site"
-          maxLength={300}
-          inputMode="url"
-          autoComplete="url"
-          size={Math.max(card.website.length, 16)}
-          placeholder="yourcompany.com"
-          aria-label="Website (optional)"
-          value={card.website}
-          onChange={(event) => {
-            const website = event.target.value;
-            setCard((current) => ({ ...current, website }));
-          }}
-          onBlur={() => void saver.commit()}
-        />
+    <div className="sb-pay-wrap" inert={!open}>
+      <div className="sb-pay">
+        <div className="sb-edit-pay">
+          {fees ? (
+            <span className="sb-fees">
+              <b>≈ {money(fees.creditCents)} of compute</b>
+              <small>−{money(fees.feeCents + fees.marginCents)} fees</small>
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="sb-claim-actions">
+            <SavedState state={saver.state} />
+            <button
+              type="button"
+              className="sb-claim-go"
+              onClick={() => void pay()}
+              aria-disabled={!valid || pending}
+            >
+              {label}
+              {pending ? (
+                <Spinner />
+              ) : (
+                <ArrowRight size={14} strokeWidth={2.4} />
+              )}
+            </button>
+          </span>
+        </div>
         <label className="sb-check">
           <input
             type="checkbox"
@@ -677,31 +698,6 @@ function PayBand({ claim, saver }: { claim: Claim; saver: Saver }) {
             )
           </span>
         </label>
-      </div>
-      <div className="sb-edit-pay">
-        {fees ? (
-          <span className="sb-fees">
-            <b>≈ {money(fees.creditCents)} of compute</b>
-            <small>
-              −{money(fees.feeCents)} card fees · −{money(fees.marginCents)}{" "}
-              margin ({claim.founding ? "5" : "10"}%)
-            </small>
-          </span>
-        ) : (
-          <span />
-        )}
-        <span className="sb-claim-actions">
-          <SavedState state={saver.state} />
-          <button
-            type="button"
-            className="sb-claim-go"
-            onClick={() => void pay()}
-            aria-disabled={!valid || pending}
-          >
-            {label}
-            {pending ? <Spinner /> : <ArrowRight size={14} strokeWidth={2.4} />}
-          </button>
-        </span>
         {error && (
           <p className="sb-error" role="alert">
             {error}

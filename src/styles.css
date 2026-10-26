@@ -6429,14 +6429,16 @@ a.tk:hover {
 .sb-row {
   border-bottom: 1px solid #1d2025;
 }
+/* Every row, the viewer's form included: rank, logo, then three lines. */
 .sb-row-link,
-.sb-row-button {
+.sb-row-button,
+.sb-form-row {
   display: grid;
-  grid-template-columns: 26px 28px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 40px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   width: 100%;
-  padding: 11px 6px;
+  padding: 12px 6px;
   color: inherit;
   text-align: left;
   font-variant-numeric: tabular-nums;
@@ -6448,13 +6450,8 @@ a.tk:hover {
   font: inherit;
   cursor: pointer;
 }
-/* The row on the other board, while one is edited: still a row, not greyed. */
-.sb-row-button:disabled {
-  opacity: 1;
-  cursor: default;
-}
 a.sb-row-link:hover,
-.sb-row-button:not(:disabled):hover {
+.sb-row-button:hover {
   background: var(--hover);
 }
 .sb-rank {
@@ -6471,49 +6468,59 @@ a.sb-row-link:hover,
 }
 .sb-body {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
-/* The name and tagline give way; the You tag never does. */
-.sb-title-row {
+/* A line with something held to the right: the amount, the stats. */
+.sb-line {
   display: flex;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
-  font-size: 15px;
+}
+.sb-line > :last-child {
+  margin-left: auto;
+  flex: none;
 }
 .sb-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 15px;
 }
 .sb-name b {
   font-weight: 600;
 }
-.sb-name > span {
-  color: var(--secondary);
-}
 a.sb-row-link:hover .sb-name b {
   color: var(--amber);
 }
-.sb-description {
-  font-size: 13px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sb-paid {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  white-space: nowrap;
-}
-.sb-paid b {
+.sb-amount {
   font:
     500 17px var(--font-display),
     sans-serif;
+}
+.sb-description {
+  min-height: 1.4em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--secondary);
+}
+.sb-site {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
+}
+a.sb-row-link:hover .sb-site {
+  color: var(--secondary);
 }
 .sb-stats {
   display: flex;
@@ -6526,9 +6533,6 @@ a.sb-row-link:hover .sb-name b {
 .sb-stats > span + span::before {
   content: "·";
   margin: 0 6px;
-}
-.sb-stats-under {
-  display: none;
 }
 .sb-you {
   flex: none;
@@ -6555,15 +6559,8 @@ a.sb-row-link:hover .sb-name b {
   background: linear-gradient(90deg, #f2b54414, #f2b54400);
 }
 .sb-row.you .sb-rank,
-.sb-row.you .sb-paid b {
+.sb-row.you .sb-amount {
   color: var(--amber);
-}
-.sb-row.ghost .sb-placeholder {
-  color: var(--secondary);
-}
-.sb-row.ghost .board-logo.open {
-  color: var(--amber);
-  border-color: #f2b54480;
 }
 .sb-gap {
   padding: 6px;
@@ -6572,42 +6569,30 @@ a.sb-row-link:hover .sb-name b {
   color: var(--muted);
 }
 
-/* The viewer's row as a form the size of every other row */
-.sb-form-row {
-  display: grid;
-  grid-template-columns: 26px 28px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 11px 6px;
-  font-variant-numeric: tabular-nums;
-}
-.sb-form-row .logo-picker .board-logo.small {
+/* The viewer's row as a form: each field where its text prints */
+.sb-form-row .logo-picker .board-logo.large {
   border: 1px dashed #f2b54480;
-}
-.sb-fields-line {
-  display: flex;
-  align-items: baseline;
-  gap: 0 6px;
-  min-width: 0;
-  overflow: hidden;
 }
 .sb-form-row .fund-input {
   padding: 0;
 }
 .sb-form-row .fund-name {
   min-width: 6ch;
+  max-width: 100%;
+  font-size: 15px;
 }
 .sb-form-row .fund-description {
+  width: 100%;
   font-size: 13px;
   line-height: 1.4;
 }
-/* The amount, where every amount prints, and typed in place. */
+.sb-form-row .fund-site {
+  min-width: 8ch;
+}
+/* The amount, where every amount prints, typed in place. */
 .sb-amount-field {
   display: inline-flex;
   align-items: baseline;
-  font:
-    500 17px var(--font-display),
-    sans-serif;
   color: var(--amber);
   cursor: text;
 }
@@ -6626,23 +6611,40 @@ a.sb-row-link:hover .sb-name b {
 .sb-amount-field input:focus {
   border-bottom: 1px solid var(--amber);
 }
-/* Once used, the row and the payment under it read as one card. */
-.sb-row.engaged {
-  margin-block: 4px;
-  border: 1px solid #f2b5448c;
+/* Used, the row and the payment under it read as one card. */
+.sb-row.you.form {
+  border: 1px solid transparent;
+  border-bottom-color: #1d2025;
+  transition:
+    border-color 0.3s,
+    border-radius 0.3s,
+    background-color 0.3s,
+    box-shadow 0.3s;
+}
+.sb-row.you.engaged {
+  border-color: #f2b5448c;
   border-radius: 12px;
   background: var(--surface);
   box-shadow: 0 16px 40px #00000052;
 }
-/* Under the fields, aligned with them, the two choices; then a band the
-   whole width with what the amount buys beside the buttons. */
-.sb-edit-checks {
+/* The payment opens by its height. */
+.sb-pay-wrap {
   display: grid;
-  justify-items: start;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sb-row.engaged .sb-pay-wrap {
+  grid-template-rows: 1fr;
+}
+.sb-pay {
+  display: grid;
   gap: 10px;
-  padding: 12px 12px 12px 84px;
+  min-height: 0;
+  overflow: hidden;
+}
+.sb-row.engaged .sb-pay {
+  padding: 12px 12px 14px 16px;
   border-top: 1px solid var(--line);
-  font-size: 13px;
 }
 .sb-edit-pay {
   display: flex;
@@ -6650,10 +6652,6 @@ a.sb-row-link:hover .sb-name b {
   align-items: center;
   justify-content: space-between;
   gap: 12px 18px;
-  padding: 12px 12px 12px 16px;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 11px 11px;
-  background: #ffffff05;
 }
 .sb-fees {
   display: grid;
@@ -6672,13 +6670,22 @@ a.sb-row-link:hover .sb-name b {
     monospace;
   color: var(--muted);
 }
+.sb-claim-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* Under Claim, held to the right. */
 .sb-check {
   display: inline-flex;
   align-items: flex-start;
+  justify-self: end;
   gap: 8px;
   max-width: 60ch;
-  color: var(--secondary);
+  font-size: 12.5px;
   line-height: 1.45;
+  color: var(--secondary);
   cursor: pointer;
 }
 .sb-check input {
@@ -6688,16 +6695,17 @@ a.sb-row-link:hover .sb-name b {
   flex: none;
   accent-color: var(--amber);
 }
-.sb-claim-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
 .sb-error {
-  flex-basis: 100%;
   margin: 0;
+  justify-self: end;
+  font-size: 13px;
   color: var(--red);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-pay-wrap,
+  .sb-row.you.form {
+    transition: none;
+  }
 }
 
 /* The dashboard's Sponsor tab: the numbers in a band, then where the
@@ -6849,32 +6857,18 @@ a.sb-row-link:hover .sb-name b {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  /* Names keep their room: the stats go under the name, descriptions
-     only on the viewer's own row. */
-  .sb-row:not(.you) .sb-description {
-    display: none;
-  }
-  .sb-stats-side {
-    display: none;
-  }
-  .sb-stats-under {
-    display: block;
-  }
   .sb-head > .sb-claim-go {
     width: 100%;
     justify-content: center;
   }
-  /* The name's placeholder keeps the line until the row is used. */
-  .sb-row.you:not(.engaged) .fund-tagline:placeholder-shown,
-  .sb-row.you:not(.engaged) .fund-sep:has(+ .fund-tagline:placeholder-shown) {
-    display: none;
-  }
-  .sb-edit-checks {
-    padding-left: 12px;
-  }
   .sb-claim-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+  /* The site gives way to the stats. */
+  .sb-form-row .fund-site {
+    min-width: 0;
+    flex: 1;
   }
   .sd-metrics {
     gap: 18px 32px;

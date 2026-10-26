@@ -78,7 +78,7 @@ function Terms() {
           where the law requires otherwise.
         </li>
         <li>
-          Your name, tagline, description and website appear publicly on the
+          Your name, logo, description and website appear publicly on the
           leaderboard and on the pull requests you fund, unless you choose to
           stay anonymous. They must be accurate and lawful; we may remove them
           otherwise. Sponsors are ranked by the amount they paid, excluding VAT.

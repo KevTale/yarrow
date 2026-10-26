@@ -22,7 +22,7 @@ function Privacy() {
           To sign you in and run the service (contract).
         </li>
         <li>
-          <b>Sponsor profile:</b> the name, tagline, description and website you
+          <b>Sponsor profile:</b> the name, logo, description and website you
           choose to show publicly, and the number of clicks on your website link
           (not who clicked).
         </li>

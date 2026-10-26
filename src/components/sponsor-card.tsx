@@ -34,7 +34,7 @@ export function SponsorCardRow({
   stats?: { clicks: number; merged: number };
   className?: string;
 }) {
-  const field = (key: "name" | "tagline" | "description" | "website") => ({
+  const field = (key: "name" | "description" | "website") => ({
     value: value[key],
     onChange: (
       event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -78,17 +78,6 @@ export function SponsorCardRow({
                 placeholder="Your company name"
                 aria-label="Public name"
                 {...field("name")}
-              />
-              <span className="fund-sep" aria-hidden="true">
-                ·
-              </span>
-              <input
-                className="fund-input fund-tagline"
-                maxLength={80}
-                size={Math.max(value.tagline.length, 8)}
-                placeholder="Tagline"
-                aria-label="Tagline (optional)"
-                {...field("tagline")}
               />
             </span>
             <input
