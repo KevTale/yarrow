@@ -35,27 +35,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-/* Faint light at the top of every page, pollen-warm; it scrolls away. */
-body::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 900px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(56% 58% at 50% -8%, #f2b54417, transparent 72%),
-    radial-gradient(36% 44% at 90% 10%, #e08d6d0b, transparent 70%),
-    radial-gradient(34% 42% at 8% 26%, #4cc3a007, transparent 70%);
-  animation: lights-breathe 14s ease-in-out infinite alternate;
-}
-@keyframes lights-breathe {
-  from {
-    opacity: 0.75;
-  }
-}
 body > main {
   flex: 1 0 auto;
   /* Auto margins would otherwise shrink a centered page to its content. */
