@@ -322,8 +322,9 @@ describe("run pipeline", async () => {
     expect(body).toContain(
       "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
     );
-    expect(body).toContain(
-      "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/",
+    // The sponsors' card closes the pull request, after the models.
+    expect(body).toMatch(
+      /Reviewed by GPT Astra\n\n---\n\n\[!\[Paid for by Northwind on Yarrow\]\(https:\/\/yarrow\.run\/pr-card\/[0-9a-f-]{36}\)\]\(https:\/\/yarrow\.run\/out\/[0-9a-f-]{36}\)$/,
     );
     const commit = calls.find((call) => call.url.endsWith("/git/commits"))!;
     expect((commit.body as { message: string }).message).toContain(
