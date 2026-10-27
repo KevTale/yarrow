@@ -705,7 +705,9 @@ export function UserMenu({
   }
 
   const glide: Transition =
-    highlight?.glide && !reduced ? motionTokens.spring.snappy : { duration: 0 };
+    highlight?.glide && !reduced
+      ? motionTokens.spring.highlight
+      : { duration: 0 };
   const row = reduced ? undefined : rowMotion;
   const menuProps = {
     id: menuId,

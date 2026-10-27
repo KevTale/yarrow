@@ -853,7 +853,7 @@ function RailMark({ reduced }: { reduced: boolean | null }) {
       className="bd-rail-mark"
       aria-hidden="true"
       style={{ borderRadius: 8 }}
-      transition={reduced ? { duration: 0 } : motionTokens.spring.morph}
+      transition={reduced ? { duration: 0 } : motionTokens.spring.highlight}
     />
   );
 }

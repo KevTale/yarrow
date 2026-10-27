@@ -1,6 +1,13 @@
 import { useEffect, useRef } from "react";
 
-const COLORS = ["#f2b544", "#f5f0e3", "#5ccb95", "#9db4ff", "#ee7b6e", "#c7a6ff"];
+const COLORS = [
+  "#f2b544",
+  "#f5f0e3",
+  "#5ccb95",
+  "#9db4ff",
+  "#ee7b6e",
+  "#c7a6ff",
+];
 
 /**
  * One burst of confetti from the top of the screen, in the brand colors.
@@ -26,7 +33,9 @@ export function Confetti() {
       return {
         x: fromLeft ? width * 0.2 : width * 0.8,
         y: height * 0.3,
-        vx: (fromLeft ? 1 : -1) * (2 + Math.random() * 7) + (Math.random() - 0.5) * 4,
+        vx:
+          (fromLeft ? 1 : -1) * (2 + Math.random() * 7) +
+          (Math.random() - 0.5) * 4,
         vy: -(8 + Math.random() * 9),
         size: 5 + Math.random() * 6,
         spin: Math.random() * Math.PI,
@@ -56,7 +65,12 @@ export function Confetti() {
           context.arc(0, 0, piece.size / 2.4, 0, Math.PI * 2);
           context.fill();
         } else {
-          context.fillRect(-piece.size / 2, -piece.size / 4, piece.size, piece.size / 2);
+          context.fillRect(
+            -piece.size / 2,
+            -piece.size / 4,
+            piece.size,
+            piece.size / 2,
+          );
         }
         context.restore();
       }

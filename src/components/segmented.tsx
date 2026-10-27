@@ -117,7 +117,7 @@ export function Segmented<T extends string>({
                 // stretch: the frame's 17px less the 3px inset and border.
                 style={{ borderRadius: 13 }}
                 transition={
-                  reduced ? { duration: 0 } : motionTokens.spring.morph
+                  reduced ? { duration: 0 } : motionTokens.spring.highlight
                 }
               />
             )}

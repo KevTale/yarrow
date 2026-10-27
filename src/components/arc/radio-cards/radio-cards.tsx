@@ -22,8 +22,7 @@ import {
   useMotionValue,
   useReducedMotion,
 } from "motion/react";
-import type { Transition } from "motion/react";
-import { motionTokens } from "../lib/motion-tokens";
+import { motionTokens, physicalSpring } from "../lib/motion-tokens";
 import styles from "./radio-cards.module.css";
 
 export interface RadioCardOption {
@@ -65,16 +64,8 @@ export interface RadioCardsProps extends Omit<
 
 type Bezier = [number, number, number, number];
 const standard = [...motionTokens.ease.standard] as Bezier;
-const physical = (visualDuration: number, bounce: number): Transition => {
-  const root = (2 * Math.PI) / (visualDuration * 1.2);
-  return {
-    type: "spring",
-    stiffness: root * root,
-    damping: 2 * (1 - bounce) * root,
-    mass: 1,
-  };
-};
-const GLIDE = physical(0.42, 0.14);
+/** The ring between cards: Yarrow's one highlight speed. */
+const GLIDE = physicalSpring(motionTokens.spring.highlight);
 
 const subscribe = () => () => {};
 function useReducedFlag() {

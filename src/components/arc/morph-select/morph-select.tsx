@@ -25,7 +25,7 @@ import {
 } from "motion/react";
 import type { Transition, Variants } from "motion/react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
-import { motionTokens } from "../lib/motion-tokens";
+import { motionTokens, physicalSpring } from "../lib/motion-tokens";
 import styles from "./morph-select.module.css";
 
 export interface MorphSelectOption {
@@ -104,6 +104,8 @@ const physical = (visualDuration: number, bounce: number): Transition => {
 const GROW = physical(0.4, 0.12),
   SHRINK = physical(0.34, 0),
   GLIDE = physical(0.28, 0.08),
+  /** The highlight between options: Yarrow's one highlight speed. */
+  HIGHLIGHT = physicalSpring(motionTokens.spring.highlight),
   WIDTH = physical(0.42, 0.16);
 /** Width that narrows never overshoots: dipping even half a pixel under the closed width ellipsizes the label and nudges the chevron. */
 const NARROW = physical(0.42, 0);
@@ -395,8 +397,8 @@ export function MorphSelect({
       hy.jump(top);
       hh.jump(height);
     } else {
-      animate(hy, top, GLIDE);
-      animate(hh, height, GLIDE);
+      animate(hy, top, HIGHLIGHT);
+      animate(hh, height, HIGHLIGHT);
     }
     animate(ho, 1, { duration: reduced ? 0 : 0.12, ease: enter });
     const scroller = scrollRef.current;

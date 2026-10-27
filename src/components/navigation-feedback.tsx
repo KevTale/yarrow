@@ -10,7 +10,9 @@ export function WarmDashboard({ signedIn }: { signedIn: boolean }) {
   useEffect(() => {
     if (!signedIn || router.state.location.pathname === "/dashboard") return;
     const warm = () =>
-      void router.preloadRoute({ to: "/dashboard", search: {} }).catch(() => {});
+      void router
+        .preloadRoute({ to: "/dashboard", search: {} })
+        .catch(() => {});
     if ("requestIdleCallback" in window) {
       const handle = window.requestIdleCallback(warm, { timeout: 4_000 });
       return () => window.cancelIdleCallback(handle);

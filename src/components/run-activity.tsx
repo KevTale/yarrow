@@ -69,15 +69,17 @@ function Code({ children }: { children: ReactNode }) {
 
 /** The agents write Markdown: `code` and **bold** read as such. */
 export function Rich({ text }: { text: string }) {
-  return text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/).map((part, i) =>
-    /^`.+`$/.test(part) ? (
-      <code key={i}>{part.slice(1, -1)}</code>
-    ) : /^\*\*.+\*\*$/.test(part) ? (
-      <strong key={i}>{part.slice(2, -2)}</strong>
-    ) : (
-      part
-    ),
-  );
+  return text
+    .split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/)
+    .map((part, i) =>
+      /^`.+`$/.test(part) ? (
+        <code key={i}>{part.slice(1, -1)}</code>
+      ) : /^\*\*.+\*\*$/.test(part) ? (
+        <strong key={i}>{part.slice(2, -2)}</strong>
+      ) : (
+        part
+      ),
+    );
 }
 
 const image = /\.(png|jpe?g|webp|gif)$/i;
@@ -160,7 +162,11 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
       return (
         <>
           Ran{" "}
-          {detail.command ? <Code>{oneLine(detail.command)}</Code> : "a command"}
+          {detail.command ? (
+            <Code>{oneLine(detail.command)}</Code>
+          ) : (
+            "a command"
+          )}
           {detail.ok === false && result}
         </>
       );
@@ -285,7 +291,8 @@ export function StageBar({ activity }: { activity: RunActivity }) {
 }
 
 // Runs before questions were stored one per line.
-const legacyUnclear = "Implementer and reviewer both found the ticket unclear: ";
+const legacyUnclear =
+  "Implementer and reviewer both found the ticket unclear: ";
 const asLines = (summary: string) =>
   (summary.startsWith(legacyUnclear)
     ? summary
@@ -444,9 +451,7 @@ function Summary({ activity }: { activity: RunActivity }) {
 
 function RunCard({ runId, link }: { runId: string; link: boolean }) {
   const { activity, failed, running } = useRunActivity(runId);
-  const total = activity
-    ? groupActivity(storyLines(activity.lines)).length
-    : 0;
+  const total = activity ? groupActivity(storyLines(activity.lines)).length : 0;
   return (
     <div className="ra-card" role="dialog" aria-label="Run activity">
       {!activity ? (

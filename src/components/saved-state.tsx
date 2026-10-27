@@ -5,7 +5,10 @@ import { Spinner } from "@/components/navigation-feedback";
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
 /** "Saved" fades out after a moment. */
-export function useSavedFades(state: SaveState, set: (next: SaveState) => void) {
+export function useSavedFades(
+  state: SaveState,
+  set: (next: SaveState) => void,
+) {
   useEffect(() => {
     if (state !== "saved") return;
     const timer = setTimeout(() => set("idle"), 1800);
