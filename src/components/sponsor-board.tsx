@@ -255,34 +255,28 @@ export function SponsorBoard({
   return (
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-pitch">
-        <h2 id="sponsors-title">Sponsors</h2>
         <p className="sb-pitch-lede">
           Get your company name on every pull request you fund
         </p>
         <PrMock sponsor={preview} compact />
-        <ul className="sb-where-points">
-          <li>
-            <b>Seen where it counts.</b> By the maintainers who review and
-            merge it, and by every developer who reads the project after.
-          </li>
-          <li>
-            <b>One click to your site.</b> The card links to it, and every
-            click shows on your row.
-          </li>
-          <li>
-            <b>Your row, as it is.</b> Logo, name, description and site, as on
-            the board.
-          </li>
-        </ul>
+        <p className="sb-pitch-text">
+          Your money pays for the compute behind each pull request, and your
+          card closes every one of them. The maintainers see it when they
+          merge, and so does anyone who opens the pull request later. Clicks
+          on your site are counted right here, on your row.
+        </p>
       </div>
       <Column
         board={board}
         head={
-          <PeriodTabs
-            boards={claim.boards}
-            period={period}
-            onChange={setPeriod}
-          />
+          <>
+            <h2 id="sponsors-title">Sponsors</h2>
+            <PeriodTabs
+              boards={claim.boards}
+              period={period}
+              onChange={setPeriod}
+            />
+          </>
         }
         claim={claim}
         saver={saver}
@@ -439,7 +433,7 @@ function Column({
   focus,
 }: {
   board: Board;
-  /** The board's head: the period tabs. */
+  /** The board's head: the title and the period tabs. */
   head: React.ReactNode;
   claim: Claim;
   saver: Saver;
