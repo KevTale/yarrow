@@ -877,8 +877,9 @@ function ModalHead({
 }
 
 /**
- * A pull request, sketched: its state and title, a few changed lines, and
- * the real card closing it. No host's page around it: the card is the point.
+ * A pull request, sketched: its state and title, then the bot's message,
+ * its text as gray lines and the real card closing it. Enough of a pull
+ * request to read as one, without a host's page around it.
  */
 function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
   return (
@@ -894,12 +895,22 @@ function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
           Keep the stroke width when exporting to SVG
         </span>
       </div>
-      <div className="pr-sketch-diff" aria-hidden="true">
-        <i className="del" style={{ width: "58%" }} />
-        <i className="add" style={{ width: "64%" }} />
-        <i className="add" style={{ width: "41%" }} />
+      <div className="pr-sketch-message">
+        <div className="pr-sketch-author">
+          <span className="pr-sketch-avatar" aria-hidden="true" />
+          <b>yarrow-run</b>
+          <span className="pr-sketch-bot">bot</span>
+          <span className="pr-sketch-opened">opened this pull request</span>
+        </div>
+        <div className="pr-sketch-body">
+          <div className="pr-sketch-text" aria-hidden="true">
+            <i style={{ width: "72%" }} />
+            <i style={{ width: "88%" }} />
+            <i style={{ width: "46%" }} />
+          </div>
+          <PrCardPreview sponsor={sponsor} />
+        </div>
       </div>
-      <PrCardPreview sponsor={sponsor} />
     </figure>
   );
 }

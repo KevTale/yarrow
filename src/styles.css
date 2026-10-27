@@ -6965,24 +6965,66 @@ body:has(.sb-dialog[open]) {
   font-weight: 500;
   color: var(--text);
 }
-/* Changed lines, without their code: removed in red, added in green. */
-.pr-sketch-diff {
-  display: grid;
-  gap: 7px;
-  padding: 12px 14px;
+/* The bot's message: who opened it, its text as gray lines, the card. */
+.pr-sketch-message {
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  overflow: hidden;
 }
-.pr-sketch-diff i {
+.pr-sketch-author {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--elevated);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.pr-sketch-author b {
+  flex: none;
+  font-weight: 600;
+  color: var(--text);
+}
+.pr-sketch-avatar {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #f2b544 0 3px, transparent 3.5px),
+    #2d2a1f;
+}
+.pr-sketch-bot {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: 11px;
+}
+.pr-sketch-opened {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-sketch-body {
+  display: grid;
+  gap: 14px;
+  padding: 14px 12px 12px;
+}
+/* The message's text, as lines: it is text, not a diff. */
+.pr-sketch-text {
+  display: grid;
+  gap: 8px;
+  padding: 0 2px;
+}
+.pr-sketch-text i {
   display: block;
   height: 7px;
   border-radius: 4px;
-}
-.pr-sketch-diff .del {
-  background: #ee7b6e47;
-}
-.pr-sketch-diff .add {
-  background: #5ccb9547;
+  background: #ffffff14;
 }
 /* The pull request's card, scaled to its box. */
 .sb-prcard {
