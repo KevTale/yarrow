@@ -326,6 +326,14 @@ describe("run pipeline", async () => {
     expect(body).toContain(
       "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
     );
+    // Delivery writes with a token that may change CI files too.
+    expect(
+      calls.some(
+        (call) =>
+          call.url.includes("/access_tokens") &&
+          JSON.stringify(call.body).includes('"workflows":"write"'),
+      ),
+    ).toBe(true);
     // The sponsors' card closes the pull request, after the models.
     expect(body).toMatch(
       /Reviewed by GPT Astra\n\n---\n\n<a href="https:\/\/yarrow\.run\/out\/[0-9a-f-]{36}"><picture><source media="\(prefers-color-scheme: dark\)" srcset="https:\/\/yarrow\.run\/pr-card\/[0-9a-f-]{36}\?theme=light"><img alt="Sponsored by Northwind, powered by Yarrow" src="https:\/\/yarrow\.run\/pr-card\/[0-9a-f-]{36}\?theme=dark"><\/picture><\/a>$/,

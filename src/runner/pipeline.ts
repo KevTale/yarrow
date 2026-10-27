@@ -17,9 +17,11 @@ import { runSponsors } from "../db/queries";
 import { runContext, setAnthropicResources, type RunContext } from "../db/runs";
 import {
   GitHubClient,
+  GitHubError,
   installationToken,
   type AppCredentials,
   type Fetch,
+  type TokenPermissions,
 } from "../server/github/app";
 import {
   branchName,
@@ -148,25 +150,26 @@ export class RunPipeline {
     run: Pick<PreparedRun, "installationId" | "repositoryId">,
     access: "read" | "write",
   ): Promise<string> {
-    const { token } = await installationToken(
-      this.deps.github,
-      run.installationId,
-      access === "read"
-        ? {
-            repositoryIds: [run.repositoryId],
-            permissions: { contents: "read" },
-          }
-        : {
-            repositoryIds: [run.repositoryId],
-            permissions: {
-              contents: "write",
-              pull_requests: "write",
-              issues: "write",
-            },
-          },
-      this.deps.fetcher,
-    );
-    return token;
+    const ask = (permissions: TokenPermissions) =>
+      installationToken(
+        this.deps.github,
+        run.installationId,
+        { repositoryIds: [run.repositoryId], permissions },
+        this.deps.fetcher,
+      ).then(({ token }) => token);
+    if (access === "read") return ask({ contents: "read" });
+    const write: TokenPermissions = {
+      contents: "write",
+      pull_requests: "write",
+      issues: "write",
+    };
+    // Workflows lets a run change `.github/workflows/`. An installation that
+    // has not accepted it yet refuses the whole token (422): ask without it.
+    return ask({ ...write, workflows: "write" }).catch((error) => {
+      if (error instanceof GitHubError && error.status === 422)
+        return ask(write);
+      throw error;
+    });
   }
 
   /** Reads the live ticket: GitHub issue with recent comments, or tracker ticket. */
