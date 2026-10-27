@@ -6387,47 +6387,83 @@ a.tk-paid:hover b {
   color: var(--secondary);
 }
 
-/* Sponsors: today and all time side by side, the viewer's row in both */
+/* Sponsors: what a sponsor gets on the left, one board on the right */
 .sb {
   display: grid;
-  gap: 22px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 56px;
+  align-items: start;
   padding-block: 24px 48px;
   scroll-margin-top: 80px;
 }
-.sb-head {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  min-height: 40px;
+.sb-pitch {
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
-.sb-head h2 {
+.sb-pitch h2 {
   font-size: 32px;
 }
-.sb-where-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 0;
-  border: 0;
-  background: none;
+.sb-pitch-lede {
+  margin: -6px 0 4px;
+  font-size: 18px;
+  line-height: 1.45;
   color: var(--secondary);
-  font: inherit;
-  font-size: 14px;
-  text-decoration: underline dotted #8a909b80;
-  text-underline-offset: 4px;
-  cursor: pointer;
-  transition: color 0.15s;
+  text-wrap: pretty;
 }
-.sb-where-button:hover {
+/* Today and All time, two tabs, each with its total. */
+.sb-tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.sb-tabs button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 32px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.sb-tabs button:hover {
   color: var(--text);
 }
-.sb-where-button .short {
-  display: none;
+.sb-tabs button[aria-selected="true"] {
+  background: var(--elevated);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px #f2b54459;
 }
-.sb-where-button svg {
-  flex: none;
-  opacity: 0.8;
+.sb-tabs span {
+  font:
+    500 14px var(--font-display),
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary);
+}
+.sb-tabs button[aria-selected="true"] span {
+  color: var(--text);
+}
+/* Under 960px the board needs the width: the pitch goes above it. */
+@media (max-width: 960px) {
+  .sb {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+  .sb-pitch {
+    max-width: 640px;
+  }
 }
 .sb-claim-go {
   display: inline-flex;
@@ -6452,32 +6488,11 @@ a.tk-paid:hover b {
   color: var(--muted);
   box-shadow: none;
 }
-.sb-boards {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 40px;
-  align-items: start;
-}
 .sb-board-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 0 6px 10px;
+  align-items: center;
+  padding: 0 0 12px;
   border-bottom: 1px solid var(--line);
-}
-.sb-board-head h3 {
-  font:
-    500 12px var(--font-geist-mono),
-    monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-.sb-board-head span {
-  font:
-    500 16px var(--font-display),
-    sans-serif;
-  font-variant-numeric: tabular-nums;
 }
 /* The rows move through `order`: the page order stays put. */
 .sb-list {
@@ -7282,22 +7297,15 @@ body:has(.sb-dialog[open]) {
 }
 
 @media (max-width: 760px) {
-  .sb-boards {
+  .sb {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  /* The title and where sponsors show, on one line when there is room. */
-  .sb-head h2 {
+  .sb-pitch h2 {
     font-size: 28px;
   }
-  .sb-where-button {
-    font-size: 13px;
-  }
-  .sb-where-button .long {
-    display: none;
-  }
-  .sb-where-button .short {
-    display: inline;
+  .sb-pitch-lede {
+    font-size: 16px;
   }
   .gh {
     padding: 12px;

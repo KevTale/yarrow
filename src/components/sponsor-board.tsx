@@ -3,7 +3,6 @@ import { useRouter } from "@tanstack/react-router";
 import {
   ArrowRight,
   GitMerge,
-  Info,
   LockKeyhole,
   X,
 } from "lucide-react";
@@ -221,6 +220,8 @@ export function SponsorBoard({
     tick: startEditing ? 1 : 0,
   });
   const claim = useClaim(today, all, you, editing);
+  // One board at a time: Today, the cheap place to take, comes first.
+  const [period, setPeriod] = useState<Period>("today");
   const saver = useSaver(claim);
   const form = editing || !claim.sponsoring;
   const [paying, setPaying] = useState(false);
@@ -245,41 +246,92 @@ export function SponsorBoard({
     open(period);
   };
 
+  const board = claim.boards.find((item) => item.period === period)!;
+  // The visitor's card once a name is typed, otherwise the first sponsor's.
+  const preview = claim.card.name.trim()
+    ? typedSponsor(claim.card)
+    : (sample(claim.boards[1]!.rows) ?? typedSponsor(claim.card));
+
   return (
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
-      <div className="sb-head">
+      <div className="sb-pitch">
         <h2 id="sponsors-title">Sponsors</h2>
-        <WhereItShows
-          sponsor={
-            claim.card.name.trim()
-              ? typedSponsor(claim.card)
-              : (sample(claim.boards[1]!.rows) ?? typedSponsor(claim.card))
-          }
-          onClaim={() => claimFrom("today")}
-        />
+        <p className="sb-pitch-lede">
+          Get your company name on every pull request you fund
+        </p>
+        <PrMock sponsor={preview} compact />
+        <ul className="sb-where-points">
+          <li>
+            <b>Seen where it counts.</b> By the maintainers who review and
+            merge it, and by every developer who reads the project after.
+          </li>
+          <li>
+            <b>One click to your site.</b> The card links to it, and every
+            click shows on your row.
+          </li>
+          <li>
+            <b>Your row, as it is.</b> Logo, name, description and site, as on
+            the board.
+          </li>
+        </ul>
       </div>
-      <div className="sb-boards">
-        {claim.boards.map((board) => (
-          <Column
-            key={board.period}
-            board={board}
-            claim={claim}
-            saver={saver}
-            form={form}
-            engaged={engaged === board.period}
-            onEngage={() => setEngaged(board.period)}
-            onOpen={() => open(board.period)}
-            onClaim={() => claimFrom(board.period)}
-            focus={focus.period === board.period ? focus.tick : 0}
+      <Column
+        board={board}
+        head={
+          <PeriodTabs
+            boards={claim.boards}
+            period={period}
+            onChange={setPeriod}
           />
-        ))}
-      </div>
+        }
+        claim={claim}
+        saver={saver}
+        form={form}
+        engaged={engaged !== null}
+        onEngage={() => setEngaged(period)}
+        onOpen={() => open(period)}
+        onClaim={() => claimFrom(period)}
+        focus={focus.tick}
+      />
       <ClaimDialog
         claim={claim}
         open={paying}
         onClose={() => setPaying(false)}
       />
     </section>
+  );
+}
+
+/** Today or All time, each with its total: the other board says what it holds. */
+function PeriodTabs({
+  boards,
+  period,
+  onChange,
+}: {
+  boards: Board[];
+  period: Period;
+  onChange: (period: Period) => void;
+}) {
+  return (
+    <div className="sb-tabs" role="tablist" aria-label="Period">
+      {boards.map((item) => (
+        <button
+          key={item.period}
+          type="button"
+          role="tab"
+          aria-selected={item.period === period}
+          onClick={() => onChange(item.period)}
+        >
+          {item.period === "today" ? "Today" : "All time"}
+          <span>
+            {money(
+              item.rows.reduce((sum, row) => sum + row.paidCents, 0),
+              false,
+            )}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -376,6 +428,7 @@ function RowBody({
 /** One board: its head, then the sponsors with the viewer's row among them. */
 function Column({
   board,
+  head,
   claim,
   saver,
   form,
@@ -386,6 +439,8 @@ function Column({
   focus,
 }: {
   board: Board;
+  /** The board's head: the period tabs. */
+  head: React.ReactNode;
   claim: Claim;
   saver: Saver;
   /** The viewer's row is a form (a visitor's always, a sponsor's on Edit). */
@@ -399,7 +454,6 @@ function Column({
   focus: number;
 }) {
   const { period, rows, mine, others, place } = board;
-  const total = rows.reduce((sum, row) => sum + row.paidCents, 0);
   const motion = useMemo(() => ({ rows, place, form }), [rows, place, form]);
   const list = useFlip<HTMLOListElement>(motion);
 
@@ -463,10 +517,7 @@ function Column({
 
   return (
     <div className="sb-board" data-period={period}>
-      <div className="sb-board-head">
-        <h3>{period === "today" ? "Today" : "All time"}</h3>
-        <span>{money(total, false)}</span>
-      </div>
+      <div className="sb-board-head">{head}</div>
       <ol className="sb-list" ref={list}>
         {top.map((row, i) => (
           <SponsorLine
@@ -891,76 +942,6 @@ function PrMock({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Beside the title: where sponsors show. Opens a pull request as GitHub
- * shows it, the card at its foot, and why it is worth it.
- */
-function WhereItShows({
-  sponsor,
-  onClaim,
-}: {
-  sponsor: PrCardSponsor;
-  onClaim: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
-  return (
-    <>
-      <button
-        type="button"
-        className="sb-where-button"
-        onClick={() => setOpen(true)}
-      >
-        <span className="long">
-          Get your company name on every pull request you fund
-        </span>
-        <span className="short">Your name on every PR you fund</span>
-        <Info size={15} aria-hidden="true" />
-      </button>
-      <Modal open={open} onClose={close} labelledBy="sb-where-title" wide>
-        <div className="sb-dialog-body">
-          <ModalHead
-            id="sb-where-title"
-            title="Sponsors sign the pull requests they pay for"
-            onClose={close}
-          />
-          <p className="sb-dialog-lede">
-            Every pull request Yarrow opens ends with the card of the sponsors
-            whose credit paid for its compute. It stays in the repository for
-            good.
-          </p>
-          <PrMock sponsor={sponsor} />
-          <ul className="sb-where-points">
-            <li>
-              <b>Seen where it counts.</b> By the maintainers who review and
-              merge it, and by every developer who reads the project after.
-            </li>
-            <li>
-              <b>One click to your site.</b> The card links to it, and every
-              click shows on your row.
-            </li>
-            <li>
-              <b>Your row, as it is.</b> Logo, name, description and site, as on
-              the boards.
-            </li>
-          </ul>
-          <button
-            type="button"
-            className="sb-claim-go sb-dialog-pay"
-            onClick={() => {
-              close();
-              onClaim();
-            }}
-          >
-            Claim your place
-            <ArrowRight size={14} strokeWidth={2.4} />
-          </button>
-        </div>
-      </Modal>
-    </>
   );
 }
 
