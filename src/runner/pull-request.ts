@@ -6,6 +6,28 @@ import {
 import { modelDisplayName, type PipelineRoles } from "../core/pipeline";
 import type { StoredReview } from "../core/review";
 
+/**
+ * The review where the owner reads it, in the pull request: the verdict,
+ * then at most three suggestions (blocking ones were fixed, nits are noise).
+ */
+export function reviewSection(review: StoredReview): string {
+  const suggestions = review.comments
+    .filter((comment) => comment.severity === "suggestion")
+    .slice(0, 3)
+    .map(
+      (comment) =>
+        `- ${comment.path ? `\`${comment.path}${comment.line ? `:${comment.line}` : ""}\`: ` : ""}${comment.body}`,
+    );
+  return [
+    `## Review by ${modelDisplayName(review.reviewer)}`,
+    "",
+    review.rounds > 1
+      ? `${review.summary} _After one fix round._`
+      : review.summary,
+    ...(suggestions.length ? ["", ...suggestions] : []),
+  ].join("\n");
+}
+
 export interface PullRequestInput {
   ticket: { title: string; url: string; source: string; number?: number };
   summary: string;
@@ -51,10 +73,7 @@ export function pullRequestBody(input: PullRequestInput): string {
   sections.push(
     `## How it was verified\n\n${verified.join("\n") || "- No automated verification was reported."}`,
   );
-  if (input.review)
-    sections.push(
-      `## Review\n\nReviewed by ${modelDisplayName(input.review.reviewer)}${input.review.rounds > 1 ? " after one fix round" : ""}: ${input.review.summary}`,
-    );
+  if (input.review) sections.push(reviewSection(input.review));
   if (input.risks.length > 0)
     sections.push(
       `## Risks\n\n${input.risks.map((risk) => `- ${risk}`).join("\n")}`,
@@ -93,12 +112,14 @@ export function commitMessage(input: {
 export function correctionComment(input: {
   instruction: string;
   summary: string;
+  review: StoredReview | null;
   footer: string;
 }): string {
   return [
     `**Correction applied** for: _${input.instruction.slice(0, 300)}_`,
     "",
     input.summary,
+    ...(input.review ? ["", reviewSection(input.review)] : []),
     "",
     input.footer,
   ].join("\n");

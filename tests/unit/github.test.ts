@@ -19,7 +19,6 @@ import {
   branchName,
   commitChanges,
   openDraftPullRequest,
-  publishReview,
 } from "../../src/server/github/delivery";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
 import { createTestDatabase } from "./helpers/pglite";
@@ -100,12 +99,13 @@ describe("PR delivery", () => {
         { path: "logo.png", content: "iVBORw0KGgo=", encoding: "base64" },
         { path: "old.ts", content: null },
       ],
-      message:
-        "Fix export\n\nAssisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
+      message: "Fix export\n\nAssisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     });
     expect(sha).toBe("new-commit");
     // Text rides in the tree request; only the binary file needs a blob.
-    expect(calls.filter((call) => call.path.endsWith("/git/blobs"))).toHaveLength(1);
+    expect(
+      calls.filter((call) => call.path.endsWith("/git/blobs")),
+    ).toHaveLength(1);
     const tree = calls.find((call) => call.path.endsWith("/git/trees"))!;
     expect(tree.body).toMatchObject({
       base_tree: "base-tree",
@@ -142,20 +142,6 @@ describe("PR delivery", () => {
     expect(calls.at(-1)).toMatchObject({
       method: "PATCH",
       body: { sha: "new-commit", force: false },
-    });
-  });
-  it("folds inline comments into the body when GitHub rejects them", async () => {
-    const { client, calls } = fakeGitHub({ rejectInline: true });
-    await publishReview(client, repository, {
-      number: 7,
-      commitSha: "c",
-      body: "Review",
-      comments: [{ path: "a.ts", line: 99, body: "**Nit:** naming" }],
-    });
-    expect(calls).toHaveLength(2);
-    expect(calls[1]!.body).toMatchObject({
-      event: "COMMENT",
-      body: "Review\n\n- `a.ts:99` **Nit:** naming",
     });
   });
 });

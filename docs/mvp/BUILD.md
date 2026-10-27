@@ -187,10 +187,10 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
    - Astra classifies each comment as `blocking`, `suggestion` or `nit`. The review prompt is calibrated to be pragmatic, not pedantic.
    - Only `blocking` comments trigger Opus's **one fix round**.
    - The PR then opens.
-   - Astra's final review is **published on the PR as a GitHub review**: a summary plus inline comments on remaining suggestions. The owner gets a visible free code review at no extra cost.
+   - Astra's final review is **in the pull request's own description**, under "Review by GPT Astra": one or two sentences, the verdict and why, then at most three suggestions (blocking comments were fixed, nits are left out). No separate GitHub review is posted any more (decided 2026-10-10: it repeated the description). A correction's comment carries its review the same way.
    - The implement → review → fix loop is an internal brain module (`ReviewLoop`), with the maximum rounds and the severity threshold in config.
 4. **Evidence:** screenshots and video of the change, when the change is visible and the app can run in the sandbox. Uses Playwright and Chromium, installed as environment packages.
-5. **PR readable in two minutes:**
+5. **PR readable in one minute** (tightened 2026-10-10, the first real PRs ran long): the summary is one to three short sentences, with no file-by-file account or history of attempts; at most three verification lines ("command → result", final change only); at most three risks, only what the owner must check, none when there is none. These rules travel with every task sent to the implementer, so they apply without re-registering the agent:
    - what changed and why;
    - how it was verified (tests, screenshots/video);
    - the review summary and risks;
@@ -276,6 +276,7 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
 - **GitHub names:** the ticket label is `yarrow`; the correction mention is `@yarrow-run`, also the prod GitHub App slug (`yarrow-run-dev` in dev). Never `@yarrow`: that GitHub account belongs to someone else and would be notified on every request.
 - **Logo:** five small florets around a pollen heart, each floret being five petals around its own heart. A yarrow "flower" is really many tiny flowers, like a commons made of small contributions.
 - **Palette "Nuit":** night `#141714`, cream `#F5F0E3`, pollen `#E6AE38`. Avoid orange or terracotta as a brand colour: too close to Claude's.
+- **Builder consent to the card** (decided 2026-10-10): the Terms' Builders section says every pull request ends with its sponsors' card, labelled "Sponsored by", and that it cannot be removed; under the landing's ticket field and under the dashboard's first Connect GitHub, one small line: "By connecting GitHub you accept the Terms: every pull request ends with its sponsors' card." Consent was tacit before. GitHub's Acceptable Use Policies forbid advertising "in other Users' Accounts, such as by posting monetized or excessive bulk content in issues": the card stays out of issues, factual and labelled, on pull requests the owner asked for.
 - **Share card** (decided 2026-10-09): Open Graph and Twitter tags on every page (the title, the pitch as the description, absolute links from `APP_URL`) and `public/og.png`, the first screen redrawn at 1200 × 630 by `pnpm brand:assets` (logo, title, the pitch with the models in their makers' colors). A link posted on X, LinkedIn or Slack showed no image before.
 - **Landing title:** "Frontier AI for free", no comma, no period; the subtitle carries the detail (paste an issue, Claude Opus and GPT Astra turn it into a pull request in minutes, sponsors' names ship with every PR). Sources marked "soon" show in the picker but cannot be chosen.
 - **Typography:** the wordmark is "yarrow" in lowercase Jost Medium, outlined in the logo files. Jost for headings, Geist stays for UI text. Both fonts are under the OFL.

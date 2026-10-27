@@ -22,7 +22,8 @@ import {
   settleBreakdown,
 } from "../../src/core/pricing";
 import { planDispatch, type DispatchCandidate } from "../../src/core/queue";
-import { blockingComments, reviewBody } from "../../src/core/review";
+import { blockingComments } from "../../src/core/review";
+import { reviewSection } from "../../src/runner/pull-request";
 
 describe("pricing", () => {
   it("takes 7.5% of the amount excluding VAT, 5% for founding sponsors", () => {
@@ -385,12 +386,17 @@ describe("review", () => {
   it("only blocking comments trigger the fix round", () => {
     expect(blockingComments(review)).toHaveLength(1);
   });
-  it("summarizes the review for GitHub", () => {
-    const body = reviewBody(review, "GPT Astra");
-    expect(body).toContain("Code review by GPT Astra");
-    expect(body).toContain("after one fix round");
-    expect(body).toContain("1 blocking, 1 nit");
-    expect(body).toContain("**Nit:** Typo in the title");
+  it("puts the review in the pull request under its reviewer's name", () => {
+    const section = reviewSection({
+      ...review,
+      comments: [
+        ...review.comments,
+        { severity: "suggestion", path: "b.ts", line: 8, body: "Cache it" },
+      ],
+    });
+    expect(section).toBe(
+      "## Review by GPT Astra\n\nSolid change. _After one fix round._\n\n- `b.ts:8`: Cache it",
+    );
   });
 });
 

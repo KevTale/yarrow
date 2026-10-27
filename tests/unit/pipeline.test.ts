@@ -342,13 +342,9 @@ describe("run pipeline", async () => {
     expect((commit.body as { message: string }).message).toContain(
       "Assisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     );
-    const reviewPost = calls.find((call) => call.url.endsWith("/reviews"))!;
-    expect(reviewPost.body).toMatchObject({
-      event: "COMMENT",
-      comments: [
-        { path: "src/export.ts", line: 1, body: "**Nit:** Name it emptyRows" },
-      ],
-    });
+    // The review is in the pull request itself: no second message.
+    expect(body).toContain("## Review by GPT Astra");
+    expect(calls.some((call) => call.url.endsWith("/reviews"))).toBe(false);
 
     const cost = await runner.cost(sessionId, [reviewerId]);
     // Claude 187¢ + OpenAI: 100k fresh × $10/M + 100k cached × $1/M + 10k out × $50/M = 160¢ + 3¢ sandbox.

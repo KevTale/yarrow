@@ -2673,6 +2673,19 @@ tbody tr:hover {
   color: var(--secondary);
   padding-left: 6px;
 }
+/* The builder's consent, before GitHub: small, never hidden. */
+.connect-terms {
+  margin: 0;
+  padding-inline: 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.connect-terms a {
+  color: var(--secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .go {
   display: inline-flex;
   align-items: center;

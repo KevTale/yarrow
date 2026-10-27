@@ -178,6 +178,14 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
         </button>
       </form>
       {hint && <p className="ship-hint">{hint}</p>}
+      {/* Consent before the GitHub App is installed (Terms, Builders). */}
+      <p className="connect-terms">
+        By connecting GitHub you accept the{" "}
+        <a href="/terms" target="_blank">
+          Terms
+        </a>
+        : every pull request ends with its sponsors&apos; card.
+      </p>
     </div>
   );
 }

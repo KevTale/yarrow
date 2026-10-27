@@ -8,7 +8,7 @@ export const Route = createFileRoute("/terms")({
 
 function Terms() {
   return (
-    <LegalPage title="Terms" updated="October 7, 2026">
+    <LegalPage title="Terms" updated="October 10, 2026">
       <p>
         These terms govern the use of Yarrow (yarrow.run), operated by{" "}
         {company.name}, {company.registry}, {company.address} (“we”). By using
@@ -44,6 +44,14 @@ function Terms() {
           processed in an isolated sandbox that is destroyed after each run.
         </li>
         <li>Only give us test or staging secrets, never production ones.</li>
+        <li>
+          Every pull request we open for you ends with the card of the sponsors
+          whose credit paid for it: their name, logo, description and website,
+          labelled “Sponsored by”. The card is how the work stays free for you:
+          it is part of the service and cannot be removed. You accept it when
+          you connect a repository. We review sponsors&apos; cards; tell us if
+          one looks wrong.
+        </li>
         <li>
           Pull requests are drafts, provided as is. You review them before
           merging and remain responsible for what you merge. We claim no rights

@@ -158,51 +158,6 @@ export async function openDraftPullRequest(
   }
 }
 
-export interface InlineComment {
-  path: string;
-  line: number;
-  body: string;
-}
-
-/**
- * Publishes the reviewer's final review as a COMMENT review. If GitHub
- * rejects an inline comment (line outside the diff), the comments are
- * folded into the review body instead of being lost.
- */
-export async function publishReview(
-  client: GitHubClient,
-  { owner, repo }: Repository,
-  input: {
-    number: number;
-    commitSha: string;
-    body: string;
-    comments: InlineComment[];
-  },
-): Promise<void> {
-  const path = `/repos/${owner}/${repo}/pulls/${input.number}/reviews`;
-  try {
-    await client.request("POST", path, {
-      commit_id: input.commitSha,
-      body: input.body,
-      event: "COMMENT",
-      comments: input.comments.map((comment) => ({
-        ...comment,
-        side: "RIGHT",
-      })),
-    });
-  } catch (error) {
-    if (!(error instanceof GitHubError) || error.status !== 422) throw error;
-    const folded = input.comments
-      .map((comment) => `- \`${comment.path}:${comment.line}\` ${comment.body}`)
-      .join("\n");
-    await client.request("POST", path, {
-      commit_id: input.commitSha,
-      body: folded ? `${input.body}\n\n${folded}` : input.body,
-      event: "COMMENT",
-    });
-  }
-}
-
 export async function commentOnIssue(
   client: GitHubClient,
   { owner, repo }: Repository,

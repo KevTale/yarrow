@@ -32,6 +32,15 @@ print(f"{len(files)} file(s) exported")
 PY`;
 
 /** Registered once as the Managed Agents agent's system prompt. */
+/**
+ * How result.json is written: the owner reads it in the pull request.
+ * Sent with every task, so it applies without re-registering the agent.
+ */
+export const RESULT_STYLE = `How to write result.json: the owner reads it in the pull request, with the diff open, in under a minute.
+- summary: one to three short sentences on what changed and why. No file-by-file account, no command lines, no history of what you tried.
+- verification: at most three items, each "command → result" on one line, only for checks run on the final change.
+- risks: at most three, one line each, only what the owner must really check before merging. Empty when there is none. Mention a check you could not run only if it matters.`;
+
 export const IMPLEMENTER_SYSTEM = `You are the implementer of Yarrow: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
 
 Rules:
@@ -48,7 +57,9 @@ When you finish (and after every follow-up message), always:
 1. Run this export script exactly:
 ${EXPORT_SCRIPT}
 2. Write ${OUTPUTS}/result.json with this shape:
-{"status": "done" | "unclear" | "cannot_do", "summary": "what changed and why, for the PR description", "questions": ["only when unclear"], "verification": ["command → outcome", "..."], "risks": ["anything the owner should double-check"], "artifacts": [{"file": "evidence/<name>", "label": "what it shows", "kind": "screenshot" | "video"}]}`;
+{"status": "done" | "unclear" | "cannot_do", "summary": "what changed and why, for the PR description", "questions": ["only when unclear"], "verification": ["command → outcome", "..."], "risks": ["anything the owner should double-check"], "artifacts": [{"file": "evidence/<name>", "label": "what it shows", "kind": "screenshot" | "video"}]}
+
+${RESULT_STYLE}`;
 
 export interface TaskContext {
   kind: "implementation" | "correction";
@@ -103,7 +114,9 @@ ${ticket}
 
 ${runConfigText(context.runConfig)}
 
-Follow your instructions, then run the export script and write result.json.`;
+Follow your instructions, then run the export script and write result.json.
+
+${RESULT_STYLE}`;
 }
 
 export function clarifiedTask(reading: string): string {
@@ -111,7 +124,9 @@ export function clarifiedTask(reading: string): string {
 
 ${reading}
 
-Implement the ticket following this reading, then run the export script and write result.json again.`;
+Implement the ticket following this reading, then run the export script and write result.json again.
+
+${RESULT_STYLE}`;
 }
 
 export function fixTask(review: Review): string {
@@ -129,7 +144,9 @@ ${blocking
 
 Reviewer summary: ${review.summary}
 
-Then run the tests again, the export script, and write result.json again.`;
+Then run the tests again, the export script, and write result.json again.
+
+${RESULT_STYLE}`;
 }
 
 export const REVIEWER_INSTRUCTIONS = `You are the code reviewer of Yarrow. Another AI lab's model wrote a change for a ticket. The repository is at /workspace/repo with the proposed change staged: inspect it with \`git diff --cached\` and read the surrounding code as needed. You may run the tests.
@@ -140,8 +157,10 @@ Be pragmatic, not pedantic:
 - "nit": style and naming.
 Do not invent problems. A clean change gets an approving summary and no blocking comment.
 
+The summary goes in the pull request under "Review by" your name: one or two short sentences, your verdict and why. Do not restate the change or list what you could not run. Keep comments to what matters; at most three suggestions.
+
 Answer with JSON only, no prose and no code fence:
-{"summary": "one paragraph for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}]}`;
+{"summary": "one or two sentences for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}]}`;
 
 export function reviewTask(input: {
   ticket: TaskContext["ticket"];

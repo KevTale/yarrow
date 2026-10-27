@@ -1,13 +1,7 @@
 import { pullRequestFooter } from "../core/attribution";
-import {
-  modelDisplayName,
-  type PipelineRoles,
-  type RunModelUsage,
-} from "../core/pipeline";
+import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
 import {
   blockingComments,
-  inlineCommentBody,
-  reviewBody,
   type Review,
   type StoredArtifact,
   type StoredReview,
@@ -28,7 +22,6 @@ import {
   commentOnIssue,
   commitChanges,
   openDraftPullRequest,
-  publishReview,
   splitRepository,
 } from "../server/github/delivery";
 import {
@@ -635,7 +628,7 @@ export class RunPipeline {
           ? this.runUrl(run.runId)
           : `${this.deps.appUrl}/evidence/${artifact.key}`,
     }));
-    const sha = await commitChanges(client, repository, {
+    await commitChanges(client, repository, {
       baseBranch: run.baseBranch,
       branch: run.workBranch,
       files,
@@ -661,6 +654,7 @@ export class RunPipeline {
         correctionComment({
           instruction: run.instruction ?? "",
           summary: snapshot.summary,
+          review,
           footer: pullRequestFooter({
             roles: this.deps.roles,
             sponsors,
@@ -686,19 +680,6 @@ export class RunPipeline {
         }),
       });
     }
-    if (review)
-      await publishReview(client, repository, {
-        number: pull.number,
-        commitSha: sha,
-        body: reviewBody(review, modelDisplayName(review.reviewer)),
-        comments: review.comments
-          .filter((comment) => comment.path && comment.line)
-          .map((comment) => ({
-            path: comment.path!,
-            line: comment.line!,
-            body: inlineCommentBody(comment),
-          })),
-      });
     if (run.ticket.source !== "github" && run.kind === "implementation") {
       await this.commentOnTicket(
         run,
@@ -722,9 +703,7 @@ export class RunPipeline {
       { secrets: this.deps.trackers, fetcher: this.deps.fetcher },
       workUnitId,
       event,
-    ).catch((error: Error) =>
-      console.warn(`move ${event}:`, error.message),
-    );
+    ).catch((error: Error) => console.warn(`move ${event}:`, error.message));
   }
 
   /** Moves the run's tracker ticket, if it has one. */
