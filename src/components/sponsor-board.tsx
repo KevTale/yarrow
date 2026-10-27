@@ -327,8 +327,11 @@ export function SponsorBoard({
 
 /**
  * Today or All time, each with its total: the other board says what it
- * holds. A segmented control: a raised thumb glides to the chosen tab,
- * measured, since the totals size the tabs.
+ * holds. uiarc's button group: segments joined on one surface, a hairline
+ * between them; one soft fill rests on the chosen board and glides to the
+ * segment under the pointer, and back when it leaves. Arrow keys, Home and
+ * End move the choice (the tabs pattern: only the chosen tab is in the
+ * tab order).
  */
 function PeriodTabs({
   boards,
@@ -340,43 +343,102 @@ function PeriodTabs({
   onChange: (period: Period) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
+  const [hover, setHover] = useState<Period | null>(null);
+  const [box, setBox] = useState<{ x: number; w: number } | null>(null);
+  const active = hover ?? period;
+  const keys = boards.map((item) => item.period);
+  const at = keys.indexOf(active);
+  const segment = (key: Period) =>
+    root.current?.querySelector<HTMLElement>(`[data-key="${key}"]`);
   useLayoutEffect(() => {
     const list = root.current;
     if (!list) return;
     const measure = () => {
-      const tab = list.querySelector<HTMLElement>('[aria-selected="true"]');
-      if (tab) setThumb({ x: tab.offsetLeft, w: tab.offsetWidth });
+      const tab = segment(active);
+      if (!tab) return;
+      const next = { x: tab.offsetLeft, w: tab.offsetWidth };
+      setBox((current) =>
+        current && current.x === next.x && current.w === next.w
+          ? current
+          : next,
+      );
     };
     measure();
-    // The totals change the tabs' width.
+    // The totals size the segments: the fill stays locked to its own.
     const observer = new ResizeObserver(measure);
     observer.observe(list);
+    for (const tab of list.querySelectorAll("[data-key]"))
+      observer.observe(tab);
     return () => observer.disconnect();
-  }, [period]);
+  }, [active]);
+  const move = (event: React.KeyboardEvent) => {
+    const last = keys.length - 1;
+    const index = keys.indexOf(period);
+    const next =
+      event.key === "ArrowRight"
+        ? index === last
+          ? 0
+          : index + 1
+        : event.key === "ArrowLeft"
+          ? index === 0
+            ? last
+            : index - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? last
+              : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    onChange(keys[next]!);
+    segment(keys[next]!)?.focus();
+  };
   return (
-    <div className="sb-tabs" role="tablist" aria-label="Period" ref={root}>
-      {thumb && (
+    <div
+      className="sb-tabs"
+      role="tablist"
+      aria-label="Period"
+      ref={root}
+      onPointerMove={(event) => {
+        // Touch has no hover: the fill follows the choice alone.
+        if (event.pointerType === "touch") return;
+        const tab = (event.target as HTMLElement).closest<HTMLElement>(
+          "[data-key]",
+        );
+        setHover(tab ? (tab.dataset.key as Period) : null);
+      }}
+      onPointerLeave={() => setHover(null)}
+      onKeyDown={move}
+    >
+      {box && (
         <span
-          className="sb-tabs-thumb"
+          className="sb-tabs-fill"
           aria-hidden="true"
-          style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }}
+          style={{ transform: `translateX(${box.x}px)`, width: box.w }}
         />
       )}
-      {boards.map((item) => (
+      {boards.map((item, index) => (
         <button
           key={item.period}
           type="button"
           role="tab"
+          data-key={item.period}
+          // The hairline steps aside where the fill arrives.
+          data-quiet={
+            at >= 0 && (index === at || index === at + 1) ? "" : undefined
+          }
+          tabIndex={item.period === period ? 0 : -1}
           aria-selected={item.period === period}
           onClick={() => onChange(item.period)}
         >
-          {item.period === "today" ? "Today" : "All time"}
-          <span>
-            {money(
-              item.rows.reduce((sum, row) => sum + row.paidCents, 0),
-              false,
-            )}
+          <span className="sb-tabs-content">
+            {item.period === "today" ? "Today" : "All time"}
+            <span className="sb-tabs-total">
+              {money(
+                item.rows.reduce((sum, row) => sum + row.paidCents, 0),
+                false,
+              )}
+            </span>
           </span>
         </button>
       ))}

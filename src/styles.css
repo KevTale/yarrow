@@ -6456,75 +6456,174 @@ a.tk-paid:hover b {
 .sb-board {
   width: min(720px, 100%);
 }
-/* Today and All time, each with its total: a hairline frame, a raised
-   thumb gliding to the chosen tab, the label's color following it. */
+/* Today and All time, each with its total: uiarc's button group. One
+   surface under a hairline, nearly a pill; segments joined full height
+   with a hairline between them; one soft fill, no border and no shadow,
+   resting on the chosen board and gliding on a spring to the segment under
+   the pointer, the hairline beside it stepping aside; a press dips the
+   label. Focus answers with the frame's border. */
 .sb-tabs {
+  --tabs-h: 38px;
+  --tabs-inset: 3px;
+  --tabs-radius: 17px;
+  --tabs-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  /* uiarc's spring, sampled: settles with a hint of overshoot. */
+  --tabs-spring: linear(
+    0,
+    0.0258,
+    0.09,
+    0.1763,
+    0.2732,
+    0.3724,
+    0.4683,
+    0.5573,
+    0.6376,
+    0.7082,
+    0.7689,
+    0.8202,
+    0.8628,
+    0.8976,
+    0.9256,
+    0.9476,
+    0.9648,
+    0.9778,
+    0.9875,
+    0.9945,
+    0.9994,
+    1.0026,
+    1.0047,
+    1.0058,
+    1.0062,
+    1.0062,
+    1.0059,
+    1.0055,
+    1.0049,
+    1.0043,
+    1.0036,
+    1.0031,
+    1.0025,
+    1.002,
+    1.0016,
+    1.0013,
+    1
+  );
   position: relative;
   isolation: isolate;
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
+  align-items: stretch;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--tabs-radius);
   background: var(--surface);
+  transition: border-color 0.16s var(--tabs-standard);
 }
-.sb-tabs-thumb {
+.sb-tabs:has(:focus-visible) {
+  border-color: #5d636d;
+}
+/* Placed on the chosen segment by measure; only moves between segments
+   travel, the first placement fades in. */
+.sb-tabs-fill {
   position: absolute;
-  z-index: -1;
-  top: 3px;
-  bottom: 3px;
+  z-index: 0;
+  top: 0;
   left: 0;
-  border: 1px solid #2f333a;
-  border-radius: 7px;
-  background: var(--elevated);
-  box-shadow: 0 1px 2px #00000059;
+  height: calc(var(--tabs-h) - 2px);
+  pointer-events: none;
   transition:
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    transform 0.46s var(--tabs-spring),
+    width 0.46s var(--tabs-spring);
+  animation: sb-tabs-in 0.16s var(--tabs-standard);
+}
+.sb-tabs-fill::before {
+  position: absolute;
+  inset: var(--tabs-inset);
+  border-radius: calc(var(--tabs-radius) - var(--tabs-inset) - 1px);
+  background: #1e2126;
+  content: "";
+  transition: background-color 0.16s var(--tabs-standard);
+}
+.sb-tabs:has(button:active) .sb-tabs-fill::before {
+  background: #24272e;
+  transition-duration: 0.12s;
+}
+@keyframes sb-tabs-in {
+  from {
+    opacity: 0;
+  }
 }
 .sb-tabs button {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  height: 32px;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--tabs-h) - 2px);
+  margin: 0;
   padding: 0 14px;
   border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--muted);
+  border-radius: 0;
+  background: transparent;
+  color: var(--secondary);
   font: inherit;
-  font-size: 13.5px;
-  line-height: 32px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
+  outline: none;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 0.16s var(--tabs-standard);
+}
+.sb-tabs button[aria-selected="true"] {
+  color: var(--text);
 }
 @media (hover: hover) and (pointer: fine) {
   .sb-tabs button:hover {
     color: var(--text);
   }
 }
-.sb-tabs button[aria-selected="true"] {
-  color: var(--text);
+.sb-tabs button + button::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -0.5px;
+  width: 1px;
+  background: var(--line);
+  content: "";
+  pointer-events: none;
+  transition: opacity 0.16s var(--tabs-standard);
 }
-.sb-tabs button:focus-visible {
-  outline: 2px solid var(--amber);
-  outline-offset: -2px;
+.sb-tabs button[data-quiet]::before {
+  opacity: 0;
 }
-.sb-tabs span {
+/* The press dips the label and springs it back; the group stays still. */
+.sb-tabs-content {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: transform 0.58s var(--tabs-spring);
+}
+.sb-tabs button:active .sb-tabs-content {
+  transform: scale(0.97);
+  transition: transform 0.12s var(--tabs-standard);
+}
+.sb-tabs-total {
   font:
     500 14px var(--font-display),
     sans-serif;
   font-variant-numeric: tabular-nums;
-  color: var(--secondary);
-}
-.sb-tabs button[aria-selected="true"] span {
-  color: var(--text);
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-tabs-thumb {
+  .sb-tabs-fill,
+  .sb-tabs-fill::before,
+  .sb-tabs button::before,
+  .sb-tabs-content {
     transition: none;
+    animation: none;
+  }
+  .sb-tabs button:active .sb-tabs-content {
+    transform: none;
   }
 }
 .sb-claim-go {
