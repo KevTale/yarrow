@@ -16,7 +16,6 @@ import {
 import {
   boardViewer,
   getSponsorFilters,
-  getSponsorProfile,
   saveSponsorFilters,
   saveSponsorProfile,
 } from "@/db/sponsors";
@@ -93,9 +92,14 @@ export const saveSponsorProfileFn = createServerFn({ method: "POST" })
     const viewer = await sponsorIdentity();
     if (!viewer) throw new UnauthorizedError();
     await withDb(async (db) =>
-      saveSponsorProfile(db, viewer.userId, await profileValues(db, data.profile), {
-        guest: viewer.guest,
-      }),
+      saveSponsorProfile(
+        db,
+        viewer.userId,
+        await profileValues(db, data.profile),
+        {
+          guest: viewer.guest,
+        },
+      ),
     );
     return { saved: true };
   });
@@ -108,7 +112,10 @@ export const saveSponsorFundingFn = createServerFn({ method: "POST" })
         mode: z.enum(["all_except", "only"]),
         selectedProjectIds: z.array(z.uuid()).max(500),
       })
-      .refine((value) => value.mode === "all_except" || value.selectedProjectIds.length > 0),
+      .refine(
+        (value) =>
+          value.mode === "all_except" || value.selectedProjectIds.length > 0,
+      ),
   )
   .handler(async ({ data }) => {
     const viewer = await sponsorIdentity();
@@ -124,30 +131,6 @@ export const saveSponsorFundingFn = createServerFn({ method: "POST" })
     });
     return { saved: true };
   });
-
-export const getFundContextFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const viewer = await getViewer().catch(() => null);
-    const [profile, today] = databaseConfigured()
-      ? await withDb((db) =>
-          Promise.all([
-            viewer ? getSponsorProfile(db, viewer.userId) : null,
-            // Today's amounts, for the rank shown on the sponsor's card.
-            sponsorBoard(db, "today").then((rows) =>
-              rows.map((row) => row.paidCents),
-            ),
-          ]),
-        )
-      : [null, [] as number[]];
-    return {
-      signedIn: Boolean(viewer),
-      githubLogin: viewer?.githubLogin ?? null,
-      profile,
-      today,
-      paymentsReady: paymentsConfigured() && databaseConfigured(),
-    };
-  },
-);
 
 /**
  * Signed in or not: a guest pays with a placeholder id, Stripe collects the
@@ -165,9 +148,14 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
     const userId =
       viewer?.userId ?? (await currentGuest()) ?? crypto.randomUUID();
     const url = await withDb(async (db) => {
-      await saveSponsorProfile(db, userId, await profileValues(db, data.profile), {
-        guest: !viewer,
-      });
+      await saveSponsorProfile(
+        db,
+        userId,
+        await profileValues(db, data.profile),
+        {
+          guest: !viewer,
+        },
+      );
       return createCheckout(db, {
         userId,
         email,

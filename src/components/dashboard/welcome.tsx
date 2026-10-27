@@ -74,7 +74,7 @@ export function WelcomeView({ data }: { data: SponsorData }) {
               </li>
             )}
           </ol>
-          <a className="go welcome-go" href={`/fund?amount=${cents / 100}`}>
+          <a className="go welcome-go" href="/?edit=true#sponsors">
             Take #1 today for {money(cents, false)}
             <i>
               <ArrowRight size={14} strokeWidth={2.2} />

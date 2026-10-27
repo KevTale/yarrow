@@ -30,7 +30,7 @@ export async function createCheckout(
     userId: string;
     email: string | null;
     amountCents: number;
-    /** Where Stripe sends the sponsor back, e.g. /leaderboard?checkout=success */
+    /** Where Stripe sends the sponsor back, e.g. /dashboard?tab=sponsor&checkout=success */
     successPath: string;
   },
 ): Promise<string> {
@@ -64,7 +64,8 @@ export async function createCheckout(
     metadata: { userId: input.userId, kind: "compute_credit" },
     payment_intent_data: { metadata: { userId: input.userId } },
     success_url: `${env.APP_URL}${input.successPath}`,
-    cancel_url: `${env.APP_URL}/fund?checkout=cancelled`,
+    // Cancelled: back to the visitor's row on the landing, open.
+    cancel_url: `${env.APP_URL}/?edit=true#sponsors`,
   });
   if (!session.url) throw new Error("Stripe returned no checkout URL");
   await createPendingContribution(db, {

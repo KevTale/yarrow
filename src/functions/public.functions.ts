@@ -5,7 +5,7 @@ import { z } from "zod";
 import { liveRecent, platformTotals, sponsorBoard } from "@/db/boards";
 import { boardViewer } from "@/db/sponsors";
 import { currentGuest } from "@/server/guest.server";
-import { runActivityFor, runDetail, showcase } from "@/db/queries";
+import { runActivityFor, runDetail } from "@/db/queries";
 import { syncRunActivity } from "@/db/activity";
 import { appEnv } from "@/server/env.server";
 import { ManagedAgentsClient } from "@/runner/anthropic";
@@ -43,16 +43,6 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const getShowcaseFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    if (!databaseConfigured()) return { configured: false as const };
-    return withDb(async (db) => ({
-      configured: true as const,
-      projects: await showcase(db),
-    }));
-  },
-);
-
 /**
  * A run's activity feed. While the run works, a viewer's request also reads
  * the session's newest actions (at most every few seconds, whoever asks).
@@ -64,7 +54,11 @@ export const getRunActivityFn = createServerFn({ method: "GET" })
     const viewer = await getViewer().catch(() => null);
     const apiKey = appEnv().ANTHROPIC_API_KEY;
     const activity = await withDb(async (db) => {
-      const first = await runActivityFor(db, data.runId, viewer?.userId ?? null);
+      const first = await runActivityFor(
+        db,
+        data.runId,
+        viewer?.userId ?? null,
+      );
       if (!first || !apiKey) return first;
       if (first.status !== "running" && !first.unread) return first;
       const read = await syncRunActivity(

@@ -87,38 +87,6 @@ export async function homeStats(db: Database) {
   };
 }
 
-/** Public and Listed projects. Hidden projects never appear here. */
-export async function showcase(db: Database) {
-  const rows = await db
-    .select({
-      id: projects.id,
-      name: projects.name,
-      description: projects.description,
-      productUrl: projects.productUrl,
-      visibility: projects.visibility,
-      categories: projects.categories,
-      stacks: projects.stacks,
-      repository: projects.repository,
-      shipped: sql<number>`count(distinct ${pullRequests.id})::int`,
-      merged: sql<number>`count(distinct ${pullRequests.id}) filter (where ${pullRequests.state} = 'merged')::int`,
-      queued: sql<number>`count(distinct ${workUnits.id}) filter (where ${workUnits.status} = 'queued' and ${workUnits.authorized})::int`,
-    })
-    .from(projects)
-    .leftJoin(workUnits, eq(workUnits.projectId, projects.id))
-    .leftJoin(pullRequests, eq(pullRequests.workUnitId, workUnits.id))
-    .where(and(visible, isNull(projects.suspendedAt)))
-    .groupBy(projects.id)
-    .orderBy(
-      desc(sql`count(distinct ${pullRequests.id})`),
-      asc(projects.createdAt),
-    );
-  return rows.map((row) => ({
-    ...row,
-    // Listed projects show the product, never the code.
-    repository: row.visibility === "public" ? row.repository : null,
-  }));
-}
-
 /** Projects a sponsor can pick in their filters, plus how many are hidden. */
 export async function selectableProjects(db: Database) {
   const rows = await db
@@ -304,7 +272,9 @@ export async function runActivityFor(
     lines: detailed ? lines : lines.map(redactActivity),
   };
 }
-export type RunActivity = NonNullable<Awaited<ReturnType<typeof runActivityFor>>>;
+export type RunActivity = NonNullable<
+  Awaited<ReturnType<typeof runActivityFor>>
+>;
 
 export async function sponsorDashboard(db: Database, userId: string) {
   const rows = await db

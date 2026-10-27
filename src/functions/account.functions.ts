@@ -3,7 +3,11 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { deleteAccount } from "@/db/accounts";
 import { contributions } from "@/db/schema";
-import { getViewer, supabaseServer, UnauthorizedError } from "@/server/auth.server";
+import {
+  getViewer,
+  supabaseServer,
+  UnauthorizedError,
+} from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import {
   emailConfigured,
@@ -50,7 +54,8 @@ export const getAccountFn = createServerFn({ method: "GET" }).handler(
       status: "ok" as const,
       email: viewer.email,
       githubLogin: viewer.githubLogin,
-      canChangeEmail: emailConfigured() && Boolean(appEnv().TOKEN_ENCRYPTION_KEY),
+      canChangeEmail:
+        emailConfigured() && Boolean(appEnv().TOKEN_ENCRYPTION_KEY),
       canDelete: Boolean(appEnv().SUPABASE_SECRET_KEY),
       payments: payments.map(({ checkoutId, createdAt, ...payment }) => ({
         ...payment,

@@ -9,11 +9,7 @@ import {
 } from "../../src/db/contributions";
 import { PostgresLedger } from "../../src/db/ledger";
 import { createProject, linkGithubRepositories } from "../../src/db/projects";
-import {
-  runDetail,
-  showcase,
-  sponsorDashboard,
-} from "../../src/db/queries";
+import { runDetail, sponsorDashboard } from "../../src/db/queries";
 import { loadDispatch } from "../../src/db/queue";
 import * as schema from "../../src/db/schema";
 import { getSponsorFilters, saveSponsorFilters } from "../../src/db/sponsors";
@@ -346,7 +342,6 @@ describe("visibility", () => {
       summary: "Fixed the export",
       sponsors: [{ name: "Northwind" }],
     });
-    expect((await showcase(db))[0]!.repository).toBe("Halyard/Ledger");
   });
   it("hides tickets and PRs of listed projects from non-members", async () => {
     const runId = await deliveredRun("listed");
@@ -357,14 +352,12 @@ describe("visibility", () => {
       pullRequestUrl: null,
       summary: null,
     });
-    expect((await showcase(db))[0]!.repository).toBeNull();
     const member = await runDetail(db, runId, owner.userId);
     expect(member!.ticketTitle).toBe("Fix the export button");
   });
   it("keeps hidden projects out of every public view", async () => {
     const runId = await deliveredRun("hidden");
     expect(await runDetail(db, runId, null)).toBeNull();
-    expect(await showcase(db)).toHaveLength(0);
     const dashboard = await sponsorDashboard(db, sponsor);
     expect(dashboard.fundedRuns[0]!.projectName).toBe("A private project");
     expect(dashboard.totals.consumedCents).toBe(300);

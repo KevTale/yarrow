@@ -240,7 +240,7 @@ Reworked 2026-10-09. The landing serves builders and sponsors in that order: the
   - Excluded: promo credits and refunds. Anonymous sponsors are ranked as "Anonymous sponsor", with no profile, link or clicks (decided 2026-10-07).
 - **The card in the pull request** (decided 2026-10-09): every pull request's footer starts with an image, the sponsors' card (`/pr-card/$runId`, an SVG drawn by `src/core/pr-card.ts`: "Paid for by", the first sponsor's logo, name, description and site, "+N sponsors" for the others, "Free AI pull requests · yarrow.run"); every image inside it is inlined, since GitHub's image proxy loads nothing else, and the reader's system fonts draw the text. The image opens the sponsor's website through `/out` (counted) when one named sponsor paid alone, otherwise the run. The words stay under it (models, "Sponsored by … via Yarrow") for readers without images. **Builders cannot turn it off**: free compute is the trade, and the card is what the sponsor pays for.
 - **Ticket cards on the landing**: the sponsor's name opens their website (counted through `/out`), the rest of the card the pull request or the run.
-- **Shipped:** ranks projects by merged PRs (its own page). Public and Listed projects only. This is the owners' exposure.
+- **No other public pages** (decided 2026-10-09): `/leaderboard`, `/shipped`, `/showcase` and `/fund` are gone; the landing holds the boards, the tickets and the payment. Stripe's cancel and the dashboard's welcome lead to the visitor's row on the landing, open (`/?edit=true#sponsors`). Builders' exposure is the landing's ticket column and the pull requests themselves.
 
 ## Metrics
 
@@ -262,7 +262,7 @@ Every meaningful action writes an append-only event in Postgres from day one. Da
   - visit → sponsor conversion, average and repeat contribution;
   - time from payment to consumption;
   - filter usage;
-  - leaderboard and showcase views.
+  - sponsor board views.
 - **Platform:** revenue (margin), pool balance, burn rate, days of activity left in the pool.
 
 ## Brand (decided 2026-10-06)
@@ -300,7 +300,7 @@ The operating entity is the founder's existing EURL, TOTEM (RCS Nanterre 881 263
 - Sponsor checkout (packs + custom amount). The profile form is the sponsor's own board row, edited in place, with the rank today for the amount chosen (decided 2026-10-07). Its logo tile is the upload button.
 - Logos (sponsors and projects): the browser draws the file at 128 px (WebP, PNG fallback) and the server keeps it in Postgres (`images`, by SHA-256), served at `/images/<hash>.<ext>` with a one-year immutable cache. PNG, JPEG and WebP only, checked by their bytes; never SVG. A project without a logo shows its GitHub owner's avatar, on public projects only for the public boards (decided 2026-10-08).
 - Sponsor dashboard with filters, including the hidden opt-in.
-- Leaderboard and projects showcase.
+- The sponsor boards and the ticket column, on the landing.
 - Add project: the GitHub App, plus **all four trackers** (GitHub Issues, Linear, Jira, Trello) behind one `TrackerAdapter` interface. The interface lists tagged tickets, reads a ticket, comments, and receives webhooks or polls.
 - Public, Listed and Hidden tiers.
 - Fair rotation per account.

@@ -11,12 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as FundRouteImport } from './routes/fund'
-import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as ShippedRouteImport } from './routes/shipped'
-import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
@@ -50,16 +46,6 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FundRoute = FundRouteImport.update({
-  id: '/fund',
-  path: '/fund',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeaderboardRoute = LeaderboardRouteImport.update({
-  id: '/leaderboard',
-  path: '/leaderboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LegalRoute = LegalRouteImport.update({
   id: '/legal',
   path: '/legal',
@@ -68,16 +54,6 @@ const LegalRoute = LegalRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShippedRoute = ShippedRouteImport.update({
-  id: '/shipped',
-  path: '/shipped',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShowcaseRoute = ShowcaseRouteImport.update({
-  id: '/showcase',
-  path: '/showcase',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -197,12 +173,8 @@ const IntegrationsTrackerConnectRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
-  '/fund': typeof FundRoute
-  '/leaderboard': typeof LeaderboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
-  '/shipped': typeof ShippedRoute
-  '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
@@ -229,12 +201,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
-  '/fund': typeof FundRoute
-  '/leaderboard': typeof LeaderboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
-  '/shipped': typeof ShippedRoute
-  '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
@@ -262,12 +230,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
-  '/fund': typeof FundRoute
-  '/leaderboard': typeof LeaderboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
-  '/shipped': typeof ShippedRoute
-  '/showcase': typeof ShowcaseRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
@@ -296,12 +260,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
-    | '/fund'
-    | '/leaderboard'
     | '/legal'
     | '/privacy'
-    | '/shipped'
-    | '/showcase'
     | '/sign-in'
     | '/terms'
     | '/account/email'
@@ -328,12 +288,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
-    | '/fund'
-    | '/leaderboard'
     | '/legal'
     | '/privacy'
-    | '/shipped'
-    | '/showcase'
     | '/sign-in'
     | '/terms'
     | '/account/email'
@@ -360,12 +316,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
-    | '/fund'
-    | '/leaderboard'
     | '/legal'
     | '/privacy'
-    | '/shipped'
-    | '/showcase'
     | '/sign-in'
     | '/terms'
     | '/account/email'
@@ -393,12 +345,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
-  FundRoute: typeof FundRoute
-  LeaderboardRoute: typeof LeaderboardRoute
   LegalRoute: typeof LegalRoute
   PrivacyRoute: typeof PrivacyRoute
-  ShippedRoute: typeof ShippedRoute
-  ShowcaseRoute: typeof ShowcaseRoute
   SignInRoute: typeof SignInRoute
   TermsRoute: typeof TermsRoute
   AccountEmailRoute: typeof AccountEmailRoute
@@ -439,20 +387,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/fund': {
-      id: '/fund'
-      path: '/fund'
-      fullPath: '/fund'
-      preLoaderRoute: typeof FundRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leaderboard': {
-      id: '/leaderboard'
-      path: '/leaderboard'
-      fullPath: '/leaderboard'
-      preLoaderRoute: typeof LeaderboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/legal': {
       id: '/legal'
       path: '/legal'
@@ -465,20 +399,6 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shipped': {
-      id: '/shipped'
-      path: '/shipped'
-      fullPath: '/shipped'
-      preLoaderRoute: typeof ShippedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/showcase': {
-      id: '/showcase'
-      path: '/showcase'
-      fullPath: '/showcase'
-      preLoaderRoute: typeof ShowcaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -641,12 +561,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
-  FundRoute: FundRoute,
-  LeaderboardRoute: LeaderboardRoute,
   LegalRoute: LegalRoute,
   PrivacyRoute: PrivacyRoute,
-  ShippedRoute: ShippedRoute,
-  ShowcaseRoute: ShowcaseRoute,
   SignInRoute: SignInRoute,
   TermsRoute: TermsRoute,
   AccountEmailRoute: AccountEmailRoute,

@@ -41,7 +41,13 @@ export const settleConnectFn = createServerFn({ method: "POST" })
     const intent = readIntent(getCookie(CONNECT_COOKIE));
     if (intent.source === "jira" && jiraReady()) {
       const settled = await withDb((db) =>
-        settleJira(db, trackerContext(), viewer.userId, intent, data?.projectId),
+        settleJira(
+          db,
+          trackerContext(),
+          viewer.userId,
+          intent,
+          data?.projectId,
+        ),
       ).catch((error: Error) => {
         console.warn("jira settle:", error.message);
         return null;
@@ -80,7 +86,10 @@ export const listJiraProjectsFn = createServerFn({ method: "GET" })
       return { projects, revoked: false };
     } catch (error) {
       if (error instanceof JiraAccessError)
-        return { projects: [] as { id: string; name: string }[], revoked: true };
+        return {
+          projects: [] as { id: string; name: string }[],
+          revoked: true,
+        };
       throw error;
     }
   });
