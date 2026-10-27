@@ -2,7 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useRouter } from "@tanstack/react-router";
 import { ArrowRight, GitMerge, LockKeyhole, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { animate, motion, useReducedMotion } from "motion/react";
+import { animate, useReducedMotion } from "motion/react";
 import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
 import { Checkbox } from "@/components/arc/checkbox/checkbox";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
@@ -18,6 +18,7 @@ import {
 } from "@/functions/sponsor.functions";
 import { Logo, plural, SponsorName, type SponsorRow } from "./boards";
 import { useFlip } from "./live";
+import { Segmented } from "./segmented";
 import { LogoPicker } from "./logo-picker";
 import { Spinner } from "./navigation-feedback";
 import { SavedState, useSavedFades, type SaveState } from "./saved-state";
@@ -319,13 +320,8 @@ export function SponsorBoard({
 }
 
 /**
- * Today or All time, each with its total: the other board says what it
- * holds. uiarc's button group: segments joined on one surface, a hairline
- * between them; one soft fill rests on the chosen board and glides to the
- * segment under the pointer, and back when it leaves; the totals roll
- * (uiarc's animated counter) as payments land. Arrow keys, Home and
- * End move the choice (the tabs pattern: only the chosen tab is in the
- * tab order).
+ * Today or All time, each with its total (rolling as payments land): the
+ * other board says what it holds. uiarc's button group (Segmented).
  */
 function PeriodTabs({
   boards,
@@ -336,93 +332,25 @@ function PeriodTabs({
   period: Period;
   onChange: (period: Period) => void;
 }) {
-  const root = useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
-  const [hover, setHover] = useState<Period | null>(null);
-  const active = hover ?? period;
-  const keys = boards.map((item) => item.period);
-  const at = keys.indexOf(active);
-  const move = (event: React.KeyboardEvent) => {
-    const last = keys.length - 1;
-    const index = keys.indexOf(period);
-    const next =
-      event.key === "ArrowRight"
-        ? index === last
-          ? 0
-          : index + 1
-        : event.key === "ArrowLeft"
-          ? index === 0
-            ? last
-            : index - 1
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : -1;
-    if (next < 0) return;
-    event.preventDefault();
-    onChange(keys[next]!);
-    root.current
-      ?.querySelector<HTMLElement>(`[data-key="${keys[next]}"]`)
-      ?.focus();
-  };
   return (
-    <div
-      className="sb-tabs"
-      role="tablist"
-      aria-label="Period"
-      ref={root}
-      onPointerMove={(event) => {
-        // Touch has no hover: the fill follows the choice alone.
-        if (event.pointerType === "touch") return;
-        const tab = (event.target as HTMLElement).closest<HTMLElement>(
-          "[data-key]",
-        );
-        setHover(tab ? (tab.dataset.key as Period) : null);
-      }}
-      onPointerLeave={() => setHover(null)}
-      onKeyDown={move}
-    >
-      {boards.map((item, index) => (
-        <button
-          key={item.period}
-          type="button"
-          role="tab"
-          data-key={item.period}
-          // The hairline steps aside where the fill arrives.
-          data-quiet={
-            at >= 0 && (index === at || index === at + 1) ? "" : undefined
-          }
-          tabIndex={item.period === period ? 0 : -1}
-          aria-selected={item.period === period}
-          onClick={() => onChange(item.period)}
-        >
-          {/* One fill, handed from segment to segment: motion springs it
-              across (its corners kept round through the stretch). */}
-          {item.period === active && (
-            <motion.span
-              layoutId="sb-tabs-fill"
-              className="sb-tabs-fill"
-              aria-hidden="true"
-              style={{ borderRadius: 13 }}
-              transition={reduced ? { duration: 0 } : motionTokens.spring.morph}
-            />
-          )}
-          <span className="sb-tabs-content">
-            {item.period === "today" ? "Today" : "All time"}
-            <span className="sb-tabs-total">
-              <AnimatedCounter
-                inline
-                prefix="$"
-                value={Math.round(
-                  item.rows.reduce((sum, row) => sum + row.paidCents, 0) / 100,
-                )}
-              />
-            </span>
-          </span>
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label="Period"
+      value={period}
+      onChange={onChange}
+      items={boards.map((item) => ({
+        value: item.period,
+        label: item.period === "today" ? "Today" : "All time",
+        extra: (
+          <AnimatedCounter
+            inline
+            prefix="$"
+            value={Math.round(
+              item.rows.reduce((sum, row) => sum + row.paidCents, 0) / 100,
+            )}
+          />
+        ),
+      }))}
+    />
   );
 }
 

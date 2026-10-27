@@ -14,7 +14,9 @@ import styles from "./checkbox.module.css";
 export interface CheckboxProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
-  children: ReactNode;
+  /** The label; without it, pass `aria-label`. */
+  children?: ReactNode;
+  "aria-label"?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -27,6 +29,7 @@ export function Checkbox({
   children,
   disabled,
   className,
+  "aria-label": ariaLabel,
 }: CheckboxProps) {
   const reduced = useReducedMotion();
   const fade: Transition = {
@@ -46,6 +49,7 @@ export function Checkbox({
           className={styles.input}
           checked={checked}
           disabled={disabled}
+          aria-label={ariaLabel}
           onChange={(event) => onCheckedChange(event.target.checked)}
         />
         <span
@@ -89,7 +93,9 @@ export function Checkbox({
           </svg>
         </span>
       </span>
-      <span className={styles.copy}>{children}</span>
+      {children !== undefined && (
+        <span className={styles.copy}>{children}</span>
+      )}
     </label>
   );
 }

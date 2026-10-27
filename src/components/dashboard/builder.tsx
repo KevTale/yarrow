@@ -1,7 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { GitPullRequest, Github, Plus, Settings, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
+import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
+import { Checkbox } from "@/components/arc/checkbox/checkbox";
+import { motionTokens } from "@/components/arc/lib/motion-tokens";
+import { MorphSelect } from "@/components/arc/morph-select/morph-select";
+import { SearchField } from "@/components/arc/search-field/search-field";
+import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
+import { Segmented } from "@/components/segmented";
 import {
   inYarrow,
   mergeTickets,
@@ -85,6 +93,7 @@ export function BuilderView({
   jira?: JiraStep | null;
 }) {
   const navigate = useNavigate({ from: "/dashboard" });
+  const reduced = useReducedMotion();
   const refresh = useServerFn(getBuilderFn);
   const queue = useServerFn(queueTicketsFn);
   const unqueue = useServerFn(unqueueTicketsFn);
@@ -422,6 +431,7 @@ export function BuilderView({
             {meta.review.length > 0 && (
               <span className="bd-review-count">{meta.review.length}</span>
             )}
+            {reviewing && <RailMark reduced={reduced} />}
           </button>
           <span className="bd-label">Projects</span>
           {meta.projects.map((item) => (
@@ -435,6 +445,7 @@ export function BuilderView({
                 <Logo name={item.name} url={item.logoUrl} size="small" />
                 {item.name}
               </span>
+              {item.id === currentId && <RailMark reduced={reduced} />}
             </button>
           ))}
           <a className="bd-add" href="/connect/github">
@@ -445,28 +456,46 @@ export function BuilderView({
       <div className="bd-main">
         {jiraCard}
         {many && (
-          <select
-            className="bd-picker"
-            aria-label="Project"
-            value={reviewing ? "review" : (currentId ?? "")}
-            onChange={(event) =>
-              event.target.value === "add"
-                ? window.location.assign("/connect/github")
-                : event.target.value === "review"
-                  ? openReview()
-                  : choose(event.target.value)
-            }
-          >
-            <option value="review">
-              To review{meta.review.length ? ` (${meta.review.length})` : ""}
-            </option>
-            {meta.projects.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-            <option value="add">+ Add a project</option>
-          </select>
+          // uiarc's morph select, in the rail's place on phones.
+          <div className="bd-picker">
+            <MorphSelect
+              label="Project"
+              hideLabel
+              value={reviewing ? "review" : (currentId ?? null)}
+              onValueChange={(value) =>
+                value === "add"
+                  ? window.location.assign("/connect/github")
+                  : value === "review"
+                    ? openReview()
+                    : choose(value)
+              }
+              items={[
+                {
+                  value: "review",
+                  label: "To review",
+                  icon: <GitPullRequest size={14} />,
+                  meta: meta.review.length
+                    ? String(meta.review.length)
+                    : undefined,
+                },
+                {
+                  label: "Projects",
+                  options: meta.projects.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    icon: (
+                      <Logo name={item.name} url={item.logoUrl} size="small" />
+                    ),
+                  })),
+                },
+                {
+                  value: "add",
+                  label: "Add a project",
+                  icon: <Plus size={14} />,
+                },
+              ]}
+            />
+          </div>
         )}
         {reviewing ? (
           <ReviewList rows={meta.review} table={table} onProject={choose} />
@@ -520,8 +549,16 @@ export function BuilderView({
               ) : (
                 <>
                   <div className="bd-toolbar">
-                    <div className="bd-filters" role="group" aria-label="Show">
-                      {(
+                    <Segmented
+                      className="bd-filters"
+                      label="Show"
+                      kind="pressed"
+                      value={everywhere ? null : filter}
+                      onChange={(key) => {
+                        setFilter(key);
+                        if (q) setNarrowed(true);
+                      }}
+                      items={(
                         [
                           ["todo", "To queue"],
                           ["progress", "In progress"],
@@ -537,29 +574,21 @@ export function BuilderView({
                             counts.stopped > 0 ||
                             filter === "stopped",
                         )
-                        .map(([key, label]) => (
-                          <button
-                            type="button"
-                            key={key}
-                            aria-pressed={!everywhere && filter === key}
-                            onClick={() => {
-                              setFilter(key);
-                              if (q) setNarrowed(true);
-                            }}
-                          >
-                            {label} <span>{counts[key]}</span>
-                          </button>
-                        ))}
-                    </div>
-                    <input
-                      className="bd-search"
-                      type="search"
+                        .map(([key, label]) => ({
+                          value: key,
+                          label,
+                          extra: <AnimatedCounter inline value={counts[key]} />,
+                        }))}
+                    />
+                    <SearchField
+                      fieldClassName="bd-search"
+                      label="Search tickets"
+                      hideLabel
                       placeholder="Search tickets"
-                      aria-label="Search tickets"
                       value={query}
-                      onChange={(event) => {
-                        setQuery(event.target.value);
-                        if (!event.target.value.trim()) setNarrowed(false);
+                      onValueChange={(next) => {
+                        setQuery(next);
+                        if (!next.trim()) setNarrowed(false);
                       }}
                     />
                   </div>
@@ -583,11 +612,10 @@ export function BuilderView({
                     <div className="bd-row bd-thead" role="row">
                       <span>
                         {pickable.length > 0 && (
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             aria-label="Select all"
                             checked={allShown}
-                            onChange={() =>
+                            onCheckedChange={() =>
                               setSelected(
                                 allShown
                                   ? new Set()
@@ -617,11 +645,10 @@ export function BuilderView({
                         <span>
                           {/* Only rows the batch bar can act on. */}
                           {selectable(row) && (
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               aria-label={`Select ${row.ref}`}
                               checked={selected.has(row.key)}
-                              onChange={() => toggle(row.key)}
+                              onCheckedChange={() => toggle(row.key)}
                             />
                           )}
                         </span>
@@ -658,37 +685,70 @@ export function BuilderView({
           )
         )}
       </div>
-      {selected.size > 0 && !reviewing && (
-        <div className="bd-batch" role="region" aria-label="Selection">
-          <b>{selected.size} selected</b>
-          {canQueue.length > 0 && (
-            <button
-              type="button"
-              className="bd-btn bd-btn-amber"
-              onClick={() => act("queue", canQueue)}
-            >
-              Add to queue
-            </button>
-          )}
-          {canRemove.length > 0 && (
-            <button
-              type="button"
-              className="bd-btn bd-btn-line"
-              onClick={() => act("unqueue", canRemove)}
-            >
-              Remove from queue
-            </button>
-          )}
-          <button
-            type="button"
-            className="bd-btn bd-btn-ghost"
-            aria-label="Clear selection"
-            onClick={() => setSelected(new Set())}
+      {/* The selection's actions rise from the bottom edge and sink back
+          when it clears; the count rolls. */}
+      <AnimatePresence>
+        {selected.size > 0 && !reviewing && (
+          <motion.div
+            key="batch"
+            className="bd-batch"
+            role="region"
+            aria-label="Selection"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={
+              reduced
+                ? { opacity: 0 }
+                : {
+                    opacity: 0,
+                    y: 12,
+                    transition: {
+                      duration: motionTokens.duration.fast,
+                      ease: [...motionTokens.ease.standard],
+                    },
+                  }
+            }
+            transition={
+              reduced
+                ? { duration: motionTokens.duration.instant }
+                : {
+                    ...motionTokens.spring.smooth,
+                    opacity: { duration: motionTokens.duration.fast },
+                  }
+            }
           >
-            <X size={15} />
-          </button>
-        </div>
-      )}
+            <b>
+              <AnimatedCounter inline value={selected.size} /> selected
+            </b>
+            {canQueue.length > 0 && (
+              <button
+                type="button"
+                className="bd-btn bd-btn-amber"
+                onClick={() => act("queue", canQueue)}
+              >
+                Add to queue
+              </button>
+            )}
+            {canRemove.length > 0 && (
+              <button
+                type="button"
+                className="bd-btn bd-btn-line"
+                onClick={() => act("unqueue", canRemove)}
+              >
+                Remove from queue
+              </button>
+            )}
+            <button
+              type="button"
+              className="bd-btn bd-btn-ghost"
+              aria-label="Clear selection"
+              onClick={() => setSelected(new Set())}
+            >
+              <X size={15} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -782,6 +842,22 @@ function ReviewList({
   );
 }
 
+/**
+ * The rail's chosen row: one soft fill handed from row to row on a spring
+ * (motion's shared layout), as in uiarc's button group.
+ */
+function RailMark({ reduced }: { reduced: boolean | null }) {
+  return (
+    <motion.span
+      layoutId="bd-rail-mark"
+      className="bd-rail-mark"
+      aria-hidden="true"
+      style={{ borderRadius: 8 }}
+      transition={reduced ? { duration: 0 } : motionTokens.spring.morph}
+    />
+  );
+}
+
 /** "#42", or a Jira key with Jira's mark in front. */
 function TicketRef({ row }: { row: TicketRow }) {
   return (
@@ -818,8 +894,14 @@ function Status({
         </button>
       </span>
     );
-  // "Claude Opus is writing": the model at work, named as on the landing.
-  const label = workText(row.status, row.models) ?? statusLabel[row.status];
+  // "Claude Opus is writing": the model at work, named as on the landing,
+  // uiarc's shimmer passing over it while it works.
+  const work = workText(row.status, row.models);
+  const label = work ? (
+    <TextShimmer>{work}</TextShimmer>
+  ) : (
+    statusLabel[row.status]
+  );
   const text = ["pull_request", "merged", "pr_closed"].includes(row.status) ? (
     // "PR #4", "PR #4 merged": the pull request, never the issue.
     row.pullRequest ? (

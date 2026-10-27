@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { jiraProject } from "@/core/ticket-link";
 import {
@@ -7,6 +7,7 @@ import {
   linkJiraFn,
   listJiraProjectsFn,
 } from "@/functions/connect.functions";
+import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { JiraIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
 import type { JiraStep } from "@/server/trackers/jira-flow";
@@ -88,38 +89,45 @@ export function JiraCard({
       </div>
       <div className="bd-jira-form">
         {!step.ticket && connectionId && (
-          <select
-            aria-label="Jira project"
-            value={jiraKey}
+          <MorphSelect
+            label="Jira project"
+            hideLabel
+            placeholder="Loading…"
+            value={jiraKey || null}
             disabled={!jiraProjects}
-            onChange={(event) => setJiraKey(event.target.value)}
-          >
-            {!jiraProjects && <option>Loading…</option>}
-            {jiraProjects?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={setJiraKey}
+            items={(jiraProjects ?? []).map((item) => ({
+              value: item.id,
+              label: item.name,
+            }))}
+          />
         )}
-        <label className="bd-jira-repo">
-          <span className="muted">Code in</span>
-          <select
+        <div className="bd-jira-repo">
+          <span className="muted" aria-hidden="true">
+            Code in
+          </span>
+          <MorphSelect
+            label="Code in"
+            hideLabel
             value={projectId}
-            onChange={(event) =>
-              event.target.value === "add"
+            onValueChange={(value) =>
+              value === "add"
                 ? window.location.assign("/connect/github?source=jira")
-                : setProjectId(event.target.value)
+                : setProjectId(value)
             }
-          >
-            {step.projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.repository}
-              </option>
-            ))}
-            <option value="add">+ Another repository</option>
-          </select>
-        </label>
+            items={[
+              ...step.projects.map((project) => ({
+                value: project.id,
+                label: project.repository,
+              })),
+              {
+                value: "add",
+                label: "Another repository",
+                icon: <Plus size={14} />,
+              },
+            ]}
+          />
+        </div>
         {connectionId ? (
           <button
             type="button"

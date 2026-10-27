@@ -1,3 +1,5 @@
+import { and, eq, sql } from "drizzle-orm";
+import { TERMS_VERSION } from "../core/terms";
 import type { Database } from "./client";
 import { events } from "./schema";
 
@@ -7,7 +9,7 @@ export type EventType =
   | "account.created"
   | "account.deleted"
   | "account.email_changed"
-  | "builder.card_accepted"
+  | "builder.terms_accepted"
   | "project.created"
   | "project.updated"
   | "project.github_linked"
@@ -47,4 +49,26 @@ export async function recordEvent(
   event: EventInput,
 ): Promise<void> {
   await db.insert(events).values(event);
+}
+
+/**
+ * Whether the user ticked the Terms (the sponsors' card included) in their
+ * current version: the proof of consent is the event itself.
+ */
+export async function termsAccepted(
+  db: Database,
+  userId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(
+      and(
+        eq(events.type, "builder.terms_accepted"),
+        eq(events.userId, userId),
+        sql`${events.payload}->>'terms' = ${TERMS_VERSION}`,
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }

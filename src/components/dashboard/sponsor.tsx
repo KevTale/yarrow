@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
@@ -9,7 +9,12 @@ import {
   getSponsorDashboardFn,
   saveSponsorFundingFn,
 } from "@/functions/sponsor.functions";
+import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
+import { ChipGroup } from "@/components/arc/chip-group/chip-group";
+import { SearchField } from "@/components/arc/search-field/search-field";
+import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { plural } from "@/components/boards";
+import { Segmented } from "@/components/segmented";
 import { Confetti } from "@/components/confetti";
 import { useFlip, useLive } from "@/components/live";
 import { Spinner } from "@/components/navigation-feedback";
@@ -84,63 +89,59 @@ function FundingChoice({ data }: { data: SponsorData }) {
         </span>
         <SavedState state={state} />
       </div>
-      <div
+      {/* uiarc's button group; uiarc's chips for the projects. */}
+      <Segmented
         className="sd-seg"
-        role="radiogroup"
-        aria-labelledby="sd-funds-label"
-      >
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === "all_except"}
-          onClick={() => void apply("all_except", [])}
-        >
-          Every project
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === "only"}
-          onClick={() => void apply("only", chosen)}
-        >
-          Projects I choose
-          {mode === "only" && chosen.length > 0 && <em>{chosen.length}</em>}
-        </button>
-      </div>
+        kind="radio"
+        label="Your money funds"
+        value={mode}
+        onChange={(next) =>
+          void apply(next, next === "all_except" ? [] : chosen)
+        }
+        items={[
+          { value: "all_except", label: "Every project" },
+          {
+            value: "only",
+            label: "Projects I choose",
+            extra:
+              mode === "only" && chosen.length > 0 ? (
+                <AnimatedCounter inline value={chosen.length} />
+              ) : undefined,
+          },
+        ]}
+      />
       {mode === "only" && (
         <div className="sd-chips">
           {data.projects.length > 12 && (
-            <input
-              className="bd-search sd-chips-search"
-              type="search"
+            <SearchField
+              fieldClassName="sd-chips-search"
+              label="Search projects"
+              hideLabel
               placeholder="Search projects"
-              aria-label="Search projects"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onValueChange={setSearch}
             />
           )}
-          {projects.map((project) => {
-            const on = chosen.includes(project.id);
-            return (
-              <button
-                type="button"
-                key={project.id}
-                className="sd-chip"
-                aria-pressed={on}
-                onClick={() =>
-                  void apply(
-                    "only",
-                    on
-                      ? chosen.filter((id) => id !== project.id)
-                      : [...chosen, project.id],
-                  )
-                }
-              >
-                {on && <Check size={13} strokeWidth={2.6} />}
-                {project.name}
-              </button>
-            );
-          })}
+          <ChipGroup
+            label="Projects"
+            multiple
+            options={projects.map((project) => ({
+              value: project.id,
+              label: project.name,
+            }))}
+            // Chosen projects hidden by the search stay chosen.
+            value={chosen.filter((id) =>
+              projects.some((project) => project.id === id),
+            )}
+            onValueChange={(shown) =>
+              void apply("only", [
+                ...chosen.filter(
+                  (id) => !projects.some((project) => project.id === id),
+                ),
+                ...shown,
+              ])
+            }
+          />
           {projects.length === 0 && (
             <span className="muted small">No project</span>
           )}
@@ -166,14 +167,22 @@ function SponsorSummary({ data }: { data: SponsorData }) {
     : 0;
   const balance = Math.max(0, data.balanceCents);
   const left = average ? Math.floor(balance / average) : null;
-  const rank = (value: number | null) => (value ? `#${value}` : "–");
+  const rank = (value: number | null) =>
+    value ? <AnimatedCounter inline prefix="#" value={value} /> : "–";
   return (
     <section className="sd-me" aria-label="Your sponsoring">
       <dl className="sd-metrics">
         <div className="sd-metric balance">
           <dt>Balance</dt>
           <dd>
-            <b>{money(balance)}</b>
+            <b>
+              <AnimatedCounter
+                inline
+                prefix="$"
+                decimals={2}
+                value={balance / 100}
+              />
+            </b>
             {left !== null && <small>≈ {plural(left, "ticket")}</small>}
             {data.inUseCents > 0 && (
               <small>{money(data.inUseCents)} at work</small>
@@ -210,14 +219,18 @@ function SponsorSummary({ data }: { data: SponsorData }) {
               </span>
             </dt>
             <dd>
-              <b>{(mine?.clicks ?? 0).toLocaleString("en-US")}</b>
+              <b>
+                <AnimatedCounter inline value={mine?.clicks ?? 0} />
+              </b>
             </dd>
           </div>
         )}
         <div className="sd-metric">
           <dt>Merged PRs</dt>
           <dd>
-            <b>{data.impact.merged.toLocaleString("en-US")}</b>
+            <b>
+              <AnimatedCounter inline value={data.impact.merged} />
+            </b>
           </dd>
         </div>
       </dl>
@@ -293,8 +306,14 @@ export function SponsorView({
                 <span className="dot" aria-hidden="true" />
                 <RunHover runId={row.runId} link={false}>
                   <span>
-                    {workText(row.status, row.models) ??
-                      statusLabel[row.status]}
+                    {working.includes(row.status) ? (
+                      <TextShimmer>
+                        {workText(row.status, row.models) ??
+                          statusLabel[row.status as "writing"]}
+                      </TextShimmer>
+                    ) : (
+                      statusLabel[row.status]
+                    )}
                   </span>
                 </RunHover>
               </span>

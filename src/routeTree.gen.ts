@@ -23,6 +23,7 @@ import { Route as AuthGithubRouteImport } from './routes/auth/github'
 import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
 import { Route as ConnectDoneRouteImport } from './routes/connect/done'
 import { Route as ConnectGithubRouteImport } from './routes/connect/github'
+import { Route as ConnectTermsRouteImport } from './routes/connect/terms'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
 import { Route as ImagesNameRouteImport } from './routes/images/$name'
 import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
@@ -106,6 +107,11 @@ const ConnectGithubRoute = ConnectGithubRouteImport.update({
   path: '/connect/github',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnectTermsRoute = ConnectTermsRouteImport.update({
+  id: '/connect/terms',
+  path: '/connect/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EvidenceSplatRoute = EvidenceSplatRouteImport.update({
   id: '/evidence/$',
   path: '/evidence/$',
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
+  '/connect/terms': typeof ConnectTermsRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
+  '/connect/terms': typeof ConnectTermsRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
+  '/connect/terms': typeof ConnectTermsRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
+    | '/connect/terms'
     | '/evidence/$'
     | '/images/$name'
     | '/integrations/trello-callback'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
+    | '/connect/terms'
     | '/evidence/$'
     | '/images/$name'
     | '/integrations/trello-callback'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
+    | '/connect/terms'
     | '/evidence/$'
     | '/images/$name'
     | '/integrations/trello-callback'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   AuthSignOutRoute: typeof AuthSignOutRoute
   ConnectDoneRoute: typeof ConnectDoneRoute
   ConnectGithubRoute: typeof ConnectGithubRoute
+  ConnectTermsRoute: typeof ConnectTermsRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
   ImagesNameRoute: typeof ImagesNameRoute
   IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnectGithubRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connect/terms': {
+      id: '/connect/terms'
+      path: '/connect/terms'
+      fullPath: '/connect/terms'
+      preLoaderRoute: typeof ConnectTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evidence/$': {
       id: '/evidence/$'
       path: '/evidence/$'
@@ -572,6 +592,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignOutRoute: AuthSignOutRoute,
   ConnectDoneRoute: ConnectDoneRoute,
   ConnectGithubRoute: ConnectGithubRoute,
+  ConnectTermsRoute: ConnectTermsRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,
   ImagesNameRoute: ImagesNameRoute,
   IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,

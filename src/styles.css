@@ -1141,40 +1141,6 @@ a:hover > .brand svg > g > g:last-child {
   margin-top: 12px;
   line-height: 1.7;
 }
-.choice-list {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.choice-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 19px 21px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--line);
-}
-.choice-row:last-child {
-  border: 0;
-}
-.choice-row:has(:checked) {
-  background: var(--surface);
-}
-.choice-row > span:not(.badge) {
-  flex: 1;
-}
-.choice-row strong {
-  display: block;
-  font-weight: 500;
-  font-size: 13px;
-}
-.choice-row small {
-  display: block;
-  color: var(--muted);
-  margin-top: 5px;
-  font-size: 11px;
-  line-height: 1.6;
-}
 input[type="radio"],
 input[type="checkbox"] {
   accent-color: var(--amber);
@@ -2419,19 +2385,6 @@ tbody tr:hover {
   .field-note {
     font-size: 10px;
   }
-  .choice-row {
-    padding: 17px 15px;
-    gap: 11px;
-  }
-  .choice-row strong {
-    font-size: 12px;
-  }
-  .choice-row small {
-    font-size: 10px;
-  }
-  .choice-row .badge {
-    font-size: 8px;
-  }
   .form-section > legend {
     font-size: 9px;
   }
@@ -3075,6 +3028,7 @@ button.dashboard-role:hover {
 }
 .bd-main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-content: start;
   min-width: 0;
@@ -3109,13 +3063,25 @@ button.dashboard-role:hover {
   color: var(--secondary);
   cursor: pointer;
 }
-.bd-rail button:hover {
-  background: var(--hover);
+.bd-rail button {
+  position: relative;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.bd-rail button:hover,
+.bd-rail button[aria-current="true"] {
   color: var(--text);
 }
-.bd-rail button[aria-current="true"] {
+/* The chosen row's fill, handed from row to row (RailMark). */
+.bd-rail-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   background: var(--elevated);
-  color: var(--text);
+  pointer-events: none;
+}
+.bd-rail button > span:not(.bd-rail-mark) {
+  position: relative;
+  z-index: 1;
 }
 .bd-rail button > span:first-child {
   display: flex;
@@ -3213,14 +3179,9 @@ a.bd-review-link:hover {
   gap: 10px;
   margin-left: auto;
 }
-.bd-jira-form select {
-  background: var(--elevated);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 13px;
-  max-width: 260px;
+/* uiarc's morph selects at the button's height. */
+.bd-jira-form {
+  --control-height-md: 34px;
 }
 .bd-jira-repo {
   display: flex;
@@ -3248,10 +3209,8 @@ a.bd-review-link:hover {
     margin-left: 0;
     width: 100%;
   }
-  .bd-jira-repo,
-  .bd-jira-form select {
+  .bd-jira-repo {
     flex: 1;
-    max-width: none;
   }
 }
 
@@ -3456,51 +3415,32 @@ a.bd-review-link:hover {
   gap: 14px;
   flex-wrap: wrap;
 }
-.bd-filters {
-  display: flex;
-  gap: 4px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 3px;
-}
-.bd-filters button {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  padding: 6px 11px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.bd-filters button span {
+/* The stages: uiarc's button group (Segmented), counts in the text's
+   face. */
+.bd-filters .seg-extra {
   font:
     12px var(--font-geist-mono),
     monospace;
+  color: var(--muted);
 }
-.bd-filters button[aria-pressed="true"] {
-  background: var(--elevated);
-  color: var(--text);
+.bd-filters button[data-chosen] .seg-extra {
+  color: var(--secondary);
 }
-.bd-search {
-  margin-left: auto;
-  width: min(260px, 100%);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 11px;
-  color: var(--text);
+.bd-filters {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bd-filters button {
+  padding: 0 12px;
   font-size: 13px;
 }
-.bd-search::placeholder {
-  color: #5f656f;
-}
-.bd-search:focus {
-  outline: none;
-  border-color: #e6ae3899;
+/* uiarc's search field at the stages' height. */
+.bd-search {
+  --control-height-md: 38px;
+  margin-left: auto;
+  width: min(260px, 100%);
 }
 .bd-note {
   font-size: 13px;
@@ -3594,30 +3534,6 @@ a.bd-title:hover {
 }
 .bd-none {
   padding: 28px 12px;
-}
-.bd-row input[type="checkbox"] {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  border: 1.5px solid #474c55;
-  border-radius: 4px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.bd-row input[type="checkbox"]:checked {
-  background: var(--amber);
-  border-color: var(--amber);
-}
-.bd-row input[type="checkbox"]:checked::after {
-  content: "";
-  width: 8px;
-  height: 4px;
-  border: 2px solid #141714;
-  border-top: 0;
-  border-right: 0;
-  transform: translateY(-1px) rotate(-45deg);
 }
 .bd-status {
   display: inline-flex;
@@ -3731,9 +3647,11 @@ a.bd-title:hover {
 }
 .bd-batch {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -3852,7 +3770,7 @@ button.md-name {
     padding-top: 32px;
   }
   .bd.with-rail {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
   }
   .bd-rail {
@@ -3860,13 +3778,12 @@ button.md-name {
   }
   .bd-picker {
     display: block;
-    width: 100%;
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 10px 12px;
-    font-size: 14px;
+  }
+  .bd-picker .board-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    font-size: 10px;
   }
   .with-rail .bd-head h2 {
     display: none;
@@ -3914,7 +3831,7 @@ button.md-name {
   .bd-batch {
     left: 16px;
     right: 16px;
-    transform: none;
+    width: auto;
     justify-content: space-between;
   }
 }
@@ -4983,79 +4900,24 @@ a[data-loading]:not(.go)::after {
   flex: none;
   margin-top: 2px;
 }
-/* Jira's own lozenges: grey to do, blue in progress, green done. */
-.lozenge {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 2px 7px;
-  border-radius: 4px;
-  font:
-    700 11.5px var(--font-geist-sans),
-    sans-serif;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.lozenge.todo {
-  background: #a1bdd914;
-  color: #b6c2cf;
-}
-.lozenge.progress {
-  background: #1d7afc2e;
-  color: #85b8ff;
-}
-.lozenge.done {
-  background: #22a06b2e;
-  color: #7ee2b8;
-}
+/* A Jira status: uiarc's morph select, each status marked with Jira's
+   own colors (grey to do, blue in progress, green done). */
 .ss {
-  position: relative;
+  --control-height-md: 34px;
   min-width: 0;
   justify-self: start;
 }
-.ss-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  max-width: 100%;
-  padding: 4px 34px 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--elevated);
-  position: relative;
-  transition: border-color 0.16s;
+.ss-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b6c2cf;
 }
-.ss-button:hover,
-.ss-button[aria-expanded="true"] {
-  border-color: #3a3e45;
+.ss-dot.progress {
+  background: #85b8ff;
 }
-.ss-none {
-  font-size: 13px;
-  color: var(--muted);
-}
-.ss-menu {
-  min-width: 220px;
-}
-.ss-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  background: none;
-  text-align: left;
-}
-.ss-option:hover,
-.ss-option:focus-visible {
-  background: var(--hover);
-}
-.ss-check {
-  color: var(--amber);
-  flex: none;
+.ss-dot.done {
+  background: #7ee2b8;
 }
 .st-card {
   display: flex;
@@ -5133,98 +4995,11 @@ a[data-loading]:not(.go)::after {
 .st-state.warn::before {
   background: var(--amber);
 }
-/* Jira projects: a field of tags that opens a menu of checkboxes. */
+/* Jira projects: uiarc's multi select. */
 .jp {
-  position: relative;
+  --control-height-md: 36px;
   min-width: 0;
-}
-.jp-button {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-height: 34px;
-  max-width: 100%;
-  padding: 4px 32px 4px 6px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--elevated);
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-  position: relative;
-  transition: border-color 0.16s;
-}
-.jp-button:hover,
-.jp-button[aria-expanded="true"] {
-  border-color: #3a3e45;
-}
-.jp-button > .muted {
-  padding-left: 6px;
-}
-.jp-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: #2684ff1f;
-  border: 1px solid #2684ff40;
-  white-space: nowrap;
-}
-.jp-tag b {
-  font:
-    600 11.5px var(--font-geist-mono),
-    monospace;
-  color: #7fb2ff;
-}
-.jp-chevron {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  translate: 0 -50%;
-  color: var(--muted);
-  transition: rotate 0.16s;
-}
-.jp-button[aria-expanded="true"] .jp-chevron {
-  rotate: 180deg;
-}
-.jp-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: max(100%, 260px);
-  max-height: 300px;
-  overflow-y: auto;
-  display: grid;
-  gap: 2px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--elevated);
-  box-shadow: 0 18px 40px #00000073;
-}
-.jp-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-.jp-option:hover {
-  background: var(--hover);
-}
-.jp-option b {
-  font-size: 12px;
-  color: #7fb2ff;
-  min-width: 34px;
-}
-.jp-empty {
-  padding: 8px 10px;
-  font-size: 13px;
+  max-width: 420px;
 }
 .st-card-body strong {
   display: flex;
@@ -6447,15 +6222,17 @@ a.tk-paid:hover b {
 .sb-board {
   width: min(720px, 100%);
 }
-/* Today and All time, each with its total: uiarc's button group. One
-   surface under a hairline, nearly a pill; segments joined full height
-   with a hairline between them; one soft fill, no border and no shadow,
-   resting on the chosen board and handed on a spring (motion, in
-   PeriodTabs) to the segment under the pointer, the hairline beside it
-   stepping aside; a press dips the label. Focus answers with the frame's
-   border. */
-.sb-tabs {
+/* uiarc's button group (Segmented): Today / All time, the ticket stages,
+   where a sponsor's money goes. One surface under a hairline, nearly a
+   pill; segments joined full height with a hairline between them; one
+   soft fill, no border and no shadow, resting on the chosen segment and
+   handed on a spring to the segment under the pointer, the hairline beside
+   it stepping aside; a press dips the label. Focus answers with the
+   frame's border. */
+.seg {
   --tabs-h: 38px;
+  width: fit-content;
+  max-width: 100%;
   position: relative;
   isolation: isolate;
   display: inline-flex;
@@ -6465,10 +6242,10 @@ a.tk-paid:hover b {
   background: var(--surface);
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
-.sb-tabs:has(:focus-visible) {
+.seg:has(:focus-visible) {
   border-color: #5d636d;
 }
-.sb-tabs-fill {
+.seg-fill {
   position: absolute;
   z-index: 0;
   inset: 3px;
@@ -6476,11 +6253,11 @@ a.tk-paid:hover b {
   pointer-events: none;
   transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.sb-tabs:has(button:active) .sb-tabs-fill {
+.seg:has(button:active) .seg-fill {
   background: #24272e;
   transition-duration: var(--duration-instant);
 }
-.sb-tabs button {
+.seg button {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -6504,15 +6281,15 @@ a.tk-paid:hover b {
   -webkit-tap-highlight-color: transparent;
   transition: color var(--duration-fast) var(--ease-standard);
 }
-.sb-tabs button[aria-selected="true"] {
+.seg button[data-chosen] {
   color: var(--text);
 }
 @media (hover: hover) and (pointer: fine) {
-  .sb-tabs button:hover {
+  .seg button:hover {
     color: var(--text);
   }
 }
-.sb-tabs button + button::before {
+.seg button + button::before {
   position: absolute;
   top: 10px;
   bottom: 10px;
@@ -6523,11 +6300,11 @@ a.tk-paid:hover b {
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
-.sb-tabs button[data-quiet]::before {
+.seg button[data-quiet]::before {
   opacity: 0;
 }
 /* The press dips the label and springs it back; the group stays still. */
-.sb-tabs-content {
+.seg-content {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -6535,18 +6312,18 @@ a.tk-paid:hover b {
   gap: 8px;
   transition: transform var(--duration-spring) var(--ease-spring);
 }
-.sb-tabs button:active .sb-tabs-content {
+.seg button:active .seg-content {
   transform: scale(0.97);
   transition: transform var(--duration-instant) var(--ease-standard);
 }
-.sb-tabs-total {
+.seg-extra {
   font:
     500 14px var(--font-display),
     sans-serif;
   font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-tabs button:active .sb-tabs-content {
+  .seg button:active .seg-content {
     transform: none;
   }
 }
@@ -7239,87 +7016,19 @@ body:has(.sb-dialog[open]) {
   gap: 12px;
   min-height: 20px;
 }
-.sd-seg {
-  display: inline-flex;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-.sd-seg button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13.5px;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-.sd-seg button:hover {
-  color: var(--text);
-}
-.sd-seg button[aria-checked="true"] {
-  background: var(--elevated);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px #f2b54459;
-}
-.sd-seg em {
-  padding: 0 6px;
-  border-radius: 99px;
-  background: #f2b54426;
+/* Where the money goes: uiarc's button group, the chosen count in
+   amber. */
+.sd-seg .seg-extra {
   color: var(--amber);
-  font-size: 11.5px;
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
 }
 .sd-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  gap: 12px;
   max-width: 920px;
 }
 .sd-chips-search {
-  flex-basis: 100%;
+  --control-height-md: 38px;
   max-width: 320px;
-}
-.sd-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 13px;
-  border: 1px solid var(--line);
-  border-radius: 99px;
-  background: none;
-  color: var(--secondary);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s,
-    color 0.15s;
-}
-.sd-chip:hover {
-  border-color: #3a3e45;
-  color: var(--text);
-}
-.sd-chip[aria-pressed="true"] {
-  padding-left: 10px;
-  border-color: #f2b54480;
-  background: #f2b54414;
-  color: var(--text);
-}
-.sd-chip svg {
-  color: var(--amber);
 }
 
 @media (max-width: 760px) {
@@ -7373,19 +7082,31 @@ body:has(.sb-dialog[open]) {
   }
 }
 
-/* The builder's consent to the card, once, on the first Builder visit. */
-.consent-body {
+/* Before GitHub: the Terms, ticked once per version. */
+.connect-terms {
   display: grid;
-  gap: 16px;
+  justify-items: center;
+  padding-block: 72px 120px;
 }
-.consent-body p {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.55;
+.connect-terms-inner {
+  width: min(480px, 100%);
+  display: grid;
+  gap: 22px;
+}
+.connect-terms h1 {
+  font-size: clamp(36px, 5vw, 44px);
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+.connect-terms-check {
+  --checkbox-line: 21px;
+  font-size: 14px;
+  line-height: 21px;
   color: var(--secondary);
 }
-.consent-body p a {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.connect-terms .signin-github[aria-disabled="true"] {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+  filter: none;
 }

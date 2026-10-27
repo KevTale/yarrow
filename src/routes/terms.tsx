@@ -48,9 +48,11 @@ function Terms() {
           Every pull request we open for you ends with the card of the sponsors
           whose credit paid for it: their name, logo, description and website,
           labelled “Sponsored by”. The card is how the work stays free for you:
-          it is part of the service and cannot be removed. You accept it when
-          you connect a repository. We review sponsors&apos; cards; tell us if
-          one looks wrong.
+          it is part of the service and cannot be removed. You accept it, with
+          these terms, by ticking them before you connect GitHub. If the card is
+          removed or hidden from a pull request, we may stop handling that
+          project&apos;s tickets. We review sponsors&apos; cards; tell us if one
+          looks wrong.
         </li>
         <li>
           Pull requests are drafts, provided as is. You review them before

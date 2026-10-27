@@ -23,7 +23,8 @@
   height: max(18px, var(--checkbox-line));
   color: var(--control-glyph);
 }
-.input {
+/* Raised past the page's own checkbox rules. */
+.box > .input {
   position: absolute;
   inset: 0;
   width: 100%;

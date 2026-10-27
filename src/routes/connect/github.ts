@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { termsAccepted } from "@/db/events";
 import { projectsForUser } from "@/db/github-tasks";
 import { stateCookie, supabaseForRequest } from "@/server/auth-request.server";
 import { CONNECT_COOKIE, connectIntentSchema } from "@/server/connect.server";
@@ -6,8 +7,8 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 
 /**
- * "Connect GitHub" and "Get a pull request": sign in with GitHub, then install
- * the App on the repositories. Projects are created from the installation;
+ * "Connect GitHub" and "Get a pull request": sign in with GitHub, tick the
+ * Terms once (`/connect/terms`), then install the App on the repositories. Projects are created from the installation;
  * a repository that is already connected skips GitHub entirely. Jira
  * tickets start here too: their code lives on GitHub.
  */
@@ -28,6 +29,15 @@ export const Route = createFileRoute("/connect/github")({
         if (!data.user || !github)
           return auth.redirect(
             `/auth/github?next=${encodeURIComponent(url.pathname + url.search)}`,
+          );
+        // Before GitHub: the Terms, ticked once per version (the sponsors'
+        // card at the foot of every pull request is the price of free).
+        if (
+          databaseConfigured() &&
+          !(await withDb((db) => termsAccepted(db, data.user!.id)))
+        )
+          return auth.redirect(
+            `/connect/terms?next=${encodeURIComponent(url.pathname + url.search)}`,
           );
         const cookie = stateCookie(
           CONNECT_COOKIE,

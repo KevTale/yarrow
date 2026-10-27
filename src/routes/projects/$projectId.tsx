@@ -5,18 +5,19 @@ import {
   ArrowLeft,
   ArrowRight,
   Ban,
-  Check,
-  ChevronDown,
   ExternalLink,
   GitMerge,
   GitPullRequest,
   Github,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { MorphSelect } from "@/components/arc/morph-select/morph-select";
+import { MultiSelect } from "@/components/arc/multi-select/multi-select";
+import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
 import type { MoveEvent, TrackerStatus } from "@/core/tracker-moves";
 import { z } from "zod";
-import { capitalize, NotConfigured } from "@/components/ui";
+import { NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { JiraIcon } from "@/components/brand-icons";
 import {
@@ -353,6 +354,7 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
               <ArrowRight size={14} className="st-move-arrow" />
               {board ? (
                 <StatusSelect
+                  label={row.label}
                   statuses={board.statuses}
                   value={board.moves[row.event] ?? null}
                   onChange={(statusId) => void change(row.event, statusId)}
@@ -374,88 +376,46 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
   );
 }
 
-/** A Jira-like status lozenge, colored by its category. */
-function Lozenge({ status }: { status: TrackerStatus }) {
-  return <span className={`lozenge ${status.category}`}>{status.name}</span>;
-}
-
-/** The status a ticket moves to, or "Don't move". */
+/**
+ * The status a ticket moves to, or "Don't move": uiarc's morph select, each
+ * status marked with its category's color as in Jira.
+ */
 function StatusSelect({
+  label,
   statuses,
   value,
   onChange,
 }: {
+  label: string;
   statuses: TrackerStatus[];
   value: string | null;
   onChange: (statusId: string | null) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === "Escape"
-          : !root.current?.contains(event.target as Node)
-      )
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-  const current = statuses.find((status) => status.id === value);
-  const pick = (statusId: string | null) => {
-    setOpen(false);
-    if (statusId !== value) onChange(statusId);
-  };
+  const none = "\u0000none";
   return (
-    <div className="ss" ref={root}>
-      <button
-        type="button"
-        className="ss-button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {current ? (
-          <Lozenge status={current} />
-        ) : (
-          <span className="ss-none">Don't move</span>
-        )}
-        <ChevronDown size={14} className="jp-chevron" />
-      </button>
-      {open && (
-        <div className="jp-menu ss-menu" role="listbox">
-          <button
-            type="button"
-            role="option"
-            aria-selected={value === null}
-            className="ss-option"
-            onClick={() => pick(null)}
-          >
-            <span className="ss-none">Don't move</span>
-            {value === null && <Check size={14} className="ss-check" />}
-          </button>
-          {statuses.map((status) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={status.id === value}
-              className="ss-option"
-              key={status.id}
-              onClick={() => pick(status.id)}
-            >
-              <Lozenge status={status} />
-              {status.id === value && <Check size={14} className="ss-check" />}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="ss">
+      <MorphSelect
+        label={`${label}: Jira status`}
+        hideLabel
+        value={value ?? none}
+        onValueChange={(next) => {
+          const statusId = next === none ? null : next;
+          if (statusId !== value) onChange(statusId);
+        }}
+        items={[
+          { value: none, label: "Don't move" },
+          ...statuses.map((status) => ({
+            value: status.id,
+            label: status.name,
+            icon: (
+              <span
+                className={`ss-dot ${status.category}`}
+                aria-hidden="true"
+              />
+            ),
+          })),
+        ]}
+      />
     </div>
   );
 }
@@ -472,86 +432,32 @@ function JiraProjectPicker({
   selected: string[];
   onChange: (keys: string[]) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === "Escape"
-          : !root.current?.contains(event.target as Node)
-      )
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
   // "KAN · Démo" → key KAN, name Démo.
   const label = (option: { id: string; name: string }) =>
     option.name.startsWith(`${option.id} · `)
       ? option.name.slice(option.id.length + 3)
       : option.name;
-  const chosen = options.filter((option) => selected.includes(option.id));
+  // uiarc's multi select; no clear-all, each project unlinks on its own.
   return (
-    <div className="jp" ref={root}>
-      <button
-        type="button"
-        className="jp-button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {chosen.length === 0 ? (
-          <span className="muted">Choose Jira projects</span>
-        ) : (
-          chosen.map((option) => (
-            <span className="jp-tag" key={option.id}>
-              <b>{option.id}</b> {label(option)}
-            </span>
-          ))
-        )}
-        <ChevronDown size={14} className="jp-chevron" />
-      </button>
-      {open && (
-        <div className="jp-menu" role="listbox" aria-multiselectable="true">
-          {loading && <span className="jp-empty muted">Loading…</span>}
-          {!loading && options.length === 0 && (
-            <span className="jp-empty muted">No Jira project on this site</span>
-          )}
-          {!loading &&
-            options.map((option) => {
-              const on = selected.includes(option.id);
-              return (
-                <label
-                  className="jp-option"
-                  key={option.id}
-                  role="option"
-                  aria-selected={on}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() =>
-                      onChange(
-                        on
-                          ? selected.filter((key) => key !== option.id)
-                          : [...selected, option.id],
-                      )
-                    }
-                  />
-                  <b className="mono">{option.id}</b>
-                  <span>{label(option)}</span>
-                </label>
-              );
-            })}
-        </div>
-      )}
-    </div>
+    <MultiSelect
+      className="jp"
+      label="Jira projects"
+      hideLabel
+      clearable={false}
+      placeholder={
+        loading
+          ? "Loading…"
+          : options.length === 0
+            ? "No Jira project on this site"
+            : "Choose Jira projects"
+      }
+      options={options.map((option) => ({
+        value: option.id,
+        label: `${option.id} ${label(option)}`,
+      }))}
+      value={selected}
+      onValueChange={onChange}
+    />
   );
 }
 
@@ -587,22 +493,20 @@ function VisibilityChoice({
         Visibility
         <SavedState state={state} />
       </h2>
-      <div className="choice-list">
-        {visibilities.map((option) => (
-          <label className="choice-row" key={option.value}>
-            <input
-              type="radio"
-              name="visibility"
-              checked={value === option.value}
-              onChange={() => void choose(option.value)}
-            />
-            <span>
-              <strong>{capitalize(option.title)}</strong>
-              <small>{option.detail}</small>
-            </span>
-          </label>
-        ))}
-      </div>
+      {/* uiarc's radio cards: one ring glides to the choice. */}
+      <RadioCards
+        className="st-visibility"
+        aria-label="Visibility"
+        layout="list"
+        name="visibility"
+        value={value}
+        onValueChange={(next) => void choose(next as Visibility)}
+        options={visibilities.map((option) => ({
+          value: option.value,
+          label: option.title,
+          description: option.detail,
+        }))}
+      />
       <p className="st-note">
         Sponsors never see your code: only the AI providers process it, through
         their API, in a sandbox destroyed after each run.
