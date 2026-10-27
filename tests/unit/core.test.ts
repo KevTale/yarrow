@@ -24,8 +24,8 @@ import { planDispatch, type DispatchCandidate } from "../../src/core/queue";
 import { blockingComments, reviewBody } from "../../src/core/review";
 
 describe("pricing", () => {
-  it("takes 10% of the amount excluding VAT, 5% for founding sponsors", () => {
-    expect(marginCents(10_000, false)).toBe(1_000);
+  it("takes 7.5% of the amount excluding VAT, 5% for founding sponsors", () => {
+    expect(marginCents(10_000, false)).toBe(750);
     expect(marginCents(10_000, true)).toBe(500);
   });
   it("settles with the real Stripe fee and tax", () => {
@@ -40,8 +40,8 @@ describe("pricing", () => {
       amountCents: 10_000,
       taxCents: 0,
       feeCents: 320,
-      marginCents: 1_000,
-      creditCents: 8_680,
+      marginCents: 750,
+      creditCents: 8_930,
     });
     // A French consumer: $100 VAT-inclusive.
     expect(
@@ -51,15 +51,15 @@ describe("pricing", () => {
         feeCents: 320,
         founding: false,
       }),
-    ).toMatchObject({ marginCents: 833, creditCents: 7_180 });
+    ).toMatchObject({ marginCents: 625, creditCents: 7_388 });
   });
   it("estimates the brief's examples at checkout", () => {
-    expect(estimateBreakdown(10_000).creditCents).toBe(8_680);
+    expect(estimateBreakdown(10_000).creditCents).toBe(8_930);
     expect(estimateBreakdown(10_000, { vatRateBps: 2000 })).toMatchObject({
       taxCents: 1_667,
-      creditCents: 7_180,
+      creditCents: 7_388,
     });
-    expect(estimateBreakdown(1_000).creditCents).toBe(841);
+    expect(estimateBreakdown(1_000).creditCents).toBe(866);
   });
   it("never produces negative credit or accepts bad input", () => {
     expect(
@@ -331,18 +331,21 @@ describe("attribution", () => {
         "",
         "---",
         "",
-        `[![Paid for by Northwind on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/out/${sponsor})`,
+        `<a href="https://yarrow.run/out/${sponsor}"><picture><source media="(prefers-color-scheme: dark)" srcset="https://yarrow.run/pr-card/${id}?theme=light"><img alt="Sponsored by Northwind, powered by Yarrow" src="https://yarrow.run/pr-card/${id}?theme=dark"></picture></a>`,
       ].join("\n"),
     );
     // The card names them: no second line saying it again.
-    expect(alone).not.toContain("Sponsored by");
+    expect(alone).not.toContain("via [Yarrow]");
     const shared = pullRequestFooter({
       roles: defaultPipelineRoles,
       sponsors: [{ name: "Northwind", publicId: sponsor }, { name: null }],
       runUrl: `https://yarrow.run/runs/${id}`,
     });
     expect(shared).toContain(
-      `[![Paid for by Northwind and an anonymous sponsor on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/runs/${id})`,
+      `<a href="https://yarrow.run/runs/${id}"><picture>`,
+    );
+    expect(shared).toContain(
+      'alt="Sponsored by Northwind and an anonymous sponsor, powered by Yarrow"',
     );
     expect(assistedByTrailer(defaultPipelineRoles)).toBe(
       "Assisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
@@ -425,6 +428,28 @@ describe("pull request card", () => {
     expect(svg).toContain("acme.dev");
     expect(svg).toContain("+1 sponsor<");
     expect(svg).not.toContain("<Rockets>");
+    expect(svg).toContain("SPONSORED BY");
+    expect(svg).toContain("Powered by");
+  });
+  it("wraps a long description instead of cutting it, the card growing", () => {
+    const description =
+      "Managed Postgres with branching, point-in-time restore and a CLI people actually enjoy using every single day of the week.";
+    const short = prCardSvg({
+      sponsors: [{ name: "Acme", description: "Ships", site: null, logo: null }],
+    });
+    const long = prCardSvg({
+      sponsors: [{ name: "Acme", description, site: "acme.dev", logo: null }],
+      theme: "light",
+      links: { site: "https://acme.dev", yarrow: "https://yarrow.run" },
+    });
+    const height = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1]);
+    expect(long).not.toContain("…");
+    expect(long).toContain("enjoy");
+    expect(long).toContain("week.");
+    expect(height(long)).toBeGreaterThan(height(short));
+    expect(long).toContain('<a href="https://acme.dev" target="_blank">');
+    expect(long).toContain('<a href="https://yarrow.run" target="_blank">');
+    expect(long).toContain("#ffffff");
   });
   it("keeps only the site's host", () => {
     expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");

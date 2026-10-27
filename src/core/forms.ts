@@ -108,11 +108,14 @@ const optionalText = (max: number) =>
  */
 export const logoSchema = z.string().max(140_000).nullable().optional();
 
+/** A sponsor's description: printed whole on their pull request card. */
+export const DESCRIPTION_MAX = 160;
+
 /** What a sponsor shows on the boards. NULL publicName means anonymous. */
 export const sponsorProfileSchema = z.object({
   publicName: z.string().trim().min(2).max(60).nullable(),
   tagline: optionalText(80),
-  description: optionalText(280),
+  description: optionalText(DESCRIPTION_MAX),
   websiteUrl: z
     .union([z.literal(""), z.url({ protocol: /^https$/ }).max(300)])
     .nullable()

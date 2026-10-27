@@ -24,9 +24,18 @@ export function sponsorNames(sponsors: readonly RunSponsor[]): string | null {
   return parts.length > 0 ? list(parts) : null;
 }
 
+const escapeHtml = (text: string) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 /**
  * The card image at the foot of the pull request, served by the app next
- * to the run page: who paid, drawn as their row on the boards. It opens
+ * to the run page: who paid, drawn as their row on the boards, in the
+ * colors opposite to the reader's GitHub theme (light on dark, dark on
+ * light: GitHub picks the `<picture>` source). An image carries one link:
  * the sponsor's website (counted) when one named sponsor paid alone,
  * otherwise the run.
  */
@@ -45,7 +54,9 @@ export function sponsorCard(input: {
     only?.name && only.publicId
       ? `${origin}/out/${only.publicId}`
       : input.runUrl;
-  return `[![Paid for by ${names} on Yarrow](${origin}/pr-card/${runId})](${link})`;
+  const src = `${origin}/pr-card/${runId}`;
+  const alt = escapeHtml(`Sponsored by ${names}, powered by Yarrow`);
+  return `<a href="${link}"><picture><source media="(prefers-color-scheme: dark)" srcset="${src}?theme=light"><img alt="${alt}" src="${src}?theme=dark"></picture></a>`;
 }
 
 /**

@@ -6425,6 +6425,10 @@ a.tk-paid:hover b {
 .sb-where-button .short {
   display: none;
 }
+.sb-where-button svg {
+  flex: none;
+  opacity: 0.8;
+}
 .sb-claim-go {
   display: inline-flex;
   align-items: center;
@@ -6643,9 +6647,19 @@ a.sb-row-link:hover .sb-site {
   font-size: 15px;
 }
 .sb-form-row .fund-description {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   line-height: 1.4;
+}
+/* Under Claim: the pull requests the amount funds. */
+.sb-funds {
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  line-height: 1.4;
+  color: var(--amber);
+  white-space: nowrap;
 }
 .sb-form-row .fund-site {
   min-width: 8ch;
@@ -6726,7 +6740,7 @@ a.sb-row-link:hover .sb-site {
     inset 0 1px 0 #ffffff59,
     0 4px 14px #e6ae382e;
 }
-.sb-row-claim.below {
+.sb-claim-below {
   display: none;
 }
 .sb-form-row > .sb-error {
@@ -7295,12 +7309,20 @@ body:has(.sb-dialog[open]) {
   .sb-form-row .sb-you {
     display: none;
   }
-  .sb-row-claim.below {
-    display: inline-flex;
+  .sb-claim-below {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
     grid-column: 1 / -1;
+    margin-top: 4px;
+  }
+  .sb-row-claim.below {
+    width: 100%;
     justify-content: center;
     height: 38px;
-    margin-top: 4px;
+  }
+  .sb-line > .sb-funds {
+    display: none;
   }
   .sb-form-row > .sb-error {
     grid-column: 1 / -1;

@@ -3,14 +3,15 @@ import { useRouter } from "@tanstack/react-router";
 import {
   ArrowRight,
   GitMerge,
-  GitPullRequest,
+  Info,
   LockKeyhole,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { prCardSvg, shortSite, type PrCardSponsor } from "@/core/pr-card";
-import { estimateBreakdown } from "@/core/pricing";
+import { DESCRIPTION_MAX } from "@/core/forms";
+import { estimateBreakdown, pullRequestsFor } from "@/core/pricing";
 import type { BoardViewer } from "@/db/sponsors";
 import {
   saveSponsorProfileFn,
@@ -112,6 +113,8 @@ function useClaim(
   const fees = valid
     ? estimateBreakdown(cents, { vatRateBps: 0, founding })
     : null;
+  // The pull requests the compute funds, at about $2.50 each.
+  const prs = fees ? pullRequestsFor(fees.creditCents) : null;
 
   /** The card as the profile it saves, or an error to show. */
   function profileOf(next: CardValue) {
@@ -146,6 +149,7 @@ function useClaim(
     boards,
     label,
     fees,
+    prs,
     founding,
     profileOf,
   };
@@ -620,15 +624,18 @@ function FormRow({
           />
           {claimButton("inline")}
         </span>
-        <input
-          className="fund-input fund-description"
-          maxLength={280}
-          placeholder="What you do, in a sentence"
-          aria-label="Description (optional)"
-          value={card.description}
-          onChange={change("description")}
-          onBlur={() => void saver.commit()}
-        />
+        <span className="sb-line">
+          <input
+            className="fund-input fund-description"
+            maxLength={DESCRIPTION_MAX}
+            placeholder="What you do, in a sentence"
+            aria-label="Description (optional)"
+            value={card.description}
+            onChange={change("description")}
+            onBlur={() => void saver.commit()}
+          />
+          <Funds prs={claim.prs} />
+        </span>
         <span className="sb-line">
           <input
             className="fund-input fund-site"
@@ -646,7 +653,10 @@ function FormRow({
         </span>
       </span>
       {/* On phones Claim takes the whole width, under the card. */}
-      {claimButton("below")}
+      <span className="sb-claim-below">
+        {claimButton("below")}
+        <Funds prs={claim.prs} />
+      </span>
       {saver.error && (
         <p className="sb-error" role="alert">
           {saver.error}
@@ -654,6 +664,11 @@ function FormRow({
       )}
     </div>
   );
+}
+
+/** Under Claim: the pull requests the amount funds. */
+function Funds({ prs }: { prs: number | null }) {
+  return <small className="sb-funds">{prs ? `funds ≈${prs} PRs` : ""}</small>;
 }
 
 /** The place, the same plain figure for every row. */
@@ -722,7 +737,18 @@ function PrCardPreview({ sponsor }: { sponsor: PrCardSponsor }) {
     <span
       className="sb-prcard"
       // Our own SVG, every text escaped by prCardSvg.
-      dangerouslySetInnerHTML={{ __html: prCardSvg({ sponsors: [sponsor] }) }}
+      dangerouslySetInnerHTML={{
+        __html: prCardSvg({
+          sponsors: [sponsor],
+          // Light on the pull request drawn in GitHub's dark theme: the
+          // card takes the colors opposite to the page, as on GitHub.
+          theme: "light",
+          links: {
+            site: sponsor.site ? `https://${sponsor.site}` : null,
+            yarrow: "/",
+          },
+        }),
+      }}
     />
   );
 }
@@ -888,9 +914,11 @@ function WhereItShows({
         className="sb-where-button"
         onClick={() => setOpen(true)}
       >
-        <GitPullRequest size={14} />
-        <span className="long">See your name in a pull request</span>
-        <span className="short">Your name in a PR</span>
+        <span className="long">
+          Get your company name on every pull request you fund
+        </span>
+        <span className="short">Your name on every PR you fund</span>
+        <Info size={15} aria-hidden="true" />
       </button>
       <Modal open={open} onClose={close} labelledBy="sb-where-title" wide>
         <div className="sb-dialog-body">
@@ -991,11 +1019,16 @@ function ClaimDialog({
   return (
     <Modal open={open} onClose={onClose} labelledBy="sb-dialog-title" wide>
       <div className="sb-dialog-body">
-        <ModalHead id="sb-dialog-title" title={claim.label} onClose={onClose} />
+        <ModalHead
+          id="sb-dialog-title"
+          title={
+            claim.prs
+              ? `Get your company name on ≈${claim.prs} ${claim.prs === 1 ? "pull request" : "pull requests"}`
+              : claim.label
+          }
+          onClose={onClose}
+        />
         <div className="sb-dialog-preview">
-          <span className="sb-dialog-label">
-            Your card, at the foot of every pull request you fund
-          </span>
           <PrMock sponsor={typedSponsor(card)} compact />
         </div>
         <dl className="sb-dialog-lines">

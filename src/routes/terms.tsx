@@ -67,7 +67,7 @@ function Terms() {
           number are reverse-charged. An invoice is issued for every payment.
         </li>
         <li>
-          From each payment we deduct card fees and our margin (10%, 5% for
+          From each payment we deduct card fees and our margin (7.5%, 5% for
           founding sponsors); the rest becomes compute credit, spent at cost on
           the tickets in the queue.
         </li>

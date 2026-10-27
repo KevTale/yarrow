@@ -2,7 +2,7 @@
  * Money rules from the brief. All amounts are integer USD cents.
  * credit = amount paid excluding VAT − actual Stripe fee − platform margin.
  */
-export const PLATFORM_MARGIN_BPS = 1000; // 10% (hypothesis)
+export const PLATFORM_MARGIN_BPS = 750; // 7.5% (hypothesis, lowered from 10% on 2026-10-09)
 export const FOUNDING_MARGIN_BPS = 500; // Founding sponsors, for life (hypothesis)
 
 /** Display-only estimate of a US card fee. Settlement uses the real fee. */
@@ -76,4 +76,13 @@ export function estimateBreakdown(
     feeCents,
     founding: options.founding ?? false,
   });
+}
+
+/** What a pull request costs in compute, about (hypothesis, 2026-10-09). */
+export const PULL_REQUEST_COST_CENTS = 250;
+
+/** About how many pull requests a compute credit funds; one at least. */
+export function pullRequestsFor(creditCents: number): number {
+  cents(creditCents, "credit");
+  return Math.max(1, Math.round(creditCents / PULL_REQUEST_COST_CENTS));
 }

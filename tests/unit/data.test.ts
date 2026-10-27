@@ -169,8 +169,8 @@ describe("Stripe contributions", () => {
     expect(row).toMatchObject({
       paymentStatus: "settled",
       feeCents: 175,
-      marginCents: 1_000,
-      creditCents: 8_825,
+      marginCents: 750,
+      creditCents: 9_075,
     });
     expect(
       await settleStripeContribution(db, {
