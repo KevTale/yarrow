@@ -335,13 +335,16 @@ export const contributions = pgTable(
 
 /**
  * Direct credit added to a sponsor every UTC day by the brain's cron: the
- * founder's own projects, funded as sponsors without Stripe fees.
+ * founder's own projects, funded as sponsors without Stripe fees. Managed
+ * from the admin Worker.
  */
 export const dailyFundings = pgTable(
   "daily_fundings",
   {
     userId: uuid("user_id").primaryKey(),
     amountCents: integer("amount_cents").notNull(),
+    // Paused fundings are skipped by the cron; the sponsor row stays.
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [check("daily_funding_positive", sql`${t.amountCents} > 0`)],

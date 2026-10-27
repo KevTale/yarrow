@@ -124,6 +124,15 @@ export const sponsorProfileSchema = z.object({
 });
 export type SponsorProfile = z.infer<typeof sponsorProfileSchema>;
 
+/** A sponsor the founder funds every day, as the admin edits it. */
+export const dailyFundingSchema = z.object({
+  profile: sponsorProfileSchema.extend({
+    publicName: z.string().trim().min(2).max(60),
+  }),
+  amountCents: z.number().int().min(100).max(1_000_000),
+});
+export type DailyFundingInput = z.input<typeof dailyFundingSchema>;
+
 export const checkoutSchema = z.object({
   amountCents: amountCentsSchema,
   profile: sponsorProfileSchema,

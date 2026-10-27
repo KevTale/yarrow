@@ -1,0 +1,64 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // The admin: daily fundings for now. Behind Cloudflare Access (team
+  // aged-lake-dc6c, one application per domain, the founder's email only);
+  // the Worker checks Access's signature too. No secret: it reads and
+  // writes through the brain's `Admin` entrypoint.
+  // Top level: `pnpm admin:dev` on this machine, next to `pnpm brain:dev`.
+  "name": "yarrow-admin-local",
+  "main": "./admin.ts",
+  "compatibility_date": "2026-10-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "services": [
+    {
+      "binding": "BRAIN",
+      "service": "yarrow-brain-local",
+      "entrypoint": "Admin",
+    },
+  ],
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    "ADMIN_EMAIL": "kevin.taleb.dehkordi@gmail.com",
+  },
+  "observability": { "enabled": true },
+  "env": {
+    "dev": {
+      "name": "yarrow-admin-dev",
+      "routes": [{ "pattern": "admin-dev.yarrow.run", "custom_domain": true }],
+      "workers_dev": false,
+      "preview_urls": false,
+      "services": [
+        {
+          "binding": "BRAIN",
+          "service": "yarrow-brain-dev",
+          "entrypoint": "Admin",
+        },
+      ],
+      "vars": {
+        "APP_URL": "https://dev.yarrow.run",
+        "ADMIN_EMAIL": "kevin.taleb.dehkordi@gmail.com",
+        "ACCESS_TEAM_DOMAIN": "aged-lake-dc6c.cloudflareaccess.com",
+        "ACCESS_AUD": "baa4e15b1818590e5be48b4835f81b113958c71732e9ff57d2e51cdbce8d2a4e",
+      },
+    },
+    "production": {
+      "name": "yarrow-admin",
+      "routes": [{ "pattern": "admin.yarrow.run", "custom_domain": true }],
+      "workers_dev": false,
+      "preview_urls": false,
+      "services": [
+        {
+          "binding": "BRAIN",
+          "service": "yarrow-brain",
+          "entrypoint": "Admin",
+        },
+      ],
+      "vars": {
+        "APP_URL": "https://yarrow.run",
+        "ADMIN_EMAIL": "kevin.taleb.dehkordi@gmail.com",
+        "ACCESS_TEAM_DOMAIN": "aged-lake-dc6c.cloudflareaccess.com",
+        "ACCESS_AUD": "dba1fcad596b575f88241c93c86f74d4e7dac529c911344b1de18d5f11a70fbd",
+      },
+    },
+  },
+}

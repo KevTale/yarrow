@@ -1,0 +1,1 @@
+ALTER TABLE "daily_fundings" ADD COLUMN "paused_at" timestamp with time zone;

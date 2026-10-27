@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import { settleBreakdown } from "../core/pricing";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -158,7 +158,10 @@ export async function fundDaily(
   const day = startOfUtcDay(now);
   const key = (userId: string) =>
     `daily:${userId}:${day.toISOString().slice(0, 10)}`;
-  const fundings = await db.select().from(dailyFundings);
+  const fundings = await db
+    .select()
+    .from(dailyFundings)
+    .where(isNull(dailyFundings.pausedAt));
   const credited: string[] = [];
   for (const funding of fundings) {
     const done = await db.transaction(async (tx) => {

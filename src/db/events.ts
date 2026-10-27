@@ -9,6 +9,7 @@ export type EventType =
   | "account.created"
   | "account.deleted"
   | "account.email_changed"
+  | "admin.daily_funding_saved"
   | "builder.terms_accepted"
   | "project.created"
   | "project.updated"

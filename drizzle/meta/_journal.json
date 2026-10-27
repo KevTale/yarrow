@@ -99,6 +99,13 @@
       "when": 1791641471129,
       "tag": "0013_daily_fundings",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791643002029,
+      "tag": "0014_daily_funding_pause",
+      "breakpoints": true
     }
   ]
 }

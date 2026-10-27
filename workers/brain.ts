@@ -24,6 +24,13 @@ import {
 } from "../src/core/review";
 import { eq, sql } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
+import {
+  createDailyFunding,
+  listDailyFundings,
+  pauseDailyFunding,
+  updateDailyFunding,
+  type DailyFundingInput,
+} from "../src/db/admin";
 import { fundDaily } from "../src/db/contributions";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
@@ -698,6 +705,25 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
         console.warn("kick", describe(error)),
       ),
     );
+  }
+}
+
+/**
+ * The admin Worker's only way to the database, through a service binding
+ * (never over HTTP): it holds no secret, the brain does the writes.
+ */
+export class Admin extends WorkerEntrypoint<BrainEnv> {
+  dailyFundings() {
+    return withDb(this.env, (db) => listDailyFundings(db));
+  }
+  createDailyFunding(input: DailyFundingInput) {
+    return withDb(this.env, (db) => createDailyFunding(db, input));
+  }
+  updateDailyFunding(userId: string, input: DailyFundingInput) {
+    return withDb(this.env, (db) => updateDailyFunding(db, userId, input));
+  }
+  pauseDailyFunding(userId: string, paused: boolean) {
+    return withDb(this.env, (db) => pauseDailyFunding(db, userId, paused));
   }
 }
 
