@@ -6141,10 +6141,13 @@ button.st-back {
 .tk-live-label {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--secondary);
+}
+.tk-live-label .live-dot {
+  margin-right: 0;
 }
 .tk-totals {
   display: flex;
@@ -6453,13 +6456,31 @@ a.tk-paid:hover b {
 .sb-board {
   width: min(720px, 100%);
 }
-/* Today and All time, two tabs, each with its total. */
+/* Today and All time, each with its total: a hairline frame, a raised
+   thumb gliding to the chosen tab, the label's color following it. */
 .sb-tabs {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
+  gap: 2px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
+}
+.sb-tabs-thumb {
+  position: absolute;
+  z-index: -1;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border: 1px solid #2f333a;
+  border-radius: 7px;
+  background: var(--elevated);
+  box-shadow: 0 1px 2px #00000059;
+  transition:
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sb-tabs button {
   display: inline-flex;
@@ -6474,18 +6495,22 @@ a.tk-paid:hover b {
   font: inherit;
   font-size: 13.5px;
   line-height: 32px;
+  white-space: nowrap;
   cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.sb-tabs button:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .sb-tabs button:hover {
+    color: var(--text);
+  }
 }
 .sb-tabs button[aria-selected="true"] {
-  background: var(--elevated);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px #f2b54459;
+}
+.sb-tabs button:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
 }
 .sb-tabs span {
   font:
@@ -6496,6 +6521,11 @@ a.tk-paid:hover b {
 }
 .sb-tabs button[aria-selected="true"] span {
   color: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-tabs-thumb {
+    transition: none;
+  }
 }
 .sb-claim-go {
   display: inline-flex;
@@ -6689,7 +6719,7 @@ a.sb-row-link:hover .sb-site {
   padding-block: 10px;
 }
 .sb-form-row .logo-picker .board-logo.large {
-  border: 1px dashed #f2b54480;
+  border: 1px dashed #454a52;
 }
 .sb-form-row .fund-input {
   padding: 0;
@@ -6717,54 +6747,70 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .fund-site {
   min-width: 8ch;
 }
-/* The amount, where every amount prints, on a tinted field: no border
-   inside the card's border, the fill says it can be typed in. */
+/* The amount, where every amount prints, in a hairline shell: − and + as
+   quiet steps, the dollar sign as a gray affix, focus answered by the
+   border alone. */
 .sb-amount-field {
   display: inline-flex;
   align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid #2f333a;
   border-radius: 8px;
-  background: #f2b54421;
-  color: var(--amber);
+  background: var(--surface);
+  color: var(--text);
   transition:
-    background 0.15s,
-    box-shadow 0.15s;
+    border-color 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.16s;
 }
 .sb-amount-field label {
   display: inline-flex;
   align-items: baseline;
+  padding: 0 5px;
+  color: var(--secondary);
   cursor: text;
 }
 .sb-step {
   display: grid;
   place-items: center;
   width: 24px;
-  height: 26px;
+  height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 4px;
   background: none;
-  color: var(--amber);
+  color: var(--secondary);
   font:
-    500 16px var(--font-geist-sans),
+    500 15px var(--font-geist-sans),
     sans-serif;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background 0.16s,
+    color 0.16s;
 }
-.sb-step:hover:not(:disabled) {
-  background: #f2b54433;
+@media (hover: hover) and (pointer: fine) {
+  .sb-step:hover:not(:disabled) {
+    background: var(--elevated);
+    color: var(--text);
+  }
+}
+.sb-step:active:not(:disabled) {
+  background: #ffffff1a;
+  color: var(--text);
+  transition: none;
 }
 .sb-step:disabled {
-  color: #f2b54459;
-  cursor: default;
+  opacity: 0.35;
+  cursor: not-allowed;
 }
-.sb-amount-field:hover {
-  background: #f2b54433;
+@media (hover: hover) and (pointer: fine) {
+  .sb-amount-field:hover {
+    border-color: #3a3e45;
+  }
 }
 .sb-amount-field:focus-within {
-  background: #f2b54433;
-  box-shadow: inset 0 -2px 0 var(--amber);
+  border-color: var(--amber);
 }
 .sb-amount-field input {
   min-width: 2ch;
@@ -6814,37 +6860,27 @@ a.sb-row-link:hover .sb-site {
   border-color: #f2b5448c;
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 16px 40px #00000052;
+  box-shadow: 0 8px 24px #00000040;
 }
-/* The open place: amber light sweeping across, a dashed tile with a plus,
-   the placeholders in amber. */
+/* The open place: a quiet card, hairline and surface, no light sweep; its
+   amber on the tile's plus and on Claim, the border warming on hover and
+   while the row is used. */
 .sb-row.you.ghost {
   margin-block: 4px;
-  border-color: #f2b54466;
+  border-color: #f2b54440;
   border-radius: 12px;
-  background: linear-gradient(
-      110deg,
-      #f2b5440d 30%,
-      #f2b5442e 48%,
-      #f2b5440d 66%
-    )
-    0 0 / 300% 100%;
-  animation: sb-open-place 5s ease-in-out infinite;
+  background: var(--surface);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sb-row.you.ghost:hover {
+    border-color: #f2b54473;
+  }
 }
 .sb-row.you.ghost.engaged {
   border-color: #f2b544b3;
 }
-@keyframes sb-open-place {
-  0%,
-  30% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0 0;
-  }
-}
 .sb-row.you.ghost .logo-picker .board-logo.large {
-  background: #f2b5441a;
+  background: transparent;
   color: var(--amber);
   font-size: 20px;
   font-weight: 400;
@@ -6854,10 +6890,10 @@ a.sb-row-link:hover .sb-site {
   display: none;
 }
 .sb-row.you.ghost .fund-name::placeholder {
-  color: #f2c86b;
+  color: var(--secondary);
 }
 .sb-row.you.ghost .fund-input::placeholder {
-  color: #a08a5c;
+  color: #6b717c;
 }
 .sb-error {
   margin: 0;

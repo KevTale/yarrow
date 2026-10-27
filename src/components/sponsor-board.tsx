@@ -6,7 +6,13 @@ import {
   LockKeyhole,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { prCardSvg, shortSite, type PrCardSponsor } from "@/core/pr-card";
 import { DESCRIPTION_MAX } from "@/core/forms";
@@ -319,7 +325,11 @@ export function SponsorBoard({
   );
 }
 
-/** Today or All time, each with its total: the other board says what it holds. */
+/**
+ * Today or All time, each with its total: the other board says what it
+ * holds. A segmented control: a raised thumb glides to the chosen tab,
+ * measured, since the totals size the tabs.
+ */
 function PeriodTabs({
   boards,
   period,
@@ -329,8 +339,30 @@ function PeriodTabs({
   period: Period;
   onChange: (period: Period) => void;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const list = root.current;
+    if (!list) return;
+    const measure = () => {
+      const tab = list.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (tab) setThumb({ x: tab.offsetLeft, w: tab.offsetWidth });
+    };
+    measure();
+    // The totals change the tabs' width.
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [period]);
   return (
-    <div className="sb-tabs" role="tablist" aria-label="Period">
+    <div className="sb-tabs" role="tablist" aria-label="Period" ref={root}>
+      {thumb && (
+        <span
+          className="sb-tabs-thumb"
+          aria-hidden="true"
+          style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }}
+        />
+      )}
       {boards.map((item) => (
         <button
           key={item.period}

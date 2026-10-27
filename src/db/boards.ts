@@ -315,8 +315,11 @@ export function liveRecent(db: Database, limit = 12): Promise<LiveRow[]> {
   return liveFeed(db, null, limit);
 }
 
-/** What the platform did so far: tickets at work now, merged PRs ever. */
-export async function platformTotals(db: Database) {
+/**
+ * What the platform did so far: tickets at work now, merged PRs today
+ * (since midnight UTC, as the boards' Today) and ever.
+ */
+export async function platformTotals(db: Database, now = new Date()) {
   const [running] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(agentRuns)
@@ -329,7 +332,23 @@ export async function platformTotals(db: Database) {
     .innerJoin(workUnits, eq(workUnits.id, pullRequests.workUnitId))
     .innerJoin(projects, eq(projects.id, workUnits.projectId))
     .where(and(eq(pullRequests.state, "merged"), listed));
-  return { inProgress: running?.count ?? 0, merged: merged?.count ?? 0 };
+  const [today] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(pullRequests)
+    .innerJoin(workUnits, eq(workUnits.id, pullRequests.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(
+      and(
+        eq(pullRequests.state, "merged"),
+        gte(pullRequests.closedAt, startOfUtcDay(now)),
+        listed,
+      ),
+    );
+  return {
+    inProgress: running?.count ?? 0,
+    merged: merged?.count ?? 0,
+    mergedToday: today?.count ?? 0,
+  };
 }
 
 async function liveFeed(
@@ -442,7 +461,9 @@ async function liveFeed(
         .limit(1);
       const isPublic = open(pull.visibility);
       return {
-        key: pull.url,
+        // The run's key, kept from the row at work: the landing's card
+        // changes in place instead of being replaced.
+        key: run?.id ?? pull.url,
         status,
         title: isPublic ? bareTitle(pull.title, pull.issue) : null,
         project: pull.repository,

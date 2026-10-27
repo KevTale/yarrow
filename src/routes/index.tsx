@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
 const empty = {
   sponsors: { today: [], all: [] },
   live: [],
-  totals: { inProgress: 0, merged: 0 },
+  totals: { inProgress: 0, merged: 0, mergedToday: 0 },
   you: null,
 };
 

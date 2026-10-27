@@ -38,6 +38,10 @@ function Status({ row }: { row: LiveRow }) {
 /** Cards shown: the latest few, whole. */
 const SHOWN = 4;
 
+/** "merged PR" or "merged PRs", without the number. */
+const mergedPRs = (n: number) =>
+  plural(n, "merged PR").replace(/^[\d,]+ /, "");
+
 /**
  * The latest tickets as a short column of cards under a "Live" line that
  * carries the platform's totals. Nothing moves on its own: a new ticket
@@ -51,7 +55,7 @@ export function TicketStack({
   sponsors,
 }: {
   live: LiveRow[];
-  totals: { inProgress: number; merged: number };
+  totals: { inProgress: number; merged: number; mergedToday: number };
   /** The boards' sponsors, for their logos. */
   sponsors: SponsorRow[];
 }) {
@@ -70,7 +74,7 @@ export function TicketStack({
       <p className="tk-live">
         <span className="tk-live-label">
           <span className="live-dot" aria-hidden="true" />
-          Live
+          Live tickets
         </span>
         <span className="tk-totals">
           {totals.inProgress > 0 && (
@@ -78,10 +82,18 @@ export function TicketStack({
               <b>{totals.inProgress}</b> in progress
             </span>
           )}
-          <span>
-            <b>{totals.merged.toLocaleString("en-US")}</b>{" "}
-            {plural(totals.merged, "merged PR").replace(/^[\d,]+ /, "")}
-          </span>
+          {/* Today's merges once there is one (recency is the live
+              signal); the all-time count fills the quiet hours. */}
+          {totals.mergedToday > 0 ? (
+            <span>
+              <b>{totals.mergedToday}</b> {mergedPRs(totals.mergedToday)} today
+            </span>
+          ) : (
+            <span>
+              <b>{totals.merged.toLocaleString("en-US")}</b>{" "}
+              {mergedPRs(totals.merged)}
+            </span>
+          )}
         </span>
       </p>
       <ol className="tk-list" ref={list}>
