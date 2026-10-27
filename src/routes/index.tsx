@@ -26,7 +26,6 @@ const empty = {
   sponsors: { today: [], all: [] },
   live: [],
   totals: { inProgress: 0, merged: 0 },
-  averageRunCents: null,
   you: null,
 };
 
@@ -80,7 +79,6 @@ function Landing() {
           today={boards.sponsors.today}
           all={boards.sponsors.all}
           you={boards.you}
-          averageRunCents={boards.averageRunCents}
           startEditing={edit === true}
         />
       </div>
