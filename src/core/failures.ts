@@ -1,8 +1,14 @@
 import type { AbstentionReason } from "./contracts";
 
+/**
+ * The message as thrown, without the error's name that Workflows puts in
+ * front of it ("NonRetryableError: GitHub POST …").
+ */
+const bare = (message: string) => message.replace(/^[A-Za-z]*Error: /, "");
+
 /** "GitHub POST /repos/acme/app/git/trees failed (403): {…}" → 403. */
 function githubStatus(message: string): number | null {
-  const match = /^GitHub [A-Z]+ \S+ failed \((\d{3})\)/.exec(message);
+  const match = /^GitHub [A-Z]+ \S+ failed \((\d{3})\)/.exec(bare(message));
   return match ? Number(match[1]) : null;
 }
 
@@ -41,8 +47,8 @@ export function describeFailure(
       summary:
         "GitHub refused the change: the repository or the branch is out of the Yarrow app's reach.",
     };
-  if (/^(Anthropic|OpenAI) /.test(message))
-    return { reason: "provider_error", summary: message };
+  if (/^(Anthropic|OpenAI) /.test(bare(message)))
+    return { reason: "provider_error", summary: bare(message) };
   return {
     reason: "platform_error",
     summary:

@@ -27,6 +27,14 @@
       "name": "yarrow-web-dev",
       "routes": [{ "pattern": "dev.yarrow.run", "custom_domain": true }],
       "workers_dev": false,
+      // The brain's private `kick`: a queued ticket starts in seconds.
+      "services": [
+        {
+          "binding": "BRAIN",
+          "service": "yarrow-brain-dev",
+          "entrypoint": "Brain",
+        },
+      ],
       "vars": {
         "APP_URL": "https://dev.yarrow.run",
         "SUPABASE_URL": "https://pporkihcsomdpycmmsvn.supabase.co",
@@ -40,6 +48,13 @@
       "name": "yarrow-web",
       "routes": [{ "pattern": "yarrow.run", "custom_domain": true }],
       "workers_dev": false,
+      "services": [
+        {
+          "binding": "BRAIN",
+          "service": "yarrow-brain",
+          "entrypoint": "Brain",
+        },
+      ],
       "vars": {
         "APP_URL": "https://yarrow.run",
         "SUPABASE_URL": "https://uuqadmeppxjomigsrqbi.supabase.co",

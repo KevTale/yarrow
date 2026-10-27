@@ -487,6 +487,12 @@ describe("run failures", () => {
     expect(describeFailure(refused, ["deno.json"]).summary).toContain(
       "missing a permission",
     );
+    // As Workflows hands it back, the error's name in front.
+    expect(
+      describeFailure(`NonRetryableError: ${refused}`, [
+        ".github/workflows/check.yml",
+      ]).reason,
+    ).toBe("github_refused");
   });
   it("never retries a GitHub refusal, only the rest", () => {
     expect(isGithubRefusal(refused)).toBe(true);

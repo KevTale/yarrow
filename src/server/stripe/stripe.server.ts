@@ -1,3 +1,4 @@
+import { kickBrain } from "@/server/brain.server";
 import Stripe from "stripe";
 import type { Database } from "@/db/client";
 import {
@@ -119,6 +120,8 @@ export async function handleStripeWebhook(
       if (!settlement) return "checkout not paid yet";
       const found = await settleStripeContribution(db, settlement);
       if (!found) return "unknown checkout session";
+      // New money: waiting tickets start now.
+      await kickBrain();
       const email = session.customer_details?.email;
       if (!email) return "contribution settled";
       // The payment stands either way; the email only thanks and signs in.

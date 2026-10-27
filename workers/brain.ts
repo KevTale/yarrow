@@ -1,4 +1,5 @@
 import {
+  WorkerEntrypoint,
   WorkflowEntrypoint,
   type WorkflowEvent,
   type WorkflowStep,
@@ -21,7 +22,7 @@ import {
   type Review,
   type StoredReview,
 } from "../src/core/review";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
@@ -614,6 +615,91 @@ cause: ${cause.message}`
     : String(error);
 }
 
+/** Postgres advisory lock keys: one pass of each at a time. */
+const LOCK = { tasks: 7_310_001, dispatch: 7_310_002 } as const;
+
+/**
+ * Runs `work` only if no other pass holds `key`, on a connection of its own
+ * (the work keeps its own connections). Null when another pass holds it.
+ */
+async function alone<T>(
+  env: BrainEnv,
+  key: number,
+  work: () => Promise<T>,
+): Promise<T | null> {
+  if (!env.DATABASE_URL) return work();
+  const lock = connectDatabase(env.DATABASE_URL);
+  try {
+    return await lock.db.transaction(async (tx) => {
+      const [row] = await tx.execute<{ ok: boolean }>(
+        sql`select pg_try_advisory_xact_lock(${key}) as ok`,
+      );
+      return row?.ok ? work() : null;
+    });
+  } finally {
+    await lock.close();
+  }
+}
+
+/**
+ * The same pass, a few seconds later if another one holds the lock: a
+ * ticket queued while a pass was already past its reading must not wait
+ * for the next minute.
+ */
+async function soon<T>(
+  env: BrainEnv,
+  key: number,
+  work: () => Promise<T>,
+  tries = 4,
+): Promise<T | null> {
+  for (let i = 0; i < tries; i++) {
+    const result = await alone(env, key, work);
+    if (result !== null) return result;
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+  return null;
+}
+
+/**
+ * One pass: GitHub's labels first (labeling queues an issue through the
+ * webhook, which kicks again), then the queue. Run every minute by the cron
+ * and at once by the web Worker when a ticket is queued or money arrives.
+ */
+async function tick(env: BrainEnv, wait: boolean): Promise<void> {
+  const run = wait ? soon : alone;
+  if (env.DATABASE_URL && env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY) {
+    const credentials = {
+      appId: env.GITHUB_APP_ID,
+      privateKey: env.GITHUB_APP_PRIVATE_KEY,
+    };
+    const log = await run(env, LOCK.tasks, () =>
+      withDb(env, (db) => runGithubTasks(db, credentials)),
+    ).catch((error) => [describe(error)]);
+    if (log?.length) console.log("github tasks", log);
+  }
+  console.log(
+    "dispatch",
+    (await run(env, LOCK.dispatch, () => dispatch(env)).catch((error) => [
+      describe(error),
+    ])) ?? ["another pass is dispatching"],
+  );
+}
+
+/**
+ * Reached by the web Worker through a service binding, never over HTTP:
+ * a ticket was queued or money arrived, so the pass runs now instead of
+ * at the next minute. Returns at once; the pass goes on after.
+ */
+export class Brain extends WorkerEntrypoint<BrainEnv> {
+  async kick(): Promise<void> {
+    this.ctx.waitUntil(
+      tick(this.env, true).catch((error) =>
+        console.warn("kick", describe(error)),
+      ),
+    );
+  }
+}
+
 export default {
   fetch() {
     return Response.json({ service: "yarrow-brain", status: "ok" });
@@ -625,24 +711,8 @@ export default {
   ) {
     ctx.waitUntil(
       (async () => {
-        console.log(
-          "dispatch",
-          await dispatch(env).catch((error) => [describe(error)]),
-        );
-        if (
-          env.DATABASE_URL &&
-          env.GITHUB_APP_ID &&
-          env.GITHUB_APP_PRIVATE_KEY
-        ) {
-          const credentials = {
-            appId: env.GITHUB_APP_ID,
-            privateKey: env.GITHUB_APP_PRIVATE_KEY,
-          };
-          const log = await withDb(env, (db) =>
-            runGithubTasks(db, credentials),
-          ).catch((error) => [describe(error)]);
-          if (log.length > 0) console.log("github tasks", log);
-        }
+        // The minute's pass is the safety net: a kick may be running.
+        await tick(env, false);
         if (
           new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0 &&
           env.DATABASE_URL

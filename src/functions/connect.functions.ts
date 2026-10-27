@@ -4,6 +4,7 @@ import { z } from "zod";
 import { jiraKeyPattern } from "@/core/ticket-link";
 import { requestTicket } from "@/db/github-tasks";
 import { getViewer, requireViewer } from "@/server/auth.server";
+import { kickBrain } from "@/server/brain.server";
 import { CONNECT_COOKIE, readIntent } from "@/server/connect.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import {
@@ -54,6 +55,7 @@ export const settleConnectFn = createServerFn({ method: "POST" })
       });
       if (settled && "queued" in settled) {
         forget();
+        await kickBrain();
         return { ...none, queued: settled.queued };
       }
       return { ...none, jira: settled?.step ?? null };
@@ -68,6 +70,7 @@ export const settleConnectFn = createServerFn({ method: "POST" })
     );
     if (!projectId) return { ...none, waiting: repository };
     forget();
+    await kickBrain();
     return { ...none, queued: { projectId, key: String(issue) } };
   });
 
@@ -110,6 +113,7 @@ export const linkJiraFn = createServerFn({ method: "POST" })
       linkJiraProject(db, trackerContext(), viewer.userId, data),
     );
     forget();
+    if (data.ticket) await kickBrain();
     return linked;
   });
 

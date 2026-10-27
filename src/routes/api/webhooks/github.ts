@@ -5,6 +5,7 @@ import { verifyGitHubSignature } from "@/server/github/app";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { pullRequests } from "@/db/schema";
+import { kickBrain } from "@/server/brain.server";
 import { handleGitHubEvent, type GitHubPayload } from "@/server/github/webhook";
 import { moveTrackerTicket, trackerContext } from "@/server/jira.server";
 
@@ -14,9 +15,12 @@ async function moveMergedTicket(db: Database, url: string) {
     .from(pullRequests)
     .where(eq(pullRequests.url, url));
   if (pull)
-    await moveTrackerTicket(db, trackerContext(), pull.workUnitId, "merged").catch(
-      (error: Error) => console.warn("move merged:", error.message),
-    );
+    await moveTrackerTicket(
+      db,
+      trackerContext(),
+      pull.workUnitId,
+      "merged",
+    ).catch((error: Error) => console.warn("move merged:", error.message));
 }
 
 export const Route = createFileRoute("/api/webhooks/github")({
@@ -47,6 +51,8 @@ export const Route = createFileRoute("/api/webhooks/github")({
             await moveMergedTicket(db, payload.pull_request.html_url);
           return result;
         });
+        // Issues and comments queue work; the brain takes it now.
+        if (event === "issues" || event === "issue_comment") await kickBrain();
         return Response.json({ received: true, result });
       },
     },

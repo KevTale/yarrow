@@ -20,6 +20,7 @@ import {
   trackerContext,
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
+import { kickBrain } from "@/server/brain.server";
 
 /**
  * The builder side of the dashboard: the viewer's projects, one project's
@@ -153,6 +154,7 @@ async function setQueued(
     if (tracked.length)
       await labelTrackerTickets(db, trackerContext(), project, tracked, on);
   });
+  await kickBrain();
   return { ok: true };
 }
 
@@ -176,5 +178,8 @@ export const retryTicketFn = createServerFn({ method: "POST" })
     return withDb(async (db) => {
       await requireProjectMember(db, viewer.userId, data.projectId);
       return { retried: await retryTicket(db, data.projectId, data.key) };
+    }).then(async (result) => {
+      await kickBrain();
+      return result;
     });
   });

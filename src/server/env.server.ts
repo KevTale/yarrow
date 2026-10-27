@@ -37,6 +37,8 @@ export interface AppEnv {
   SUPABASE_SECRET_KEY?: string;
   /** R2 bucket with run evidence (screenshots, video). Optional. */
   EVIDENCE?: R2Bucket;
+  /** The brain's private entrypoint (service binding). Absent locally. */
+  BRAIN?: { kick(): Promise<void> };
 }
 
 export function appEnv(): AppEnv {
