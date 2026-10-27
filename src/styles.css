@@ -6556,8 +6556,10 @@ a.sb-row-link:hover .sb-site {
   max-width: 100%;
   font-size: 15px;
 }
+/* As wide as its text, the funds line keeping its own room. */
 .sb-form-row .fund-description {
-  flex: 1;
+  display: inline-block;
+  width: auto;
   min-width: 0;
   font-size: 13px;
   line-height: 1.4;
@@ -6588,11 +6590,15 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .sb-amount-field {
   margin-left: auto;
 }
+/* The name's line: the amount and Claim on one center line. */
+.sb-form-row .sb-line:first-child {
+  align-items: center;
+}
 .sb-form-row .sb-line > .sb-row-claim {
   margin-left: 0;
 }
 .sb-row-claim {
-  height: 28px;
+  height: 30px;
   padding: 0 10px;
   border-radius: 8px;
   font-size: 12.5px;

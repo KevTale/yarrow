@@ -64,6 +64,7 @@ function useClaim(
   today: SponsorRow[],
   all: SponsorRow[],
   you: BoardViewer | null,
+  pullRequestCents: number,
   adding: boolean,
 ) {
   const [dollars, setDollars] = useState(String(MIN_AMOUNT_CENTS / 100));
@@ -113,8 +114,8 @@ function useClaim(
   const fees = valid
     ? estimateBreakdown(cents, { vatRateBps: 0, founding })
     : null;
-  // The pull requests the compute funds, at about $2.50 each.
-  const prs = fees ? pullRequestsFor(fees.creditCents) : null;
+  // The pull requests the compute funds, at what a merged one costs.
+  const prs = fees ? pullRequestsFor(fees.creditCents, pullRequestCents) : null;
 
   /** The card as the profile it saves, or an error to show. */
   function profileOf(next: CardValue) {
@@ -202,11 +203,14 @@ export function SponsorBoard({
   today,
   all,
   you,
+  pullRequestCents,
   startEditing = false,
 }: {
   today: SponsorRow[];
   all: SponsorRow[];
   you: BoardViewer | null;
+  /** What a merged pull request costs in compute, about. */
+  pullRequestCents: number;
   /** Arriving from the dashboard: the row opens at once. */
   startEditing?: boolean;
 }) {
@@ -220,7 +224,7 @@ export function SponsorBoard({
     period: "today",
     tick: startEditing ? 1 : 0,
   });
-  const claim = useClaim(today, all, you, editing);
+  const claim = useClaim(today, all, you, pullRequestCents, editing);
   // One board at a time: Today, the cheap place to take, comes first.
   const [period, setPeriod] = useState<Period>("today");
   const saver = useSaver(claim);
@@ -699,6 +703,7 @@ function FormRow({
           <input
             className="fund-input fund-description"
             maxLength={DESCRIPTION_MAX}
+            size={Math.max(card.description.length, 24)}
             placeholder="What you do, in a sentence"
             aria-label="Description (optional)"
             value={card.description}

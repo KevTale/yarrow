@@ -9,6 +9,7 @@ import {
   type TicketModel,
 } from "../core/tickets";
 import { projectLogo } from "../core/logos";
+import { pullRequestCost } from "../core/pricing";
 import { runSponsors } from "./queries";
 import {
   agentRuns,
@@ -264,6 +265,31 @@ export async function mergedTotals(db: Database, now = new Date()) {
     .innerJoin(projects, eq(projects.id, workUnits.projectId))
     .where(and(listed, eq(pullRequests.state, "merged")));
   return { today: row?.today ?? 0, all: row?.all ?? 0 };
+}
+
+/**
+ * What a merged pull request cost over the last 90 days, every project
+ * counted: the compute the providers reported on every run (abstentions,
+ * corrections and open pull requests included) over the pull requests
+ * merged from measured runs. Prices move with the models, hence the window.
+ */
+export async function mergedPullRequestCost(db: Database, now = new Date()) {
+  const since = new Date(now.getTime() - 90 * 86_400_000);
+  const [spent] = await db
+    .select({ cents: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int` })
+    .from(runModels)
+    .where(gte(runModels.createdAt, since));
+  const [merged] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(pullRequests)
+    .where(
+      and(
+        eq(pullRequests.state, "merged"),
+        gte(pullRequests.closedAt, since),
+        sql`exists (select 1 from ${agentRuns} join ${runModels} on ${runModels.agentRunId} = ${agentRuns.id} where ${agentRuns.workUnitId} = ${pullRequests.workUnitId})`,
+      ),
+    );
+  return pullRequestCost(spent?.cents ?? 0, merged?.count ?? 0);
 }
 
 export type LiveStatus =

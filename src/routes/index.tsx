@@ -9,6 +9,7 @@ import { useLive } from "@/components/live";
 import { ShipForm } from "@/components/ship-form";
 import { SponsorBoard } from "@/components/sponsor-board";
 import { TicketStack } from "@/components/ticket-stack";
+import { PULL_REQUEST_COST_CENTS } from "@/core/pricing";
 import { getBoardsFn } from "@/functions/public.functions";
 
 export const Route = createFileRoute("/")({
@@ -26,6 +27,7 @@ const empty = {
   sponsors: { today: [], all: [] },
   live: [],
   totals: { inProgress: 0, merged: 0, mergedToday: 0 },
+  pullRequestCents: PULL_REQUEST_COST_CENTS,
   you: null,
 };
 
@@ -80,6 +82,7 @@ function Landing() {
           today={boards.sponsors.today}
           all={boards.sponsors.all}
           you={boards.you}
+          pullRequestCents={boards.pullRequestCents}
           startEditing={edit === true}
         />
       </div>

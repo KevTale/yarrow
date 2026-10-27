@@ -81,8 +81,31 @@ export function estimateBreakdown(
 /** What a pull request costs in compute, about (hypothesis, 2026-10-09). */
 export const PULL_REQUEST_COST_CENTS = 250;
 
+/** The hypothesis weighs as much as this many merged pull requests. */
+const HYPOTHESIS_WEIGHT = 10;
+
+/**
+ * What a merged pull request costs: the compute spent over the pull requests
+ * merged, abstentions and open ones included. It starts at the hypothesis,
+ * which fades as merges add up, so a few runs never swing it.
+ */
+export function pullRequestCost(spentCents: number, merged: number): number {
+  cents(spentCents, "spent");
+  cents(merged, "merged");
+  return Math.max(
+    1,
+    Math.round(
+      (spentCents + PULL_REQUEST_COST_CENTS * HYPOTHESIS_WEIGHT) /
+        (merged + HYPOTHESIS_WEIGHT),
+    ),
+  );
+}
+
 /** About how many pull requests a compute credit funds; one at least. */
-export function pullRequestsFor(creditCents: number): number {
+export function pullRequestsFor(
+  creditCents: number,
+  costCents = PULL_REQUEST_COST_CENTS,
+): number {
   cents(creditCents, "credit");
-  return Math.max(1, Math.round(creditCents / PULL_REQUEST_COST_CENTS));
+  return Math.max(1, Math.round(creditCents / costCents));
 }

@@ -19,6 +19,8 @@ import { defaultPipelineRoles } from "../../src/core/pipeline";
 import {
   estimateBreakdown,
   marginCents,
+  pullRequestCost,
+  pullRequestsFor,
   settleBreakdown,
 } from "../../src/core/pricing";
 import { planDispatch, type DispatchCandidate } from "../../src/core/queue";
@@ -62,6 +64,14 @@ describe("pricing", () => {
       creditCents: 7_388,
     });
     expect(estimateBreakdown(1_000).creditCents).toBe(866);
+  });
+  it("prices a merged pull request from the hypothesis toward what runs cost", () => {
+    expect(pullRequestCost(0, 0)).toBe(250);
+    // $12.60 spent for 6 merges: $2.10 each, still near the hypothesis.
+    expect(pullRequestCost(1_260, 6)).toBe(235);
+    expect(pullRequestCost(100_000, 1_000)).toBe(101);
+    expect(pullRequestsFor(7_100, 235)).toBe(30);
+    expect(pullRequestsFor(100, 235)).toBe(1);
   });
   it("never produces negative credit or accepts bad input", () => {
     expect(
