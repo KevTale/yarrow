@@ -262,8 +262,9 @@ export function SponsorBoard({
         <p className="sb-pitch-text">
           Your money pays for the compute behind each pull request, and your
           card closes every one of them. The maintainers see it when they
-          merge, and so does anyone who opens the pull request later. Clicks
-          on your site are counted right here, on your row.
+          merge, and so does anyone who opens the pull request later. Every
+          click to your site, from a pull request or from this page, is
+          counted on your row.
         </p>
       </div>
       <Column
