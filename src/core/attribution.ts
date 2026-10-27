@@ -24,7 +24,31 @@ export function sponsorNames(sponsors: readonly RunSponsor[]): string | null {
   return parts.length > 0 ? list(parts) : null;
 }
 
-/** The PR body footer required by the brief. */
+/**
+ * The card image at the foot of the pull request, served by the app next
+ * to the run page: who paid, drawn as their row on the boards. It opens
+ * the sponsor's website (counted) when one named sponsor paid alone,
+ * otherwise the run.
+ */
+export function sponsorCard(input: {
+  sponsors: readonly RunSponsor[];
+  runUrl: string;
+}): string | null {
+  const names = sponsorNames(input.sponsors);
+  const match = /^(https?:\/\/[^/]+)\/runs\/([0-9a-f-]{36})$/.exec(
+    input.runUrl,
+  );
+  if (!names || !match) return null;
+  const [, origin, runId] = match;
+  const only = input.sponsors.length === 1 ? input.sponsors[0] : null;
+  const link =
+    only?.name && only.publicId
+      ? `${origin}/out/${only.publicId}`
+      : input.runUrl;
+  return `[![Paid for by ${names} on Yarrow](${origin}/pr-card/${runId})](${link})`;
+}
+
+/** The PR body footer required by the brief: the card, then the words. */
 export function pullRequestFooter(input: {
   roles: PipelineRoles;
   sponsors: readonly RunSponsor[];
@@ -35,7 +59,8 @@ export function pullRequestFooter(input: {
   const funding = names
     ? `Sponsored by ${names} via [Yarrow](${input.runUrl})`
     : `via [Yarrow](${input.runUrl})`;
-  return ["---", models, funding].join("\n");
+  const card = sponsorCard(input);
+  return ["---", ...(card ? [card, ""] : []), models, funding].join("\n");
 }
 
 /** Commit trailer. Agents never add Signed-off-by: the owner certifies at merge. */

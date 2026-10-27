@@ -6177,9 +6177,29 @@ button.st-back {
     background 0.15s,
     border-color 0.15s;
 }
-a.tk:hover {
+/* The card is a link through a layer over it; the sponsor sits above. */
+.tk {
+  position: relative;
+}
+.tk-link {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.tk.linked:hover {
   background: var(--elevated);
   border-color: #3a3e45;
+}
+a.tk-paid {
+  position: relative;
+  z-index: 1;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+a.tk-paid:hover b {
+  color: var(--amber);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .tk-empty {
   display: flex;
@@ -6368,6 +6388,91 @@ a.tk:hover {
 .sb-head h2 {
   font-size: 32px;
 }
+.sb-where {
+  position: relative;
+}
+.sb-where-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  text-decoration: underline dotted #8a909b80;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.sb-where-button:hover,
+.sb-where-button[aria-expanded="true"] {
+  color: var(--text);
+}
+.sb-where-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 12px;
+  width: min(460px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 24px 60px #0000008c;
+  animation: sb-dialog-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sb-where-pop p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+/* A pull request's page, drawn with lines, its foot real. */
+.sb-pr-mock {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.sb-pr-mock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.sb-pr-mock-head b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sb-pr-merged {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #8957e5;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.sb-pr-mock-line {
+  height: 6px;
+  border-radius: 3px;
+  background: #1d2025;
+}
+.sb-pr-mock-line.short {
+  width: 60%;
+  margin-bottom: 4px;
+}
 .sb-claim-go {
   display: inline-flex;
   align-items: center;
@@ -6465,28 +6570,6 @@ a.sb-row-link:hover,
   font-variant-numeric: tabular-nums;
   color: #6d737e;
 }
-.sb-rank.medal {
-  border-radius: 50%;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1408;
-  box-shadow:
-    inset 0 1px 0 #ffffff80,
-    inset 0 -2px 0 #00000026,
-    0 4px 14px var(--glow);
-}
-.sb-rank.r1 {
-  --glow: #f2b54459;
-  background: linear-gradient(150deg, #ffe39a, #f2b544 55%, #c98a1c);
-}
-.sb-rank.r2 {
-  --glow: #c9ced840;
-  background: linear-gradient(150deg, #ffffff, #c9ced8 55%, #8e95a3);
-}
-.sb-rank.r3 {
-  --glow: #d48a5a40;
-  background: linear-gradient(150deg, #ffd2b0, #d48a5a 55%, #9a5a30);
-}
 .sb-body {
   display: grid;
   gap: 3px;
@@ -6579,7 +6662,7 @@ a.sb-row-link:hover .sb-site {
 .sb-row.you {
   background: linear-gradient(90deg, #f2b54414, #f2b54400);
 }
-.sb-row.you .sb-rank:not(.medal),
+.sb-row.you .sb-rank,
 .sb-row.you .sb-amount {
   color: var(--amber);
 }
@@ -6619,15 +6702,43 @@ a.sb-row-link:hover .sb-site {
    inside the card's border, the fill says it can be typed in. */
 .sb-amount-field {
   display: inline-flex;
-  align-items: baseline;
-  padding: 1px 8px 2px;
+  align-items: center;
   border-radius: 8px;
   background: #f2b54421;
   color: var(--amber);
-  cursor: text;
   transition:
     background 0.15s,
     box-shadow 0.15s;
+}
+.sb-amount-field label {
+  display: inline-flex;
+  align-items: baseline;
+  cursor: text;
+}
+.sb-step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--amber);
+  font:
+    500 16px var(--font-geist-sans),
+    sans-serif;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.sb-step:hover:not(:disabled) {
+  background: #f2b54433;
+}
+.sb-step:disabled {
+  color: #f2b54459;
+  cursor: default;
 }
 .sb-amount-field:hover {
   background: #f2b54433;
@@ -6654,10 +6765,10 @@ a.sb-row-link:hover .sb-site {
   margin-left: 0;
 }
 .sb-row-claim {
-  height: 30px;
-  padding: 0 12px;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12.5px;
   gap: 6px;
   box-shadow:
     inset 0 1px 0 #ffffff59,
@@ -6699,7 +6810,6 @@ a.sb-row-link:hover .sb-site {
       #f2b5440d 66%
     )
     0 0 / 300% 100%;
-  box-shadow: 0 10px 30px #f2b54414;
   animation: sb-open-place 5s ease-in-out infinite;
 }
 .sb-row.you.ghost.engaged {
@@ -6798,24 +6908,32 @@ body:has(.sb-dialog[open]) {
   background: var(--hover);
   color: var(--text);
 }
-.sb-dialog-card {
+.sb-dialog-preview {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
+  gap: 8px;
 }
-.sb-dialog-card-body {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  font-size: 15px;
+.sb-dialog-label,
+.sb-where-pop .sb-dialog-label {
+  font:
+    500 11px var(--font-geist-mono),
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
 }
-.sb-dialog-card-body b {
-  font-weight: 600;
+.sb-dialog-preview p {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* The pull request's card, scaled to its box. */
+.sb-prcard {
+  display: block;
+}
+.sb-prcard svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .sb-dialog-lines {
   display: grid;

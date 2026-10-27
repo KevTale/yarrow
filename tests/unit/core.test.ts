@@ -13,6 +13,7 @@ import {
   sponsorFiltersSchema,
 } from "../../src/core/forms";
 import { amountCentsSchema, money } from "../../src/core/packs";
+import { prCardSvg, shortSite } from "../../src/core/pr-card";
 import { defaultPipelineRoles } from "../../src/core/pipeline";
 import {
   estimateBreakdown,
@@ -315,6 +316,26 @@ describe("attribution", () => {
     expect(footer).toContain(
       "Sponsored by Northwind via [Yarrow](https://yarrow.run/runs/1)",
     );
+    // A run URL that is not a real one carries no card.
+    expect(footer).not.toContain("pr-card");
+    const id = "0b5c1e9e-7a52-4c1e-9d6a-2f0b8c3d4e5f";
+    const sponsor = "6c0d2f4a-1b3e-4a5c-8d7e-9f0a1b2c3d4e";
+    const alone = pullRequestFooter({
+      roles: defaultPipelineRoles,
+      sponsors: [{ name: "Northwind", publicId: sponsor }],
+      runUrl: `https://yarrow.run/runs/${id}`,
+    });
+    expect(alone).toContain(
+      `[![Paid for by Northwind on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/out/${sponsor})`,
+    );
+    const shared = pullRequestFooter({
+      roles: defaultPipelineRoles,
+      sponsors: [{ name: "Northwind", publicId: sponsor }, { name: null }],
+      runUrl: `https://yarrow.run/runs/${id}`,
+    });
+    expect(shared).toContain(
+      `[![Paid for by Northwind and an anonymous sponsor on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/runs/${id})`,
+    );
     expect(assistedByTrailer(defaultPipelineRoles)).toBe(
       "Assisted-by: Claude Opus 5.5, GPT Astra (Yarrow)",
     );
@@ -376,5 +397,29 @@ describe("ticket links", () => {
       parseTicketLink("dev.azure.com/acme/app/_workitems/edit/9")!.source.id,
     ).toBe("azure");
     expect(parseTicketLink("example.com/ticket/1")).toBeNull();
+  });
+});
+
+describe("pull request card", () => {
+  it("draws the first sponsor, counts the others and escapes text", () => {
+    const svg = prCardSvg({
+      sponsors: [
+        {
+          name: "Acme <Rockets> & Co",
+          description: "Ships fast",
+          site: "acme.dev",
+          logo: null,
+        },
+        { name: null, description: null, site: null, logo: null },
+      ],
+    });
+    expect(svg).toContain("Acme &lt;Rockets&gt; &amp; Co");
+    expect(svg).toContain("acme.dev");
+    expect(svg).toContain("+1 sponsor<");
+    expect(svg).not.toContain("<Rockets>");
+  });
+  it("keeps only the site's host", () => {
+    expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");
+    expect(shortSite("not a url")).toBeNull();
   });
 });

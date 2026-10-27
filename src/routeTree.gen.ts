@@ -31,6 +31,7 @@ import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
 import { Route as ImagesNameRouteImport } from './routes/images/$name'
 import { Route as IntegrationsTrelloCallbackRouteImport } from './routes/integrations/trello-callback'
 import { Route as OutSponsorIdRouteImport } from './routes/out/$sponsorId'
+import { Route as PrCardRunIdRouteImport } from './routes/pr-card/$runId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
@@ -150,6 +151,11 @@ const OutSponsorIdRoute = OutSponsorIdRouteImport.update({
   path: '/out/$sponsorId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrCardRunIdRoute = PrCardRunIdRouteImport.update({
+  id: '/pr-card/$runId',
+  path: '/pr-card/$runId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
+  '/pr-card/$runId': typeof PrCardRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
+  '/pr-card/$runId': typeof PrCardRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/images/$name': typeof ImagesNameRoute
   '/integrations/trello-callback': typeof IntegrationsTrelloCallbackRoute
   '/out/$sponsorId': typeof OutSponsorIdRoute
+  '/pr-card/$runId': typeof PrCardRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
+    | '/pr-card/$runId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
+    | '/pr-card/$runId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/images/$name'
     | '/integrations/trello-callback'
     | '/out/$sponsorId'
+    | '/pr-card/$runId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   ImagesNameRoute: typeof ImagesNameRoute
   IntegrationsTrelloCallbackRoute: typeof IntegrationsTrelloCallbackRoute
   OutSponsorIdRoute: typeof OutSponsorIdRoute
+  PrCardRunIdRoute: typeof PrCardRunIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
@@ -566,6 +579,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OutSponsorIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pr-card/$runId': {
+      id: '/pr-card/$runId'
+      path: '/pr-card/$runId'
+      fullPath: '/pr-card/$runId'
+      preLoaderRoute: typeof PrCardRunIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$projectId': {
       id: '/projects/$projectId'
       path: '/projects/$projectId'
@@ -640,6 +660,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImagesNameRoute: ImagesNameRoute,
   IntegrationsTrelloCallbackRoute: IntegrationsTrelloCallbackRoute,
   OutSponsorIdRoute: OutSponsorIdRoute,
+  PrCardRunIdRoute: PrCardRunIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   RunsRunIdRoute: RunsRunIdRoute,

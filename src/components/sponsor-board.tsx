@@ -1,8 +1,15 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowRight, LockKeyhole, X } from "lucide-react";
+import {
+  ArrowRight,
+  GitMerge,
+  GitPullRequest,
+  LockKeyhole,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
+import { prCardSvg, shortSite, type PrCardSponsor } from "@/core/pr-card";
 import { estimateBreakdown } from "@/core/pricing";
 import type { BoardViewer } from "@/db/sponsors";
 import {
@@ -238,6 +245,13 @@ export function SponsorBoard({
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-head">
         <h2 id="sponsors-title">Sponsors</h2>
+        <WhereItShows
+          sponsor={
+            claim.card.name.trim()
+              ? typedSponsor(claim.card)
+              : (sample(claim.boards[1]!.rows) ?? typedSponsor(claim.card))
+          }
+        />
       </div>
       <div className="sb-boards">
         {claim.boards.map((board) => (
@@ -262,6 +276,19 @@ export function SponsorBoard({
       />
     </section>
   );
+}
+
+/** The first named sponsor all time, to show a card before anything is typed. */
+function sample(rows: SponsorRow[]): PrCardSponsor | null {
+  const row = rows.find((candidate) => candidate.name);
+  return row
+    ? {
+        name: row.name,
+        description: row.description,
+        site: shortSite(row.websiteUrl),
+        logo: row.logoUrl,
+      }
+    : null;
 }
 
 /** "https://www.acme.com/" → "acme.com". */
@@ -538,7 +565,6 @@ function FormRow({
       onClick={onClaim}
     >
       Claim #{rank}
-      <ArrowRight size={13} strokeWidth={2.4} />
     </button>
   );
   const root = useRef<HTMLDivElement>(null);
@@ -587,23 +613,10 @@ function FormRow({
           />
           <span className="sb-you">You</span>
           <SavedState state={saver.state} />
-          <label className="sb-amount sb-amount-field" title="Type an amount">
-            $
-            <input
-              value={claim.dollars}
-              size={Math.max(claim.dollars.length, 2)}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-label={
-                claim.sponsoring ? "Dollars to add" : "Amount in dollars"
-              }
-              onChange={(event) =>
-                claim.setDollars(
-                  event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                )
-              }
-            />
-          </label>
+          <AmountField
+            claim={claim}
+            label={claim.sponsoring ? "Dollars to add" : "Amount in dollars"}
+          />
           {claimButton("inline")}
         </span>
         <input
@@ -642,12 +655,143 @@ function FormRow({
   );
 }
 
-/** The place: a medal for the first three, a plain figure after. */
+/** The place, the same plain figure for every row. */
 function Rank({ rank }: { rank: number }) {
+  return <span className="sb-rank">{rank}</span>;
+}
+
+/** Five dollars a step, from $10 to $1,000. */
+const STEP = 5;
+
+/** The amount: typed, or moved by five dollars with − and +. */
+function AmountField({ claim, label }: { claim: Claim; label: string }) {
+  const dollars = Number(claim.dollars || 0);
+  const min = MIN_AMOUNT_CENTS / 100;
+  const max = MAX_AMOUNT_CENTS / 100;
+  const step = (delta: number) => {
+    const next =
+      dollars < min ? min : Math.round((dollars + delta) / STEP) * STEP;
+    claim.setDollars(String(Math.min(max, Math.max(min, next))));
+  };
   return (
-    <span className={`sb-rank ${rank <= 3 ? `medal r${rank}` : ""}`}>
-      {rank}
+    <span className="sb-amount sb-amount-field">
+      <button
+        type="button"
+        className="sb-step"
+        aria-label="Five dollars less"
+        disabled={dollars <= min}
+        onClick={() => step(-STEP)}
+      >
+        −
+      </button>
+      <label>
+        $
+        <input
+          value={claim.dollars}
+          size={Math.max(claim.dollars.length, 2)}
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label={label}
+          onChange={(event) =>
+            claim.setDollars(
+              event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+            )
+          }
+        />
+      </label>
+      <button
+        type="button"
+        className="sb-step"
+        aria-label="Five dollars more"
+        disabled={dollars >= max}
+        onClick={() => step(STEP)}
+      >
+        +
+      </button>
     </span>
+  );
+}
+
+/**
+ * The card as it closes a pull request, drawn from the same SVG the pull
+ * request shows, with what the visitor typed.
+ */
+function PrCardPreview({ sponsor }: { sponsor: PrCardSponsor }) {
+  return (
+    <span
+      className="sb-prcard"
+      // Our own SVG, every text escaped by prCardSvg.
+      dangerouslySetInnerHTML={{ __html: prCardSvg({ sponsors: [sponsor] }) }}
+    />
+  );
+}
+
+/** The card being typed, as the pull request will show it. */
+function typedSponsor(card: CardValue): PrCardSponsor {
+  return {
+    name: card.name.trim() || "Your company",
+    description: card.description.trim() || null,
+    site: shortSite(websiteAddress(card.website) || null),
+    logo: card.logo,
+  };
+}
+
+/**
+ * Beside the title, quiet: where a sponsor's card goes. Opens a pull
+ * request's foot with the card in it.
+ */
+function WhereItShows({ sponsor }: { sponsor: PrCardSponsor }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (
+        event instanceof KeyboardEvent
+          ? event.key === "Escape"
+          : !root.current?.contains(event.target as Node)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <div className="sb-where" ref={root}>
+      <button
+        type="button"
+        className="sb-where-button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <GitPullRequest size={14} />
+        Your card in every pull request you fund
+      </button>
+      {open && (
+        <div className="sb-where-pop" role="dialog" aria-label="Your card">
+          <div className="sb-pr-mock">
+            <span className="sb-pr-mock-head">
+              <span className="sb-pr-merged">
+                <GitMerge size={13} /> Merged
+              </span>
+              <b>Export the selection as SVG</b>
+            </span>
+            <span className="sb-pr-mock-line" />
+            <span className="sb-pr-mock-line short" />
+            <PrCardPreview sponsor={sponsor} />
+          </div>
+          <p>
+            Every pull request ends with the card of the sponsors who paid for
+            it: the maintainers who merge it and everyone who reads the
+            repository see it, and it links to your site.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -709,8 +853,6 @@ function ClaimDialog({
     }
   }
 
-  const name = card.name.trim() || null;
-  const site = host(websiteAddress(card.website) || null);
   const ready = valid && terms && waiver && !pending;
   return (
     <dialog
@@ -735,35 +877,21 @@ function ClaimDialog({
             <X size={18} />
           </button>
         </div>
-        <div className="sb-dialog-card">
-          <Logo name={name} url={name ? card.logo : null} size="large" />
-          <span className="sb-dialog-card-body">
-            <SponsorName name={name} />
-            {card.description.trim() && (
-              <span className="sb-description">{card.description.trim()}</span>
-            )}
-            {site && <span className="sb-site">{site}</span>}
+        <div className="sb-dialog-preview">
+          <span className="sb-dialog-label">
+            At the foot of every pull request you fund
           </span>
+          <PrCardPreview sponsor={typedSponsor(card)} />
+          <p>
+            Maintainers see it when they merge, and so does everyone who reads
+            the repository. It links to your site; clicks show on your row.
+          </p>
         </div>
         <dl className="sb-dialog-lines">
           <div>
             <dt>Amount</dt>
             <dd>
-              <label className="sb-amount-field">
-                $
-                <input
-                  value={claim.dollars}
-                  size={Math.max(claim.dollars.length, 2)}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  aria-label="Amount in dollars"
-                  onChange={(event) =>
-                    claim.setDollars(
-                      event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                    )
-                  }
-                />
-              </label>
+              <AmountField claim={claim} label="Amount in dollars" />
             </dd>
           </div>
           <div>
