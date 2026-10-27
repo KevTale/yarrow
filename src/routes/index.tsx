@@ -60,8 +60,9 @@ function Landing() {
         <div className="landing-pitch">
           <h1>Frontier AI for free</h1>
           <p className="landing-sub">
-            Paste an issue: <span className="model model-plain">Claude Opus</span>{" "}
-            and <span className="model model-plain late">GPT Astra</span> turn it
+            Paste an issue:{" "}
+            <span className="model model-plain">Claude Opus</span> and{" "}
+            <span className="model model-plain late">GPT Astra</span> turn it
             into a pull request in minutes. Free because{" "}
             <em className="gold">sponsors pay for the compute</em>, and their
             company names ship with every pull request.

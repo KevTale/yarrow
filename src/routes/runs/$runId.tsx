@@ -213,7 +213,8 @@ function RunPage() {
               <dt>Compute cost</dt>
               <dd className="mono">{money(run.costCents)}</dd>
             </div>
-            {run.member && (
+            {/* Set aside while it works; returned or spent once it ends. */}
+            {run.member && !run.finishedAt && (
               <div>
                 <dt>Reserved</dt>
                 <dd className="mono">{money(run.reservedCents)}</dd>

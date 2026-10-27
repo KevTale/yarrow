@@ -298,6 +298,8 @@ const asLines = (summary: string) =>
 const stopTitle: Record<string, string> = {
   ticket_unclear: "The ticket needs more detail",
   provider_error: "An AI provider failed",
+  github_refused: "GitHub refused the change",
+  platform_error: "Yarrow failed",
 };
 
 /**

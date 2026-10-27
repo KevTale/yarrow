@@ -14,6 +14,7 @@ import {
 } from "../../src/core/forms";
 import { amountCentsSchema, money } from "../../src/core/packs";
 import { prCardSvg, shortSite } from "../../src/core/pr-card";
+import { describeFailure, isGithubRefusal } from "../../src/core/failures";
 import { defaultPipelineRoles } from "../../src/core/pipeline";
 import {
   estimateBreakdown,
@@ -448,7 +449,9 @@ describe("pull request card", () => {
     const description =
       "Managed Postgres with branching, point-in-time restore and a CLI people actually enjoy using every single day of the week.";
     const short = prCardSvg({
-      sponsors: [{ name: "Acme", description: "Ships", site: null, logo: null }],
+      sponsors: [
+        { name: "Acme", description: "Ships", site: null, logo: null },
+      ],
     });
     const long = prCardSvg({
       sponsors: [{ name: "Acme", description, site: "acme.dev", logo: null }],
@@ -467,5 +470,47 @@ describe("pull request card", () => {
   it("keeps only the site's host", () => {
     expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");
     expect(shortSite("not a url")).toBeNull();
+  });
+});
+
+describe("run failures", () => {
+  const refused =
+    'GitHub POST /repos/KevTale/hakai/git/trees failed (403): {"message":"Resource not accessible by integration","status":"403"}';
+  it("names the Workflows permission when a CI file was refused", () => {
+    expect(
+      describeFailure(refused, ["deno.json", ".github/workflows/check.yml"]),
+    ).toEqual({
+      reason: "github_refused",
+      summary:
+        "GitHub refused to write .github/workflows/check.yml: the Yarrow app needs the Workflows permission on this repository.",
+    });
+    expect(describeFailure(refused, ["deno.json"]).summary).toContain(
+      "missing a permission",
+    );
+  });
+  it("never retries a GitHub refusal, only the rest", () => {
+    expect(isGithubRefusal(refused)).toBe(true);
+    expect(
+      isGithubRefusal("GitHub POST /repos/a/b/pulls failed (502): Bad gateway"),
+    ).toBe(false);
+    expect(
+      isGithubRefusal("Too many subrequests by single Worker invocation"),
+    ).toBe(false);
+  });
+  it("tells the providers from Yarrow itself", () => {
+    expect(
+      describeFailure(
+        'Anthropic POST /sessions failed (403): {"type":"forbidden"}',
+      ).reason,
+    ).toBe("provider_error");
+    expect(
+      describeFailure(
+        'Failed query: select "reserved_cents", "status" from "agent_runs"',
+      ),
+    ).toEqual({
+      reason: "platform_error",
+      summary:
+        "Yarrow stopped on an internal error before the pull request could open.",
+    });
   });
 });

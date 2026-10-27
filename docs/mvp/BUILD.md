@@ -213,6 +213,7 @@ Track **cost per merged PR**, **merge rate** and **rejection reasons** from day 
 ## Results
 
 - Each run produces a **draft PR with an evidence bundle**, or an **abstention with a reason**.
+- **Stop reasons** (decided 2026-10-10): the ticket is unclear; an AI provider failed (Anthropic or OpenAI); **GitHub refused the change** (a permission the app lacks, a repository out of its reach; a refused write under `.github/workflows/` names the Workflows permission, which the GitHub App needs, Read and write, to deliver CI changes); or **Yarrow failed** (Cloudflare, the database). A GitHub refusal is never retried: retries only spent the Worker invocation's subrequests, and the stop that followed had none left (2026-10-07). A stop records the real cost and the reason first, then the feed and the board. A run whose workflow died without recording its stop is stopped by the dispatcher, never restarted (a restart paid for the whole implementation again), and charged its real cost, read from the implementer's session saved on the run. The run page shows "Reserved" only while the run works.
 - Abstentions consume the compute actually used.
 - **Every PR carries attribution** in the PR body footer:
   ```

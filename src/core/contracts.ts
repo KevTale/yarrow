@@ -31,7 +31,12 @@ export type RunRequest = z.infer<typeof runRequestSchema>;
 export const abstentionReasonSchema = z.enum([
   "ticket_unclear",
   "policy_violation",
+  // Anthropic or OpenAI failed.
   "provider_error",
+  // GitHub refused a write: a permission the app lacks, out of reach.
+  "github_refused",
+  // Yarrow itself failed (Cloudflare, the database).
+  "platform_error",
   "other",
 ]);
 export type AbstentionReason = z.infer<typeof abstentionReasonSchema>;

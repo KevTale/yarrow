@@ -3,7 +3,13 @@ import {
   type WorkflowEvent,
   type WorkflowStep,
 } from "cloudflare:workers";
-import { runRequestSchema, type RunRequest } from "../src/core/contracts";
+import { NonRetryableError } from "cloudflare:workflows";
+import {
+  runRequestSchema,
+  type AbstentionReason,
+  type RunRequest,
+} from "../src/core/contracts";
+import { describeFailure, isGithubRefusal } from "../src/core/failures";
 import {
   defaultPipelineRoles,
   defaultReviewerEffort,
@@ -15,13 +21,13 @@ import {
   type Review,
   type StoredReview,
 } from "../src/core/review";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { recordRunModels } from "../src/db/runs";
 import { recordActivity } from "../src/db/activity";
-import { agentRuns, events } from "../src/db/schema";
+import { agentRuns } from "../src/db/schema";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -144,7 +150,7 @@ async function waitFor(
 
 class StopRun extends Error {
   constructor(
-    readonly reason: "ticket_unclear" | "provider_error" | "other",
+    readonly reason: AbstentionReason,
     message: string,
   ) {
     super(message);
@@ -192,6 +198,8 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       );
 
     let implementer: string | null = null;
+    // The files the run changed, to explain a refused write.
+    let paths: readonly string[] = [];
     // Reviewer sessions and their wall time, measured between durable steps.
     const reviewers: { id: string; seconds: number | null }[] = [];
     const now = (label: string) => step.do(label, async () => Date.now());
@@ -354,13 +362,20 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       };
 
       await phase("delivering");
+      paths = snapshot.paths;
       const delivered = await step.do(
         "deliver",
         { retries: { limit: 2, delay: "30 seconds", backoff: "exponential" } },
         () =>
           withDb(env, (db) =>
             pipeline(env, db).deliver(run, implementerId, snapshot, stored),
-          ),
+          ).catch((error: Error) => {
+            // A refusal from GitHub stays a refusal: retrying only spends
+            // the invocation's subrequests, and then the stop has none left.
+            if (isGithubRefusal(error.message))
+              throw new NonRetryableError(error.message);
+            throw error;
+          }),
       );
       await step.do("settle", () =>
         withDb(env, async (db) => {
@@ -395,49 +410,59 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       );
       return { outcome: "pull_request", url: delivered.url };
     } catch (error) {
-      const stop =
+      const raw = (error as Error).message ?? "Run failed";
+      const failure =
         error instanceof StopRun
-          ? error
-          : new StopRun(
-              "provider_error",
-              (error as Error).message ?? "Run failed",
-            );
+          ? { reason: error.reason, summary: error.message }
+          : describeFailure(raw, paths);
       const implementerId = implementer;
       const reviewerRuns = [...reviewers];
+      // What must not be lost first, in as few requests as possible: the
+      // real cost and the stop. A run that failed may have spent most of
+      // its invocation's subrequests already.
       await step.do("abstain", () =>
         withDb(env, async (db) => {
           const ledger = new PostgresLedger(db);
-          await pipeline(env, db).syncActivity(runId);
-          await note(db, "outcome", "outcome", {
-            phase: "abstained",
-            text: stop.message.slice(0, 2000),
-          });
           const usage = await pipeline(env, db)
             .usage(implementerId, reviewerRuns)
             .catch(() => ({ costCents: 0, models: [] }));
           const cost = usage.costCents;
           await recordRunModels(db, runId, usage.models);
           await topUp(ledger, db, runId, cost);
-          if (stop.reason === "provider_error")
+          if (failure.reason !== "ticket_unclear")
             await recordEvent(db, {
               type: "run.failed",
               agentRunId: runId,
-              payload: { message: stop.message.slice(0, 500) },
+              payload: { message: raw.slice(0, 500) },
             });
           await ledger.settle(runId, {
             outcome: "abstained",
             actualCostCents: cost,
-            reason: stop.reason,
-            summary: stop.message.slice(0, 2000),
+            reason: failure.reason,
+            summary: failure.summary.slice(0, 2000),
             evidence: [],
+          });
+        }),
+      );
+      // Then the extras, which never fail the run: the feed, the board.
+      await step.do("abstain:after", () =>
+        withDb(env, async (db) => {
+          await pipeline(env, db)
+            .syncActivity(runId)
+            .catch(() => {});
+          await note(db, "outcome", "outcome", {
+            phase: "abstained",
+            text: failure.summary.slice(0, 2000),
           });
           // The board follows the builder's choice for stopped tickets.
           await pipeline(env, db)
             .moveRunTicket(runId, "stopped")
             .catch(() => {});
-        }),
+        }).catch((error: Error) =>
+          console.warn("abstain:after", error.message),
+        ),
       );
-      return { outcome: "abstained", reason: stop.reason };
+      return { outcome: "abstained", reason: failure.reason };
     }
   }
 }
@@ -512,7 +537,7 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
       }
       if (instance) {
         log.push(
-          ...(await reviveDeadRun(db, instance, stale.runId).catch(
+          ...(await reviveDeadRun(env, db, instance, stale.runId).catch(
             (error: Error) => [`revive ${stale.runId}: ${describe(error)}`],
           )),
         );
@@ -540,36 +565,41 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
 }
 
 /**
- * A workflow that died on an uncaught error leaves its run "running" and the
- * sponsor money reserved. Restart it once; if it dies again, abstain and
- * release the money (the platform absorbs what the run may have spent).
+ * A workflow that died without recording its stop leaves its run "running"
+ * and the sponsor money reserved. It is stopped here, never restarted: a
+ * restart would pay for the whole implementation again. Its real cost is
+ * read from the implementer's session, saved on the run, and charged.
  */
 async function reviveDeadRun(
+  env: BrainEnv,
   db: Database,
   instance: WorkflowInstance,
   runId: string,
 ): Promise<string[]> {
-  const { status } = await instance.status();
+  const { status, error } = await instance.status();
   if (status !== "errored" && status !== "terminated") return [];
-  const [restarted] = await db
-    .select({ id: events.id })
-    .from(events)
-    .where(and(eq(events.type, "run.restarted"), eq(events.agentRunId, runId)));
-  if (!restarted) {
-    await instance.restart();
-    await recordEvent(db, { type: "run.restarted", agentRunId: runId });
-    return [`restarted ${runId}`];
-  }
+  const [run] = await db
+    .select({ session: agentRuns.implementerSession })
+    .from(agentRuns)
+    .where(eq(agentRuns.id, runId));
+  const usage = await pipeline(env, db)
+    .usage(run?.session ?? null, [])
+    .catch(() => ({ costCents: 0, models: [] }));
+  const raw = error?.message ?? `The workflow was ${status}.`;
+  const failure = describeFailure(raw);
+  const ledger = new PostgresLedger(db);
+  await recordRunModels(db, runId, usage.models);
+  await topUp(ledger, db, runId, usage.costCents);
   await recordEvent(db, {
     type: "run.failed",
     agentRunId: runId,
-    payload: { message: "The run stopped twice on a platform error." },
+    payload: { message: raw.slice(0, 500) },
   });
-  await new PostgresLedger(db).settle(runId, {
+  await ledger.settle(runId, {
     outcome: "abstained",
-    actualCostCents: 0,
-    reason: "provider_error",
-    summary: "The run stopped twice on a platform error.",
+    actualCostCents: usage.costCents,
+    reason: failure.reason,
+    summary: failure.summary,
     evidence: [],
   });
   return [`abstained dead run ${runId}`];
