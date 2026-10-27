@@ -246,6 +246,8 @@ export function SponsorBoard({
     open(period);
   };
 
+  // The sketched pull request, folded under the bridge until asked.
+  const [shown, setShown] = useState(false);
   const board = claim.boards.find((item) => item.period === period)!;
   // The visitor's card once a name is typed, otherwise the first sponsor's.
   const preview = claim.card.name.trim()
@@ -254,17 +256,38 @@ export function SponsorBoard({
 
   return (
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
-      <div className="sb-pitch">
-        <p className="sb-pitch-lede">
-          Get <em className="gold">your company name</em> on every pull
-          request you fund
+      {/* The bridge from the builder's hero to the sponsors' place: the
+          headline's "free" asks what the catch is; this answers it. */}
+      <div className="sb-why">
+        <h2 className="sb-why-title">Why is it free?</h2>
+        <p className="sb-why-text">
+          Sponsors pay for the compute. In return, their company card ships
+          in every pull request they fund, where maintainers and reviewers
+          see it.{" "}
+          <button
+            type="button"
+            className="sb-why-more"
+            aria-expanded={shown}
+            aria-controls="sb-why-detail"
+            onClick={() => setShown((current) => !current)}
+          >
+            {shown ? "Hide the pull request" : "See it in a pull request"}
+          </button>
         </p>
-        <PrSketch sponsor={preview} />
-        <p className="sb-pitch-text">
-          Your money pays for the frontier agents writing each pull request,
-          and your card is visible on every one. Maintainers and anyone
-          opening the pull requests you fund will notice you.
-        </p>
+        <div
+          className={`sb-why-detail ${shown ? "open" : ""}`}
+          id="sb-why-detail"
+          inert={!shown}
+        >
+          <div>
+            <PrSketch sponsor={preview} />
+            <p className="sb-pitch-text">
+              Your money pays for the frontier agents writing each pull
+              request, and your card is visible on every one. Maintainers and
+              anyone opening the pull requests you fund will notice you.
+            </p>
+          </div>
+        </div>
       </div>
       <Column
         board={board}

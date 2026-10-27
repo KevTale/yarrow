@@ -4597,10 +4597,12 @@ a[data-loading]:not(.go)::after {
   border-radius: 0;
   padding: 1px 0;
   outline: none;
+  text-overflow: ellipsis;
   transition: border-color 0.15s;
 }
 .fund-input::placeholder {
   color: #5d636d;
+  text-overflow: ellipsis;
 }
 .fund-input:hover {
   border-bottom-color: #5d636d;
@@ -6117,64 +6119,70 @@ button.st-back {
   color: color-mix(in srgb, var(--amber) 70%, var(--text));
 }
 
-/* The tickets as a column of cards that turns, its edges fading out */
+/* The latest tickets: a "Live" line, then a few cards. Nothing moves on
+   its own: a new card slides in, a changed status flashes (useFlip). */
 .tk-stack {
-  --row: 66px;
-  --shown: 3;
+  --card: 58px;
   display: grid;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
   /* Narrower than its half: the cards read as a stack, not a table. */
   padding-inline: clamp(0px, 4vw, 52px);
 }
-.tk-window {
-  position: relative;
-  overflow: hidden;
+.tk-live {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 6px;
+  font-size: 13px;
+  color: var(--muted);
 }
-.tk-window.turning {
-  height: calc(var(--row) * (min(var(--shown), var(--max, 99)) + 1));
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    #000 calc(var(--row) * 0.7),
-    #000 calc(100% - var(--row) * 0.7),
-    transparent
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    #000 calc(var(--row) * 0.7),
-    #000 calc(100% - var(--row) * 0.7),
-    transparent
-  );
+.tk-live-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--secondary);
+}
+.tk-totals {
+  display: flex;
+  gap: 16px;
+}
+.tk-totals b {
+  font:
+    500 15px var(--font-display),
+    sans-serif;
+  color: var(--text);
+  margin-right: 3px;
+  font-variant-numeric: tabular-nums;
 }
 .tk-list {
+  display: grid;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-/* One copy slides by, then the next starts where it began: no seam. */
-.tk-window.turning .tk-list {
-  animation: tk-slide var(--loop, 40s) linear infinite;
-}
-.tk-window.turning .tk-list:has(.tk:hover),
-.tk-window.turning .tk-list:focus-within {
-  animation-play-state: paused;
-}
-@keyframes tk-slide {
-  from {
-    transform: translateY(-50%);
-  }
-  to {
-    transform: none;
-  }
-}
-.tk-list > li {
+/* The frame carries the background; the card inside stays transparent,
+   so a flash tints it without replacing anything. */
+.tk-item {
   box-sizing: border-box;
-  height: var(--row);
-  padding-block: 4px;
+  height: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.tk-item:has(.tk.linked:hover) {
+  background: var(--elevated);
+  border-color: #3a3e45;
 }
 .tk {
+  position: relative;
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
@@ -6183,26 +6191,17 @@ button.st-back {
   align-items: center;
   height: 100%;
   padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--surface);
+  border-radius: inherit;
   color: inherit;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
 }
 /* The card is a link through a layer over it; the sponsor sits above. */
-.tk {
-  position: relative;
-}
 .tk-link {
   position: absolute;
   inset: 0;
   border-radius: inherit;
 }
-.tk.linked:hover {
-  background: var(--elevated);
-  border-color: #3a3e45;
+.tk.linked:hover .tk-title:not(.private) {
+  color: var(--amber);
 }
 a.tk-paid {
   position: relative;
@@ -6320,22 +6319,6 @@ a.tk-paid:hover b {
   font-style: italic;
   color: var(--secondary);
 }
-.tk-totals {
-  display: flex;
-  justify-content: flex-end;
-  gap: 18px;
-  margin: 2px 6px 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-.tk-totals b {
-  font:
-    500 17px var(--font-display),
-    sans-serif;
-  color: var(--text);
-  margin-right: 3px;
-  font-variant-numeric: tabular-nums;
-}
 @media (max-width: 1040px) {
   .landing-hero {
     grid-template-columns: minmax(0, 1fr);
@@ -6364,7 +6347,7 @@ a.tk-paid:hover b {
   /* Three lines per card: the title and the sponsor each get theirs,
      so both read whole. */
   .tk-stack {
-    --row: 90px;
+    --card: 82px;
   }
   .tk {
     grid-template-rows: auto auto auto;
@@ -6384,16 +6367,7 @@ a.tk-paid:hover b {
   .tk-more {
     display: none;
   }
-  .tk-totals {
-    justify-content: center;
-  }
 }
-@media (prefers-reduced-motion: reduce) {
-  .tk-window.turning .tk-list {
-    animation: none;
-  }
-}
-
 /* Logos with no image: the initial on a plain tile */
 .board-logo.initial {
   background: var(--elevated);
@@ -6401,37 +6375,83 @@ a.tk-paid:hover b {
   color: var(--secondary);
 }
 
-/* Sponsors: what a sponsor gets on the left, one board on the right */
+/* Sponsors: why it is free, centered, then one board, centered */
 .sb {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 56px;
-  align-items: start;
-  padding-block: 24px 48px;
+  justify-items: center;
+  gap: 40px;
+  padding-block: 40px 48px;
   scroll-margin-top: 80px;
 }
-.sb-pitch {
+.sb-why {
+  display: grid;
+  justify-items: center;
+  width: min(640px, 100%);
+  text-align: center;
+}
+.sb-why-title {
+  font-size: clamp(28px, 3.2vw, 40px);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.sb-why-text {
+  margin: 12px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--secondary);
+  text-wrap: pretty;
+}
+/* The link says what it opens; a link, not a button, to the eye. */
+.sb-why-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: #5d636d;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    text-decoration-color 0.15s;
+}
+.sb-why-more:hover {
+  color: var(--amber);
+  text-decoration-color: currentColor;
+}
+/* The sketched pull request, folded until asked: it unfolds in place. */
+.sb-why-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: min(560px, 100%);
+  margin-top: 0;
+  transition:
+    grid-template-rows 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sb-why-detail.open {
+  grid-template-rows: 1fr;
+  margin-top: 24px;
+}
+.sb-why-detail > div {
   display: grid;
   gap: 16px;
-  align-content: start;
-}
-/* The pitch's first line sits level with the board's title. */
-/* One line beside the board: the size follows the column's width. */
-.sb-pitch-lede {
-  margin: 6px 0 8px;
-  font:
-    500 clamp(15px, calc(1.84vw - 3px), 20px) / 1.3 var(--font-display),
-    sans-serif;
-  color: var(--text);
-  white-space: nowrap;
+  min-height: 0;
+  overflow: hidden;
+  text-align: left;
 }
 .sb-pitch-text {
   max-width: 54ch;
-  margin: 4px 0 0;
+  margin: 0 auto;
   font-size: 15px;
   line-height: 1.6;
   color: var(--secondary);
+  text-align: center;
   text-wrap: pretty;
+}
+.sb-board {
+  width: min(720px, 100%);
 }
 /* Today and All time, two tabs, each with its total. */
 .sb-tabs {
@@ -6476,19 +6496,6 @@ a.tk-paid:hover b {
 }
 .sb-tabs button[aria-selected="true"] span {
   color: var(--text);
-}
-/* Under 960px the board needs the width: the pitch goes above it. */
-@media (max-width: 960px) {
-  .sb {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 32px;
-  }
-  .sb-pitch {
-    max-width: 640px;
-  }
-  .sb-pitch-lede {
-    font-size: 20px;
-  }
 }
 .sb-claim-go {
   display: inline-flex;
@@ -7330,17 +7337,17 @@ body:has(.sb-dialog[open]) {
 
 @media (max-width: 760px) {
   .sb {
-    grid-template-columns: minmax(0, 1fr);
     gap: 28px;
+    padding-top: 28px;
+  }
+  .sb-why-title {
+    font-size: 26px;
+  }
+  .sb-why-text {
+    font-size: 15.5px;
   }
   .sb-board-head h2 {
     font-size: 22px;
-  }
-  /* Too narrow for one line: it wraps, evenly. */
-  .sb-pitch-lede {
-    font-size: 19px;
-    white-space: normal;
-    text-wrap: balance;
   }
   .sb-row-claim.inline,
   .sb-form-row .sb-you {
