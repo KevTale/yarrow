@@ -2657,6 +2657,33 @@ tbody tr:hover {
   color: var(--secondary);
   padding-left: 6px;
 }
+/* The second way in, under the field: "or" in gray, the action underlined. */
+.ship-alt {
+  margin: -4px 0 0;
+  padding-left: 6px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--muted);
+}
+.ship-alt a {
+  color: var(--secondary);
+  text-decoration: underline;
+  text-decoration-color: #4a4f57;
+  text-underline-offset: 3px;
+  transition:
+    color 0.15s,
+    text-decoration-color 0.15s;
+}
+.ship-alt a:hover {
+  color: var(--amber);
+  text-decoration-color: currentColor;
+}
+@media (max-width: 1040px) {
+  .ship-alt {
+    padding-left: 0;
+    text-align: center;
+  }
+}
 .go {
   display: inline-flex;
   align-items: center;

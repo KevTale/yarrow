@@ -112,6 +112,22 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
         </button>
       </form>
       {hint && <p className="ship-hint">{hint}</p>}
+      {/* For visitors with no issue at hand, and against "one ticket at a
+          time": the same connection, with nothing to paste. Jira passes
+          its source, so a builder already on GitHub lands on the dashboard,
+          where Jira connects. */}
+      <p className="ship-alt">
+        or{" "}
+        <a
+          href={
+            source.id === "jira"
+              ? "/connect/github?source=jira"
+              : "/connect/github"
+          }
+        >
+          connect your backlog
+        </a>
+      </p>
     </div>
   );
 }
