@@ -258,13 +258,12 @@ export function SponsorBoard({
         <p className="sb-pitch-lede">
           Get your company name on every pull request you fund
         </p>
-        <PrMock sponsor={preview} compact />
+        <PrSketch sponsor={preview} />
         <p className="sb-pitch-text">
           Your money pays for the compute behind each pull request, and your
-          card closes every one of them. The maintainers see it when they
-          merge, and so does anyone who opens the pull request later. Every
-          click to your site, from a pull request or from this page, is
-          counted on your row.
+          card closes every one. Maintainers see it when they merge, and so
+          does anyone who opens it later. Every click to your site, from a
+          pull request or this page, is counted on your row.
         </p>
       </div>
       <Column
@@ -878,71 +877,30 @@ function ModalHead({
 }
 
 /**
- * A pull request on GitHub, drawn simply: its title and state, the bot's
- * description, and at its foot the real card, as the pull request shows it.
+ * A pull request, sketched: its state and title, a few changed lines, and
+ * the real card closing it. No host's page around it: the card is the point.
  */
-function PrMock({
-  sponsor,
-  compact = false,
-}: {
-  sponsor: PrCardSponsor;
-  compact?: boolean;
-}) {
+function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
   return (
-    <div
-      className={`gh ${compact ? "compact" : ""}`}
-      role="img"
-      aria-label={`A pull request on GitHub, ending with the card of ${sponsor.name ?? "an anonymous sponsor"}`}
+    <figure
+      className="pr-sketch"
+      aria-label={`A pull request ending with the card of ${sponsor.name ?? "an anonymous sponsor"}`}
     >
-      <div className="gh-head">
-        <span className="gh-title">
-          Keep the stroke width when exporting a selection to SVG{" "}
-          <span className="gh-number">#8123</span>
+      <div className="pr-sketch-head">
+        <span className="pr-sketch-state">
+          <GitMerge size={13} /> Merged
         </span>
-        <span className="gh-meta">
-          <span className="gh-merged">
-            <GitMerge size={13} /> Merged
-          </span>
-          <span>
-            <b>dwelle</b> merged 1 commit into <code>main</code> from{" "}
-            <code>yarrow/8121</code>
-          </span>
+        <span className="pr-sketch-title">
+          Keep the stroke width when exporting to SVG
         </span>
       </div>
-      <div className="gh-comment">
-        <div className="gh-comment-head">
-          <span className="gh-avatar" aria-hidden="true" />
-          <b>yarrow-run</b>
-          <span className="gh-bot">bot</span>
-          <span>opened this pull request</span>
-        </div>
-        <div className="gh-comment-body">
-          <p>
-            Closes <span className="gh-link">#8121</span>
-          </p>
-          <h4>What changed</h4>
-          <p>
-            Exporting a selection to SVG keeps each shape&apos;s stroke width
-            instead of resetting it to one pixel.
-          </p>
-          {!compact && (
-            <>
-              <h4>How it was verified</h4>
-              <ul>
-                <li>
-                  The export tests pass, with a new case for scaled shapes
-                </li>
-              </ul>
-            </>
-          )}
-          <p className="gh-small">
-            Implemented by Claude Opus 5.5 · Reviewed by GPT Astra
-          </p>
-          <hr />
-          <PrCardPreview sponsor={sponsor} />
-        </div>
+      <div className="pr-sketch-diff" aria-hidden="true">
+        <i className="del" style={{ width: "58%" }} />
+        <i className="add" style={{ width: "64%" }} />
+        <i className="add" style={{ width: "41%" }} />
       </div>
-    </div>
+      <PrCardPreview sponsor={sponsor} />
+    </figure>
   );
 }
 
@@ -1011,7 +969,7 @@ function ClaimDialog({
           onClose={onClose}
         />
         <div className="sb-dialog-preview">
-          <PrMock sponsor={typedSponsor(card)} compact />
+          <PrSketch sponsor={typedSponsor(card)} />
         </div>
         <dl className="sb-dialog-lines">
           <div>

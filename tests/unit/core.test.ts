@@ -441,7 +441,7 @@ describe("pull request card", () => {
     expect(svg).toContain("acme.dev");
     expect(svg).toContain("+1 sponsor<");
     expect(svg).not.toContain("<Rockets>");
-    expect(svg).toContain("SPONSORED BY");
+    expect(svg).toContain("Sponsored by");
     expect(svg).toContain("Powered by");
   });
   it("wraps a long description instead of cutting it, the card growing", () => {
@@ -462,7 +462,7 @@ describe("pull request card", () => {
     expect(height(long)).toBeGreaterThan(height(short));
     expect(long).toContain('<a href="https://acme.dev" target="_blank">');
     expect(long).toContain('<a href="https://yarrow.run" target="_blank">');
-    expect(long).toContain("#ffffff");
+    expect(long).toContain("#faf6ec");
   });
   it("keeps only the site's host", () => {
     expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");

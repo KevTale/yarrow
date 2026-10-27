@@ -50,25 +50,27 @@ export function shortSite(url: string | null | undefined): string | null {
 export type PrCardTheme = "dark" | "light";
 
 const palettes = {
+  // Yarrow's night, a touch warm.
   dark: {
-    background: "#111215",
-    border: "#25282e",
+    background: "#15161a",
+    border: "#2b2e34",
     label: "#f2b544",
-    name: "#edeef0",
-    text: "#bdc1c9",
-    muted: "#8a909b",
-    tile: "#17191d",
-    tileBorder: "#2a2e35",
+    name: "#f3f0e8",
+    text: "#c4c6cc",
+    muted: "#8e939d",
+    tile: "#1d1f24",
+    tileBorder: "#33363d",
   },
+  // Cream rather than white: the brand's paper.
   light: {
-    background: "#ffffff",
-    border: "#d0d7de",
-    label: "#a8660a",
-    name: "#1f2328",
-    text: "#424a53",
-    muted: "#6e7781",
-    tile: "#f6f8fa",
-    tileBorder: "#d0d7de",
+    background: "#faf6ec",
+    border: "#e5dcc6",
+    label: "#a35f00",
+    name: "#1d1b16",
+    text: "#4a463d",
+    muted: "#7c7566",
+    tile: "#f1ead9",
+    tileBorder: "#e0d6bf",
   },
 } as const;
 
@@ -87,9 +89,10 @@ function charWidth(char: string): number {
   if (char === " ") return 0.28;
   if ("ijlI.,:;'!|ftr()[]".includes(char)) return 0.32;
   if ("mwMW@".includes(char)) return 0.86;
-  if (/[A-Z]/.test(char)) return 0.68;
-  if (/[0-9]/.test(char)) return 0.57;
-  return 0.55;
+  if (/[A-Z]/.test(char)) return 0.65;
+  if (/[0-9]/.test(char)) return 0.55;
+  // Segoe UI runs about 0.45 em a letter, San Francisco about 0.48: some room.
+  return 0.52;
 }
 
 /** The text broken into lines that fit `width` pixels; never cut. */
@@ -189,15 +192,16 @@ export function prCardSvg(input: {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escape(`Sponsored by ${name}${more ? ` and ${more} more` : ""}, powered by Yarrow`)}">
   <defs>
     <clipPath id="logo"><rect x="24" y="44" width="48" height="48" rx="12"/></clipPath>
+    <clipPath id="card"><rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="14"/></clipPath>
     <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#f2b544" stop-opacity="0.9"/>
       <stop offset="1" stop-color="#f2b544" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="14" fill="${color.background}" stroke="${color.border}"/>
-  <rect x="1" y="1" width="${w - 2}" height="2" rx="1" fill="url(#edge)"/>
-  <text x="24" y="28" font-family="${mono}" font-size="11" letter-spacing="1.2" fill="${color.label}">SPONSORED BY</text>
-  <text x="${w - 24}" y="28" text-anchor="end" font-family="${sans}" font-size="12" fill="${color.muted}">Powered by ${yarrow}</text>
+  <rect x="0" y="0" width="${w}" height="3" fill="url(#edge)" clip-path="url(#card)"/>
+  <text x="24" y="30" font-family="${sans}" font-size="14" font-weight="600" fill="${color.label}">Sponsored by</text>
+  <text x="${w - 24}" y="30" text-anchor="end" font-family="${sans}" font-size="12.5" fill="${color.muted}">Powered by ${yarrow}</text>
   ${logo}
   ${lines}
   ${more ? `<text x="${w - 24}" y="74" text-anchor="end" font-family="${sans}" font-size="13" fill="${color.text}">+${more} sponsor${more === 1 ? "" : "s"}</text>` : ""}

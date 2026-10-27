@@ -6927,138 +6927,62 @@ body:has(.sb-dialog[open]) {
   color: var(--secondary);
 }
 
-/* A pull request as GitHub shows it, drawn simply, the real card at its
-   foot. GitHub's dark palette, so it reads as GitHub at a glance. */
-.gh {
+/* A pull request, sketched: the state, the title, a few changed lines,
+   then the real card. Our own palette: no host's page. */
+.pr-sketch {
   display: grid;
   gap: 14px;
+  margin: 0;
   padding: 16px;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  background: #0d1117;
-  color: #e6edf3;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
-    Arial, sans-serif;
-  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
 }
-.gh-head {
-  display: grid;
-  gap: 8px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #30363d;
-}
-.gh-title {
-  font-size: 17px;
-  line-height: 1.3;
-}
-.gh-number {
-  color: #7d8590;
-  font-weight: 300;
-}
-.gh-meta {
+.pr-sketch-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
-  color: #7d8590;
+  gap: 10px;
+  min-width: 0;
 }
-.gh-meta b {
-  color: #e6edf3;
-  font-weight: 600;
-}
-.gh code {
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: #1f6feb26;
-  color: #4493f8;
-  font:
-    11.5px ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    monospace;
-}
-.gh-merged {
+.pr-sketch-state {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
   border-radius: 99px;
-  background: #8957e5;
-  color: #fff;
+  background: #a371f726;
+  color: #c4a5ff;
+  font-size: 12px;
   font-weight: 500;
 }
-.gh-comment {
-  border: 1px solid #30363d;
-  border-radius: 8px;
+.pr-sketch-title {
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text);
 }
-.gh-comment-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #30363d;
-  background: #161b22;
-  color: #7d8590;
-}
-.gh-comment-head b {
-  color: #e6edf3;
-  font-weight: 600;
-}
-.gh-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, #f2b544 0 3px, transparent 3.5px),
-    #2d2a1f;
-}
-.gh-bot {
-  padding: 0 6px;
-  border: 1px solid #30363d;
-  border-radius: 99px;
-  font-size: 11px;
-}
-.gh-comment-body {
+/* Changed lines, without their code: removed in red, added in green. */
+.pr-sketch-diff {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  line-height: 1.5;
+  gap: 7px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg);
 }
-.gh-comment-body h4 {
-  margin: 4px 0 0;
-  font-size: 14px;
-  font-weight: 600;
+.pr-sketch-diff i {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
 }
-.gh-comment-body p {
-  margin: 0;
+.pr-sketch-diff .del {
+  background: #ee7b6e47;
 }
-.gh-comment-body ul {
-  margin: 0;
-  padding-left: 20px;
-  list-style: disc;
-}
-.gh-comment-body hr {
-  width: 100%;
-  margin: 4px 0;
-  border: 0;
-  border-top: 1px solid #30363d;
-}
-.gh-link {
-  color: #4493f8;
-}
-.gh-small {
-  font-size: 12px;
-  color: #7d8590;
-}
-.gh.compact {
-  gap: 10px;
-  padding: 12px;
-}
-.gh.compact .gh-title {
-  font-size: 15px;
+.pr-sketch-diff .add {
+  background: #5ccb9547;
 }
 /* The pull request's card, scaled to its box. */
 .sb-prcard {
@@ -7312,12 +7236,6 @@ body:has(.sb-dialog[open]) {
     font-size: 19px;
     white-space: normal;
     text-wrap: balance;
-  }
-  .gh {
-    padding: 12px;
-  }
-  .gh-title {
-    font-size: 15px;
   }
   .sb-row-claim.inline,
   .sb-form-row .sb-you {
