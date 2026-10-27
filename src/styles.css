@@ -6102,6 +6102,11 @@ button.st-back {
   font-weight: 500;
   color: var(--text);
 }
+/* What sponsors get, in a soft gold: the site's amber, toned down. */
+.gold {
+  font-style: normal;
+  color: color-mix(in srgb, var(--amber) 70%, var(--text));
+}
 
 /* The tickets as a column of cards that turns, its edges fading out */
 .tk-stack {

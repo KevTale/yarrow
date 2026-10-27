@@ -256,7 +256,8 @@ export function SponsorBoard({
     <section className="sb" id="sponsors" aria-labelledby="sponsors-title">
       <div className="sb-pitch">
         <p className="sb-pitch-lede">
-          Get your company name on every pull request you fund
+          Get <em className="gold">your company name</em> on every pull
+          request you fund
         </p>
         <PrSketch sponsor={preview} />
         <p className="sb-pitch-text">

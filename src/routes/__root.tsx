@@ -27,7 +27,7 @@ import {
 
 const TITLE = "Yarrow · Frontier AI for free";
 const DESCRIPTION =
-  "Paste an issue: Claude Opus and GPT Astra turn it into a pull request in minutes. Free because sponsors fund the compute, and their names ship with every pull request.";
+  "Paste an issue: Claude Opus and GPT Astra turn it into a pull request in minutes. Free because sponsors fund the compute, and their company names ship with every pull request.";
 
 export const Route = createRootRoute({
   loader: async () => {

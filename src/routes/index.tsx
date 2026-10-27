@@ -60,11 +60,10 @@ function Landing() {
         <div className="landing-pitch">
           <h1>Frontier AI for free</h1>
           <p className="landing-sub">
-            Paste an issue:{" "}
-            <span className="model model-claude">Claude Opus</span> and{" "}
-            <span className="model model-gpt">GPT Astra</span> turn it into a{" "}
-            <b>pull request</b> in minutes. Free because sponsors pay for the
-            compute, and their names ship with every pull request.
+            Paste an issue: Claude Opus and GPT Astra turn it into a{" "}
+            <b>pull request</b> in minutes. Free because{" "}
+            <em className="gold">sponsors pay for the compute</em>, and their
+            company names ship with every pull request.
           </p>
           <ShipForm jira={loaded.sources.jira} />
         </div>
