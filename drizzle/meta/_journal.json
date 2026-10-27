@@ -92,6 +92,13 @@
       "when": 1791491134625,
       "tag": "0012_run_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791641471129,
+      "tag": "0013_daily_fundings",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,13 @@ import { eq, sql } from "drizzle-orm";
 import { settleBreakdown } from "../core/pricing";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
-import { contributions, ledgerEntries, sponsorProfiles } from "./schema";
+import { startOfUtcDay } from "./boards";
+import {
+  contributions,
+  dailyFundings,
+  ledgerEntries,
+  sponsorProfiles,
+} from "./schema";
 
 /** Created when the Checkout Session is created. Never spendable until settled. */
 export async function createPendingContribution(
@@ -138,4 +144,52 @@ export async function refundContribution(
       payload: { frozenCents: frozen, alreadySpentCents: spent },
     });
   });
+}
+
+/**
+ * Each daily funding's credit for today (UTC), settled at once: no fee, no
+ * tax, no margin. Idempotent: the cron runs every minute and a day is
+ * credited once. Returns the users credited by this call.
+ */
+export async function fundDaily(
+  db: Database,
+  now = new Date(),
+): Promise<string[]> {
+  const day = startOfUtcDay(now);
+  const key = (userId: string) =>
+    `daily:${userId}:${day.toISOString().slice(0, 10)}`;
+  const fundings = await db.select().from(dailyFundings);
+  const credited: string[] = [];
+  for (const funding of fundings) {
+    const done = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(contributions)
+        .values({
+          userId: funding.userId,
+          source: "direct",
+          paymentStatus: "settled",
+          directKey: key(funding.userId),
+          amountCents: funding.amountCents,
+          creditCents: funding.amountCents,
+          createdAt: now,
+        })
+        .onConflictDoNothing({ target: contributions.directKey })
+        .returning({ id: contributions.id });
+      if (!row) return false;
+      await tx.insert(ledgerEntries).values({
+        contributionId: row.id,
+        kind: "credit",
+        amountCents: funding.amountCents,
+        idempotencyKey: `${row.id}:credit`,
+      });
+      await recordEvent(tx, {
+        type: "contribution.settled",
+        userId: funding.userId,
+        payload: { source: "direct", creditCents: funding.amountCents },
+      });
+      return true;
+    });
+    if (done) credited.push(funding.userId);
+  }
+  return credited;
 }

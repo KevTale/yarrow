@@ -54,7 +54,7 @@ export type SponsorRow = {
 
 /**
  * Sponsors ranked by money paid (what the card was charged, VAT included:
- * what the sponsor sees) on settled Stripe payments,
+ * what the sponsor sees) on settled Stripe payments and direct credit,
  * for today or all time. Paying moves a sponsor up at once. Promo credit
  * and refunds never count; anonymous sponsors rank without their profile.
  */
@@ -85,7 +85,7 @@ export async function sponsorBoard(
     )
     .where(
       and(
-        eq(contributions.source, "stripe"),
+        inArray(contributions.source, ["stripe", "direct"]),
         eq(contributions.paymentStatus, "settled"),
         period === "today"
           ? gte(contributions.createdAt, startOfUtcDay(now))

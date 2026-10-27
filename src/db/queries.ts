@@ -74,7 +74,7 @@ export async function homeStats(db: Database) {
     .from(contributions)
     .where(
       and(
-        eq(contributions.source, "stripe"),
+        inArray(contributions.source, ["stripe", "direct"]),
         eq(contributions.paymentStatus, "settled"),
       ),
     );

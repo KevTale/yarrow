@@ -24,6 +24,7 @@ import {
 } from "../src/core/review";
 import { eq, sql } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
+import { fundDaily } from "../src/db/contributions";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { recordRunModels } from "../src/db/runs";
@@ -711,12 +712,18 @@ export default {
   ) {
     ctx.waitUntil(
       (async () => {
+        const fiveMinutes =
+          new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0;
+        // Today's daily fundings, before the pass that can spend them.
+        if (fiveMinutes && env.DATABASE_URL) {
+          const credited = await withDb(env, (db) => fundDaily(db)).catch(
+            (error) => [describe(error)],
+          );
+          if (credited.length) console.log("daily fundings", credited);
+        }
         // The minute's pass is the safety net: a kick may be running.
         await tick(env, false);
-        if (
-          new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0 &&
-          env.DATABASE_URL
-        )
+        if (fiveMinutes && env.DATABASE_URL)
           console.log(
             "tracker sync",
             await withDb(env, (db) =>

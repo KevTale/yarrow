@@ -29,7 +29,13 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "settled",
   "refunded",
 ]);
-export const creditSourceEnum = pgEnum("credit_source", ["stripe", "promo"]);
+// direct: money the founder puts in without Stripe (no fee, no margin),
+// ranked like a card payment; promo: credit given, never ranked.
+export const creditSourceEnum = pgEnum("credit_source", [
+  "stripe",
+  "promo",
+  "direct",
+]);
 export const trackerEnum = pgEnum("tracker", [
   "github",
   "linear",
@@ -293,6 +299,8 @@ export const contributions = pgTable(
       .notNull(),
     stripeCheckoutId: text("stripe_checkout_id").unique(),
     stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+    // A direct credit's idempotency key, e.g. one daily funding per UTC day.
+    directKey: text("direct_key").unique(),
     // EU consumers consent to immediate start and waive the 14-day withdrawal right.
     withdrawalWaiverAt: timestamp("withdrawal_waiver_at", {
       withTimezone: true,
@@ -323,6 +331,20 @@ export const contributions = pgTable(
     index("contributions_user").on(t.userId),
     index("contributions_spendable").on(t.paymentStatus, t.createdAt),
   ],
+).enableRLS();
+
+/**
+ * Direct credit added to a sponsor every UTC day by the brain's cron: the
+ * founder's own projects, funded as sponsors without Stripe fees.
+ */
+export const dailyFundings = pgTable(
+  "daily_fundings",
+  {
+    userId: uuid("user_id").primaryKey(),
+    amountCents: integer("amount_cents").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [check("daily_funding_positive", sql`${t.amountCents} > 0`)],
 ).enableRLS();
 
 export const workUnits = pgTable(

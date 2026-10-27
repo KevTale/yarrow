@@ -206,7 +206,9 @@ function Payments({ data }: { data: Account }) {
             <span className="muted">
               {payment.source === "promo"
                 ? "Founding credit"
-                : payment.paymentStatus === "refunded"
+                : payment.source === "direct"
+                  ? "Direct"
+                  : payment.paymentStatus === "refunded"
                   ? "Refunded"
                   : "Card"}
             </span>
