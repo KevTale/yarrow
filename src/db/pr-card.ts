@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { shortSite, type PrCardSponsor } from "../core/pr-card";
 import type { Database } from "./client";
 import { readImage } from "./images";
@@ -38,6 +38,7 @@ export async function runCardSponsors(
   db: Database,
   runId: string,
 ): Promise<PrCardSponsor[]> {
+  const share = sql<number>`sum(${runFundings.reservedCents} + ${runFundings.debitedCents})`;
   const rows = await db
     .select({
       publicId: sponsorProfiles.publicId,
@@ -59,7 +60,7 @@ export async function runCardSponsors(
       sponsorProfiles.websiteUrl,
       sponsorProfiles.logoUrl,
     )
-    .orderBy(sql`5 desc`);
+    .orderBy(desc(share), asc(sql`min(${contributions.createdAt})`));
   return Promise.all(
     rows.map(async (row, i) => ({
       name: row.name,

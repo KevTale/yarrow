@@ -338,6 +338,7 @@ function sample(rows: SponsorRow[]): PrCardSponsor | null {
         description: row.description,
         site: shortSite(row.websiteUrl),
         logo: row.logoUrl,
+        publicId: row.publicId,
       }
     : null;
 }
@@ -789,7 +790,12 @@ function PrCardPreview({ sponsor }: { sponsor: PrCardSponsor }) {
           // card takes the colors opposite to the page, as on GitHub.
           theme: "light",
           links: {
-            site: sponsor.site ? `https://${sponsor.site}` : null,
+            // A real sponsor's site goes through the click counter.
+            site: !sponsor.site
+              ? null
+              : sponsor.publicId
+                ? `/out/${sponsor.publicId}`
+                : `https://${sponsor.site}`,
             yarrow: "/",
           },
         }),

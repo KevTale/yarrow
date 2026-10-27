@@ -322,7 +322,7 @@ describe("attribution", () => {
     const sponsor = "6c0d2f4a-1b3e-4a5c-8d7e-9f0a1b2c3d4e";
     const alone = pullRequestFooter({
       roles: defaultPipelineRoles,
-      sponsors: [{ name: "Northwind", publicId: sponsor }],
+      sponsors: [{ name: "Northwind", publicId: sponsor, website: true }],
       runUrl: `https://yarrow.run/runs/${id}`,
     });
     expect(alone).toBe(
@@ -336,12 +336,25 @@ describe("attribution", () => {
     );
     // The card names them: no second line saying it again.
     expect(alone).not.toContain("via [Yarrow]");
+    // Shared: the card draws the largest share, and its link goes there.
     const shared = pullRequestFooter({
       roles: defaultPipelineRoles,
-      sponsors: [{ name: "Northwind", publicId: sponsor }, { name: null }],
+      sponsors: [
+        { name: "Northwind", publicId: sponsor, website: true },
+        { name: null },
+      ],
       runUrl: `https://yarrow.run/runs/${id}`,
     });
     expect(shared).toContain(
+      `<a href="https://yarrow.run/out/${sponsor}"><picture>`,
+    );
+    // No website to send a click to: the card opens the run.
+    const siteless = pullRequestFooter({
+      roles: defaultPipelineRoles,
+      sponsors: [{ name: "Northwind", publicId: sponsor, website: false }],
+      runUrl: `https://yarrow.run/runs/${id}`,
+    });
+    expect(siteless).toContain(
       `<a href="https://yarrow.run/runs/${id}"><picture>`,
     );
     expect(shared).toContain(

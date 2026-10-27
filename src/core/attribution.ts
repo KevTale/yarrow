@@ -5,6 +5,8 @@ export interface RunSponsor {
   name: string | null;
   /** Their row on the boards (anonymous sponsors rank too). */
   publicId?: string | null;
+  /** Named with a website: a click can be sent there, counted. */
+  website?: boolean;
 }
 
 function list(items: string[]): string {
@@ -36,8 +38,8 @@ const escapeHtml = (text: string) =>
  * to the run page: who paid, drawn as their row on the boards, in the
  * colors opposite to the reader's GitHub theme (light on dark, dark on
  * light: GitHub picks the `<picture>` source). An image carries one link:
- * the sponsor's website (counted) when one named sponsor paid alone,
- * otherwise the run.
+ * the website of the sponsor the card draws (the largest share, first in
+ * `sponsors`), counted, when they are named with a site; otherwise the run.
  */
 export function sponsorCard(input: {
   sponsors: readonly RunSponsor[];
@@ -49,10 +51,10 @@ export function sponsorCard(input: {
   );
   if (!names || !match) return null;
   const [, origin, runId] = match;
-  const only = input.sponsors.length === 1 ? input.sponsors[0] : null;
+  const lead = input.sponsors[0];
   const link =
-    only?.name && only.publicId
-      ? `${origin}/out/${only.publicId}`
+    lead?.name && lead.publicId && lead.website
+      ? `${origin}/out/${lead.publicId}`
       : input.runUrl;
   const src = `${origin}/pr-card/${runId}`;
   const alt = escapeHtml(`Sponsored by ${names}, powered by Yarrow`);

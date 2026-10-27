@@ -39,19 +39,29 @@ export async function runSponsors(
   db: Database,
   runId: string,
 ): Promise<RunSponsor[]> {
+  // One entry per sponsor, the largest share first, as the card draws them.
+  const share = sql<number>`sum(${runFundings.reservedCents} + ${runFundings.debitedCents})`;
   const rows = await db
     .select({
       name: sponsorProfiles.publicName,
       publicId: sponsorProfiles.publicId,
+      websiteUrl: sponsorProfiles.websiteUrl,
     })
     .from(runFundings)
     .innerJoin(contributions, eq(contributions.id, runFundings.contributionId))
     .leftJoin(sponsorProfiles, eq(sponsorProfiles.userId, contributions.userId))
     .where(eq(runFundings.agentRunId, runId))
-    .orderBy(asc(contributions.createdAt));
+    .groupBy(
+      contributions.userId,
+      sponsorProfiles.publicName,
+      sponsorProfiles.publicId,
+      sponsorProfiles.websiteUrl,
+    )
+    .orderBy(desc(share), asc(sql`min(${contributions.createdAt})`));
   return rows.map((row) => ({
     name: row.name ?? null,
     publicId: row.publicId ?? null,
+    website: Boolean(row.name && row.websiteUrl),
   }));
 }
 

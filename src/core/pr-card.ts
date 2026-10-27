@@ -14,6 +14,8 @@ export interface PrCardSponsor {
   site: string | null;
   /** A data: URL in pull requests; any URL in the page's own previews. */
   logo: string | null;
+  /** Their row, when the card is a real sponsor's: its site link is counted. */
+  publicId?: string | null;
 }
 
 export const PR_CARD_WIDTH = 640;

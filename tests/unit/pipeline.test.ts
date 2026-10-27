@@ -198,6 +198,10 @@ describe("run pipeline", async () => {
       requiredStacks: [],
       selectedProjectIds: [],
     });
+    // A website: the card's click goes there, counted.
+    await raw
+      .update(schema.sponsorProfiles)
+      .set({ websiteUrl: "https://northwind.dev" });
     await createPendingContribution(db, {
       userId: sponsor,
       amountCents: 5_000,
