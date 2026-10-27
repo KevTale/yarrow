@@ -6720,6 +6720,10 @@ a.sb-row-link:hover .sb-site {
   font-size: 20px;
   font-weight: 400;
 }
+/* The open place says it already: no You tag, the name keeps the room. */
+.sb-row.you.ghost .sb-you {
+  display: none;
+}
 .sb-row.you.ghost .fund-name::placeholder {
   color: #f2c86b;
 }
