@@ -2673,19 +2673,6 @@ tbody tr:hover {
   color: var(--secondary);
   padding-left: 6px;
 }
-/* The builder's consent, before GitHub: small, never hidden. */
-.connect-terms {
-  margin: 0;
-  padding-inline: 6px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-.connect-terms a {
-  color: var(--secondary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .go {
   display: inline-flex;
   align-items: center;
@@ -7390,4 +7377,21 @@ body:has(.sb-dialog[open]) {
     padding-right: 0;
     border-right: 0;
   }
+}
+
+/* The builder's consent to the card, once, on the first Builder visit. */
+.consent-body {
+  display: grid;
+  gap: 16px;
+}
+.consent-body p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+.consent-body p a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

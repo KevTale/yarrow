@@ -44,13 +44,6 @@ export function WelcomeView({ data }: { data: SponsorData }) {
               <ArrowRight size={14} strokeWidth={2.2} />
             </i>
           </a>
-          <p className="connect-terms">
-            By connecting GitHub you accept the{" "}
-            <a href="/terms" target="_blank">
-              Terms
-            </a>
-            : every pull request ends with its sponsors&apos; card.
-          </p>
         </section>
 
         <section className="welcome-card" aria-labelledby="welcome-sponsor">

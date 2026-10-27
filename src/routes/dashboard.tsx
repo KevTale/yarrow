@@ -13,6 +13,7 @@ import { NotConfigured } from "@/components/ui";
 import { getBuilderFn } from "@/functions/builder.functions";
 import { settleConnectFn } from "@/functions/connect.functions";
 import { getSponsorDashboardFn } from "@/functions/sponsor.functions";
+import { CardConsent } from "@/components/dashboard/card-consent";
 
 type Tab = "builder" | "sponsor";
 const rootRoute = getRouteApi("__root__");
@@ -180,6 +181,10 @@ function DashboardPage() {
           </h1>
         </>
       )}
+      {tab === "builder" &&
+        builder.status === "ok" &&
+        isBuilder &&
+        !builder.cardAccepted && <CardConsent />}
       {tab === "builder" && builder.status === "ok" ? (
         <BuilderView
           data={builder}

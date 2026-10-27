@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { logoSchema } from "@/core/forms";
 import { projectLogo } from "@/core/logos";
@@ -8,7 +8,8 @@ import { requireProjectMember } from "@/db/accounts";
 import { requestGithubTask } from "@/db/github-tasks";
 import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
-import { projects as projectsTable } from "@/db/schema";
+import { events, projects as projectsTable } from "@/db/schema";
+import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
@@ -42,6 +43,18 @@ export const getBuilderFn = createServerFn({ method: "GET" })
         logoUrl: projectLogo(project.logoUrl, project.repository),
       }));
       const review = await reviewQueue(db, projects);
+      // Asked once, on the first Builder visit: kept as an event.
+      const [accepted] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(
+          and(
+            eq(events.type, "builder.card_accepted"),
+            eq(events.userId, viewer.userId),
+          ),
+        )
+        .limit(1);
+      const cardAccepted = Boolean(accepted);
       const chosen =
         projects.find((project) => project.id === data.projectId) ??
         projects.find((project) => project.linked) ??
@@ -55,6 +68,7 @@ export const getBuilderFn = createServerFn({ method: "GET" })
           issues: null as OpenIssue[] | null,
           review: [] as ReviewRow[],
           jiraReady: jiraReady(),
+          cardAccepted,
         };
       const project = await requireProjectMember(db, viewer.userId, chosen.id);
       const boards = await boardsForProject(db, project.id);
@@ -81,9 +95,25 @@ export const getBuilderFn = createServerFn({ method: "GET" })
         issues: data.issues ? await openTickets(db, project) : null,
         review,
         jiraReady: jiraReady(),
+        cardAccepted,
       };
     });
   });
+
+/** The builder accepts the sponsors' card at the foot of their pull requests. */
+export const acceptCardFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const viewer = await requireViewer();
+    await withDb((db) =>
+      recordEvent(db, {
+        type: "builder.card_accepted",
+        userId: viewer.userId,
+        payload: { terms: "2026-10-10" },
+      }),
+    );
+    return { ok: true };
+  },
+);
 
 /** The logo tile in the project's head: saved as soon as it is chosen. */
 export const setProjectLogoFn = createServerFn({ method: "POST" })

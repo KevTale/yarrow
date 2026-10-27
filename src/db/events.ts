@@ -7,6 +7,7 @@ export type EventType =
   | "account.created"
   | "account.deleted"
   | "account.email_changed"
+  | "builder.card_accepted"
   | "project.created"
   | "project.updated"
   | "project.github_linked"

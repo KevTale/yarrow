@@ -815,7 +815,7 @@ function typedSponsor(card: CardValue): PrCardSponsor {
 }
 
 /** A dialog over the page: Escape, the close button or the backdrop close it. */
-function Modal({
+export function Modal({
   open,
   onClose,
   labelledBy,
@@ -852,7 +852,7 @@ function Modal({
 }
 
 /** The dialog's title and its close button. */
-function ModalHead({
+export function ModalHead({
   id,
   title,
   onClose,
@@ -881,7 +881,7 @@ function ModalHead({
  * its text as gray lines and the real card closing it. Enough of a pull
  * request to read as one, without a host's page around it.
  */
-function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
+export function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
   return (
     <figure
       className="pr-sketch"
