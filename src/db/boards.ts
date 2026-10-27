@@ -268,28 +268,27 @@ export async function mergedTotals(db: Database, now = new Date()) {
 }
 
 /**
- * What a merged pull request cost over the last 90 days, every project
- * counted: the compute the providers reported on every run (abstentions,
- * corrections and open pull requests included) over the pull requests
- * merged from measured runs. Prices move with the models, hence the window.
+ * What a pull request cost over the last 90 days, every project counted:
+ * the compute the providers reported on every run (writing, reviewing,
+ * abstentions and corrections included) over the pull requests measured
+ * runs opened, merged or not. Prices move with the models, hence the window.
  */
-export async function mergedPullRequestCost(db: Database, now = new Date()) {
+export async function pullRequestCostCents(db: Database, now = new Date()) {
   const since = new Date(now.getTime() - 90 * 86_400_000);
   const [spent] = await db
     .select({ cents: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int` })
     .from(runModels)
     .where(gte(runModels.createdAt, since));
-  const [merged] = await db
+  const [opened] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(pullRequests)
     .where(
       and(
-        eq(pullRequests.state, "merged"),
-        gte(pullRequests.closedAt, since),
+        gte(pullRequests.openedAt, since),
         sql`exists (select 1 from ${agentRuns} join ${runModels} on ${runModels.agentRunId} = ${agentRuns.id} where ${agentRuns.workUnitId} = ${pullRequests.workUnitId})`,
       ),
     );
-  return pullRequestCost(spent?.cents ?? 0, merged?.count ?? 0);
+  return pullRequestCost(spent?.cents ?? 0, opened?.count ?? 0);
 }
 
 export type LiveStatus =

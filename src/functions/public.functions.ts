@@ -4,7 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   liveRecent,
-  mergedPullRequestCost,
+  pullRequestCostCents,
   platformTotals,
   sponsorBoard,
 } from "@/db/boards";
@@ -35,7 +35,7 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
           sponsorBoard(db, "all"),
           liveRecent(db),
           platformTotals(db),
-          mergedPullRequestCost(db),
+          pullRequestCostCents(db),
           userId ? boardViewer(db, userId) : null,
         ]);
       return {

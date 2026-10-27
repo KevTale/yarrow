@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   liveToday,
-  mergedPullRequestCost,
+  pullRequestCostCents,
   mergedToday,
   mergedTotals,
   projectBoard,
@@ -177,15 +177,15 @@ describe("sponsor boards", () => {
 });
 
 describe("pull request cost", () => {
-  it("spreads every measured run's compute over the merged pull requests", async () => {
+  it("spreads every measured run's compute over the pull requests opened", async () => {
     const paid = await pay(await sponsor("Northwind"), 1000);
     const site = await project("site", "hidden");
-    expect(await mergedPullRequestCost(db, now)).toBe(250);
+    expect(await pullRequestCostCents(db, now)).toBe(250);
     const measured = [
       await shipped(site, paid, "merged", now),
       await shipped(site, paid, "open", null),
     ];
-    // A merge without a measured run (demo data) does not count.
+    // A pull request without a measured run (demo data) does not count.
     await shipped(site, paid, "merged", now);
     for (const [index, agentRunId] of measured.entries())
       await raw.insert(schema.runModels).values({
@@ -195,11 +195,11 @@ describe("pull request cost", () => {
         costCents: index === 0 ? 300 : 900,
         createdAt: now,
       });
-    // ($12 spent + $25 of hypothesis) / (1 merge + 10)
-    expect(await mergedPullRequestCost(db, now)).toBe(336);
+    // ($12 spent + $25 of hypothesis) / (2 pull requests + 10)
+    expect(await pullRequestCostCents(db, now)).toBe(308);
     // Past 90 days, it no longer counts.
     expect(
-      await mergedPullRequestCost(db, new Date("2027-02-01T00:00:00Z")),
+      await pullRequestCostCents(db, new Date("2027-02-01T00:00:00Z")),
     ).toBe(250);
   });
 });

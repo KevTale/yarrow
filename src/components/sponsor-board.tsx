@@ -114,7 +114,7 @@ function useClaim(
   const fees = valid
     ? estimateBreakdown(cents, { vatRateBps: 0, founding })
     : null;
-  // The pull requests the compute funds, at what a merged one costs.
+  // The pull requests the compute funds, at what one costs.
   const prs = fees ? pullRequestsFor(fees.creditCents, pullRequestCents) : null;
 
   /** The card as the profile it saves, or an error to show. */
@@ -209,7 +209,7 @@ export function SponsorBoard({
   today: SponsorRow[];
   all: SponsorRow[];
   you: BoardViewer | null;
-  /** What a merged pull request costs in compute, about. */
+  /** What a pull request costs in compute, about. */
   pullRequestCents: number;
   /** Arriving from the dashboard: the row opens at once. */
   startEditing?: boolean;

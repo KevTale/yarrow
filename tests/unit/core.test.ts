@@ -65,13 +65,13 @@ describe("pricing", () => {
     });
     expect(estimateBreakdown(1_000).creditCents).toBe(866);
   });
-  it("prices a merged pull request from the hypothesis toward what runs cost", () => {
+  it("prices a pull request from the hypothesis toward what runs cost", () => {
     expect(pullRequestCost(0, 0)).toBe(250);
-    // $12.60 spent for 6 merges: $2.10 each, still near the hypothesis.
-    expect(pullRequestCost(1_260, 6)).toBe(235);
+    // $12.60 spent for 8 pull requests: $1.58 each, still near the hypothesis.
+    expect(pullRequestCost(1_260, 8)).toBe(209);
     expect(pullRequestCost(100_000, 1_000)).toBe(101);
-    expect(pullRequestsFor(7_100, 235)).toBe(30);
-    expect(pullRequestsFor(100, 235)).toBe(1);
+    expect(pullRequestsFor(7_100, 209)).toBe(34);
+    expect(pullRequestsFor(100, 209)).toBe(1);
   });
   it("never produces negative credit or accepts bad input", () => {
     expect(
