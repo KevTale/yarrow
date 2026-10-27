@@ -6344,14 +6344,31 @@ a.tk-paid:hover b {
     padding-block: 28px 44px;
     gap: 30px;
   }
-  /* Two lines per card, as on desktop: the title and the sponsor share
-     the second line, both ellipsed. */
+  .landing-sub {
+    font-size: 16px;
+  }
+  /* Three lines per card: the title and the sponsor each get theirs,
+     so both read whole. */
+  .tk-stack {
+    --row: 90px;
+  }
+  .tk {
+    grid-template-rows: auto auto auto;
+    row-gap: 3px;
+  }
+  .tk .board-logo.small {
+    grid-row: 1 / 4;
+  }
+  .tk-title {
+    grid-column: 2 / 4;
+  }
+  .tk-paid {
+    grid-column: 2 / 4;
+    justify-self: start;
+  }
   .tk-when,
   .tk-more {
     display: none;
-  }
-  .tk-paid {
-    max-width: 46vw;
   }
   .tk-totals {
     justify-content: center;
@@ -6377,36 +6394,73 @@ a.tk-paid:hover b {
   padding-block: 24px 48px;
   scroll-margin-top: 80px;
 }
+/* The head follows the boards' two columns: the title over Today, the
+   drawn pull request over All time, both sitting on the boards. */
 .sb-head {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  min-height: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 40px;
+  align-items: end;
 }
 .sb-head h2 {
   font-size: 32px;
+  padding-bottom: 6px;
 }
+/* Where the card goes, drawn: the foot of a pull request, then a word. */
 .sb-where-button {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
   gap: 7px;
-  padding: 4px 0;
+  justify-items: end;
+  width: 100%;
+  padding: 0;
   border: 0;
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 14px;
-  text-decoration: underline dotted #8a909b80;
-  text-underline-offset: 4px;
+  font-size: 13.5px;
+  text-align: right;
   cursor: pointer;
   transition: color 0.15s;
 }
 .sb-where-button:hover {
   color: var(--text);
 }
+.sb-where-button:hover .gh-mini {
+  border-color: #484f58;
+}
+.sb-where-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: underline dotted #8a909b80;
+  text-underline-offset: 4px;
+}
 .sb-where-button .short {
   display: none;
+}
+.gh-mini {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+.gh-mini .gh-comment-head {
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+.gh-mini .gh-comment-body {
+  gap: 8px;
+  padding: 10px 10px 10px;
+}
+.gh-mini-line {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: #30363d;
+}
+.gh-mini .gh-comment-body hr {
+  margin: 2px 0;
 }
 .sb-claim-go {
   display: inline-flex;
@@ -6626,9 +6680,20 @@ a.sb-row-link:hover .sb-site {
   font-size: 15px;
 }
 .sb-form-row .fund-description {
-  width: 100%;
+  flex: 1;
+  width: auto;
+  min-width: 0;
   font-size: 13px;
   line-height: 1.4;
+}
+.sb-buys {
+  min-height: 1.4em;
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  line-height: 1.4;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .sb-form-row .fund-site {
   min-width: 8ch;
@@ -6709,7 +6774,7 @@ a.sb-row-link:hover .sb-site {
     inset 0 1px 0 #ffffff59,
     0 4px 14px #e6ae382e;
 }
-.sb-row-claim.below {
+.sb-claim-below {
   display: none;
 }
 .sb-form-row > .sb-error {
@@ -7052,6 +7117,12 @@ body:has(.sb-dialog[open]) {
 .sb-dialog-lines .total dt {
   color: var(--text);
 }
+.sb-dialog-lines .total small {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
 .sb-dialog-checks {
   display: grid;
   gap: 10px;
@@ -7255,9 +7326,13 @@ body:has(.sb-dialog[open]) {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  /* The title and where sponsors show, on one line when there is room. */
+  /* The drawn pull request under the title, the width of the boards. */
+  .sb-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .sb-head h2 {
     font-size: 28px;
+    padding-bottom: 0;
   }
   .sb-where-button {
     font-size: 13px;
@@ -7278,12 +7353,23 @@ body:has(.sb-dialog[open]) {
   .sb-form-row .sb-you {
     display: none;
   }
-  .sb-row-claim.below {
-    display: inline-flex;
+  .sb-claim-below {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     grid-column: 1 / -1;
+    margin-top: 4px;
+  }
+  .sb-claim-below .sb-buys {
+    padding-left: 4px;
+  }
+  .sb-row-claim.below {
+    flex: 1;
     justify-content: center;
     height: 38px;
-    margin-top: 4px;
+  }
+  .sb-line > .sb-buys {
+    display: none;
   }
   .sb-form-row > .sb-error {
     grid-column: 1 / -1;

@@ -8,6 +8,11 @@ import { appEnv } from "@/server/env.server";
 import { currentGuest } from "@/server/guest.server";
 import { afterSignIn, sendSignInLink } from "@/server/sign-in.server";
 
+/** Where the site is served, for the absolute links a share card needs. */
+export const getSiteOriginFn = createServerFn({ method: "GET" }).handler(
+  () => appEnv().APP_URL,
+);
+
 export const getViewerFn = createServerFn({ method: "GET" }).handler(
   async () => {
     try {

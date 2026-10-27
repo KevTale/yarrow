@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { checkoutSchema, sponsorProfileSchema } from "@/core/forms";
 import { selectableProjects, sponsorDashboard } from "@/db/queries";
-import { sponsorBoard } from "@/db/boards";
+import { averageRunCost, sponsorBoard } from "@/db/boards";
 import { resolveLogo } from "@/db/images";
 import type { Database } from "@/db/client";
 import type { SponsorProfile } from "@/core/forms";
@@ -72,6 +72,7 @@ export const getSponsorDashboardFn = createServerFn({ method: "GET" }).handler(
         },
         you: await boardViewer(db, viewer.userId),
         shipped: await sponsorShipped(db, viewer.userId),
+        averageRunCents: await averageRunCost(db),
         activity: await queueActivity(db),
         settings: await sponsorSettings(db, viewer.userId),
         funding: {

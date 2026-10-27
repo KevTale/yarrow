@@ -332,6 +332,19 @@ export async function platformTotals(db: Database) {
   return { inProgress: running?.count ?? 0, merged: merged?.count ?? 0 };
 }
 
+/**
+ * What a finished run cost on average, every project counted, so that
+ * "≈ N pull requests" follows the real figure. Null until a run has cost.
+ */
+export async function averageRunCost(db: Database): Promise<number | null> {
+  const cost = sql<number>`${agentRuns.debitedCents} + ${agentRuns.uncoveredCents}`;
+  const [row] = await db
+    .select({ average: sql<number | null>`round(avg(${cost}))::int` })
+    .from(agentRuns)
+    .where(and(ne(agentRuns.status, "running"), sql`${cost} > 0`));
+  return row?.average ?? null;
+}
+
 async function liveFeed(
   db: Database,
   since: Date | null,

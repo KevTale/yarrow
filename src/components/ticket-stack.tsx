@@ -151,9 +151,11 @@ export function TicketStack({
         </ol>
       </div>
       <p className="tk-totals">
-        <span>
-          <b>{totals.inProgress}</b> in progress
-        </span>
+        {totals.inProgress > 0 && (
+          <span>
+            <b>{totals.inProgress}</b> in progress
+          </span>
+        )}
         <span>
           <b>{totals.merged.toLocaleString("en-US")}</b>{" "}
           {plural(totals.merged, "merged PR").replace(/^[\d,]+ /, "")}

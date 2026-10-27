@@ -2,7 +2,12 @@ import { notFound } from "@tanstack/react-router";
 import { jiraReady } from "@/server/jira.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { liveRecent, platformTotals, sponsorBoard } from "@/db/boards";
+import {
+  averageRunCost,
+  liveRecent,
+  platformTotals,
+  sponsorBoard,
+} from "@/db/boards";
 import { boardViewer } from "@/db/sponsors";
 import { currentGuest } from "@/server/guest.server";
 import { runActivityFor, runDetail } from "@/db/queries";
@@ -24,18 +29,21 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
       (await getViewer().catch(() => null))?.userId ??
       (await currentGuest().catch(() => null));
     return withDb(async (db) => {
-      const [today, all, live, totals, you] = await Promise.all([
-        sponsorBoard(db, "today"),
-        sponsorBoard(db, "all"),
-        liveRecent(db),
-        platformTotals(db),
-        userId ? boardViewer(db, userId) : null,
-      ]);
+      const [today, all, live, totals, averageRunCents, you] =
+        await Promise.all([
+          sponsorBoard(db, "today"),
+          sponsorBoard(db, "all"),
+          liveRecent(db),
+          platformTotals(db),
+          averageRunCost(db),
+          userId ? boardViewer(db, userId) : null,
+        ]);
       return {
         configured: true as const,
         sponsors: { today, all },
         live,
         totals,
+        averageRunCents,
         you,
         sources,
       };

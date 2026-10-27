@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
+import { pullRequestsFor } from "@/core/pricing";
 import { workText } from "@/core/tickets";
 import {
   getSponsorDashboardFn,
@@ -163,9 +164,9 @@ function SponsorSummary({ data }: { data: SponsorData }) {
   );
   const average = done.length
     ? done.reduce((sum, row) => sum + row.costCents, 0) / done.length
-    : 0;
+    : data.averageRunCents;
   const balance = Math.max(0, data.balanceCents);
-  const left = average ? Math.floor(balance / average) : null;
+  const left = pullRequestsFor(balance, average);
   const rank = (value: number | null) => (value ? `#${value}` : "–");
   return (
     <section className="sd-me" aria-label="Your sponsoring">
@@ -174,7 +175,7 @@ function SponsorSummary({ data }: { data: SponsorData }) {
           <dt>Balance</dt>
           <dd>
             <b>{money(balance)}</b>
-            {left !== null && <small>≈ {plural(left, "ticket")}</small>}
+            <small>≈ {plural(left, "pull request")}</small>
             {data.inUseCents > 0 && (
               <small>{money(data.inUseCents)} at work</small>
             )}

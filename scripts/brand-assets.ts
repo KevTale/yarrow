@@ -299,6 +299,36 @@ writeFileSync(
   join(OUT_DIR, "yarrow-logo-on-dark.png"),
   await wide(files["yarrow-logo-on-dark.svg"]!, 56),
 );
+
+// The share card (Open Graph): the landing's first screen, 1200 × 630.
+// The fonts are inlined, as a page set from a string loads no file.
+const font = (path: string, format: string) =>
+  `url(data:font/${format};base64,${readFileSync(path).toString("base64")}) format("${format}")`;
+const ogHtml = `<!doctype html>
+<style>
+  @font-face { font-family: Jost; font-weight: 500; src: ${font("node_modules/@fontsource/jost/files/jost-latin-500-normal.woff2", "woff2")}; }
+  @font-face { font-family: Geist; font-weight: 100 900; src: ${font("node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2", "woff2")}; }
+  body { margin: 0; width: 1200px; height: 630px; background: #0c0d0f; color: ${CREAM}; font-family: Geist, sans-serif; }
+  .card { box-sizing: border-box; display: grid; align-content: space-between; width: 100%; height: 100%; padding: 64px 72px 60px; }
+  .logo { height: 44px; }
+  .logo svg { height: 100%; width: auto; display: block; }
+  h1 { margin: 0 0 22px; font: 500 112px/1 Jost, sans-serif; letter-spacing: -0.02em; }
+  p { margin: 0; max-width: 36ch; font-size: 34px; line-height: 1.35; color: #b4b9c3; }
+  .claude { color: #e8a98d; font-weight: 500; }
+  .gpt { color: #7fd6b2; font-weight: 500; }
+  b { color: ${CREAM}; font-weight: 500; }
+</style>
+<body><div class="card">
+  <div class="logo">${files["yarrow-logo-on-dark.svg"]}</div>
+  <div>
+    <h1>Frontier AI for free</h1>
+    <p>Paste an issue: <span class="claude">Claude Opus</span> and <span class="gpt">GPT Astra</span> turn it into a <b>pull request</b>. Sponsors fund the compute.</p>
+  </div>
+</div></body>`;
+await page.setViewportSize({ width: 1200, height: 630 });
+await page.setContent(ogHtml);
+await page.evaluate(() => document.fonts.ready);
+writeFileSync(join(SITE_DIR, "og.png"), await page.screenshot());
 await browser.close();
 
 console.log(`Wrote ${OUT_DIR}/ and the site icons in ${SITE_DIR}/`);

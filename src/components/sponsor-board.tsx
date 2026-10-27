@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { prCardSvg, shortSite, type PrCardSponsor } from "@/core/pr-card";
-import { estimateBreakdown } from "@/core/pricing";
+import { estimateBreakdown, pullRequestsFor } from "@/core/pricing";
 import type { BoardViewer } from "@/db/sponsors";
 import {
   saveSponsorProfileFn,
@@ -63,6 +63,7 @@ function useClaim(
   today: SponsorRow[],
   all: SponsorRow[],
   you: BoardViewer | null,
+  averageRunCents: number | null,
   adding: boolean,
 ) {
   const [dollars, setDollars] = useState(String(MIN_AMOUNT_CENTS / 100));
@@ -112,6 +113,8 @@ function useClaim(
   const fees = valid
     ? estimateBreakdown(cents, { vatRateBps: 0, founding })
     : null;
+  // What the amount buys, at the average cost of a run: the unit of a dollar.
+  const buys = fees ? pullRequestsFor(fees.creditCents, averageRunCents) : null;
 
   /** The card as the profile it saves, or an error to show. */
   function profileOf(next: CardValue) {
@@ -146,6 +149,7 @@ function useClaim(
     boards,
     label,
     fees,
+    buys,
     founding,
     profileOf,
   };
@@ -198,11 +202,14 @@ export function SponsorBoard({
   today,
   all,
   you,
+  averageRunCents,
   startEditing = false,
 }: {
   today: SponsorRow[];
   all: SponsorRow[];
   you: BoardViewer | null;
+  /** What a run costs on average, for what an amount buys. */
+  averageRunCents: number | null;
   /** Arriving from the dashboard: the row opens at once. */
   startEditing?: boolean;
 }) {
@@ -216,7 +223,7 @@ export function SponsorBoard({
     period: "today",
     tick: startEditing ? 1 : 0,
   });
-  const claim = useClaim(today, all, you, editing);
+  const claim = useClaim(today, all, you, averageRunCents, editing);
   const saver = useSaver(claim);
   const form = editing || !claim.sponsoring;
   const [paying, setPaying] = useState(false);
@@ -620,15 +627,18 @@ function FormRow({
           />
           {claimButton("inline")}
         </span>
-        <input
-          className="fund-input fund-description"
-          maxLength={280}
-          placeholder="What you do, in a sentence"
-          aria-label="Description (optional)"
-          value={card.description}
-          onChange={change("description")}
-          onBlur={() => void saver.commit()}
-        />
+        <span className="sb-line">
+          <input
+            className="fund-input fund-description"
+            maxLength={280}
+            placeholder="What you do, in a sentence"
+            aria-label="Description (optional)"
+            value={card.description}
+            onChange={change("description")}
+            onBlur={() => void saver.commit()}
+          />
+          <Buys claim={claim} />
+        </span>
         <span className="sb-line">
           <input
             className="fund-input fund-site"
@@ -645,14 +655,27 @@ function FormRow({
           {stats}
         </span>
       </span>
-      {/* On phones Claim takes the whole width, under the card. */}
-      {claimButton("below")}
+      {/* On phones Claim takes the width under the card, what the amount
+          buys at its left (the description line has no room for it). */}
+      <span className="sb-claim-below">
+        <Buys claim={claim} />
+        {claimButton("below")}
+      </span>
       {saver.error && (
         <p className="sb-error" role="alert">
           {saver.error}
         </p>
       )}
     </div>
+  );
+}
+
+/** Under the amount: about how many pull requests it buys. */
+function Buys({ claim }: { claim: Claim }) {
+  return (
+    <small className="sb-buys">
+      {claim.buys !== null ? `≈ ${plural(claim.buys, "pull request")}` : ""}
+    </small>
   );
 }
 
@@ -869,6 +892,32 @@ function PrMock({
 }
 
 /**
+ * The foot of a pull request, small: the bot's comment trailing off, a
+ * rule, then the real card. Reads as GitHub at a glance and says where the
+ * card goes without a word.
+ */
+function PrMini({ sponsor }: { sponsor: PrCardSponsor }) {
+  return (
+    <span className="gh gh-mini" aria-hidden="true">
+      <span className="gh-comment">
+        <span className="gh-comment-head">
+          <span className="gh-avatar" />
+          <b>yarrow-run</b>
+          <span className="gh-bot">bot</span>
+          <span className="gh-mini-opened">opened this pull request</span>
+        </span>
+        <span className="gh-comment-body">
+          <span className="gh-mini-line" style={{ width: "72%" }} />
+          <span className="gh-mini-line" style={{ width: "48%" }} />
+          <hr />
+          <PrCardPreview sponsor={sponsor} />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+/**
  * Beside the title: where sponsors show. Opens a pull request as GitHub
  * shows it, the card at its foot, and why it is worth it.
  */
@@ -888,9 +937,12 @@ function WhereItShows({
         className="sb-where-button"
         onClick={() => setOpen(true)}
       >
-        <GitPullRequest size={14} />
-        <span className="long">shown in every pull request they fund</span>
-        <span className="short">in every PR they fund</span>
+        <PrMini sponsor={sponsor} />
+        <span className="sb-where-caption">
+          <GitPullRequest size={14} />
+          <span className="long">shown in every pull request they fund</span>
+          <span className="short">in every PR they fund</span>
+        </span>
       </button>
       <Modal open={open} onClose={close} labelledBy="sb-where-title" wide>
         <div className="sb-dialog-body">
@@ -1013,7 +1065,12 @@ function ClaimDialog({
           </div>
           <div className="total">
             <dt>Compute</dt>
-            <dd>{fees ? `≈ ${money(fees.creditCents)}` : "–"}</dd>
+            <dd>
+              {fees ? `≈ ${money(fees.creditCents)}` : "–"}
+              {claim.buys !== null && (
+                <small>≈ {plural(claim.buys, "pull request")}</small>
+              )}
+            </dd>
           </div>
         </dl>
         <div className="sb-dialog-checks">

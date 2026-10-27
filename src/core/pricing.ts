@@ -77,3 +77,27 @@ export function estimateBreakdown(
     founding: options.founding ?? false,
   });
 }
+
+/**
+ * What a run costs on average before Yarrow has finished any: the figure
+ * every "≈ N pull requests" starts from (hypothesis, replaced by the real
+ * average as soon as runs finish).
+ */
+export const TYPICAL_RUN_COST_CENTS = 300;
+
+/**
+ * About how many pull requests a credit buys at the average cost of a run,
+ * never less than one for a credit above zero.
+ */
+export function pullRequestsFor(
+  creditCents: number,
+  averageRunCents: number | null,
+): number {
+  cents(creditCents, "credit");
+  if (creditCents === 0) return 0;
+  const average =
+    averageRunCents && averageRunCents > 0
+      ? averageRunCents
+      : TYPICAL_RUN_COST_CENTS;
+  return Math.max(1, Math.round(creditCents / average));
+}

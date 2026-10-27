@@ -21,30 +21,53 @@ import {
 import {
   getGuestFn,
   getLiveConfigFn,
+  getSiteOriginFn,
   getViewerFn,
 } from "@/functions/viewer.functions";
 
+const TITLE = "Yarrow · Frontier AI for free";
+const DESCRIPTION =
+  "Paste an issue: Claude Opus and GPT Astra turn it into a pull request in minutes. Free because sponsors fund the compute, and their names ship with every pull request.";
+
 export const Route = createRootRoute({
   loader: async () => {
-    const [viewer, live] = await Promise.all([
+    const [viewer, live, origin] = await Promise.all([
       getViewerFn(),
       getLiveConfigFn(),
+      getSiteOriginFn(),
     ]);
     // Not signed in, but paid from this browser: recognized as a guest.
-    return { viewer: viewer ?? (await getGuestFn()), live };
+    return { viewer: viewer ?? (await getGuestFn()), live, origin };
   },
   // Who is signed in only changes through a full page load or an
   // invalidate (email link), so navigations reuse it.
   staleTime: Infinity,
-  head: () => ({
+  // The share card (Open Graph, Twitter): the title, the pitch and an
+  // image drawn by `pnpm brand:assets`. Absolute links, as the crawlers ask.
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Yarrow · Frontier AI for free" },
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "Yarrow" },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:url", content: `${loaderData?.origin ?? ""}/` },
+      { property: "og:image", content: `${loaderData?.origin ?? ""}/og.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       {
-        name: "description",
-        content:
-          "Sponsors fund AI compute, builders get their tickets shipped. Every PR implemented by Claude, reviewed by OpenAI, and signed by its sponsors.",
+        property: "og:image:alt",
+        content: "Yarrow: Frontier AI for free",
+      },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
+      {
+        name: "twitter:image",
+        content: `${loaderData?.origin ?? ""}/og.png`,
       },
     ],
     links: [
