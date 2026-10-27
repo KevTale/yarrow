@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { company, LegalPage } from "@/components/legal-page";
+import { company, LegalPage, operatorStatement } from "@/components/legal-page";
 
 export const Route = createFileRoute("/legal")({
   head: () => ({ meta: [{ title: "Legal notice · Yarrow" }] }),
@@ -8,15 +8,10 @@ export const Route = createFileRoute("/legal")({
 
 function Legal() {
   return (
-    <LegalPage title="Legal notice" updated="October 7, 2026">
+    <LegalPage title="Legal notice" updated="October 10, 2026">
       <h2>Publisher</h2>
+      <p>{operatorStatement}</p>
       <p>
-        Yarrow (yarrow.run) is published by {company.name}, {company.form},
-        registered under {company.registry}, VAT number {company.vat}.
-      </p>
-      <p>
-        Registered office: {company.address}
-        <br />
         Contact: <a href={`mailto:${company.email}`}>{company.email}</a>
       </p>
       <p>

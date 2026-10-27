@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { operatorStatement } from "@/core/company";
 import { Brand } from "./site-header";
 
 export function SiteFooter() {
@@ -11,7 +12,7 @@ export function SiteFooter() {
         <span className="badge">BETA</span>
       </div>
       <div className="container footer-bottom">
-        <span>Frontier AI for free.</span>
+        <span>Frontier AI for free. {operatorStatement}</span>
         <nav aria-label="Legal" className="footer-legal">
           <Link to="/legal">Legal notice</Link>
           <Link to="/terms">Terms</Link>

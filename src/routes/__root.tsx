@@ -24,6 +24,7 @@ import {
   getSiteOriginFn,
   getViewerFn,
 } from "@/functions/viewer.functions";
+import { siteJsonLd } from "@/core/company";
 
 const TITLE = "Yarrow · Frontier AI for free";
 const DESCRIPTION =
@@ -50,6 +51,11 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
+      {
+        "script:ld+json": siteJsonLd(
+          loaderData?.origin || "https://yarrow.run",
+        ),
+      },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Yarrow" },
       { property: "og:title", content: TITLE },

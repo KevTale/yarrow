@@ -8,10 +8,10 @@ export const Route = createFileRoute("/privacy")({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy" updated="October 7, 2026">
+    <LegalPage title="Privacy" updated="October 10, 2026">
       <p>
-        {company.name} ({company.registry}, {company.address}) is the data
-        controller for Yarrow. Contact:{" "}
+        The company {company.name}, founded in {company.founded}, operates this
+        site and is the data controller for Yarrow. Contact:{" "}
         <a href={`mailto:${company.email}`}>{company.email}</a>.
       </p>
 

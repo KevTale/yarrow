@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+export { company, operatorStatement } from "@/core/company";
+
 /** Shared layout for the legal notice, the terms and the privacy policy. */
 export function LegalPage({
   title,
@@ -18,13 +20,3 @@ export function LegalPage({
     </main>
   );
 }
-
-export const company = {
-  name: "TOTEM",
-  form: "EURL (single-member limited liability company) with a share capital of €1,000",
-  siren: "881 263 503",
-  registry: "RCS Nanterre 881 263 503",
-  vat: "FR37881263503",
-  address: "1 avenue Galois, 92340 Bourg-la-Reine, France",
-  email: "contact@yarrow.run",
-};

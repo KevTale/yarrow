@@ -10,8 +10,8 @@ function Terms() {
   return (
     <LegalPage title="Terms" updated="October 10, 2026">
       <p>
-        These terms govern the use of Yarrow (yarrow.run), operated by{" "}
-        {company.name}, {company.registry}, {company.address} (“we”). By using
+        These terms govern the use of Yarrow (yarrow.run), operated by the
+        company {company.name}, founded in {company.founded} (“we”). By using
         Yarrow you accept them. Yarrow is in beta.
       </p>
 
