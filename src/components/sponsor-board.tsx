@@ -261,10 +261,9 @@ export function SponsorBoard({
         </p>
         <PrSketch sponsor={preview} />
         <p className="sb-pitch-text">
-          Your money pays for the compute behind each pull request, and your
-          card closes every one. Maintainers see it when they merge, and so
-          does anyone who opens it later. Every click to your site, from a
-          pull request or this page, is counted on your row.
+          Your money pays for the frontier agents writing each pull request,
+          and your card is visible on every one. Maintainers and anyone
+          opening the pull requests you fund will notice you.
         </p>
       </div>
       <Column

@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
@@ -194,7 +194,21 @@ function SponsorSummary({ data }: { data: SponsorData }) {
         </div>
         {named && (
           <div className="sd-metric">
-            <dt>Clicks</dt>
+            <dt>
+              Clicks
+              <button
+                type="button"
+                className="sd-info"
+                aria-label="What counts as a click"
+                aria-describedby="sd-clicks-tip"
+              >
+                <Info size={13} />
+              </button>
+              <span id="sd-clicks-tip" role="tooltip" className="sd-tip">
+                Clicks on your card in the pull requests you fund, and on your
+                row on yarrow.run.
+              </span>
+            </dt>
             <dd>
               <b>{(mine?.clicks ?? 0).toLocaleString("en-US")}</b>
             </dd>

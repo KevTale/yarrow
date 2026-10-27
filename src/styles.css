@@ -2546,6 +2546,15 @@ tbody tr:hover {
   --shine: #d2fff0;
   animation-delay: 1.2s;
 }
+/* The sheen alone, in the text's own color (the hero's subtitle). */
+.model-plain {
+  --tint: var(--secondary);
+  --shine: #ffffff;
+  font-weight: inherit;
+}
+.model-plain.late {
+  animation-delay: 1.2s;
+}
 @keyframes model-sheen {
   0%,
   55% {
@@ -7155,6 +7164,55 @@ body:has(.sb-dialog[open]) {
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--muted);
+}
+/* An "i" beside a label: what the figure counts, on hover or focus. */
+.sd-metric dt {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sd-info {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: help;
+  transition: color 0.15s;
+}
+.sd-info:hover,
+.sd-info:focus-visible {
+  color: var(--text);
+}
+.sd-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--elevated);
+  box-shadow: 0 8px 24px #00000066;
+  color: var(--secondary);
+  font: 13px/1.45 var(--font-geist-sans), sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+.sd-info:hover + .sd-tip,
+.sd-info:focus-visible + .sd-tip {
+  opacity: 1;
+  transform: none;
 }
 .sd-metric dd {
   display: flex;
