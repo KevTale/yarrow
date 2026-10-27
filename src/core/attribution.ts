@@ -58,7 +58,7 @@ export function sponsorCard(input: {
       : input.runUrl;
   const src = `${origin}/pr-card/${runId}`;
   const alt = escapeHtml(`Sponsored by ${names}, powered by Yarrow`);
-  return `<a href="${link}"><picture><source media="(prefers-color-scheme: dark)" srcset="${src}?theme=light"><img alt="${alt}" src="${src}?theme=dark"></picture></a>`;
+  return `<a href="${link}"><img alt="${alt}" src="${src}"></a>`;
 }
 
 /**

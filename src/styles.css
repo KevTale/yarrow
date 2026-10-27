@@ -7098,6 +7098,15 @@ body:has(.sb-dialog[open]) {
   letter-spacing: -0.02em;
   text-align: center;
 }
+.connect-terms-lede {
+  margin: -8px auto 0;
+  max-width: 44ch;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--secondary);
+  text-align: center;
+  text-wrap: pretty;
+}
 .connect-terms-check {
   --checkbox-line: 21px;
   font-size: 14px;

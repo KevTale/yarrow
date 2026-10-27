@@ -333,7 +333,7 @@ describe("attribution", () => {
         "",
         "---",
         "",
-        `<a href="https://yarrow.run/out/${sponsor}"><picture><source media="(prefers-color-scheme: dark)" srcset="https://yarrow.run/pr-card/${id}?theme=light"><img alt="Sponsored by Northwind, powered by Yarrow" src="https://yarrow.run/pr-card/${id}?theme=dark"></picture></a>`,
+        `<a href="https://yarrow.run/out/${sponsor}"><img alt="Sponsored by Northwind, powered by Yarrow" src="https://yarrow.run/pr-card/${id}"></a>`,
       ].join("\n"),
     );
     // The card names them: no second line saying it again.
@@ -348,7 +348,7 @@ describe("attribution", () => {
       runUrl: `https://yarrow.run/runs/${id}`,
     });
     expect(shared).toContain(
-      `<a href="https://yarrow.run/out/${sponsor}"><picture>`,
+      `<a href="https://yarrow.run/out/${sponsor}"><img`,
     );
     // No website to send a click to: the card opens the run.
     const siteless = pullRequestFooter({
@@ -356,9 +356,7 @@ describe("attribution", () => {
       sponsors: [{ name: "Northwind", publicId: sponsor, website: false }],
       runUrl: `https://yarrow.run/runs/${id}`,
     });
-    expect(siteless).toContain(
-      `<a href="https://yarrow.run/runs/${id}"><picture>`,
-    );
+    expect(siteless).toContain(`<a href="https://yarrow.run/runs/${id}"><img`);
     expect(shared).toContain(
       'alt="Sponsored by Northwind and an anonymous sponsor, powered by Yarrow"',
     );
@@ -461,7 +459,6 @@ describe("pull request card", () => {
     });
     const long = prCardSvg({
       sponsors: [{ name: "Acme", description, site: "acme.dev", logo: null }],
-      theme: "light",
       links: { site: "https://acme.dev", yarrow: "https://yarrow.run" },
     });
     const height = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1]);
@@ -471,7 +468,7 @@ describe("pull request card", () => {
     expect(height(long)).toBeGreaterThan(height(short));
     expect(long).toContain('<a href="https://acme.dev" target="_blank">');
     expect(long).toContain('<a href="https://yarrow.run" target="_blank">');
-    expect(long).toContain("#faf6ec");
+    expect(long).toContain("#15161a");
   });
   it("keeps only the site's host", () => {
     expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");

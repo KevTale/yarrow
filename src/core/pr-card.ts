@@ -46,32 +46,16 @@ export function shortSite(url: string | null | undefined): string | null {
   }
 }
 
-/** The card's own colors: dark on light pages, light on dark ones. */
-export type PrCardTheme = "dark" | "light";
-
-const palettes = {
-  // Yarrow's night, a touch warm.
-  dark: {
-    background: "#15161a",
-    border: "#2b2e34",
-    label: "#f2b544",
-    name: "#f3f0e8",
-    text: "#c4c6cc",
-    muted: "#8e939d",
-    tile: "#1d1f24",
-    tileBorder: "#33363d",
-  },
-  // Cream rather than white: the brand's paper.
-  light: {
-    background: "#faf6ec",
-    border: "#e5dcc6",
-    label: "#a35f00",
-    name: "#1d1b16",
-    text: "#4a463d",
-    muted: "#7c7566",
-    tile: "#f1ead9",
-    tileBorder: "#e0d6bf",
-  },
+/** The card's colors: Yarrow's night, a touch warm, on every page. */
+const color = {
+  background: "#15161a",
+  border: "#2b2e34",
+  label: "#f2b544",
+  name: "#f3f0e8",
+  text: "#c4c6cc",
+  muted: "#8e939d",
+  tile: "#1d1f24",
+  tileBorder: "#33363d",
 } as const;
 
 /** Where the description's lines start and end. */
@@ -122,7 +106,6 @@ export function wrapText(text: string, width: number, size: number): string[] {
  */
 export function prCardSvg(input: {
   sponsors: readonly PrCardSponsor[];
-  theme?: PrCardTheme;
   links?: { site?: string | null; yarrow?: string };
 }): string {
   const [first, ...rest] = input.sponsors;
@@ -132,7 +115,6 @@ export function prCardSvg(input: {
     site: null,
     logo: null,
   };
-  const color = palettes[input.theme ?? "dark"];
   const name = sponsor.name ? clip(sponsor.name, 38) : "Anonymous sponsor";
   const initial = (sponsor.name?.trim()[0] ?? "?").toUpperCase();
   const w = PR_CARD_WIDTH;
@@ -161,9 +143,7 @@ export function prCardSvg(input: {
   const h = Math.max(PR_CARD_MIN_HEIGHT, lastY + 17);
 
   const link = (href: string | null | undefined, body: string) =>
-    href
-      ? `<a href="${escape(href)}" target="_blank">${body}</a>`
-      : body;
+    href ? `<a href="${escape(href)}" target="_blank">${body}</a>` : body;
 
   const logo = sponsor.logo
     ? `<image href="${escape(sponsor.logo)}" x="24" y="44" width="48" height="48" preserveAspectRatio="xMidYMid slice" clip-path="url(#logo)"/>`

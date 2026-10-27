@@ -49,6 +49,10 @@ function ConnectTerms() {
     <main id="main" className="container connect-terms">
       <div className="connect-terms-inner">
         <h1>Connect GitHub</h1>
+        <p className="connect-terms-lede">
+          Frontier AI writes your pull requests for free: sponsors pay for the
+          compute, and their card closes every pull request they fund.
+        </p>
         <PrSketch
           sponsor={{
             name: "Northbeam Cloud",

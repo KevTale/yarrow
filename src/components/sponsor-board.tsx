@@ -791,9 +791,6 @@ function PrCardPreview({ sponsor }: { sponsor: PrCardSponsor }) {
       dangerouslySetInnerHTML={{
         __html: prCardSvg({
           sponsors: [sponsor],
-          // Light on the pull request drawn in GitHub's dark theme: the
-          // card takes the colors opposite to the page, as on GitHub.
-          theme: "light",
           links: {
             // A real sponsor's site goes through the click counter.
             site: !sponsor.site
