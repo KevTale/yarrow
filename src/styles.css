@@ -15,6 +15,93 @@
   --red: #ee7b6e;
   color-scheme: dark;
 }
+/* uiarc's tokens (src/components/arc), on Yarrow's palette. */
+:root {
+  --background: var(--bg);
+  --surface-raised: var(--elevated);
+  --surface-muted: var(--hover);
+  --foreground: var(--text);
+  --text-secondary: var(--secondary);
+  --text-muted: var(--muted);
+  --border: var(--line);
+  --border-subtle: #1d2025;
+  --border-strong: #3a3e46;
+  --control-on: var(--text);
+  --control-glyph: var(--bg);
+  --success: var(--green);
+  --warning: var(--amber);
+  --danger: var(--red);
+  --shadow-resting: 0 1px 2px #0000002e;
+  --shadow-floating: 0 22px 55px #00000057;
+  --font-body: var(--font-geist-sans), sans-serif;
+  --radius-control: 18px;
+  --radius-panel: 26px;
+  --radius-surface: 34px;
+  --radius-pill: 9999px;
+  --control-height-sm: 36px;
+  --control-height-md: 44px;
+  --control-height-lg: 50px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-3xl: 36px;
+  --tracking-display: -0.03em;
+  --tracking-body: -0.01em;
+  --leading-body: 1.4;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A spring, sampled: settles with a hint of overshoot. */
+  --ease-spring: linear(
+    0,
+    0.0258,
+    0.09,
+    0.1763,
+    0.2732,
+    0.3724,
+    0.4683,
+    0.5573,
+    0.6376,
+    0.7082,
+    0.7689,
+    0.8202,
+    0.8628,
+    0.8976,
+    0.9256,
+    0.9476,
+    0.9648,
+    0.9778,
+    0.9875,
+    0.9945,
+    0.9994,
+    1.0026,
+    1.0047,
+    1.0058,
+    1.0062,
+    1.0062,
+    1.0059,
+    1.0055,
+    1.0049,
+    1.0043,
+    1.0036,
+    1.0031,
+    1.0025,
+    1.002,
+    1.0016,
+    1.0013,
+    1
+  );
+  --duration-instant: 0.12s;
+  --duration-fast: 0.16s;
+  --duration-standard: 0.24s;
+  --duration-considered: 0.48s;
+  --duration-spring: 0.58s;
+}
 * {
   box-sizing: border-box;
 }
@@ -2577,7 +2664,7 @@ tbody tr:hover {
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 25px;
   padding: 6px;
   text-align: left;
 }
@@ -2599,73 +2686,17 @@ tbody tr:hover {
 .ship-input input::placeholder {
   color: #6a707a;
 }
+/* uiarc's morph select at the field's height: a pill concentric with the
+   field and the button. */
 .ship-source {
-  position: relative;
+  --control-height-md: 38px;
   flex: none;
-}
-.ship-source-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 10px 0 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--elevated);
-  color: var(--text);
-  font-size: 13.5px;
-  font-weight: 500;
 }
 .ship-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex: none;
-}
-.ship-source-list {
-  position: absolute;
-  left: 0;
-  top: 46px;
-  min-width: 210px;
-  padding: 6px;
-  background: var(--elevated);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  z-index: 5;
-  display: grid;
-  gap: 2px;
-  box-shadow: 0 18px 40px #00000073;
-}
-.ship-source-list li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.ship-source-list li:not([aria-disabled="true"]):hover,
-.ship-source-list li.focus {
-  background: var(--hover);
-}
-.ship-source-list li[aria-disabled="true"] {
-  cursor: default;
-  color: var(--muted);
-}
-.ship-source-list em {
-  margin-left: auto;
-  font:
-    normal 11px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0 7px;
-}
-.ship-check {
-  margin-left: auto;
-  color: var(--amber);
 }
 .ship-hint {
   text-align: left;
@@ -2701,6 +2732,12 @@ tbody tr:hover {
 }
 .go:hover i {
   transform: translateX(3px);
+}
+.ship-input .go {
+  border-radius: 19px;
+}
+.ship-input .go i {
+  border-radius: 50%;
 }
 .go[aria-disabled="true"] {
   opacity: 0.5;
@@ -2893,54 +2930,8 @@ tbody tr:hover {
 .claim-sep {
   color: #4a4f57;
 }
-.avatar-button {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #f5f0e3;
-  color: #141714;
-  font-weight: 600;
-  display: grid;
-  place-items: center;
-}
-.avatar-button {
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-}
-.avatar-button img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-.avatar-button:has(img) {
-  background: none;
-}
 .header-actions {
   position: relative;
-}
-.account-menu {
-  position: absolute;
-  right: 0;
-  top: 42px;
-  min-width: 180px;
-  padding: 6px;
-  display: grid;
-  background: var(--elevated);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  z-index: 50;
-}
-.account-menu a {
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-.account-menu a:hover {
-  background: var(--hover);
 }
 
 @media (max-width: 560px) {
@@ -6459,100 +6450,38 @@ a.tk-paid:hover b {
 /* Today and All time, each with its total: uiarc's button group. One
    surface under a hairline, nearly a pill; segments joined full height
    with a hairline between them; one soft fill, no border and no shadow,
-   resting on the chosen board and gliding on a spring to the segment under
-   the pointer, the hairline beside it stepping aside; a press dips the
-   label. Focus answers with the frame's border. */
+   resting on the chosen board and handed on a spring (motion, in
+   PeriodTabs) to the segment under the pointer, the hairline beside it
+   stepping aside; a press dips the label. Focus answers with the frame's
+   border. */
 .sb-tabs {
   --tabs-h: 38px;
-  --tabs-inset: 3px;
-  --tabs-radius: 17px;
-  --tabs-standard: cubic-bezier(0.22, 1, 0.36, 1);
-  /* uiarc's spring, sampled: settles with a hint of overshoot. */
-  --tabs-spring: linear(
-    0,
-    0.0258,
-    0.09,
-    0.1763,
-    0.2732,
-    0.3724,
-    0.4683,
-    0.5573,
-    0.6376,
-    0.7082,
-    0.7689,
-    0.8202,
-    0.8628,
-    0.8976,
-    0.9256,
-    0.9476,
-    0.9648,
-    0.9778,
-    0.9875,
-    0.9945,
-    0.9994,
-    1.0026,
-    1.0047,
-    1.0058,
-    1.0062,
-    1.0062,
-    1.0059,
-    1.0055,
-    1.0049,
-    1.0043,
-    1.0036,
-    1.0031,
-    1.0025,
-    1.002,
-    1.0016,
-    1.0013,
-    1
-  );
   position: relative;
   isolation: isolate;
   display: inline-flex;
   align-items: stretch;
   border: 1px solid var(--line);
-  border-radius: var(--tabs-radius);
+  border-radius: 17px;
   background: var(--surface);
-  transition: border-color 0.16s var(--tabs-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .sb-tabs:has(:focus-visible) {
   border-color: #5d636d;
 }
-/* Placed on the chosen segment by measure; only moves between segments
-   travel, the first placement fades in. */
 .sb-tabs-fill {
   position: absolute;
   z-index: 0;
-  top: 0;
-  left: 0;
-  height: calc(var(--tabs-h) - 2px);
-  pointer-events: none;
-  transition:
-    transform 0.46s var(--tabs-spring),
-    width 0.46s var(--tabs-spring);
-  animation: sb-tabs-in 0.16s var(--tabs-standard);
-}
-.sb-tabs-fill::before {
-  position: absolute;
-  inset: var(--tabs-inset);
-  border-radius: calc(var(--tabs-radius) - var(--tabs-inset) - 1px);
+  inset: 3px;
   background: #1e2126;
-  content: "";
-  transition: background-color 0.16s var(--tabs-standard);
+  pointer-events: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.sb-tabs:has(button:active) .sb-tabs-fill::before {
+.sb-tabs:has(button:active) .sb-tabs-fill {
   background: #24272e;
-  transition-duration: 0.12s;
-}
-@keyframes sb-tabs-in {
-  from {
-    opacity: 0;
-  }
+  transition-duration: var(--duration-instant);
 }
 .sb-tabs button {
   position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6573,7 +6502,7 @@ a.tk-paid:hover b {
   outline: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.16s var(--tabs-standard);
+  transition: color var(--duration-fast) var(--ease-standard);
 }
 .sb-tabs button[aria-selected="true"] {
   color: var(--text);
@@ -6592,21 +6521,23 @@ a.tk-paid:hover b {
   background: var(--line);
   content: "";
   pointer-events: none;
-  transition: opacity 0.16s var(--tabs-standard);
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 .sb-tabs button[data-quiet]::before {
   opacity: 0;
 }
 /* The press dips the label and springs it back; the group stays still. */
 .sb-tabs-content {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  transition: transform 0.58s var(--tabs-spring);
+  transition: transform var(--duration-spring) var(--ease-spring);
 }
 .sb-tabs button:active .sb-tabs-content {
   transform: scale(0.97);
-  transition: transform 0.12s var(--tabs-standard);
+  transition: transform var(--duration-instant) var(--ease-standard);
 }
 .sb-tabs-total {
   font:
@@ -6615,13 +6546,6 @@ a.tk-paid:hover b {
   font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-tabs-fill,
-  .sb-tabs-fill::before,
-  .sb-tabs button::before,
-  .sb-tabs-content {
-    transition: none;
-    animation: none;
-  }
   .sb-tabs button:active .sb-tabs-content {
     transform: none;
   }
@@ -6846,81 +6770,16 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .fund-site {
   min-width: 8ch;
 }
-/* The amount, where every amount prints, in a hairline shell: − and + as
-   quiet steps, the dollar sign as a gray affix, focus answered by the
-   border alone. */
-.sb-amount-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border: 1px solid #2f333a;
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  transition:
-    border-color 0.16s cubic-bezier(0.22, 1, 0.36, 1),
-    background 0.16s;
-}
-.sb-amount-field label {
-  display: inline-flex;
-  align-items: baseline;
-  padding: 0 5px;
-  color: var(--secondary);
-  cursor: text;
-}
-.sb-step {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--secondary);
-  font:
-    500 15px var(--font-geist-sans),
-    sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.16s,
-    color 0.16s;
-}
-@media (hover: hover) and (pointer: fine) {
-  .sb-step:hover:not(:disabled) {
-    background: var(--elevated);
-    color: var(--text);
-  }
-}
-.sb-step:active:not(:disabled) {
-  background: #ffffff1a;
-  color: var(--text);
-  transition: none;
-}
-.sb-step:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-@media (hover: hover) and (pointer: fine) {
-  .sb-amount-field:hover {
-    border-color: #3a3e45;
-  }
-}
-.sb-amount-field:focus-within {
-  border-color: var(--amber);
-}
-.sb-amount-field input {
-  min-width: 2ch;
-  field-sizing: content;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: right;
-  outline: none;
+/* The amount, where every amount prints: uiarc's number field, sized to
+   the row (its own rules, raised past the module's), in the amounts'
+   type. */
+.sb-amount-field.sb-amount-field[data-size] {
+  --nf-height: 30px;
+  --nf-step: 24px;
+  --nf-inset: 2px;
+  --nf-text: 16px;
+  --nf-width: var(--number-field-width, 118px);
+  font-family: var(--font-display), sans-serif;
 }
 .sb-form-row .sb-amount-field {
   margin-left: auto;
@@ -7019,17 +6878,19 @@ body:has(.sb-dialog[open]) {
 .sb-dialog.wide {
   width: min(600px, calc(100vw - 32px));
 }
-.sb-dialog[open] {
-  animation: sb-dialog-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
+/* The panel moves with motion (Modal); the backdrop fades with it. */
 .sb-dialog::backdrop {
   background: #0c0d0fb8;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(7px);
+  animation: sb-backdrop-in var(--duration-standard) var(--ease-enter);
 }
-@keyframes sb-dialog-in {
+.sb-dialog[data-closing]::backdrop {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+@keyframes sb-backdrop-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
   }
 }
 .sb-dialog-body {
@@ -7210,10 +7071,12 @@ body:has(.sb-dialog[open]) {
 .sb-dialog-lines dd {
   margin: 0;
 }
-.sb-dialog-lines .sb-amount-field {
-  font:
-    500 20px var(--font-display),
-    sans-serif;
+.sb-dialog-lines .sb-amount-field.sb-amount-field[data-size] {
+  --nf-height: 40px;
+  --nf-step: 32px;
+  --nf-inset: 3px;
+  --nf-text: 20px;
+  --nf-width: 168px;
 }
 .sb-dialog-lines .total {
   padding-top: 10px;
@@ -7228,20 +7091,10 @@ body:has(.sb-dialog[open]) {
   gap: 10px;
 }
 .sb-check {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 9px;
+  --checkbox-line: 19px;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 19px;
   color: var(--secondary);
-  cursor: pointer;
-}
-.sb-check input {
-  width: 15px;
-  height: 15px;
-  margin: 2px 0 0;
-  flex: none;
-  accent-color: var(--amber);
 }
 .sb-terms {
   color: var(--text);
@@ -7270,9 +7123,6 @@ body:has(.sb-dialog[open]) {
     transition: none;
   }
   .sb-row.you.ghost {
-    animation: none;
-  }
-  .sb-dialog[open] {
     animation: none;
   }
 }
@@ -7341,7 +7191,9 @@ body:has(.sb-dialog[open]) {
   background: var(--elevated);
   box-shadow: 0 8px 24px #00000066;
   color: var(--secondary);
-  font: 13px/1.45 var(--font-geist-sans), sans-serif;
+  font:
+    13px/1.45 var(--font-geist-sans),
+    sans-serif;
   letter-spacing: 0;
   text-transform: none;
   opacity: 0;

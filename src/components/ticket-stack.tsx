@@ -1,3 +1,5 @@
+import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
+import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { workLabel } from "@/core/tickets";
 import type { LiveRow } from "@/db/boards";
 import { Logo, plural, type SponsorRow } from "./boards";
@@ -11,26 +13,22 @@ const working = (status: LiveRow["status"]) =>
 const makerClass = (model: string) =>
   model.startsWith("Claude") ? "model-claude" : "model-gpt";
 
-/** The status pill: who is at work, or the pull request's state. */
+/**
+ * The status pill: who is at work, or the pull request's state. While a
+ * model works, uiarc's shimmer passes over the verb; once the pull request
+ * opens, the new words rise in and settle.
+ */
 function Status({ row }: { row: LiveRow }) {
   const work = workLabel(row.status, row.models);
   return (
     <span className={`tk-status s-${row.status}`}>
       {work && <span className="live-dot" aria-hidden="true" />}
-      {work ? (
-        <>
-          {work.model && (
-            <span className={`model ${makerClass(work.model)}`}>
-              {work.model}
-            </span>
-          )}{" "}
-          {work.text}
-        </>
-      ) : row.status === "merged" ? (
-        "PR merged"
-      ) : (
-        "PR open"
+      {work?.model && (
+        <span className={`model ${makerClass(work.model)}`}>{work.model}</span>
       )}
+      <TextShimmer active={work !== null}>
+        {work ? work.text : row.status === "merged" ? "PR merged" : "PR open"}
+      </TextShimmer>
     </span>
   );
 }
@@ -39,12 +37,12 @@ function Status({ row }: { row: LiveRow }) {
 const SHOWN = 4;
 
 /** "merged PR" or "merged PRs", without the number. */
-const mergedPRs = (n: number) =>
-  plural(n, "merged PR").replace(/^[\d,]+ /, "");
+const mergedPRs = (n: number) => plural(n, "merged PR").replace(/^[\d,]+ /, "");
 
 /**
  * The latest tickets as a short column of cards under a "Live" line that
- * carries the platform's totals. Nothing moves on its own: a new ticket
+ * carries the platform's totals, their digits rolling (uiarc's animated
+ * counter) as merges land. Nothing moves on its own: a new ticket
  * slides in at the top, a ticket whose state changed flashes, a ticket
  * that moved slides to its place (useFlip, from the Realtime signal). Each
  * card says who paid and opens the pull request or the run.
@@ -79,18 +77,26 @@ export function TicketStack({
         <span className="tk-totals">
           {totals.inProgress > 0 && (
             <span>
-              <b>{totals.inProgress}</b> in progress
+              <b>
+                <AnimatedCounter value={totals.inProgress} inline />
+              </b>{" "}
+              in progress
             </span>
           )}
           {/* Today's merges once there is one (recency is the live
               signal); the all-time count fills the quiet hours. */}
           {totals.mergedToday > 0 ? (
             <span>
-              <b>{totals.mergedToday}</b> {mergedPRs(totals.mergedToday)} today
+              <b>
+                <AnimatedCounter value={totals.mergedToday} inline />
+              </b>{" "}
+              {mergedPRs(totals.mergedToday)} today
             </span>
           ) : (
             <span>
-              <b>{totals.merged.toLocaleString("en-US")}</b>{" "}
+              <b>
+                <AnimatedCounter value={totals.merged} inline />
+              </b>{" "}
               {mergedPRs(totals.merged)}
             </span>
           )}

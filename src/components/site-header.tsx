@@ -1,5 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, LogIn, UserRound } from "lucide-react";
+import { UserMenu } from "./arc/user-menu/user-menu";
 import { logoOnDark } from "./brand-svg";
 
 /** Inline, so the flower can turn on hover. */
@@ -24,17 +25,8 @@ type HeaderViewer = {
 } | null;
 
 export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
-  const [open, setOpen] = useState(false);
-  const menu = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (!menu.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-  const label =
+  const navigate = useNavigate();
+  const name =
     viewer?.githubLogin ?? viewer?.name ?? viewer?.email ?? "Account";
   return (
     <header className="site-header">
@@ -44,51 +36,42 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
         <Link to="/" aria-label="Yarrow home" className="header-brand">
           <Brand />
         </Link>
-        <div className="header-actions" ref={menu}>
+        <div className="header-actions">
           {viewer ? (
-            <>
-              <button
-                className="avatar-button"
-                aria-label={`${label} menu`}
-                aria-haspopup="menu"
-                aria-expanded={open}
-                onClick={() => setOpen(!open)}
-              >
-                {viewer.avatarUrl ? (
-                  <img src={viewer.avatarUrl} alt="" />
-                ) : (
-                  label.charAt(0).toUpperCase()
-                )}
-              </button>
-              {open && (
-                <div className="account-menu" role="menu">
-                  <Link
-                    to="/dashboard"
-                    role="menuitem"
-                    onClick={() => setOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  {!viewer.guest && (
-                    <Link
-                      to="/account"
-                      role="menuitem"
-                      onClick={() => setOpen(false)}
-                    >
-                      Account
-                    </Link>
-                  )}
-                  {viewer.guest && (
-                    <a href="/sign-in?next=/dashboard" role="menuitem">
-                      Sign in
-                    </a>
-                  )}
-                  <a href="/auth/sign-out" role="menuitem" className="muted">
-                    Sign out
-                  </a>
-                </div>
-              )}
-            </>
+            // uiarc's user menu: a panel from the avatar, a bottom sheet on
+            // phones.
+            <UserMenu
+              user={{
+                name,
+                email: viewer.email ?? "",
+                avatarSrc: viewer.avatarUrl ?? undefined,
+              }}
+              showTheme={false}
+              items={[
+                {
+                  label: "Dashboard",
+                  icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
+                  onSelect: () => void navigate({ to: "/dashboard" }),
+                },
+                viewer.guest
+                  ? {
+                      label: "Sign in",
+                      icon: <LogIn size={16} strokeWidth={1.75} />,
+                      onSelect: () =>
+                        window.location.assign("/sign-in?next=/dashboard"),
+                    }
+                  : {
+                      label: "Account",
+                      icon: <UserRound size={16} strokeWidth={1.75} />,
+                      onSelect: () => void navigate({ to: "/account" }),
+                    },
+              ]}
+              onSignOut={() => {
+                window.location.assign("/auth/sign-out");
+                // The item shows its progress until the page leaves.
+                return new Promise(() => {});
+              }}
+            />
           ) : (
             <Link to="/sign-in" className="sign-in">
               Sign in

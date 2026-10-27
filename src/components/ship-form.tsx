@@ -1,5 +1,6 @@
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import {
   parseTicketLink,
   ticketSources,
@@ -34,20 +35,6 @@ function connectUrl(
   return `/connect/github${query ? `?${query}` : ""}`;
 }
 
-/** The next choosable source from `from`, walking `step` (±1). */
-function nextSource(
-  from: number,
-  step: 1 | -1,
-  available: (source: TicketSource) => boolean,
-): number {
-  const n = ticketSources.length;
-  for (let i = 1; i <= n; i++) {
-    const at = (from + step * i + n) % n;
-    if (available(ticketSources[at]!)) return at;
-  }
-  return from;
-}
-
 /** The hero form: paste a ticket link. Connecting GitHub comes next. */
 export function ShipForm({ jira = false }: { jira?: boolean }) {
   // Jira opens once its OAuth app is configured on this deployment.
@@ -55,27 +42,22 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
     !item.soon && (item.id !== "jira" || jira);
   const [source, setSource] = useState<TicketSource>(ticketSources[0]!);
   const [value, setValue] = useState("");
-  const [open, setOpen] = useState(false);
-  const [focus, setFocus] = useState(0);
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const picker = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (!picker.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  function choose(next: TicketSource) {
-    if (!available(next)) return;
-    setSource(next);
-    setOpen(false);
-    setHint(null);
-  }
+  const items = useMemo(
+    () =>
+      ticketSources.map((item) => ({
+        value: item.id,
+        label: item.name,
+        icon: (
+          <span className="ship-dot" style={{ background: dots[item.id] }} />
+        ),
+        meta: available(item) ? undefined : "soon",
+        disabled: !available(item),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `available` reads `jira` alone.
+    [jira],
+  );
   function submit(event: React.FormEvent) {
     event.preventDefault();
     setHint(null);
@@ -96,67 +78,19 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
         onSubmit={submit}
         aria-label="Get a pull request"
       >
-        <div className="ship-source" ref={picker}>
-          <button
-            type="button"
-            className="ship-source-button"
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            onClick={() => {
-              setFocus(ticketSources.indexOf(source));
-              setOpen(!open);
+        {/* uiarc's morph select: the pill grows into the list. */}
+        <div className="ship-source">
+          <MorphSelect
+            label="Source"
+            hideLabel
+            value={source.id}
+            onValueChange={(id) => {
+              setSource(ticketSources.find((item) => item.id === id)!);
+              setHint(null);
             }}
-            onKeyDown={(event) => {
-              if (!open && ["ArrowDown", "Enter", " "].includes(event.key)) {
-                event.preventDefault();
-                setFocus(ticketSources.indexOf(source));
-                setOpen(true);
-              } else if (open && event.key === "ArrowDown") {
-                event.preventDefault();
-                setFocus(nextSource(focus, 1, available));
-              } else if (open && event.key === "ArrowUp") {
-                event.preventDefault();
-                setFocus(nextSource(focus, -1, available));
-              } else if (open && (event.key === "Enter" || event.key === " ")) {
-                event.preventDefault();
-                choose(ticketSources[focus]!);
-              } else if (event.key === "Escape") setOpen(false);
-            }}
-          >
-            <span
-              className="ship-dot"
-              style={{ background: dots[source.id] }}
-            />
-            {source.name}
-            <ChevronDown size={13} />
-          </button>
-          {open && (
-            <ul className="ship-source-list" role="listbox" aria-label="Source">
-              {ticketSources.map((item, i) => (
-                <li
-                  key={item.id}
-                  role="option"
-                  aria-selected={item.id === source.id}
-                  aria-disabled={!available(item)}
-                  className={i === focus ? "focus" : undefined}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    choose(item);
-                  }}
-                >
-                  <span
-                    className="ship-dot"
-                    style={{ background: dots[item.id] }}
-                  />
-                  {item.name}
-                  {!available(item) && <em>soon</em>}
-                  {item.id === source.id && (
-                    <Check size={13} className="ship-check" />
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+            panelWidth={220}
+            items={items}
+          />
         </div>
         <input
           id="ship-url"

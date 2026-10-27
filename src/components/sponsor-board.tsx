@@ -1,18 +1,12 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useRouter } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  GitMerge,
-  LockKeyhole,
-  X,
-} from "lucide-react";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ArrowRight, GitMerge, LockKeyhole, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { animate, motion, useReducedMotion } from "motion/react";
+import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
+import { Checkbox } from "@/components/arc/checkbox/checkbox";
+import { motionTokens } from "@/components/arc/lib/motion-tokens";
+import { NumberField } from "@/components/arc/number-field/number-field";
 import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS, money } from "@/core/packs";
 import { prCardSvg, shortSite, type PrCardSponsor } from "@/core/pr-card";
 import { DESCRIPTION_MAX } from "@/core/forms";
@@ -267,9 +261,8 @@ export function SponsorBoard({
       <div className="sb-why">
         <h2 className="sb-why-title">Why is it free?</h2>
         <p className="sb-why-text">
-          Sponsors pay for the compute. In return, their company card ships
-          in every pull request they fund, where maintainers and reviewers
-          see it.{" "}
+          Sponsors pay for the compute. In return, their company card ships in
+          every pull request they fund, where maintainers and reviewers see it.{" "}
           <button
             type="button"
             className="sb-why-more"
@@ -288,9 +281,9 @@ export function SponsorBoard({
           <div>
             <PrSketch sponsor={preview} />
             <p className="sb-pitch-text">
-              Your money pays for the frontier agents writing each pull
-              request, and your card is visible on every one. Maintainers and
-              anyone opening the pull requests you fund will notice you.
+              Your money pays for the frontier agents writing each pull request,
+              and your card is visible on every one. Maintainers and anyone
+              opening the pull requests you fund will notice you.
             </p>
           </div>
         </div>
@@ -329,7 +322,8 @@ export function SponsorBoard({
  * Today or All time, each with its total: the other board says what it
  * holds. uiarc's button group: segments joined on one surface, a hairline
  * between them; one soft fill rests on the chosen board and glides to the
- * segment under the pointer, and back when it leaves. Arrow keys, Home and
+ * segment under the pointer, and back when it leaves; the totals roll
+ * (uiarc's animated counter) as payments land. Arrow keys, Home and
  * End move the choice (the tabs pattern: only the chosen tab is in the
  * tab order).
  */
@@ -343,34 +337,11 @@ function PeriodTabs({
   onChange: (period: Period) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
   const [hover, setHover] = useState<Period | null>(null);
-  const [box, setBox] = useState<{ x: number; w: number } | null>(null);
   const active = hover ?? period;
   const keys = boards.map((item) => item.period);
   const at = keys.indexOf(active);
-  const segment = (key: Period) =>
-    root.current?.querySelector<HTMLElement>(`[data-key="${key}"]`);
-  useLayoutEffect(() => {
-    const list = root.current;
-    if (!list) return;
-    const measure = () => {
-      const tab = segment(active);
-      if (!tab) return;
-      const next = { x: tab.offsetLeft, w: tab.offsetWidth };
-      setBox((current) =>
-        current && current.x === next.x && current.w === next.w
-          ? current
-          : next,
-      );
-    };
-    measure();
-    // The totals size the segments: the fill stays locked to its own.
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    for (const tab of list.querySelectorAll("[data-key]"))
-      observer.observe(tab);
-    return () => observer.disconnect();
-  }, [active]);
   const move = (event: React.KeyboardEvent) => {
     const last = keys.length - 1;
     const index = keys.indexOf(period);
@@ -391,7 +362,9 @@ function PeriodTabs({
     if (next < 0) return;
     event.preventDefault();
     onChange(keys[next]!);
-    segment(keys[next]!)?.focus();
+    root.current
+      ?.querySelector<HTMLElement>(`[data-key="${keys[next]}"]`)
+      ?.focus();
   };
   return (
     <div
@@ -410,13 +383,6 @@ function PeriodTabs({
       onPointerLeave={() => setHover(null)}
       onKeyDown={move}
     >
-      {box && (
-        <span
-          className="sb-tabs-fill"
-          aria-hidden="true"
-          style={{ transform: `translateX(${box.x}px)`, width: box.w }}
-        />
-      )}
       {boards.map((item, index) => (
         <button
           key={item.period}
@@ -431,13 +397,27 @@ function PeriodTabs({
           aria-selected={item.period === period}
           onClick={() => onChange(item.period)}
         >
+          {/* One fill, handed from segment to segment: motion springs it
+              across (its corners kept round through the stretch). */}
+          {item.period === active && (
+            <motion.span
+              layoutId="sb-tabs-fill"
+              className="sb-tabs-fill"
+              aria-hidden="true"
+              style={{ borderRadius: 13 }}
+              transition={reduced ? { duration: 0 } : motionTokens.spring.morph}
+            />
+          )}
           <span className="sb-tabs-content">
             {item.period === "today" ? "Today" : "All time"}
             <span className="sb-tabs-total">
-              {money(
-                item.rows.reduce((sum, row) => sum + row.paidCents, 0),
-                false,
-              )}
+              <AnimatedCounter
+                inline
+                prefix="$"
+                value={Math.round(
+                  item.rows.reduce((sum, row) => sum + row.paidCents, 0) / 100,
+                )}
+              />
             </span>
           </span>
         </button>
@@ -839,55 +819,35 @@ function Rank({ rank }: { rank: number }) {
   return <span className="sb-rank">{rank}</span>;
 }
 
-/** Five dollars a step, from $10 to $1,000. */
-const STEP = 5;
-
-/** The amount: typed, or moved by five dollars with − and +. */
-function AmountField({ claim, label }: { claim: Claim; label: string }) {
-  const dollars = Number(claim.dollars || 0);
+/**
+ * The amount: uiarc's number field. − and + move by five dollars (held,
+ * they repeat and speed up; at $10 or $1,000 the value strains and springs
+ * back), and any whole amount can be typed.
+ */
+function AmountField({
+  claim,
+  label,
+  size = "sm",
+}: {
+  claim: Claim;
+  label: string;
+  size?: "sm" | "md";
+}) {
   const min = MIN_AMOUNT_CENTS / 100;
-  const max = MAX_AMOUNT_CENTS / 100;
-  const step = (delta: number) => {
-    const next =
-      dollars < min ? min : Math.round((dollars + delta) / STEP) * STEP;
-    claim.setDollars(String(Math.min(max, Math.max(min, next))));
-  };
   return (
-    <span className="sb-amount sb-amount-field">
-      <button
-        type="button"
-        className="sb-step"
-        aria-label="Five dollars less"
-        disabled={dollars <= min}
-        onClick={() => step(-STEP)}
-      >
-        −
-      </button>
-      <label>
-        $
-        <input
-          value={claim.dollars}
-          size={Math.max(claim.dollars.length, 2)}
-          inputMode="numeric"
-          autoComplete="off"
-          aria-label={label}
-          onChange={(event) =>
-            claim.setDollars(
-              event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-            )
-          }
-        />
-      </label>
-      <button
-        type="button"
-        className="sb-step"
-        aria-label="Five dollars more"
-        disabled={dollars >= max}
-        onClick={() => step(STEP)}
-      >
-        +
-      </button>
-    </span>
+    <NumberField
+      className="sb-amount-field"
+      label={label}
+      hideLabel
+      size={size}
+      prefix="$"
+      min={min}
+      max={MAX_AMOUNT_CENTS / 100}
+      step={5}
+      typeStep={1}
+      value={Number(claim.dollars) || min}
+      onValueChange={(next) => claim.setDollars(String(next))}
+    />
   );
 }
 
@@ -946,21 +906,73 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const reduced = useReducedMotion();
+  // uiarc's dialog motion on the native dialog: it rises 8px and scales up
+  // on a spring; closing is shorter and quieter, and a reopen mid-exit
+  // picks it up where it is.
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (open) {
+      const leaving = dialog.dataset.closing !== undefined;
+      delete dialog.dataset.closing;
+      if (dialog.open && !leaving) return;
+      if (!dialog.open) dialog.showModal();
+      void animate(
+        dialog,
+        reduced
+          ? { opacity: 1, y: 0, scale: 1 }
+          : {
+              opacity: leaving ? 1 : [0, 1],
+              y: leaving ? 0 : [8, 0],
+              scale: leaving ? 1 : [0.96, 1],
+            },
+        reduced
+          ? { duration: motionTokens.duration.instant }
+          : {
+              default: motionTokens.spring.smooth,
+              opacity: {
+                duration: motionTokens.duration.fast,
+                ease: [...motionTokens.ease.enter],
+              },
+            },
+      );
+    } else if (dialog.open) {
+      dialog.dataset.closing = "";
+      const close = () => {
+        if (dialog.dataset.closing === undefined) return;
+        delete dialog.dataset.closing;
+        dialog.close();
+      };
+      void animate(
+        dialog,
+        reduced ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.98 },
+        {
+          duration: reduced
+            ? motionTokens.duration.instant
+            : motionTokens.duration.fast,
+          ease: [...motionTokens.ease.standard],
+        },
+      ).then(close);
+      // Frames stall in a throttled window: it closes all the same.
+      const late = window.setTimeout(close, 400);
+      return () => window.clearTimeout(late);
+    }
+  }, [open, reduced]);
   return (
     <dialog
       ref={ref}
       className={`sb-dialog ${wide ? "wide" : ""}`}
       aria-labelledby={labelledBy}
       onClose={onClose}
+      onCancel={(event) => {
+        // Escape leaves through the same motion as the close button.
+        event.preventDefault();
+        onClose();
+      }}
       onClick={(event) => {
         // A click on the backdrop closes it.
-        if (event.target === event.currentTarget) event.currentTarget.close();
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       {children}
@@ -1103,7 +1115,7 @@ function ClaimDialog({
           <div>
             <dt>Amount</dt>
             <dd>
-              <AmountField claim={claim} label="Amount in dollars" />
+              <AmountField claim={claim} label="Amount in dollars" size="md" />
             </dd>
           </div>
           <div>
@@ -1118,30 +1130,24 @@ function ClaimDialog({
           </div>
         </dl>
         <div className="sb-dialog-checks">
-          <label className="sb-check">
-            <input
-              type="checkbox"
-              checked={terms}
-              onChange={(event) => setTerms(event.target.checked)}
-            />
-            <span>
-              I have read and agree to the{" "}
-              <a href="/terms" target="_blank" className="sb-terms">
-                Terms of Service
-              </a>{" "}
-              of yarrow.run
-            </span>
-          </label>
-          <label className="sb-check">
-            <input
-              type="checkbox"
-              checked={waiver}
-              onChange={(event) => setWaiver(event.target.checked)}
-            />
-            <span>
-              Compute starts right away: I give up my 14-day withdrawal right
-            </span>
-          </label>
+          <Checkbox
+            className="sb-check"
+            checked={terms}
+            onCheckedChange={setTerms}
+          >
+            I have read and agree to the{" "}
+            <a href="/terms" target="_blank" className="sb-terms">
+              Terms of Service
+            </a>{" "}
+            of yarrow.run
+          </Checkbox>
+          <Checkbox
+            className="sb-check"
+            checked={waiver}
+            onCheckedChange={setWaiver}
+          >
+            Compute starts right away: I give up my 14-day withdrawal right
+          </Checkbox>
         </div>
         <button
           type="button"
