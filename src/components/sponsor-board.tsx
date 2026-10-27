@@ -251,6 +251,7 @@ export function SponsorBoard({
               ? typedSponsor(claim.card)
               : (sample(claim.boards[1]!.rows) ?? typedSponsor(claim.card))
           }
+          onClaim={() => claimFrom("today")}
         />
       </div>
       <div className="sb-boards">
@@ -736,62 +737,205 @@ function typedSponsor(card: CardValue): PrCardSponsor {
   };
 }
 
-/**
- * Beside the title, quiet: where a sponsor's card goes. Opens a pull
- * request's foot with the card in it.
- */
-function WhereItShows({ sponsor }: { sponsor: PrCardSponsor }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
+/** A dialog over the page: Escape, the close button or the backdrop close it. */
+function Modal({
+  open,
+  onClose,
+  labelledBy,
+  wide = false,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  labelledBy: string;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === "Escape"
-          : !root.current?.contains(event.target as Node)
-      )
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
   }, [open]);
   return (
-    <div className="sb-where" ref={root}>
+    <dialog
+      ref={ref}
+      className={`sb-dialog ${wide ? "wide" : ""}`}
+      aria-labelledby={labelledBy}
+      onClose={onClose}
+      onClick={(event) => {
+        // A click on the backdrop closes it.
+        if (event.target === event.currentTarget) event.currentTarget.close();
+      }}
+    >
+      {children}
+    </dialog>
+  );
+}
+
+/** The dialog's title and its close button. */
+function ModalHead({
+  id,
+  title,
+  onClose,
+}: {
+  id: string;
+  title: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="sb-dialog-head">
+      <h2 id={id}>{title}</h2>
+      <button
+        type="button"
+        className="sb-dialog-close"
+        aria-label="Close"
+        onClick={onClose}
+      >
+        <X size={18} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A pull request on GitHub, drawn simply: its title and state, the bot's
+ * description, and at its foot the real card, as the pull request shows it.
+ */
+function PrMock({
+  sponsor,
+  compact = false,
+}: {
+  sponsor: PrCardSponsor;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`gh ${compact ? "compact" : ""}`}
+      role="img"
+      aria-label={`A pull request on GitHub, ending with the card of ${sponsor.name ?? "an anonymous sponsor"}`}
+    >
+      <div className="gh-head">
+        <span className="gh-title">
+          Keep the stroke width when exporting a selection to SVG{" "}
+          <span className="gh-number">#8123</span>
+        </span>
+        <span className="gh-meta">
+          <span className="gh-merged">
+            <GitMerge size={13} /> Merged
+          </span>
+          <span>
+            <b>dwelle</b> merged 1 commit into <code>main</code> from{" "}
+            <code>yarrow/8121</code>
+          </span>
+        </span>
+      </div>
+      <div className="gh-comment">
+        <div className="gh-comment-head">
+          <span className="gh-avatar" aria-hidden="true" />
+          <b>yarrow-run</b>
+          <span className="gh-bot">bot</span>
+          <span>opened this pull request</span>
+        </div>
+        <div className="gh-comment-body">
+          <p>
+            Closes <span className="gh-link">#8121</span>
+          </p>
+          <h4>What changed</h4>
+          <p>
+            Exporting a selection to SVG keeps each shape&apos;s stroke width
+            instead of resetting it to one pixel.
+          </p>
+          {!compact && (
+            <>
+              <h4>How it was verified</h4>
+              <ul>
+                <li>
+                  The export tests pass, with a new case for scaled shapes
+                </li>
+              </ul>
+            </>
+          )}
+          <hr />
+          <PrCardPreview sponsor={sponsor} />
+          <p className="gh-small">
+            Implemented by Claude Opus 5.5 · Reviewed by GPT Astra
+            <br />
+            Sponsored by {sponsor.name ?? "an anonymous sponsor"} via{" "}
+            <span className="gh-link">Yarrow</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Beside the title: where sponsors show. Opens a pull request as GitHub
+ * shows it, the card at its foot, and why it is worth it.
+ */
+function WhereItShows({
+  sponsor,
+  onClaim,
+}: {
+  sponsor: PrCardSponsor;
+  onClaim: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+  return (
+    <>
       <button
         type="button"
         className="sb-where-button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(true)}
       >
         <GitPullRequest size={14} />
-        Your card in every pull request you fund
+        <span className="long">shown in every pull request they fund</span>
+        <span className="short">in every PR they fund</span>
       </button>
-      {open && (
-        <div className="sb-where-pop" role="dialog" aria-label="Your card">
-          <div className="sb-pr-mock">
-            <span className="sb-pr-mock-head">
-              <span className="sb-pr-merged">
-                <GitMerge size={13} /> Merged
-              </span>
-              <b>Export the selection as SVG</b>
-            </span>
-            <span className="sb-pr-mock-line" />
-            <span className="sb-pr-mock-line short" />
-            <PrCardPreview sponsor={sponsor} />
-          </div>
-          <p>
-            Every pull request ends with the card of the sponsors who paid for
-            it: the maintainers who merge it and everyone who reads the
-            repository see it, and it links to your site.
+      <Modal open={open} onClose={close} labelledBy="sb-where-title" wide>
+        <div className="sb-dialog-body">
+          <ModalHead
+            id="sb-where-title"
+            title="Sponsors sign the pull requests they pay for"
+            onClose={close}
+          />
+          <p className="sb-dialog-lede">
+            Every pull request Yarrow opens ends with the card of the sponsors
+            whose credit paid for its compute. It stays in the repository for
+            good.
           </p>
+          <PrMock sponsor={sponsor} />
+          <ul className="sb-where-points">
+            <li>
+              <b>Seen where it counts.</b> By the maintainers who review and
+              merge it, and by every developer who reads the project after.
+            </li>
+            <li>
+              <b>One click to your site.</b> The card links to it, and every
+              click shows on your row.
+            </li>
+            <li>
+              <b>Your row, as it is.</b> Logo, name, description and site, as on
+              the boards.
+            </li>
+          </ul>
+          <button
+            type="button"
+            className="sb-claim-go sb-dialog-pay"
+            onClick={() => {
+              close();
+              onClaim();
+            }}
+          >
+            Claim your place
+            <ArrowRight size={14} strokeWidth={2.4} />
+          </button>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }
 
@@ -810,19 +954,12 @@ function ClaimDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const checkout = useServerFn(startCheckoutFn);
   const [terms, setTerms] = useState(false);
   const [waiver, setWaiver] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const { card, valid, cents, fees } = claim;
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
   // Back from Stripe: the browser may restore the page as it was left.
   useEffect(() => {
     const reset = () => setPending(false);
@@ -855,37 +992,14 @@ function ClaimDialog({
 
   const ready = valid && terms && waiver && !pending;
   return (
-    <dialog
-      ref={ref}
-      className="sb-dialog"
-      aria-labelledby="sb-dialog-title"
-      onClose={onClose}
-      onClick={(event) => {
-        // A click on the backdrop closes it.
-        if (event.target === event.currentTarget) event.currentTarget.close();
-      }}
-    >
+    <Modal open={open} onClose={onClose} labelledBy="sb-dialog-title" wide>
       <div className="sb-dialog-body">
-        <div className="sb-dialog-head">
-          <h2 id="sb-dialog-title">{claim.label}</h2>
-          <button
-            type="button"
-            className="sb-dialog-close"
-            aria-label="Close"
-            onClick={() => ref.current?.close()}
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <ModalHead id="sb-dialog-title" title={claim.label} onClose={onClose} />
         <div className="sb-dialog-preview">
           <span className="sb-dialog-label">
-            At the foot of every pull request you fund
+            Your card, at the foot of every pull request you fund
           </span>
-          <PrCardPreview sponsor={typedSponsor(card)} />
-          <p>
-            Maintainers see it when they merge, and so does everyone who reads
-            the repository. It links to your site; clicks show on your row.
-          </p>
+          <PrMock sponsor={typedSponsor(card)} compact />
         </div>
         <dl className="sb-dialog-lines">
           <div>
@@ -950,6 +1064,6 @@ function ClaimDialog({
           applies
         </small>
       </div>
-    </dialog>
+    </Modal>
   );
 }

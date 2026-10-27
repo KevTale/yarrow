@@ -6379,99 +6379,34 @@ a.tk-paid:hover b {
 }
 .sb-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 12px 18px;
+  gap: 4px 14px;
   min-height: 40px;
 }
 .sb-head h2 {
   font-size: 32px;
 }
-.sb-where {
-  position: relative;
-}
 .sb-where-button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 2px;
+  padding: 4px 0;
   border: 0;
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   text-decoration: underline dotted #8a909b80;
   text-underline-offset: 4px;
   cursor: pointer;
   transition: color 0.15s;
 }
-.sb-where-button:hover,
-.sb-where-button[aria-expanded="true"] {
+.sb-where-button:hover {
   color: var(--text);
 }
-.sb-where-pop {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 20;
-  display: grid;
-  gap: 12px;
-  width: min(460px, calc(100vw - 32px));
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: 0 24px 60px #0000008c;
-  animation: sb-dialog-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.sb-where-pop p {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--secondary);
-}
-/* A pull request's page, drawn with lines, its foot real. */
-.sb-pr-mock {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-}
-.sb-pr-mock-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 13px;
-}
-.sb-pr-mock-head b {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-.sb-pr-merged {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 99px;
-  background: #8957e5;
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 500;
-}
-.sb-pr-mock-line {
-  height: 6px;
-  border-radius: 3px;
-  background: #1d2025;
-}
-.sb-pr-mock-line.short {
-  width: 60%;
-  margin-bottom: 4px;
+.sb-where-button .short {
+  display: none;
 }
 .sb-claim-go {
   display: inline-flex;
@@ -6862,6 +6797,9 @@ body:has(.sb-dialog[open]) {
   box-shadow: 0 30px 80px #000000a6;
   overflow: auto;
 }
+.sb-dialog.wide {
+  width: min(600px, calc(100vw - 32px));
+}
 .sb-dialog[open] {
   animation: sb-dialog-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -6912,8 +6850,7 @@ body:has(.sb-dialog[open]) {
   display: grid;
   gap: 8px;
 }
-.sb-dialog-label,
-.sb-where-pop .sb-dialog-label {
+.sb-dialog-label {
   font:
     500 11px var(--font-geist-mono),
     monospace;
@@ -6921,10 +6858,154 @@ body:has(.sb-dialog[open]) {
   letter-spacing: 0.07em;
   color: var(--muted);
 }
-.sb-dialog-preview p {
-  font-size: 12.5px;
+.sb-dialog-lede {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+.sb-where-points {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
   line-height: 1.5;
-  color: var(--muted);
+  color: var(--secondary);
+}
+.sb-where-points b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* A pull request as GitHub shows it, drawn simply, the real card at its
+   foot. GitHub's dark palette, so it reads as GitHub at a glance. */
+.gh {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
+    Arial, sans-serif;
+  font-size: 13px;
+}
+.gh-head {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #30363d;
+}
+.gh-title {
+  font-size: 17px;
+  line-height: 1.3;
+}
+.gh-number {
+  color: #7d8590;
+  font-weight: 300;
+}
+.gh-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: #7d8590;
+}
+.gh-meta b {
+  color: #e6edf3;
+  font-weight: 600;
+}
+.gh code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: #1f6feb26;
+  color: #4493f8;
+  font:
+    11.5px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+.gh-merged {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: #8957e5;
+  color: #fff;
+  font-weight: 500;
+}
+.gh-comment {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.gh-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #30363d;
+  background: #161b22;
+  color: #7d8590;
+}
+.gh-comment-head b {
+  color: #e6edf3;
+  font-weight: 600;
+}
+.gh-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #f2b544 0 3px, transparent 3.5px),
+    #2d2a1f;
+}
+.gh-bot {
+  padding: 0 6px;
+  border: 1px solid #30363d;
+  border-radius: 99px;
+  font-size: 11px;
+}
+.gh-comment-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  line-height: 1.5;
+}
+.gh-comment-body h4 {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.gh-comment-body ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.gh-comment-body hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid #30363d;
+}
+.gh-link {
+  color: #4493f8;
+}
+.gh-small {
+  font-size: 12px;
+  color: #7d8590;
+}
+.gh.compact {
+  gap: 10px;
+  padding: 12px;
+}
+.gh.compact .gh-title {
+  font-size: 15px;
 }
 /* The pull request's card, scaled to its box. */
 .sb-prcard {
@@ -7169,6 +7250,25 @@ body:has(.sb-dialog[open]) {
   .sb-boards {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
+  }
+  /* The title and where sponsors show, on one line when there is room. */
+  .sb-head h2 {
+    font-size: 28px;
+  }
+  .sb-where-button {
+    font-size: 13px;
+  }
+  .sb-where-button .long {
+    display: none;
+  }
+  .sb-where-button .short {
+    display: inline;
+  }
+  .gh {
+    padding: 12px;
+  }
+  .gh-title {
+    font-size: 15px;
   }
   .sb-row-claim.inline,
   .sb-form-row .sb-you {
