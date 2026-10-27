@@ -857,14 +857,11 @@ function PrMock({
               </ul>
             </>
           )}
-          <hr />
-          <PrCardPreview sponsor={sponsor} />
           <p className="gh-small">
             Implemented by Claude Opus 5.5 · Reviewed by GPT Astra
-            <br />
-            Sponsored by {sponsor.name ?? "an anonymous sponsor"} via{" "}
-            <span className="gh-link">Yarrow</span>
           </p>
+          <hr />
+          <PrCardPreview sponsor={sponsor} />
         </div>
       </div>
     </div>

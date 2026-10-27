@@ -48,7 +48,11 @@ export function sponsorCard(input: {
   return `[![Paid for by ${names} on Yarrow](${origin}/pr-card/${runId})](${link})`;
 }
 
-/** The PR body footer required by the brief: the card, then the words. */
+/**
+ * The PR body footer required by the brief: the models close the pull
+ * request's own text, then a rule and the sponsors' card. Without a card
+ * (no sponsor, or no run page), the sponsors are named in words.
+ */
 export function pullRequestFooter(input: {
   roles: PipelineRoles;
   sponsors: readonly RunSponsor[];
@@ -60,7 +64,10 @@ export function pullRequestFooter(input: {
     ? `Sponsored by ${names} via [Yarrow](${input.runUrl})`
     : `via [Yarrow](${input.runUrl})`;
   const card = sponsorCard(input);
-  return ["---", ...(card ? [card, ""] : []), models, funding].join("\n");
+  // A blank line before the rule: right under text, "---" makes a heading.
+  return card
+    ? [models, "", "---", "", card].join("\n")
+    : ["---", models, funding].join("\n");
 }
 
 /** Commit trailer. Agents never add Signed-off-by: the owner certifies at merge. */

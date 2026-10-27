@@ -325,9 +325,17 @@ describe("attribution", () => {
       sponsors: [{ name: "Northwind", publicId: sponsor }],
       runUrl: `https://yarrow.run/runs/${id}`,
     });
-    expect(alone).toContain(
-      `[![Paid for by Northwind on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/out/${sponsor})`,
+    expect(alone).toBe(
+      [
+        "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
+        "",
+        "---",
+        "",
+        `[![Paid for by Northwind on Yarrow](https://yarrow.run/pr-card/${id})](https://yarrow.run/out/${sponsor})`,
+      ].join("\n"),
     );
+    // The card names them: no second line saying it again.
+    expect(alone).not.toContain("Sponsored by");
     const shared = pullRequestFooter({
       roles: defaultPipelineRoles,
       sponsors: [{ name: "Northwind", publicId: sponsor }, { name: null }],
