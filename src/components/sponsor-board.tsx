@@ -13,18 +13,22 @@ import { DESCRIPTION_MAX } from "@/core/forms";
 import { estimateBreakdown, pullRequestsFor } from "@/core/pricing";
 import type { BoardViewer } from "@/db/sponsors";
 import {
+  findFaviconFn,
   saveSponsorProfileFn,
   startCheckoutFn,
 } from "@/functions/sponsor.functions";
 import { Logo, plural, SponsorName, type SponsorRow } from "./boards";
 import { useFlip } from "./live";
 import { Segmented } from "./segmented";
-import { LogoPicker } from "./logo-picker";
+import { drawLogo, LogoPicker } from "./logo-picker";
 import { Spinner } from "./navigation-feedback";
 import { SavedState, useSavedFades, type SaveState } from "./saved-state";
 import { websiteAddress, type CardValue } from "./sponsor-card";
 
 type Period = "today" | "all";
+
+/** The website whose icon the tile shows, while the sponsor has not replaced it. */
+type SiteLogo = { site: string; logo: string | null };
 
 /** The first places; the viewer's row shows further down when it lands there. */
 const TOP = 10;
@@ -86,6 +90,13 @@ function useClaim(
     website: you?.websiteUrl ?? "",
     logo: you?.logoUrl ?? null,
   });
+  const siteLogoRef = useRef<SiteLogo | null>(null);
+  const siteLogo = {
+    get: () => siteLogoRef.current,
+    set: (next: SiteLogo | null) => {
+      siteLogoRef.current = next;
+    },
+  };
 
   const boards = (["today", "all"] as const).map((period): Board => {
     const rows = period === "today" ? today : all;
@@ -153,6 +164,7 @@ function useClaim(
     prs,
     founding,
     profileOf,
+    siteLogo,
   };
 }
 
@@ -660,6 +672,28 @@ function FormRow({
     )?.focus({ preventScroll: true });
   }, [focus]);
 
+  // A website typed while the tile is empty (or still shows the icon found
+  // from the previous one) brings its icon in; an upload replaces it.
+  const findFavicon = useServerFn(findFaviconFn);
+  async function leaveSite() {
+    const site = websiteAddress(card.website);
+    const found = claim.siteLogo.get();
+    const automatic = card.logo === null || card.logo === found?.logo;
+    if (!site || site === found?.site || !automatic)
+      return void saver.commit();
+    claim.siteLogo.set({ site, logo: card.logo });
+    const icon = await findFavicon({ data: { site } })
+      .then((result) => result.icon)
+      .catch(() => null);
+    const logo = icon ? await drawLogo(icon).catch(() => null) : null;
+    // An upload or another website while it loaded wins.
+    if (claim.siteLogo.get()?.site !== site || !logo)
+      return void saver.commit();
+    claim.siteLogo.set({ site, logo });
+    setCard((current) => ({ ...current, logo }));
+    void saver.commit({ logo });
+  }
+
   const change =
     (key: "name" | "description" | "website") =>
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -675,6 +709,11 @@ function FormRow({
         name={card.name.trim() || "+"}
         value={card.logo}
         onChange={(logo) => {
+          // Uploaded, the logo is theirs; removed, this website's icon
+          // stays away.
+          claim.siteLogo.set(
+            logo ? null : { site: websiteAddress(card.website) ?? "", logo },
+          );
           setCard((current) => ({ ...current, logo }));
           void saver.commit({ logo });
         }}
@@ -723,7 +762,7 @@ function FormRow({
             aria-label="Website (optional)"
             value={card.website}
             onChange={change("website")}
-            onBlur={() => void saver.commit()}
+            onBlur={() => void leaveSite()}
           />
           {stats}
         </span>

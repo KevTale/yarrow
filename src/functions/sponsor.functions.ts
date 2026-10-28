@@ -28,6 +28,7 @@ import {
   createCheckout,
 } from "@/server/stripe/stripe.server";
 import { supabaseServer } from "@/server/auth.server";
+import { findFavicon } from "@/server/favicon.server";
 
 /** The form's profile, its logo stored and replaced by its URL. */
 async function profileValues(db: Database, profile: SponsorProfile) {
@@ -103,6 +104,14 @@ export const saveSponsorProfileFn = createServerFn({ method: "POST" })
     );
     return { saved: true };
   });
+
+/**
+ * The icon of the website typed on a card, for its logo tile: anyone typing
+ * a card may ask, visitors included, since they pay after typing it.
+ */
+export const findFaviconFn = createServerFn({ method: "POST" })
+  .validator(z.object({ site: z.url().max(300) }))
+  .handler(async ({ data }) => ({ icon: await findFavicon(data.site) }));
 
 /** Where the money goes: every project, or only the ones chosen. */
 export const saveSponsorFundingFn = createServerFn({ method: "POST" })

@@ -5,26 +5,36 @@ import { Logo } from "./boards";
 /** Logos are stored at this size: enough for a 40 px tile on a 3x screen. */
 const SIZE = 128;
 
-/** Draws the chosen file into a square, transparent where it does not fill. */
-async function drawLogo(file: File): Promise<string> {
+/**
+ * Draws an image (a URL the page may read, a data URL) into a square,
+ * transparent where it does not fill.
+ */
+export async function drawLogo(source: string): Promise<string> {
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  const width = image.naturalWidth || SIZE;
+  const height = image.naturalHeight || SIZE;
+  const scale = Math.min(SIZE / width, SIZE / height);
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const context = canvas.getContext("2d")!;
+  context.imageSmoothingQuality = "high";
+  // A 16 px favicon blown up stays crisp rather than blurred.
+  context.imageSmoothingEnabled = scale < 3;
+  const w = width * scale;
+  const h = height * scale;
+  context.drawImage(image, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+  // Browsers that cannot encode WebP fall back to PNG.
+  return canvas.toDataURL("image/webp", 0.9);
+}
+
+/** The chosen file, drawn as a logo. */
+async function drawFile(file: File): Promise<string> {
   const source = URL.createObjectURL(file);
   try {
-    const image = new Image();
-    image.src = source;
-    await image.decode();
-    const width = image.naturalWidth || SIZE;
-    const height = image.naturalHeight || SIZE;
-    const scale = Math.min(SIZE / width, SIZE / height);
-    const canvas = document.createElement("canvas");
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const context = canvas.getContext("2d")!;
-    context.imageSmoothingQuality = "high";
-    const w = width * scale;
-    const h = height * scale;
-    context.drawImage(image, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
-    // Browsers that cannot encode WebP fall back to PNG.
-    return canvas.toDataURL("image/webp", 0.9);
+    return await drawLogo(source);
   } finally {
     URL.revokeObjectURL(source);
   }
@@ -68,7 +78,7 @@ export function LogoPicker({
             if (!file) return;
             setError(false);
             try {
-              onChange(await drawLogo(file));
+              onChange(await drawFile(file));
             } catch {
               setError(true);
             }
