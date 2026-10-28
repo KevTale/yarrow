@@ -1,0 +1,536 @@
+import {
+  AbsoluteFill,
+  Img,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
+import { Cursor, Tile } from "../components/kit";
+import { issue, sponsor } from "../story";
+import { c, clamp, ease, font } from "../theme";
+import { Check } from "./Work";
+
+/** The scene's beats (local frames). */
+const CHEVRON = 28;
+const HOVER_MERGE = 104;
+const LEAVE_MERGE = 152;
+const GITHUB = 196;
+
+/** The opened row's places on the frame. */
+const ROW = { top: 250, height: 88 };
+const CHEVRON_AT = { x: 152, y: ROW.top + ROW.height / 2 };
+const ASIDE = { left: 1330, width: 470 };
+const MERGE_AT = { x: ASIDE.left + ASIDE.width / 2 + 40, y: 420 };
+const GITHUB_AT = { x: ASIDE.left + 120, y: 546 };
+
+const Icon: React.FC<{
+  d: string[];
+  size: number;
+  color: string;
+  style?: React.CSSProperties;
+}> = ({ d, size, color, style }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ flex: "none", ...style }}
+  >
+    {d.map((path) => (
+      <path key={path} d={path} />
+    ))}
+  </svg>
+);
+const merge = [
+  "M6 21V9a9 9 0 0 0 9 9",
+  "M18 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+  "M6 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+];
+const arrowUpRight = ["M7 7h10v10", "M7 17 17 7"];
+const fileDiff = [
+  "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z",
+  "M9 10h6",
+  "M12 13V7",
+  "M9 17h6",
+];
+
+/**
+ * The builder's dashboard: the ticket's row opens on the pull request,
+ * summed up, reviewed and one click from merged; then the pointer goes to
+ * GitHub.
+ */
+export const Dashboard: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const enter = spring({
+    frame,
+    fps,
+    config: { damping: 200 },
+    durationInFrames: 14,
+  });
+  const open = interpolate(frame, [CHEVRON + 2, CHEVRON + 20], [0, 1], {
+    ...clamp,
+    easing: ease.enter,
+  });
+  const reveal = (at: number) =>
+    interpolate(frame, [at, at + 10], [0, 1], clamp);
+  const onMerge = interpolate(
+    frame,
+    [HOVER_MERGE, HOVER_MERGE + 8, LEAVE_MERGE, LEAVE_MERGE + 8],
+    [0, 1, 1, 0],
+    clamp,
+  );
+  const pulse = onMerge * (0.5 + 0.5 * Math.sin((frame - HOVER_MERGE) / 5));
+  const onGithub = interpolate(frame, [GITHUB - 16, GITHUB - 8], [0, 1], clamp);
+  // The camera leans toward the decisions while the voice names them.
+  const lean = interpolate(frame, [80, 130], [0, 1], {
+    ...clamp,
+    easing: ease.inOut,
+  });
+
+  return (
+    <AbsoluteFill
+      style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
+    >
+      <AbsoluteFill
+        style={{
+          scale: `${interpolate(lean, [0, 1], [1, 1.07])}`,
+          transformOrigin: "900px 640px",
+          opacity: enter,
+        }}
+      >
+        {/* The app's header. */}
+        <div
+          style={{
+            position: "absolute",
+            inset: "0 0 auto 0",
+            height: 84,
+            borderBottom: `1px solid ${c.line}`,
+          }}
+        >
+          <Img
+            src={staticFile("yarrow-logo-on-dark.svg")}
+            style={{ position: "absolute", left: 60, top: 24, height: 38 }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              right: 60,
+              top: 22,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #3a3e46, #22252b)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            left: 120,
+            top: 120,
+            fontFamily: font.display,
+            fontWeight: 500,
+            fontSize: 44,
+            translate: `0 ${(1 - enter) * 16}px`,
+          }}
+        >
+          {issue.repo}
+        </div>
+
+        {/* The table's head and the ticket's row. */}
+        <div
+          style={{
+            position: "absolute",
+            left: 120,
+            right: 120,
+            top: 204,
+            display: "grid",
+            gridTemplateColumns: "64px 1fr 300px 300px 120px",
+            fontSize: 19,
+            color: c.muted,
+            paddingBottom: 12,
+            borderBottom: `1px solid ${c.line}`,
+          }}
+        >
+          <span />
+          <span>Ticket</span>
+          <span>Status</span>
+          <span>Paid by</span>
+          <span style={{ textAlign: "right" }}>Updated</span>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: 120,
+            right: 120,
+            top: ROW.top,
+            height: ROW.height,
+            display: "grid",
+            gridTemplateColumns: "64px 1fr 300px 300px 120px",
+            alignItems: "center",
+            fontSize: 25,
+            background: open > 0 ? c.surface : "transparent",
+            borderRadius: "16px 16px 0 0",
+          }}
+        >
+          <span style={{ display: "grid", placeItems: "center" }}>
+            <Icon
+              d={["m9 18 6-6-6-6"]}
+              size={26}
+              color={c.secondary}
+              style={{ rotate: `${90 * open}deg` }}
+            />
+          </span>
+          <span style={{ display: "flex", gap: 14, alignItems: "baseline" }}>
+            <span
+              style={{ fontFamily: font.mono, fontSize: 21, color: c.muted }}
+            >
+              #{issue.number}
+            </span>
+            <span style={{ fontWeight: 500 }}>{issue.title}</span>
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              color: c.green,
+              fontSize: 22,
+            }}
+          >
+            <span
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: c.green,
+              }}
+            />
+            PR #{issue.pr} open
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              fontSize: 22,
+            }}
+          >
+            <Tile
+              letter={sponsor.letter}
+              bg={sponsor.color}
+              size={30}
+              radius={8}
+            />
+            {sponsor.name}
+          </span>
+          <span
+            style={{
+              textAlign: "right",
+              fontFamily: font.mono,
+              fontSize: 19,
+              color: c.muted,
+            }}
+          >
+            1m
+          </span>
+        </div>
+
+        {/* The opened row: what was done and reviewed, then the decisions. */}
+        <div
+          style={{
+            position: "absolute",
+            left: 120,
+            right: 120,
+            top: ROW.top + ROW.height,
+            height: 640,
+            background: c.surface,
+            borderRadius: "0 0 16px 16px",
+            clipPath: `inset(0 0 ${100 - 100 * open}% 0)`,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 84,
+              top: 30,
+              width: 1000,
+              display: "grid",
+              gap: 40,
+            }}
+          >
+            <section
+              style={{
+                display: "grid",
+                gap: 16,
+                opacity: reveal(CHEVRON + 10),
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: font.display,
+                  fontWeight: 500,
+                  fontSize: 31,
+                  display: "flex",
+                  gap: 14,
+                  alignItems: "baseline",
+                }}
+              >
+                Implementation{" "}
+                <span
+                  style={{
+                    fontFamily: font.sans,
+                    fontWeight: 400,
+                    fontSize: 21,
+                    color: c.muted,
+                  }}
+                >
+                  by Claude Opus 5.5
+                </span>
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 24,
+                  lineHeight: 1.6,
+                  color: c.secondary,
+                }}
+              >
+                Settings get a Theme switch: Light, Dark or System. The choice
+                is saved and applied before the first paint, so the page never
+                flashes.
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  fontSize: 22,
+                  color: c.secondary,
+                }}
+              >
+                <span
+                  style={{ display: "flex", alignItems: "center", gap: 12 }}
+                >
+                  <Check at={CHEVRON + 16} size={28} /> npm test: 14 of 14 pass
+                </span>
+                <span
+                  style={{ display: "flex", alignItems: "center", gap: 12 }}
+                >
+                  <Check at={CHEVRON + 22} size={28} /> A new test covers each
+                  choice
+                </span>
+              </div>
+            </section>
+            <section
+              style={{
+                display: "grid",
+                gap: 16,
+                opacity: reveal(CHEVRON + 22),
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: font.display,
+                  fontWeight: 500,
+                  fontSize: 31,
+                  display: "flex",
+                  gap: 14,
+                  alignItems: "center",
+                }}
+              >
+                Review{" "}
+                <span
+                  style={{
+                    fontFamily: font.sans,
+                    fontWeight: 400,
+                    fontSize: 21,
+                    color: c.muted,
+                  }}
+                >
+                  by GPT Astra
+                </span>
+                <em
+                  style={{
+                    fontStyle: "normal",
+                    fontFamily: font.sans,
+                    fontSize: 19,
+                    fontWeight: 500,
+                    color: c.green,
+                    border: "1px solid #5ccb9550",
+                    background: "#5ccb9512",
+                    borderRadius: 99,
+                    padding: "3px 14px",
+                  }}
+                >
+                  Approved
+                </em>
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 24,
+                  lineHeight: 1.6,
+                  color: c.secondary,
+                }}
+              >
+                Does what the issue asks, nothing else. Tests cover each choice.
+              </p>
+            </section>
+          </div>
+
+          <aside
+            style={{
+              position: "absolute",
+              left: ASIDE.left - 120,
+              top: 30,
+              width: ASIDE.width,
+              display: "grid",
+              gap: 14,
+              opacity: reveal(CHEVRON + 14),
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                height: 66,
+                borderRadius: 14,
+                background: c.green,
+                color: "#0c1a13",
+                fontSize: 25,
+                fontWeight: 600,
+                scale: `${1 + 0.03 * onMerge}`,
+                boxShadow: `0 0 0 ${4 + 6 * pulse}px rgba(92, 203, 149, ${0.18 * onMerge}), 0 12px 40px rgba(92, 203, 149, ${0.3 * onMerge})`,
+              }}
+            >
+              <Icon d={merge} size={26} color="#0c1a13" /> Merge
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                height: 62,
+                padding: "0 20px",
+                borderRadius: 14,
+                border: `1px solid ${c.line}`,
+                background: c.bg,
+                fontSize: 23,
+                fontWeight: 500,
+              }}
+            >
+              <Icon d={fileDiff} size={24} color={c.secondary} /> Changes
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontFamily: font.mono,
+                  fontSize: 20,
+                }}
+              >
+                <span style={{ color: c.green }}>+72</span>{" "}
+                <span style={{ color: c.red }}>−2</span>
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 4px",
+                fontSize: 22,
+                color: onGithub > 0.5 ? c.text : c.muted,
+              }}
+            >
+              Open on GitHub{" "}
+              <Icon
+                d={arrowUpRight}
+                size={22}
+                color={onGithub > 0.5 ? c.text : c.muted}
+              />
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gap: 16,
+                padding: 22,
+                border: `1px solid ${c.line}`,
+                borderRadius: 16,
+                background: c.bg,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: font.mono,
+                  fontSize: 17,
+                  letterSpacing: "0.07em",
+                  color: c.amber,
+                }}
+              >
+                PAID BY
+              </span>
+              <span
+                style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
+              >
+                <Tile
+                  letter={sponsor.letter}
+                  bg={sponsor.color}
+                  size={48}
+                  radius={12}
+                />
+                <span
+                  style={{
+                    display: "grid",
+                    gap: 4,
+                    fontSize: 19,
+                    lineHeight: 1.45,
+                    color: c.secondary,
+                  }}
+                >
+                  <strong
+                    style={{ fontSize: 23, fontWeight: 500, color: c.text }}
+                  >
+                    {sponsor.name}
+                  </strong>
+                  {sponsor.description}
+                  <span
+                    style={{
+                      fontFamily: font.mono,
+                      fontSize: 17,
+                      color: c.muted,
+                    }}
+                  >
+                    {sponsor.site}
+                  </span>
+                </span>
+              </span>
+            </div>
+          </aside>
+        </div>
+
+        <Cursor
+          path={[
+            { f: 6, x: 700, y: 900 },
+            { f: 24, x: CHEVRON_AT.x, y: CHEVRON_AT.y },
+            { f: 80, x: CHEVRON_AT.x + 20, y: CHEVRON_AT.y + 40 },
+            { f: HOVER_MERGE, x: MERGE_AT.x, y: MERGE_AT.y },
+            { f: LEAVE_MERGE, x: MERGE_AT.x + 10, y: MERGE_AT.y + 6 },
+            { f: GITHUB - 14, x: GITHUB_AT.x, y: GITHUB_AT.y },
+          ]}
+          clicks={[CHEVRON, GITHUB]}
+        />
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};

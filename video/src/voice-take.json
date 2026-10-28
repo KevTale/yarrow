@@ -1,0 +1,30 @@
+{
+  "intro": {
+    "start": 0.16,
+    "end": 3.36
+  },
+  "write": {
+    "start": 3.6,
+    "end": 5.28
+  },
+  "review": {
+    "start": 5.44,
+    "end": 7.04
+  },
+  "dashboard": {
+    "start": 7.28,
+    "end": 11.68
+  },
+  "card": {
+    "start": 11.92,
+    "end": 15.64
+  },
+  "sponsors": {
+    "start": 15.76,
+    "end": 18.64
+  },
+  "end": {
+    "start": 18.951,
+    "end": 22.16
+  }
+}

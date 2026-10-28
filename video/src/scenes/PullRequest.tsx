@@ -71,19 +71,19 @@ export const PullRequest: React.FC = () => {
     frame,
     fps,
     config: { damping: 200 },
-    durationInFrames: 22,
+    durationInFrames: 14,
   });
   const badge = spring({
-    frame: frame - 14,
+    frame: frame - 8,
     fps,
     config: { damping: 10, stiffness: 170 },
   });
-  const travel = interpolate(frame, [62, 128], [0, 1], {
+  const travel = interpolate(frame, [26, 66], [0, 1], {
     ...clamp,
     easing: ease.inOut,
   });
-  const glow = interpolate(frame, [124, 150], [0, 1], clamp);
-  const sweep = interpolate(frame, [134, 176], [-40, 140], {
+  const glow = interpolate(frame, [62, 84], [0, 1], clamp);
+  const sweep = interpolate(frame, [70, 112], [-40, 140], {
     ...clamp,
     easing: ease.inOut,
   });

@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "music": "node scripts/music.mjs public/music.wav 32",
-    "studio": "pnpm music && remotion studio",
-    "render": "pnpm music && remotion render Launch out/yarrow-launch.mp4",
+    "studio": "remotion studio",
+    "render": "remotion render Launch out/yarrow-launch.mp4",
+    "voice": "node --env-file=.env scripts/voice.mjs",
+    "music": "node --env-file=.env scripts/music.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

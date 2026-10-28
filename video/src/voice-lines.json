@@ -1,0 +1,28 @@
+{
+  "voice": "iP95p4xoKVk53GoZ742B",
+  "model": "eleven_v4",
+  "lines": [
+    {
+      "id": "intro",
+      "text": "[curious, a little playful] Got an issue you never get to? [confident] Paste it into Yarrow."
+    },
+    { "id": "write", "text": "[upbeat] Claude Opus writes the fix." },
+    { "id": "review", "text": "GPT Astra reviews it." },
+    {
+      "id": "dashboard",
+      "text": "[warm, relaxed] Minutes later, it's in your dashboard... reviewed, and ONE click from merged."
+    },
+    {
+      "id": "card",
+      "text": "[proud] And every pull request carries the card of the sponsor who paid for it."
+    },
+    {
+      "id": "sponsors",
+      "text": "[smiling] That's why it's free. Sponsors fund the compute."
+    },
+    {
+      "id": "end",
+      "text": "[confident, warm] Yarrow. Free pull requests from frontier AI."
+    }
+  ]
+}

@@ -1,62 +1,60 @@
 import { Composition, Folder } from "remotion";
-import { LAUNCH_FRAMES, Launch, SCENES } from "./Launch";
+import { Launch } from "./Launch";
+import { Dashboard } from "./scenes/Dashboard";
 import { End } from "./scenes/End";
 import { Intro } from "./scenes/Intro";
 import { PullRequest } from "./scenes/PullRequest";
 import { Sponsors } from "./scenes/Sponsors";
 import { Work } from "./scenes/Work";
+import { FPS, SCENE, TOTAL } from "./timeline";
 import "./theme";
+
+const size = { width: 1920, height: 1080, fps: FPS };
 
 export const RemotionRoot: React.FC = () => (
   <>
     <Composition
       id="Launch"
       component={Launch}
-      width={1920}
-      height={1080}
-      fps={30}
-      durationInFrames={LAUNCH_FRAMES}
+      {...size}
+      durationInFrames={TOTAL}
     />
     <Folder name="Scenes">
       <Composition
         id="Intro"
         component={Intro}
-        width={1920}
-        height={1080}
-        fps={30}
-        durationInFrames={SCENES.intro}
+        {...size}
+        durationInFrames={SCENE.intro.duration}
       />
       <Composition
         id="Work"
         component={Work}
-        width={1920}
-        height={1080}
-        fps={30}
-        durationInFrames={SCENES.work}
+        {...size}
+        durationInFrames={SCENE.work.duration}
+      />
+      <Composition
+        id="Dashboard"
+        component={Dashboard}
+        {...size}
+        durationInFrames={SCENE.dashboard.duration}
       />
       <Composition
         id="PullRequest"
         component={PullRequest}
-        width={1920}
-        height={1080}
-        fps={30}
-        durationInFrames={SCENES.pullRequest}
+        {...size}
+        durationInFrames={SCENE.github.duration}
       />
       <Composition
         id="Sponsors"
         component={Sponsors}
-        width={1920}
-        height={1080}
-        fps={30}
-        durationInFrames={SCENES.sponsors}
+        {...size}
+        durationInFrames={SCENE.sponsors.duration}
       />
       <Composition
         id="End"
         component={End}
-        width={1920}
-        height={1080}
-        fps={30}
-        durationInFrames={SCENES.end}
+        {...size}
+        durationInFrames={SCENE.end.duration}
       />
     </Folder>
   </>
