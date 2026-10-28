@@ -71,6 +71,8 @@ export interface UserMenuItem {
   label: string;
   icon?: ReactNode;
   keys?: string[];
+  /** Something waiting there: a count beside the label, none at 0. */
+  badge?: number;
   onSelect?: () => void;
 }
 
@@ -97,6 +99,8 @@ export interface UserMenuProps {
   onSignOut?: () => void | Promise<unknown>;
   signOutKeys?: string[];
   align?: "start" | "center" | "end";
+  /** Something waiting in the menu: a count on the avatar, none at 0. */
+  badge?: number;
   /** Shows the name and a chevron beside the avatar from 640px up. */
   showName?: boolean;
   open?: boolean;
@@ -377,6 +381,7 @@ export function UserMenu({
   signOutKeys,
   align = "end",
   showName = false,
+  badge = 0,
   open: openProp,
   defaultOpen = false,
   onOpenChange,
@@ -776,6 +781,9 @@ export function UserMenu({
                   {item.icon}
                 </span>
                 <span className={styles.itemLabel}>{item.label}</span>
+                {item.badge ? (
+                  <span className={styles.count}>{item.badge}</span>
+                ) : null}
                 {item.keys && <Keys keys={item.keys} />}
               </motion.button>
             ))}
@@ -917,11 +925,16 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={`Account menu, ${user.name}${showStatus ? `, ${statusLabel(status)}` : ""}`}
+        aria-label={`Account menu, ${user.name}${showStatus ? `, ${statusLabel(status)}` : ""}${badge ? `, ${badge} to review` : ""}`}
         onClick={onTriggerClick}
         onKeyDown={onTriggerKeyDown}
       >
         <Face user={user} status={showStatus ? status : undefined} size="sm" />
+        {badge > 0 && (
+          <span className={styles.badge} aria-hidden="true">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
         {showName && (
           <>
             <span className={styles.triggerName}>{user.name}</span>

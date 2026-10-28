@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ensureAccount } from "../../src/db/accounts";
 import { projectsForUser } from "../../src/db/github-tasks";
 import { pullPanel } from "../../src/db/pull-panel";
+import { reviewCount } from "../../src/db/queries";
 import * as schema from "../../src/db/schema";
 import { upsertTicket } from "../../src/db/workunits";
 import {
@@ -77,6 +78,11 @@ function github(answers: Record<string, unknown> = {}) {
 }
 
 describe("the builder's decisions on a pull request", () => {
+  it("counts the pull requests waiting for the builder, theirs only", async () => {
+    expect(await reviewCount(db, marie.userId)).toBe(1);
+    expect(await reviewCount(db, crypto.randomUUID())).toBe(0);
+  });
+
   it("merges a draft: ready first, then the method the repository allows", async () => {
     const { calls, fetcher } = github({
       "GET /repos/marie/halyard/pulls/4": {

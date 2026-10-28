@@ -21,6 +21,7 @@ import {
 import {
   getGuestFn,
   getLiveConfigFn,
+  getReviewCountFn,
   getSiteOriginFn,
   getViewerFn,
 } from "@/functions/viewer.functions";
@@ -32,13 +33,14 @@ const DESCRIPTION =
 
 export const Route = createRootRoute({
   loader: async () => {
-    const [viewer, live, origin] = await Promise.all([
+    const [viewer, live, origin, toReview] = await Promise.all([
       getViewerFn(),
       getLiveConfigFn(),
       getSiteOriginFn(),
+      getReviewCountFn(),
     ]);
     // Not signed in, but paid from this browser: recognized as a guest.
-    return { viewer: viewer ?? (await getGuestFn()), live, origin };
+    return { viewer: viewer ?? (await getGuestFn()), live, origin, toReview };
   },
   // Who is signed in only changes through a full page load or an
   // invalidate (email link), so navigations reuse it.
@@ -92,13 +94,13 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const { viewer, live } = Route.useLoaderData();
+  const { viewer, live, toReview } = Route.useLoaderData();
   return (
     <>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <SiteHeader viewer={viewer} />
+      <SiteHeader viewer={viewer} toReview={toReview} />
       <LiveProvider config={live}>
         <Outlet />
       </LiveProvider>

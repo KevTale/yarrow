@@ -434,3 +434,23 @@ export async function projectForOwner(db: Database, projectId: string) {
     tickets,
   };
 }
+
+/** Pull requests waiting for this builder, across their projects: the header's badge. */
+export async function reviewCount(
+  db: Database,
+  userId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ waiting: count() })
+    .from(workUnits)
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .innerJoin(
+      accountMembers,
+      and(
+        eq(accountMembers.accountId, projects.accountId),
+        eq(accountMembers.userId, userId),
+      ),
+    )
+    .where(eq(workUnits.status, "delivered"));
+  return row?.waiting ?? 0;
+}

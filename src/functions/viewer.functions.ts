@@ -3,7 +3,8 @@ import { z } from "zod";
 import { safeNext } from "@/server/auth-request.server";
 import { getViewer, supabaseServer } from "@/server/auth.server";
 import { getSponsorProfile } from "@/db/sponsors";
-import { withDb } from "@/server/db.server";
+import { reviewCount } from "@/db/queries";
+import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { currentGuest } from "@/server/guest.server";
 import { afterSignIn, sendSignInLink } from "@/server/sign-in.server";
@@ -20,6 +21,19 @@ export const getViewerFn = createServerFn({ method: "GET" }).handler(
     } catch {
       // Auth outage or misconfiguration: render the public site signed out.
       return null;
+    }
+  },
+);
+
+/** How many pull requests wait for the viewer's review; 0 when signed out. */
+export const getReviewCountFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    try {
+      const viewer = await getViewer();
+      if (!viewer || !databaseConfigured()) return 0;
+      return await withDb((db) => reviewCount(db, viewer.userId));
+    } catch {
+      return 0;
     }
   },
 );

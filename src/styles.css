@@ -7541,9 +7541,6 @@ body:has(.sb-dialog[open]) {
   text-align: left;
   cursor: pointer;
 }
-.pp-change-head:disabled {
-  cursor: default;
-}
 .pp-change-head b {
   font-size: 13.5px;
   font-weight: 500;
@@ -7592,7 +7589,7 @@ body:has(.sb-dialog[open]) {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.pp-change-head:not(:disabled):hover .pp-ask-line {
+.pp-change-head:hover .pp-ask-line {
   color: var(--text);
 }
 .pp-ask {

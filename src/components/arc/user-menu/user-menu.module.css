@@ -545,3 +545,40 @@
 .trigger:focus-visible {
   border-radius: var(--radius-pill);
 }
+
+/* Something waiting: a count on the avatar's corner, and beside the item that leads there. */
+.badge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+  background: var(--yarrow-badge, #f2b544);
+  box-shadow: 0 0 0 2px var(--presence-surface, var(--surface));
+  color: #1a1407;
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+}
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+  background: var(--yarrow-badge, #f2b544);
+  color: #1a1407;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

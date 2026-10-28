@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, LogIn, UserRound } from "lucide-react";
 import { UserMenu } from "./arc/user-menu/user-menu";
 import { logoOnDark } from "./brand-svg";
+import { useReviewCount } from "./review-count";
 
 /** Inline, so the flower can turn on hover. */
 export function Brand() {
@@ -24,8 +25,16 @@ type HeaderViewer = {
   guest?: boolean;
 } | null;
 
-export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
+export function SiteHeader({
+  viewer,
+  toReview,
+}: {
+  viewer: HeaderViewer;
+  /** Pull requests waiting for review, as the page was served. */
+  toReview: number;
+}) {
   const navigate = useNavigate();
+  const waiting = useReviewCount(Boolean(viewer && !viewer.guest), toReview);
   const name =
     viewer?.githubLogin ?? viewer?.name ?? viewer?.email ?? "Account";
   return (
@@ -47,10 +56,12 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer }) {
                 avatarSrc: viewer.avatarUrl ?? undefined,
               }}
               showTheme={false}
+              badge={waiting}
               items={[
                 {
                   label: "Dashboard",
                   icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
+                  badge: waiting,
                   onSelect: () => void navigate({ to: "/dashboard" }),
                 },
                 viewer.guest

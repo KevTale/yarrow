@@ -174,6 +174,8 @@ export function PullPanel({
 
           {panel.corrections.length > 0 && (
             <ChangesAsked
+              // A new change asked opens alone, the others shut.
+              key={panel.corrections.length}
               corrections={panel.corrections}
               working={workingText(panel)}
             />
@@ -408,7 +410,8 @@ function ChangesAsked({
   working: string | null;
 }) {
   const last = corrections.length - 1;
-  const [opened, setOpened] = useState<Set<number>>(() => new Set());
+  // The ones the builder flipped: the latest starts open, the others shut.
+  const [flipped, setFlipped] = useState<Set<number>>(() => new Set());
   return (
     <section className="pp-section">
       <h3>
@@ -416,7 +419,7 @@ function ChangesAsked({
       </h3>
       <ol className="pp-thread">
         {corrections.map((correction, i) => {
-          const isOpen = i === last || opened.has(i);
+          const isOpen = (i === last) !== flipped.has(i);
           const state =
             correction.status === "queued" ? (
               <span className="pp-state">Queued</span>
@@ -445,9 +448,8 @@ function ChangesAsked({
                   type="button"
                   className="pp-change-head"
                   aria-expanded={isOpen}
-                  disabled={i === last}
                   onClick={() =>
-                    setOpened((current) => {
+                    setFlipped((current) => {
                       const next = new Set(current);
                       if (next.has(i)) next.delete(i);
                       else next.add(i);
@@ -467,12 +469,11 @@ function ChangesAsked({
                   <time dateTime={correction.askedAt}>
                     {timeAgo(correction.askedAt)}
                   </time>
-                  {i !== last &&
-                    (isOpen ? (
-                      <ChevronDown size={14} aria-hidden="true" />
-                    ) : (
-                      <ChevronRight size={14} aria-hidden="true" />
-                    ))}
+                  {isOpen ? (
+                    <ChevronDown size={14} aria-hidden="true" />
+                  ) : (
+                    <ChevronRight size={14} aria-hidden="true" />
+                  )}
                 </button>
                 {isOpen && (
                   <>

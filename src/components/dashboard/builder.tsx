@@ -47,6 +47,7 @@ import { JiraCard } from "./jira-card";
 import { ModelsCell } from "./models";
 import { PaidByCell } from "./paid-by";
 import { prefetchPullPanel, PullPanel } from "./pull-panel";
+import { setReviewCount } from "@/components/review-count";
 
 type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
@@ -129,7 +130,17 @@ export function BuilderView({
   const [error, setError] = useState("");
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
-  const reviewing = view === "review";
+  // The dashboard opens on To review while pull requests wait there.
+  const [landOnReview] = useState(
+    () =>
+      view === undefined &&
+      projectId === undefined &&
+      data.projects.length > 1 &&
+      data.review.length > 0,
+  );
+  const reviewing =
+    view === "review" ||
+    (landOnReview && view === undefined && projectId === undefined);
   const currentId = reviewing ? null : (projectId ?? data.project?.id ?? null);
   const [shownId, setShownId] = useState(currentId);
 
@@ -161,6 +172,8 @@ export function BuilderView({
   useEffect(() => {
     for (const [id, copy] of Object.entries(store)) cache.set(id, copy);
   }, [store]);
+  // The header's badge follows what the dashboard knows.
+  useEffect(() => setReviewCount(meta.review.length), [meta.review.length]);
 
   const absorb = (next: BuilderData, withIssues: boolean) => {
     const id = next.project?.id;
@@ -376,8 +389,10 @@ export function BuilderView({
       matches.filter(test).length,
     ]),
   ) as Record<Filter, number>;
+  // A project opens where the builder has something to do: its pull
+  // requests to review, else its tickets to queue.
   const filter: Filter =
-    chosenFilter ?? (counts.progress > 0 ? "progress" : "todo");
+    chosenFilter ?? (rows.some(filters.review) ? "review" : "todo");
   const everywhere = q !== "" && !narrowed;
   const shown = everywhere ? matches : matches.filter(filters[filter]);
   const chosen = rows.filter((row) => selected.has(row.key));
