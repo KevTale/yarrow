@@ -3274,6 +3274,17 @@ a.bd-review-link:hover {
   opacity: 0;
   transition: opacity 0.16s;
 }
+/* Over the tile while the website's icon is found. */
+.logo-picker-loading {
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: var(--surface);
+  color: var(--amber);
+}
 .logo-picker label:hover .logo-picker-hint,
 .logo-picker input:focus-visible + .logo-picker-hint,
 .logo-picker label:has(input:focus-visible) .logo-picker-hint {

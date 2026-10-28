@@ -37,7 +37,7 @@ describe("favicon", () => {
     expect(publicHost("https://app.localhost/")).toBeNull();
   });
 
-  it("ranks the icons a page declares, the largest first", () => {
+  it("ranks the icons a page declares, apple-touch-icon first", () => {
     const html = `<head>
       <link rel="icon" href="/favicon-32.png" sizes="32x32">
       <link rel='apple-touch-icon' href='/apple.png'>
@@ -45,9 +45,11 @@ describe("favicon", () => {
       <link rel="stylesheet" href="/style.css">
       <link rel="shortcut icon" href="favicon.ico">
     </head>`;
-    expect(declaredIcons(html, "https://acme.com/en/").map((c) => c.url)).toEqual([
-      "https://cdn.acme.com/icon.svg",
+    expect(
+      declaredIcons(html, "https://acme.com/en/").map((c) => c.url),
+    ).toEqual([
       "https://acme.com/apple.png",
+      "https://cdn.acme.com/icon.svg",
       "https://acme.com/favicon-32.png",
       "https://acme.com/en/favicon.ico",
     ]);

@@ -675,17 +675,21 @@ function FormRow({
   // A website typed while the tile is empty (or still shows the icon found
   // from the previous one) brings its icon in; an upload replaces it.
   const findFavicon = useServerFn(findFaviconFn);
+  const [findingIcon, setFindingIcon] = useState(false);
   async function leaveSite() {
     const site = websiteAddress(card.website);
     const found = claim.siteLogo.get();
     const automatic = card.logo === null || card.logo === found?.logo;
-    if (!site || site === found?.site || !automatic)
-      return void saver.commit();
+    if (!site || site === found?.site || !automatic) return void saver.commit();
     claim.siteLogo.set({ site, logo: card.logo });
+    setFindingIcon(true);
     const icon = await findFavicon({ data: { site } })
       .then((result) => result.icon)
       .catch(() => null);
-    const logo = icon ? await drawLogo(icon).catch(() => null) : null;
+    const logo = icon
+      ? await drawLogo(icon, { backDark: true }).catch(() => null)
+      : null;
+    setFindingIcon(false);
     // An upload or another website while it loaded wins.
     if (claim.siteLogo.get()?.site !== site || !logo)
       return void saver.commit();
@@ -708,6 +712,7 @@ function FormRow({
         size="large"
         name={card.name.trim() || "+"}
         value={card.logo}
+        loading={findingIcon}
         onChange={(logo) => {
           // Uploaded, the logo is theirs; removed, this website's icon
           // stays away.

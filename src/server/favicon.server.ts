@@ -1,8 +1,10 @@
 /**
- * A website's icon, for a sponsor's card: the largest icon its home page
- * declares (apple-touch-icon, sized or SVG icons), else /favicon.ico, else
- * Google's favicon service. Returned as a data URL the browser redraws at
- * 128 px like an upload, so ICO and SVG never reach storage.
+ * A website's icon, for a sponsor's card: its apple-touch-icon, declared or
+ * at /apple-touch-icon.png (drawn on a solid background, so it shows on a
+ * dark card where a black favicon vanishes), else the largest icon its home
+ * page declares, else /favicon.ico, else Google's favicon service. Returned
+ * as a data URL the browser redraws at 128 px like an upload, so ICO and SVG
+ * never reach storage.
  */
 
 const TIMEOUT_MS = 5_000;
@@ -38,7 +40,7 @@ function attribute(tag: string, name: string): string | null {
   return match ? (match[1] ?? match[2] ?? match[3] ?? "") : null;
 }
 
-/** The icons a page declares, the largest first. */
+/** The icons a page declares: apple-touch-icons, then the largest first. */
 export function declaredIcons(html: string, base: string): Candidate[] {
   const found: Candidate[] = [];
   for (const [tag] of html.matchAll(/<link\b[^>]*>/gi)) {
@@ -54,8 +56,11 @@ export function declaredIcons(html: string, base: string): Candidate[] {
       ...[...sizes.matchAll(/(\d+)x\d+/g)].map((m) => Number(m[1])),
     );
     const svg = type.includes("svg") || /\.svg(\?|$)/i.test(href);
-    const score =
-      sizes === "any" || svg ? 256 : side || (apple ? 180 : 32);
+    const score = apple
+      ? 1000 + (side || 180)
+      : sizes === "any" || svg
+        ? 256
+        : side || 32;
     try {
       found.push({ url: new URL(href, base).toString(), score });
     } catch {
@@ -115,12 +120,15 @@ export async function findFavicon(site: string): Promise<string | null> {
       );
   }
   candidates.push(
+    // Where iOS looks when a page declares none.
+    { url: `https://${host}/apple-touch-icon.png`, score: 1000 },
     { url: `https://${host}/favicon.ico`, score: 16 },
     {
       url: `https://www.google.com/s2/favicons?domain=${host}&sz=128`,
       score: 0,
     },
   );
+  candidates.sort((a, b) => b.score - a.score);
   const tried = new Set<string>();
   for (const candidate of candidates) {
     const url = candidate.url.replace(/^http:\/\//i, "https://");
