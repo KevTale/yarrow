@@ -8,3 +8,6 @@ docs/mvp
 drizzle/meta
 test-results
 playwright-report
+.claude/skills
+skills-lock.json
+video/out

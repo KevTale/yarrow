@@ -12,6 +12,8 @@ export default defineConfig([
     "src/routeTree.gen.ts",
     "playwright-report/**",
     "test-results/**",
+    // Vendored agent skills (npx skills add): not our code.
+    ".claude/skills/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

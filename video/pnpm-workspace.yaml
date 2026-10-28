@@ -1,0 +1,3 @@
+# Its own workspace: the video's dependencies stay out of the app's install.
+allowBuilds:
+  esbuild: true

@@ -9,6 +9,7 @@ Sponsors fund AI compute; builders get their tagged tickets turned into draft PR
 - **Admin (`workers/admin.ts`):** admin.yarrow.run behind Cloudflare Access, no secret: it reads and writes through the brain's `Admin` entrypoint.
 - **Data:** Supabase Postgres through Drizzle (`src/db/`), server-side only. Every table has RLS with no policy. Amounts are integer USD cents.
 - **Shared rules:** `src/core/` (pricing, packs, queue, contracts) has no I/O and runs in both Workers.
+- **Video (`video/`):** Remotion promo films, their own pnpm workspace (`pnpm install` inside `video/`). Scenes import the real `src/core/` rules (pricing, PR card); the Remotion skills live in `.claude/skills/`.
 
 These libraries move fast. Check the installed version in `node_modules` before relying on an API from memory.
 
@@ -19,6 +20,8 @@ pnpm dev            # web on :3000
 pnpm check          # lint, typecheck (web + brain), unit tests, build
 pnpm test:e2e       # Playwright on the production build (run pnpm build first)
 pnpm db:generate    # new Drizzle migration after editing src/db/schema.ts
+pnpm --dir video studio   # preview the promo film
+pnpm --dir video render   # video/out/yarrow-launch.mp4
 ```
 
 Unit tests run real SQL on PGlite (`tests/unit/helpers/pglite.ts`); provider APIs are mocked from their docs.
