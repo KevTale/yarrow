@@ -55,6 +55,20 @@ const artifactSchema = z.object({
   contentType: z.string().min(1),
 });
 
+/**
+ * What the implementer reported besides its summary, each in its place in
+ * the builder's row: the checks it could not run, what the owner must act
+ * on, what it saw outside the ticket. After a correction, the summary of
+ * the whole pull request as it stands.
+ */
+export const resultDetailsSchema = z.object({
+  pullRequestSummary: z.string().optional(),
+  notVerified: z.array(z.string()).default([]),
+  risks: z.array(z.string()).default([]),
+  spotted: z.array(z.string()).default([]),
+});
+export type ResultDetails = z.infer<typeof resultDetailsSchema>;
+
 export const runResultSchema = z.discriminatedUnion("outcome", [
   z.object({
     outcome: z.literal("pull_request"),
@@ -68,6 +82,7 @@ export const runResultSchema = z.discriminatedUnion("outcome", [
     evidence: z.array(z.string()).min(1),
     review: storedReviewSchema.optional(),
     artifacts: z.array(artifactSchema).default([]),
+    details: resultDetailsSchema.optional(),
   }),
   z.object({
     outcome: z.literal("abstained"),

@@ -305,6 +305,8 @@ export class PostgresLedger {
         evidence: result.evidence,
         review: result.review ?? null,
         artifacts: result.artifacts,
+        details:
+          result.outcome === "pull_request" ? (result.details ?? null) : null,
       });
       if (result.outcome === "pull_request") {
         const [pullRequest] = await tx

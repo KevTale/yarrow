@@ -6,14 +6,19 @@ import {
   ChevronDown,
   ChevronRight,
   CircleCheck,
+  CircleDashed,
+  Eye,
   FileDiff,
+  GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
   Link2,
+  ScanSearch,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { money } from "@/core/packs";
+import { modelShortName } from "@/core/pipeline";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
@@ -25,6 +30,7 @@ import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Logo } from "@/components/boards";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
+import { timeAgo } from "@/components/ui";
 import { SponsorLink } from "./paid-by";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
@@ -37,12 +43,6 @@ const domain = (url: string) => {
     return url;
   }
 };
-
-const working = {
-  writing: "Writing the change",
-  reviewing: "Reviewing the change",
-  delivering: "Adding the commit",
-} as const;
 
 /**
  * What a row showed last, kept for this page's life: it opens at once with
@@ -134,61 +134,10 @@ export function PullPanel({
       <div className="pp-grid">
         <div className="pp-main">
           {panel.implementation && (
-            <section className="pp-section">
-              <h3>
-                What changed <span>by {panel.implementation.by}</span>
-              </h3>
-              <p className="pp-text">
-                <Rich text={panel.implementation.summary} />
-              </p>
-              {panel.implementation.evidence.length > 0 && (
-                <ul className="pp-list">
-                  {panel.implementation.evidence.map((line) => (
-                    <li key={line}>
-                      <CircleCheck
-                        size={15}
-                        className="ok"
-                        aria-hidden="true"
-                      />
-                      <span>
-                        <Rich text={line} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {panel.corrections.length > 0 && (
-            <section className="pp-section">
-              <h3>Changes asked</h3>
-              <ul className="pp-corrections">
-                {panel.corrections.map((correction, i) => (
-                  <li key={i}>
-                    <p>
-                      <b>{correction.requestedBy}</b> {correction.instruction}
-                    </p>
-                    {correction.status === "queued" && (
-                      <span className="pp-state">Queued</span>
-                    )}
-                    {correction.status === "working" && panel.working && (
-                      <span className="pp-state live">
-                        <TextShimmer>{working[panel.working]}</TextShimmer>
-                      </span>
-                    )}
-                    {correction.status === "done" && correction.summary && (
-                      <p className="pp-text">
-                        <Rich text={correction.summary} />
-                      </p>
-                    )}
-                    {correction.status === "stopped" && (
-                      <span className="pp-state stopped">Stopped</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <Implementation
+              implementation={panel.implementation}
+              legacyRisks={live?.risks ?? []}
+            />
           )}
 
           {panel.review && (
@@ -223,34 +172,42 @@ export function PullPanel({
             </section>
           )}
 
-          {live && live.risks.length > 0 && (
-            <section className="pp-section">
-              <h3>Watch out</h3>
-              <ul className="pp-list">
-                {live.risks.map((risk) => (
-                  <li key={risk}>
-                    <TriangleAlert
-                      size={15}
-                      className="warn"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      <Rich text={risk} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+          {panel.corrections.length > 0 && (
+            <ChangesAsked
+              corrections={panel.corrections}
+              working={workingText(panel)}
+            />
           )}
 
           {open && pullRequest && (
             <Composer
               projectId={projectId}
               rowKey={rowKey}
+              onSending={(instruction) =>
+                setPanel((shown) =>
+                  shown
+                    ? {
+                        ...shown,
+                        corrections: [
+                          ...shown.corrections,
+                          {
+                            instruction,
+                            requestedBy: "You",
+                            askedAt: new Date().toISOString(),
+                            status: "queued",
+                            summary: null,
+                            approved: null,
+                          },
+                        ],
+                      }
+                    : shown,
+                )
+              }
               onSent={() => {
                 void refresh();
                 onChanged();
               }}
+              onFailed={() => void refresh()}
             />
           )}
         </div>
@@ -261,6 +218,7 @@ export function PullPanel({
               projectId={projectId}
               rowKey={rowKey}
               open={open}
+              busy={Boolean(busy)}
               draft={live?.draft ?? false}
               merged={pullRequest.state === "merged" || live?.merged === true}
               url={pullRequest.url}
@@ -342,11 +300,213 @@ export function PullPanel({
   );
 }
 
+/** What a change at work is doing, named after its model. */
+function workingText(panel: Panel): string | null {
+  const model = (role: "implementer" | "reviewer") => {
+    const name = panel.models.find(
+      (candidate) => candidate.role === role,
+    )?.name;
+    return name ? modelShortName(name) : null;
+  };
+  switch (panel.working) {
+    case "writing":
+      return `${model("implementer") ?? "Claude"} is writing the change`;
+    case "reviewing":
+      return `${model("reviewer") ?? "The reviewer"} is reviewing the change`;
+    case "delivering":
+      return "Adding the commit";
+    default:
+      return null;
+  }
+}
+
+/**
+ * What the pull request does now, in the implementer's words: the summary,
+ * what it ran and could not run, what the owner must act on, and what it
+ * saw outside the ticket.
+ */
+function Implementation({
+  implementation,
+  legacyRisks,
+}: {
+  implementation: NonNullable<Panel["implementation"]>;
+  /** Pull requests delivered before these were apart: their Risks. */
+  legacyRisks: string[];
+}) {
+  const notes = implementation.legacy ? legacyRisks : [];
+  return (
+    <section className="pp-section">
+      <h3>
+        Implementation <span>by {implementation.by}</span>
+      </h3>
+      <p className="pp-text">
+        <Rich text={implementation.summary} />
+      </p>
+      <ul className="pp-list">
+        {implementation.verification.map((line) => (
+          <li key={`v${line}`}>
+            <CircleCheck size={15} className="ok" aria-hidden="true" />
+            <span>
+              <Rich text={line} />
+            </span>
+          </li>
+        ))}
+        {implementation.notVerified.map((line) => (
+          <li key={`n${line}`}>
+            <CircleDashed size={15} aria-label="Not run" />
+            <span>
+              <Rich text={line} />
+            </span>
+          </li>
+        ))}
+        {notes.map((line) => (
+          <li key={`l${line}`}>
+            <Eye size={15} aria-hidden="true" />
+            <span>
+              <Rich text={line} />
+            </span>
+          </li>
+        ))}
+        {implementation.risks.map((line) => (
+          <li key={`r${line}`} className="pp-risk">
+            <TriangleAlert size={15} className="warn" aria-hidden="true" />
+            <span>
+              <Rich text={line} />
+            </span>
+          </li>
+        ))}
+      </ul>
+      {implementation.spotted.length > 0 && (
+        <div className="pp-spotted">
+          <h4>Spotted outside this ticket</h4>
+          <ul className="pp-list">
+            {implementation.spotted.map((line) => (
+              <li key={line}>
+                <ScanSearch size={15} aria-hidden="true" />
+                <span>
+                  <Rich text={line} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Every change asked since the pull request opened, oldest first, above
+ * the composer that adds the next one. The latest is open; the others fold
+ * to one line and open on a click.
+ */
+function ChangesAsked({
+  corrections,
+  working,
+}: {
+  corrections: Panel["corrections"];
+  working: string | null;
+}) {
+  const last = corrections.length - 1;
+  const [opened, setOpened] = useState<Set<number>>(() => new Set());
+  return (
+    <section className="pp-section">
+      <h3>
+        Changes asked <span className="pp-num">{corrections.length}</span>
+      </h3>
+      <ol className="pp-thread">
+        {corrections.map((correction, i) => {
+          const isOpen = i === last || opened.has(i);
+          const state =
+            correction.status === "queued" ? (
+              <span className="pp-state">Queued</span>
+            ) : correction.status === "working" ? (
+              <span className="pp-state live">
+                <TextShimmer>{working ?? "Working on it"}</TextShimmer>
+              </span>
+            ) : correction.status === "stopped" ? (
+              <span className="pp-state stopped">Stopped</span>
+            ) : null;
+          const verdict =
+            correction.status === "done" && correction.approved !== null ? (
+              <em className={correction.approved ? "ok" : "warn"}>
+                {correction.approved ? "Approved" : "Changes requested"}
+              </em>
+            ) : null;
+          const live =
+            correction.status === "queued" || correction.status === "working";
+          return (
+            <li key={i} className={live ? "live" : ""}>
+              <span className="pp-node" aria-hidden="true">
+                {correction.requestedBy.slice(0, 1).toUpperCase()}
+              </span>
+              <div className="pp-change">
+                <button
+                  type="button"
+                  className="pp-change-head"
+                  aria-expanded={isOpen}
+                  disabled={i === last}
+                  onClick={() =>
+                    setOpened((current) => {
+                      const next = new Set(current);
+                      if (next.has(i)) next.delete(i);
+                      else next.add(i);
+                      return next;
+                    })
+                  }
+                >
+                  <b>{correction.requestedBy}</b>
+                  {isOpen ? (
+                    <span className="pp-grow" />
+                  ) : (
+                    <span className="pp-ask-line">
+                      {correction.instruction}
+                    </span>
+                  )}
+                  {verdict}
+                  <time dateTime={correction.askedAt}>
+                    {timeAgo(correction.askedAt)}
+                  </time>
+                  {i !== last &&
+                    (isOpen ? (
+                      <ChevronDown size={14} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight size={14} aria-hidden="true" />
+                    ))}
+                </button>
+                {isOpen && (
+                  <>
+                    <p className="pp-ask">{correction.instruction}</p>
+                    {state}
+                    {correction.status === "done" && correction.summary && (
+                      <p className="pp-done">
+                        <GitCommitHorizontal
+                          size={15}
+                          className="ok"
+                          aria-hidden="true"
+                        />
+                        <span>
+                          <Rich text={correction.summary} />
+                        </span>
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 /** Merge, Ready for review, the changes and GitHub: the builder's decisions. */
 function Decisions({
   projectId,
   rowKey,
   open,
+  busy,
   draft,
   merged,
   url,
@@ -359,6 +519,8 @@ function Decisions({
   projectId: string;
   rowKey: string;
   open: boolean;
+  /** A change at work: merging now would leave its commit out. */
+  busy: boolean;
   draft: boolean;
   merged: boolean;
   url: string;
@@ -381,7 +543,7 @@ function Decisions({
   }, [confirming]);
 
   async function run(action: "ready" | "merge") {
-    if (pending) return;
+    if (pending || (action === "merge" && busy)) return;
     if (action === "merge" && !confirming) return setConfirming(true);
     setConfirming(false);
     setError("");
@@ -410,6 +572,7 @@ function Decisions({
               type="button"
               className={`pp-btn merge ${confirming ? "confirm" : ""}`}
               aria-busy={pending === "merge"}
+              aria-disabled={busy}
               onClick={() => void run("merge")}
             >
               {pending === "merge" ? (
@@ -501,11 +664,16 @@ function Share({ runId }: { runId: string }) {
 function Composer({
   projectId,
   rowKey,
+  onSending,
   onSent,
+  onFailed,
 }: {
   projectId: string;
   rowKey: string;
+  /** The change shows in the thread before GitHub answers. */
+  onSending: (instruction: string) => void;
   onSent: () => void;
+  onFailed: () => void;
 }) {
   const send = useServerFn(requestChangeFn);
   const [text, setText] = useState("");
@@ -517,16 +685,22 @@ function Composer({
     if (!instruction || pending) return;
     setError("");
     setPending(true);
+    setText("");
+    onSending(instruction);
     try {
       const result = await send({
         data: { projectId, key: rowKey, instruction },
       });
-      if (result.ok) {
-        setText("");
-        onSent();
-      } else setError(result.error);
+      if (result.ok) onSent();
+      else {
+        setText(instruction);
+        setError(result.error);
+        onFailed();
+      }
     } catch {
+      setText(instruction);
       setError("That did not go through. Try again.");
+      onFailed();
     } finally {
       setPending(false);
     }

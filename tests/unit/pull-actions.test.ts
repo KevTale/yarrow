@@ -255,7 +255,9 @@ describe("the builder's decisions on a pull request", () => {
       implementation: {
         by: "Claude Opus 5.5",
         summary: "Life changes in one place.",
-        evidence: ["git diff --check → clean"],
+        verification: ["git diff --check → clean"],
+        notVerified: [],
+        legacy: true,
       },
       review: {
         by: "GPT Astra",
@@ -267,6 +269,7 @@ describe("the builder's decisions on a pull request", () => {
           instruction: "Also the title",
           requestedBy: "marie",
           status: "queued",
+          approved: null,
         },
       ],
       working: null,

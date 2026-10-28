@@ -33,7 +33,11 @@ export interface PullRequestInput {
   ticket: { title: string; url: string; source: string; number?: number };
   summary: string;
   verification: string[];
+  notVerified: string[];
+  /** What the owner must act on: usually none. */
   risks: string[];
+  /** Problems outside the ticket, left alone. */
+  spotted: string[];
   review: StoredReview | null;
   evidence: { label: string; url: string; kind: "screenshot" | "video" }[];
   roles: PipelineRoles;
@@ -57,8 +61,20 @@ export function pullRequestTitle(
     : cleanTitle(input.ticket.title);
 }
 
-/** A PR body readable in two minutes: what, why, how verified, review, risks. */
-export function pullRequestBody(input: PullRequestInput): string {
+/**
+ * Yarrow's own part of the description, between these marks: a correction
+ * rewrites it, and what anyone wrote outside them stays.
+ */
+export const BLOCK_START = "<!-- yarrow:summary -->";
+export const BLOCK_END = "<!-- /yarrow:summary -->";
+
+const bullets = (lines: string[]) =>
+  lines.map((line) => `- ${line}`).join("\n");
+
+/** What the pull request does now: Yarrow's part of the description. */
+export function pullRequestBlock(
+  input: Omit<PullRequestInput, "roles" | "sponsors" | "runUrl" | "appSlug">,
+): string {
   const sections: string[] = [];
   sections.push(
     input.ticket.source === "github" && input.ticket.number
@@ -76,11 +92,21 @@ export function pullRequestBody(input: PullRequestInput): string {
   sections.push(
     `## How it was verified\n\n${verified.join("\n") || "- No automated verification was reported."}`,
   );
+  if (input.notVerified.length > 0)
+    sections.push(`## Not verified\n\n${bullets(input.notVerified)}`);
   if (input.review) sections.push(reviewSection(input.review));
   if (input.risks.length > 0)
+    sections.push(`## Before merging\n\n${bullets(input.risks)}`);
+  if (input.spotted.length > 0)
     sections.push(
-      `## Risks\n\n${input.risks.map((risk) => `- ${risk}`).join("\n")}`,
+      `## Spotted outside this ticket\n\n${bullets(input.spotted)}`,
     );
+  return [BLOCK_START, ...sections, BLOCK_END].join("\n\n");
+}
+
+/** A PR body readable in two minutes: what, why, how verified, review, risks. */
+export function pullRequestBody(input: PullRequestInput): string {
+  const sections = [pullRequestBlock(input)];
   sections.push(correctionHint(input.appSlug));
   sections.push(
     pullRequestFooter({
@@ -90,6 +116,22 @@ export function pullRequestBody(input: PullRequestInput): string {
     }),
   );
   return sections.join("\n\n");
+}
+
+/**
+ * The description with Yarrow's part rewritten. Before the marks existed,
+ * Yarrow's part ran to the line that asks for a change, or to the footer.
+ * Null when neither is found: the description is someone else's now.
+ */
+export function replaceBlock(body: string, block: string): string | null {
+  const text = body.replace(/\r\n/g, "\n");
+  const start = text.indexOf(BLOCK_START);
+  const end = text.indexOf(BLOCK_END);
+  if (start !== -1 && end > start)
+    return text.slice(0, start) + block + text.slice(end + BLOCK_END.length);
+  const boundary = /\n(?:Need a change\?|Implemented by )/.exec(text);
+  if (!boundary) return null;
+  return `${block}\n\n${text.slice(boundary.index + 1)}`;
 }
 
 export function commitMessage(input: {

@@ -482,6 +482,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               : ["Reviewed by the other lab before delivery"],
             review: stored,
             artifacts: delivered.artifacts,
+            details: {
+              pullRequestSummary:
+                run.kind === "correction" ? snapshot.pr_summary : undefined,
+              notVerified: snapshot.not_verified,
+              risks: snapshot.risks,
+              spotted: snapshot.spotted,
+            },
           });
         }),
       );

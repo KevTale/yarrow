@@ -8,6 +8,7 @@ import {
   type StoredReview,
 } from "../core/review";
 import type { Database } from "../db/client";
+import { pullRequestSummaryNow } from "../db/pull-panel";
 import { runSponsors } from "../db/queries";
 import { runContext, setAnthropicResources, type RunContext } from "../db/runs";
 import {
@@ -23,6 +24,7 @@ import {
   commentOnIssue,
   commitChanges,
   openDraftPullRequest,
+  updatePullRequestBody,
   splitRepository,
 } from "../server/github/delivery";
 import {
@@ -63,7 +65,9 @@ import {
 import {
   commitMessage,
   correctionComment,
+  pullRequestBlock,
   pullRequestBody,
+  replaceBlock,
   pullRequestTitle,
 } from "./pull-request";
 
@@ -108,6 +112,8 @@ export interface PreparedRun {
   runId: string;
   kind: "implementation" | "correction";
   instruction: string | null;
+  /** A correction: what the pull request does before it. */
+  pullRequestSummary?: string | null;
   ticket: {
     title: string;
     body: string;
@@ -287,6 +293,10 @@ export class RunPipeline {
       runId,
       kind: run.kind,
       instruction: run.instruction,
+      pullRequestSummary:
+        run.kind === "correction"
+          ? await pullRequestSummaryNow(this.deps.db, workUnit.id)
+          : null,
       ticket,
       repository: project.repository,
       ...access,
@@ -329,6 +339,7 @@ export class RunPipeline {
         kind: run.kind,
         ticket: run.ticket,
         instruction: run.instruction,
+        pullRequestSummary: run.pullRequestSummary,
         runConfig: run.runConfig,
       }),
     });
@@ -670,6 +681,29 @@ export class RunPipeline {
           }),
         }),
       );
+      // The description says what the pull request does now; anything a
+      // person wrote outside Yarrow's part stays.
+      if (snapshot.pr_summary) {
+        const current = await client.request<{ body: string | null }>(
+          "GET",
+          `/repos/${repository.owner}/${repository.repo}/pulls/${pull.number}`,
+        );
+        const body = replaceBlock(
+          current.body ?? "",
+          pullRequestBlock({
+            ticket: run.ticket,
+            summary: snapshot.pr_summary,
+            verification: snapshot.verification,
+            notVerified: snapshot.not_verified,
+            risks: snapshot.risks,
+            spotted: snapshot.spotted,
+            review,
+            evidence: evidenceLinks,
+          }),
+        );
+        if (body)
+          await updatePullRequestBody(client, repository, pull.number, body);
+      }
     } else {
       pull = await openDraftPullRequest(client, repository, {
         head: run.workBranch,
@@ -679,7 +713,9 @@ export class RunPipeline {
           ticket: run.ticket,
           summary: snapshot.summary,
           verification: snapshot.verification,
+          notVerified: snapshot.not_verified,
           risks: snapshot.risks,
+          spotted: snapshot.spotted,
           review,
           evidence: evidenceLinks,
           roles: this.deps.roles,

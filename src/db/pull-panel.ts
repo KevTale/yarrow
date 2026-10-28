@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import type { ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
 import { blockingComments, type StoredReview } from "../core/review";
 import { phaseStatus, type PaidBy } from "../core/tickets";
@@ -26,8 +27,75 @@ export interface PanelModel {
 export interface PanelCorrection {
   instruction: string;
   requestedBy: string;
+  askedAt: string;
   status: "queued" | "working" | "done" | "stopped";
   summary: string | null;
+  /** Its own review's verdict; null before it is reviewed. */
+  approved: boolean | null;
+}
+
+/** The pull request as it stands, after the corrections delivered so far. */
+export interface PullRequestNow {
+  summary: string;
+  verification: string[];
+  notVerified: string[];
+  risks: string[];
+  spotted: string[];
+  /** Delivered before these were apart: the description's Risks stand in. */
+  legacy: boolean;
+}
+
+interface DeliveredRun {
+  kind: "implementation" | "correction";
+  outcome: "pull_request" | "abstained" | null;
+  summary: string | null;
+  evidence: string[] | null;
+  details: ResultDetails | null;
+}
+
+/**
+ * The implementation sets what the pull request does; each correction that
+ * rewrote the whole summary replaces it. One without leaves it as it was.
+ */
+export function pullRequestNow(runs: DeliveredRun[]): PullRequestNow | null {
+  let now: PullRequestNow | null = null;
+  for (const run of runs) {
+    if (run.outcome !== "pull_request" || !run.summary) continue;
+    const summary =
+      run.kind === "implementation"
+        ? run.summary
+        : run.details?.pullRequestSummary;
+    if (!summary || (run.kind === "correction" && !now)) continue;
+    now = {
+      summary,
+      verification: run.evidence ?? [],
+      notVerified: run.details?.notVerified ?? [],
+      risks: run.details?.risks ?? [],
+      spotted: run.details?.spotted ?? [],
+      legacy: !run.details,
+    };
+  }
+  return now;
+}
+
+/** What a correction is told the pull request does before it starts. */
+export async function pullRequestSummaryNow(
+  db: Database,
+  workUnitId: string,
+): Promise<string | null> {
+  const runs = await db
+    .select({
+      kind: agentRuns.kind,
+      outcome: results.outcome,
+      summary: results.summary,
+      evidence: results.evidence,
+      details: results.details,
+    })
+    .from(agentRuns)
+    .innerJoin(results, eq(results.agentRunId, agentRuns.id))
+    .where(eq(agentRuns.workUnitId, workUnitId))
+    .orderBy(asc(agentRuns.createdAt));
+  return pullRequestNow(runs)?.summary ?? null;
 }
 
 /**
@@ -45,7 +113,7 @@ export interface PanelData {
     url: string;
     state: "open" | "merged" | "closed";
   } | null;
-  implementation: { by: string; summary: string; evidence: string[] } | null;
+  implementation: ({ by: string } & PullRequestNow) | null;
   review: {
     by: string;
     summary: string;
@@ -88,6 +156,7 @@ export async function pullPanel(
       summary: results.summary,
       evidence: results.evidence,
       review: results.review,
+      details: results.details,
     })
     .from(agentRuns)
     .leftJoin(results, eq(results.agentRunId, agentRuns.id))
@@ -141,19 +210,20 @@ export async function pullPanel(
   });
 
   const running = runs.find((run) => run.status === "running");
+  const now = pullRequestNow(runs);
   return {
     workUnitId: unit.id,
     runId: delivered?.id ?? null,
     pullRequest: pull
       ? { number: pull.number, url: pull.url, state: pull.state }
       : null,
-    implementation: delivered?.summary
-      ? {
-          by: modelDisplayName(delivered.implementer.split(":")[0]!),
-          summary: delivered.summary,
-          evidence: delivered.evidence ?? [],
-        }
-      : null,
+    implementation:
+      delivered && now
+        ? {
+            by: modelDisplayName(delivered.implementer.split(":")[0]!),
+            ...now,
+          }
+        : null,
     review: review
       ? {
           by: modelDisplayName(review.reviewer),
@@ -175,9 +245,12 @@ export async function pullPanel(
         const run = runs.find(
           (candidate) => candidate.id === request.agentRunId,
         );
+        const own = run?.review as StoredReview | null | undefined;
         return {
           instruction: request.instruction,
           requestedBy: request.requestedBy,
+          askedAt: new Date(request.queuedAt).toISOString(),
+          approved: own ? blockingComments(own).length === 0 : null,
           status: !run
             ? "queued"
             : run.status === "running"

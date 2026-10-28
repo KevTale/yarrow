@@ -36,10 +36,15 @@ PY`;
  * How result.json is written: the owner reads it in the pull request.
  * Sent with every task, so it applies without re-registering the agent.
  */
-export const RESULT_STYLE = `How to write result.json: the owner reads it in the pull request, with the diff open, in under a minute.
-- summary: one to three short sentences on what changed and why. No file-by-file account, no command lines, no history of what you tried.
+export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. Its shape:
+{"status": "done" | "unclear" | "cannot_do", "summary": "...", "pr_summary": "...", "questions": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
+- summary: one to three short sentences on what changed and why, including any choice the ticket left open and why you made it. No file-by-file account, no command lines, no history of what you tried.
 - verification: at most three items, each "command → result" on one line, only for checks run on the final change.
-- risks: at most three, one line each, only what the owner must really check before merging. Empty when there is none. Mention a check you could not run only if it matters.`;
+- not_verified: a check that matters but could not run here (a missing tool, no network), one line each, at most three. Empty when what matters ran.
+- risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each.
+- spotted: existing problems outside the ticket that you saw and left alone, one line each, at most three. Empty when none.
+- Say each thing once, in one field. Do not restate the ticket. Empty lists are normal.
+- For a correction: summary is only what this correction changed, one or two sentences. pr_summary is the whole pull request as it stands now, written as if it had been delivered at once, with no history of corrections. verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
 
 export const IMPLEMENTER_SYSTEM = `You are the implementer of Yarrow: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
 
@@ -57,7 +62,7 @@ When you finish (and after every follow-up message), always:
 1. Run this export script exactly:
 ${EXPORT_SCRIPT}
 2. Write ${OUTPUTS}/result.json with this shape:
-{"status": "done" | "unclear" | "cannot_do", "summary": "what changed and why, for the PR description", "questions": ["only when unclear"], "verification": ["command → outcome", "..."], "risks": ["anything the owner should double-check"], "artifacts": [{"file": "evidence/<name>", "label": "what it shows", "kind": "screenshot" | "video"}]}
+{"status": "done" | "unclear" | "cannot_do", "summary": "what changed and why, for the PR description", "pr_summary": "corrections only: the whole PR now", "questions": ["only when unclear"], "verification": ["command → outcome"], "not_verified": [], "risks": [], "spotted": [], "artifacts": [{"file": "evidence/<name>", "label": "what it shows", "kind": "screenshot" | "video"}]}
 
 ${RESULT_STYLE}`;
 
@@ -65,6 +70,8 @@ export interface TaskContext {
   kind: "implementation" | "correction";
   ticket: { title: string; body: string; url: string; source: string };
   instruction?: string | null;
+  /** A correction: what the pull request does before it. */
+  pullRequestSummary?: string | null;
   runConfig?: {
     setupCommand: string | null;
     seedCommand: string | null;
@@ -105,7 +112,15 @@ ${context.ticket.body || "(no description)"}`;
       ? `The checkout is the branch of the pull request you already opened for this ticket. The owner asked for a correction on it:
 
 "${context.instruction}"
+${
+  context.pullRequestSummary
+    ? `
+What the pull request does before this correction:
 
+${context.pullRequestSummary}
+`
+    : ""
+}
 Apply this correction on top of the existing change.`
       : "Resolve this ticket.";
   return `${intro}
@@ -213,12 +228,26 @@ for f in bundle["files"]:
 subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
 PY`;
 
+/** One line per item, at most three: the rules hold even when a model forgets them. */
+const fewLines = z
+  .array(z.string())
+  .default([])
+  .transform((lines) =>
+    lines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 3),
+  );
+
 export const implementationResultSchema = z.object({
   status: z.enum(["done", "unclear", "cannot_do"]),
   summary: z.string().default(""),
+  pr_summary: z.string().trim().optional(),
   questions: z.array(z.string()).default([]),
-  verification: z.array(z.string()).default([]),
-  risks: z.array(z.string()).default([]),
+  verification: fewLines,
+  not_verified: fewLines,
+  risks: fewLines,
+  spotted: fewLines,
   artifacts: z
     .array(
       z.object({

@@ -14,6 +14,7 @@ import {
   primaryKey,
   customType,
 } from "drizzle-orm/pg-core";
+import type { ResultDetails } from "../core/contracts";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { TicketMoves } from "../core/tracker-moves";
 
@@ -579,6 +580,8 @@ export const results = pgTable(
       .$type<StoredArtifact[]>()
       .default([])
       .notNull(),
+    // Not verified, risks, spotted; the PR's whole summary after a correction.
+    details: jsonb("details").$type<ResultDetails | null>(),
     createdAt: createdAt(),
   },
   (t) => [

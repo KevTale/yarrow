@@ -113,6 +113,13 @@
       "when": 1791706916372,
       "tag": "0015_provider_pauses",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791724974701,
+      "tag": "0016_result_details",
+      "breakpoints": true
     }
   ]
 }
