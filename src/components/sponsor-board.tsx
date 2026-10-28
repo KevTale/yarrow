@@ -544,7 +544,6 @@ function Column({
             claim={claim}
             saver={saver}
             rank={place}
-            stats={mine ? stats : null}
             focus={focus}
             onClaim={onClaim}
           />
@@ -660,21 +659,19 @@ function FormRow({
   claim,
   saver,
   rank,
-  stats,
   focus,
   onClaim,
 }: {
   claim: Claim;
   saver: Saver;
   rank: number;
-  stats: React.ReactNode;
   focus: number;
   onClaim: () => void;
 }) {
   const { card, setCard } = claim;
   const claimText = !claim.valid
     ? claim.label
-    : `${claim.sponsoring ? "Add" : "Sponsor for"} ${money(claim.cents, false)}${claim.prs ? ` · funds ≈${claim.prs} ${claim.prs === 1 ? "PR" : "PRs"}` : ""}`;
+    : `${claim.sponsoring ? "Add" : "Sponsor for"} ${money(claim.cents, false)}`;
   const claimButton = (where: "inline" | "below") => (
     <button
       type="button"
@@ -794,17 +791,29 @@ function FormRow({
             onChange={change("website")}
             onBlur={() => void leaveSite()}
           />
-          {stats}
+          <Funds prs={claim.prs} />
         </span>
       </span>
       {/* On phones Claim takes the whole width, under the card. */}
-      <span className="sb-claim-below">{claimButton("below")}</span>
+      <span className="sb-claim-below">
+        {claimButton("below")}
+        <Funds prs={claim.prs} />
+      </span>
       {saver.error && (
         <p className="sb-error" role="alert">
           {saver.error}
         </p>
       )}
     </div>
+  );
+}
+
+/** Under Claim: the pull requests the amount funds. */
+function Funds({ prs }: { prs: number | null }) {
+  return (
+    <small className="sb-funds">
+      {prs ? `funds ≈${prs} ${prs === 1 ? "PR" : "PRs"}` : ""}
+    </small>
   );
 }
 
