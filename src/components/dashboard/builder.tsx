@@ -1,8 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { GitPullRequest, Github, Plus, Settings, X } from "lucide-react";
+import {
+  ChevronRight,
+  GitPullRequest,
+  Github,
+  Plus,
+  Settings,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
 import { Checkbox } from "@/components/arc/checkbox/checkbox";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
@@ -39,6 +46,7 @@ import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { ModelsCell } from "./models";
 import { PaidByCell } from "./paid-by";
+import { PullPanel } from "./pull-panel";
 
 type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
@@ -116,6 +124,8 @@ export function BuilderView({
   const [narrowed, setNarrowed] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fresh, setFresh] = useState<string | null>(highlight);
+  // The row opened under its chevron ("projectId:key"), one at a time.
+  const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
@@ -499,7 +509,14 @@ export function BuilderView({
           </div>
         )}
         {reviewing ? (
-          <ReviewList rows={meta.review} table={table} onProject={choose} />
+          <ReviewList
+            rows={meta.review}
+            table={table}
+            onProject={choose}
+            opened={opened}
+            onOpen={setOpened}
+            onChanged={() => void pull()}
+          />
         ) : loading ? (
           <BuilderSkeleton
             name={meta.projects.find((item) => item.id === currentId)?.name}
@@ -635,54 +652,76 @@ export function BuilderView({
                     {shown.length === 0 && (
                       <p className="bd-none muted">No ticket here</p>
                     )}
-                    {shown.map((row) => (
-                      <div
-                        role="row"
-                        key={row.key}
-                        data-flip={row.key}
-                        data-flip-value={row.status}
-                        className={`bd-row ${selected.has(row.key) ? "selected" : ""} ${fresh === row.key ? "fresh" : ""}`}
-                        onAnimationEnd={() => setFresh(null)}
-                      >
-                        <span>
-                          {/* Only rows the batch bar can act on. */}
-                          {selectable(row) && (
-                            <Checkbox
-                              aria-label={`Select ${row.ref}`}
-                              checked={selected.has(row.key)}
-                              onCheckedChange={() => toggle(row.key)}
+                    {shown.map((row) => {
+                      const id = `${project.id}:${row.key}`;
+                      return (
+                        <Fragment key={row.key}>
+                          <div
+                            role="row"
+                            data-flip={row.key}
+                            data-flip-value={row.status}
+                            className={`bd-row ${selected.has(row.key) ? "selected" : ""} ${fresh === row.key ? "fresh" : ""} ${opened === id ? "opened" : ""}`}
+                            onAnimationEnd={() => setFresh(null)}
+                          >
+                            <span>
+                              {/* Only rows the batch bar can act on; a pull
+                              request opens under its chevron instead. */}
+                              {selectable(row) ? (
+                                <Checkbox
+                                  aria-label={`Select ${row.ref}`}
+                                  checked={selected.has(row.key)}
+                                  onCheckedChange={() => toggle(row.key)}
+                                />
+                              ) : (
+                                row.pullRequest && (
+                                  <OpenChevron
+                                    open={opened === id}
+                                    label={row.ref}
+                                    onToggle={() =>
+                                      setOpened(opened === id ? null : id)
+                                    }
+                                  />
+                                )
+                              )}
+                            </span>
+                            <span className="bd-ticket">
+                              <TicketRef row={row} />
+                              {row.url ? (
+                                <a
+                                  className="bd-title"
+                                  href={row.url}
+                                  target="_blank"
+                                  rel="noopener"
+                                >
+                                  {row.title}
+                                </a>
+                              ) : (
+                                <span className="bd-title">{row.title}</span>
+                              )}
+                            </span>
+                            <span>
+                              <ModelsCell models={row.models} />
+                            </span>
+                            <span>
+                              <Status row={row} act={act} />
+                            </span>
+                            <span>
+                              <PaidByCell sponsors={row.paidBy} />
+                            </span>
+                            <span className="bd-when">
+                              {row.updatedAt ? timeAgo(row.updatedAt) : ""}
+                            </span>
+                          </div>
+                          <OpenRow open={opened === id}>
+                            <PullPanel
+                              projectId={project.id}
+                              rowKey={row.key}
+                              onChanged={() => void pull()}
                             />
-                          )}
-                        </span>
-                        <span className="bd-ticket">
-                          <TicketRef row={row} />
-                          {row.url ? (
-                            <a
-                              className="bd-title"
-                              href={row.url}
-                              target="_blank"
-                              rel="noopener"
-                            >
-                              {row.title}
-                            </a>
-                          ) : (
-                            <span className="bd-title">{row.title}</span>
-                          )}
-                        </span>
-                        <span>
-                          <ModelsCell models={row.models} />
-                        </span>
-                        <span>
-                          <Status row={row} act={act} />
-                        </span>
-                        <span>
-                          <PaidByCell sponsors={row.paidBy} />
-                        </span>
-                        <span className="bd-when">
-                          {row.updatedAt ? timeAgo(row.updatedAt) : ""}
-                        </span>
-                      </div>
-                    ))}
+                          </OpenRow>
+                        </Fragment>
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -763,10 +802,16 @@ function ReviewList({
   rows,
   table,
   onProject,
+  opened,
+  onOpen,
+  onChanged,
 }: {
   rows: ReviewRow[];
   table: React.Ref<HTMLDivElement>;
   onProject: (projectId: string) => void;
+  opened: string | null;
+  onOpen: (id: string | null) => void;
+  onChanged: () => void;
 }) {
   return (
     <>
@@ -790,64 +835,136 @@ function ReviewList({
         {rows.length === 0 && (
           <p className="bd-none muted">Nothing to review</p>
         )}
-        {rows.map((row) => (
-          <div
-            role="row"
-            key={`${row.project.id}:${row.key}`}
-            data-flip={`${row.project.id}:${row.key}`}
-            className="bd-row"
-          >
-            <span>
-              <Logo
-                name={row.project.name}
-                url={row.project.logoUrl}
-                size="small"
-              />
-            </span>
-            <span className="bd-ticket">
-              <button
-                type="button"
-                className="bd-project"
-                onClick={() => onProject(row.project.id)}
+        {rows.map((row) => {
+          const id = `${row.project.id}:${row.key}`;
+          return (
+            <Fragment key={id}>
+              <div
+                role="row"
+                data-flip={id}
+                className={`bd-row ${opened === id ? "opened" : ""}`}
               >
-                {row.project.name}
-              </button>
-              <TicketRef row={row} />
-              <a
-                className="bd-title"
-                href={row.url}
-                target="_blank"
-                rel="noopener"
-              >
-                {row.title}
-              </a>
-            </span>
-            <span>
-              <ModelsCell models={row.models} />
-            </span>
-            <span>
-              {row.pullRequest && row.runId && (
-                <RunHover runId={row.runId}>
+                <span>
+                  <OpenChevron
+                    open={opened === id}
+                    label={row.ref}
+                    onToggle={() => onOpen(opened === id ? null : id)}
+                  />
+                </span>
+                <span className="bd-ticket">
+                  <Logo
+                    name={row.project.name}
+                    url={row.project.logoUrl}
+                    size="small"
+                  />
+                  <button
+                    type="button"
+                    className="bd-project"
+                    onClick={() => onProject(row.project.id)}
+                  >
+                    {row.project.name}
+                  </button>
+                  <TicketRef row={row} />
                   <a
-                    className="bd-status s-pull_request bd-review-link"
-                    href={`${row.pullRequest.url}/files`}
+                    className="bd-title"
+                    href={row.url}
                     target="_blank"
                     rel="noopener"
                   >
-                    <span className="dot" aria-hidden="true" />
-                    Review #{row.pullRequest.number}
+                    {row.title}
                   </a>
-                </RunHover>
-              )}
-            </span>
-            <span>
-              <PaidByCell sponsors={row.paidBy} />
-            </span>
-            <span className="bd-when">{timeAgo(row.updatedAt)}</span>
-          </div>
-        ))}
+                </span>
+                <span>
+                  <ModelsCell models={row.models} />
+                </span>
+                <span>
+                  {row.pullRequest && row.runId && (
+                    <RunHover runId={row.runId}>
+                      <a
+                        className="bd-status s-pull_request bd-review-link"
+                        href={`${row.pullRequest.url}/files`}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <span className="dot" aria-hidden="true" />
+                        Review #{row.pullRequest.number}
+                      </a>
+                    </RunHover>
+                  )}
+                </span>
+                <span>
+                  <PaidByCell sponsors={row.paidBy} />
+                </span>
+                <span className="bd-when">{timeAgo(row.updatedAt)}</span>
+              </div>
+              <OpenRow open={opened === id}>
+                <PullPanel
+                  projectId={row.project.id}
+                  rowKey={row.key}
+                  onChanged={onChanged}
+                />
+              </OpenRow>
+            </Fragment>
+          );
+        })}
       </div>
     </>
+  );
+}
+
+/** The chevron that opens the row of a pull request. */
+function OpenChevron({
+  open,
+  label,
+  onToggle,
+}: {
+  open: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="bd-chev"
+      aria-expanded={open}
+      aria-label={`${open ? "Close" : "Open"} ${label}`}
+      onClick={onToggle}
+    >
+      <ChevronRight size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** The opened row unfolds under its row and folds back on a spring. */
+function OpenRow({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          className="bd-open"
+          initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+          transition={
+            reduced
+              ? { duration: motionTokens.duration.instant }
+              : {
+                  ...motionTokens.spring.smooth,
+                  opacity: { duration: motionTokens.duration.fast },
+                }
+          }
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

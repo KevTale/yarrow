@@ -44,6 +44,12 @@ import { activePauses, clearPause, pauseProvider } from "../src/db/pauses";
 import { recordRunModels } from "../src/db/runs";
 import { recordActivity } from "../src/db/activity";
 import { agentRuns } from "../src/db/schema";
+import {
+  pullRequestAction,
+  requestCorrection,
+  type ActionResult,
+  type PullRequestAction,
+} from "../src/server/github/pull-actions";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -796,6 +802,46 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
         console.warn("kick", describe(error)),
       ),
     );
+  }
+
+  private credentials() {
+    const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } =
+      this.env;
+    return appId && privateKey ? { appId, privateKey } : null;
+  }
+
+  /**
+   * Ready for review or Merge, from the builder's dashboard. The web Worker
+   * has checked the viewer is a member of the ticket's project.
+   */
+  pullRequestAction(input: {
+    workUnitId: string;
+    action: PullRequestAction;
+  }): Promise<ActionResult> {
+    const credentials = this.credentials();
+    if (!credentials)
+      return Promise.resolve({ ok: false, error: "GitHub is not configured." });
+    return withDb(this.env, (db) => pullRequestAction(db, credentials, input));
+  }
+
+  /** A change asked from the dashboard: on the PR, queued, started now. */
+  async requestCorrection(input: {
+    workUnitId: string;
+    instruction: string;
+    login: string;
+  }): Promise<ActionResult> {
+    const credentials = this.credentials();
+    if (!credentials) return { ok: false, error: "GitHub is not configured." };
+    const result = await withDb(this.env, (db) =>
+      requestCorrection(db, credentials, input),
+    );
+    if (result.ok)
+      this.ctx.waitUntil(
+        tick(this.env, true).catch((error) =>
+          console.warn("correction", describe(error)),
+        ),
+      );
+    return result;
   }
 }
 

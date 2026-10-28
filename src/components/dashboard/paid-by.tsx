@@ -36,8 +36,8 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
   const more = sponsors.length - 1;
 
   const show = () => {
-    const line = text.current;
-    const cut = line ? line.scrollWidth > line.clientWidth : false;
+    const lines = text.current ? [...text.current.children] : [];
+    const cut = lines.some((line) => line.scrollWidth > line.clientWidth);
     if (!cut && more === 0) return;
     const rect = cell.current?.getBoundingClientRect();
     if (!rect) return;
@@ -63,7 +63,7 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
       <Logo name={first.name} url={first.logoUrl} size="small" />
       <span ref={text} className="pb-text">
         <b>{first.name ?? "Anonymous sponsor"}</b>
-        {first.description && <span> {first.description}</span>}
+        {first.description && <span>{first.description}</span>}
       </span>
       {more > 0 && <span className="pb-more">+{more}</span>}
       {at && (

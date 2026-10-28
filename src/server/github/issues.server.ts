@@ -1,32 +1,45 @@
 import { ticketIdentity, type OpenIssue } from "../../core/tickets";
 import { appEnv } from "../env.server";
-import { GitHubClient, installationToken } from "./app";
+import { GitHubClient, installationToken, type TokenPermissions } from "./app";
 
 /**
  * Read-only issue tokens, kept per repository while they have more than five
  * minutes left (GitHub gives them an hour). Saves a round trip to GitHub on
  * every dashboard load. Lives in the Worker isolate's memory only.
  */
-const issueTokens = new Map<string, { token: string; expiresAt: number }>();
+const readTokens = new Map<string, { token: string; expiresAt: number }>();
 
-async function issueToken(
+/** What each read needs: issues for the table, pull requests for a panel. */
+const READS = {
+  issues: { issues: "read", metadata: "read" },
+  pulls: { pull_requests: "read", contents: "read", metadata: "read" },
+} as const satisfies Record<string, TokenPermissions>;
+
+export async function readToken(
   credentials: { appId: string; privateKey: string },
   installationId: string,
   repositoryId: number,
+  read: keyof typeof READS,
 ): Promise<string> {
-  const key = `${installationId}:${repositoryId}`;
-  const cached = issueTokens.get(key);
+  const key = `${installationId}:${repositoryId}:${read}`;
+  const cached = readTokens.get(key);
   if (cached && cached.expiresAt - Date.now() > 5 * 60_000) return cached.token;
   const { token, expiresAt } = await installationToken(
     credentials,
     installationId,
-    {
-      repositoryIds: [repositoryId],
-      permissions: { issues: "read", metadata: "read" },
-    },
+    { repositoryIds: [repositoryId], permissions: READS[read] },
   );
-  issueTokens.set(key, { token, expiresAt: Date.parse(expiresAt) });
+  readTokens.set(key, { token, expiresAt: Date.parse(expiresAt) });
   return token;
+}
+
+/** A revoked install or a narrowed repository list: a new token next time. */
+export function forgetReadToken(
+  installationId: string,
+  repositoryId: number,
+  read: keyof typeof READS,
+): void {
+  readTokens.delete(`${installationId}:${repositoryId}:${read}`);
 }
 
 /**
@@ -48,10 +61,11 @@ export async function openIssues(project: {
   )
     return null;
   try {
-    const token = await issueToken(
+    const token = await readToken(
       { appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY },
       project.githubInstallationId,
       Number(project.githubRepositoryId),
+      "issues",
     );
     const items = await new GitHubClient(token).request<
       {
@@ -74,9 +88,10 @@ export async function openIssues(project: {
         updatedAt: new Date(item.updated_at).toISOString(),
       }));
   } catch (error) {
-    // A revoked install or a narrowed repository list: get a new token next time.
-    issueTokens.delete(
-      `${project.githubInstallationId}:${Number(project.githubRepositoryId)}`,
+    forgetReadToken(
+      project.githubInstallationId,
+      Number(project.githubRepositoryId),
+      "issues",
     );
     console.error("open issues", project.repository, error);
     return null;

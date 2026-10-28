@@ -34,7 +34,7 @@ const latest = (...dates: (Date | string | null | undefined)[]) =>
  * Who paid for each ticket, over all its runs (corrections included): one
  * entry per sponsor, the largest share first, as the PR card draws them.
  */
-async function sponsorsByUnit(
+export async function sponsorsByUnit(
   db: Database,
   unitIds: string[],
 ): Promise<Map<string, PaidBy[]>> {

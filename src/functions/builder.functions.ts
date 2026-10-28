@@ -24,6 +24,8 @@ import {
   trackerContext,
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
+import { pullPanel } from "@/db/pull-panel";
+import { livePull, pullFiles } from "@/server/github/pulls.server";
 import { kickBrain } from "@/server/brain.server";
 
 /**
@@ -106,6 +108,98 @@ export const acceptTermsFn = createServerFn({ method: "POST" }).handler(
     return { ok: true };
   },
 );
+
+const ticketRef = z.object({
+  projectId: z.uuid(),
+  key: z.string().min(1).max(64),
+});
+
+/**
+ * A ticket's opened row: Yarrow's side (what the agents did, the review,
+ * the corrections, the cost, who paid) and GitHub's (draft, size, risks).
+ */
+export const getPullPanelFn = createServerFn({ method: "GET" })
+  .validator(ticketRef)
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    const { project, panel } = await withDb(async (db) => {
+      const project = await requireProjectMember(
+        db,
+        viewer.userId,
+        data.projectId,
+      );
+      return { project, panel: await pullPanel(db, project.id, data.key) };
+    });
+    if (!panel) return null;
+    const live = panel.pullRequest
+      ? await livePull(project, panel.pullRequest.number)
+      : null;
+    return { ...panel, live };
+  });
+
+/** The pull request's changes, read when the builder asks for them. */
+export const getPullFilesFn = createServerFn({ method: "GET" })
+  .validator(ticketRef)
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    const { project, panel } = await withDb(async (db) => {
+      const project = await requireProjectMember(
+        db,
+        viewer.userId,
+        data.projectId,
+      );
+      return { project, panel: await pullPanel(db, project.id, data.key) };
+    });
+    if (!panel?.pullRequest) return null;
+    return pullFiles(project, panel.pullRequest.number);
+  });
+
+async function memberPanel(projectId: string, key: string) {
+  const viewer = await requireViewer();
+  const panel = await withDb(async (db) => {
+    await requireProjectMember(db, viewer.userId, projectId);
+    return pullPanel(db, projectId, key);
+  });
+  return { viewer, panel };
+}
+
+const unavailable = {
+  ok: false as const,
+  error: "Yarrow cannot reach GitHub right now. Try again in a minute.",
+};
+
+/** Ready for review, or Merge (ready first when it is a draft). */
+export const pullRequestActionFn = createServerFn({ method: "POST" })
+  .validator(ticketRef.extend({ action: z.enum(["ready", "merge"]) }))
+  .handler(async ({ data }) => {
+    const { panel } = await memberPanel(data.projectId, data.key);
+    const brain = appEnv().BRAIN;
+    if (!panel?.pullRequest || !brain) return unavailable;
+    return brain.pullRequestAction({
+      workUnitId: panel.workUnitId,
+      action: data.action,
+    });
+  });
+
+/**
+ * A change asked from the opened row: the App writes it on the pull request
+ * under the builder's GitHub name, then Claude takes it like an
+ * `@yarrow-run` comment.
+ */
+export const requestChangeFn = createServerFn({ method: "POST" })
+  .validator(
+    ticketRef.extend({ instruction: z.string().trim().min(1).max(4000) }),
+  )
+  .handler(async ({ data }) => {
+    const { viewer, panel } = await memberPanel(data.projectId, data.key);
+    const brain = appEnv().BRAIN;
+    if (!panel?.pullRequest || !brain) return unavailable;
+    return brain.requestCorrection({
+      workUnitId: panel.workUnitId,
+      instruction: data.instruction,
+      login: viewer.githubLogin ?? viewer.name ?? "A maintainer",
+    });
+  });
 
 /** What maintainers comment on a Yarrow pull request to ask for a change. */
 export const getMentionFn = createServerFn({ method: "GET" }).handler(() =>

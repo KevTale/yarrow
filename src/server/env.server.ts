@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { ActionResult, PullRequestAction } from "./github/pull-actions";
 
 /**
  * The shop Worker's configuration. Public values come from wrangler.jsonc
@@ -38,7 +39,19 @@ export interface AppEnv {
   /** R2 bucket with run evidence (screenshots, video). Optional. */
   EVIDENCE?: R2Bucket;
   /** The brain's private entrypoint (service binding). Absent locally. */
-  BRAIN?: { kick(): Promise<void> };
+  BRAIN?: {
+    kick(): Promise<void>;
+    /** The only GitHub writes the dashboard asks for, done by the brain. */
+    pullRequestAction(input: {
+      workUnitId: string;
+      action: PullRequestAction;
+    }): Promise<ActionResult>;
+    requestCorrection(input: {
+      workUnitId: string;
+      instruction: string;
+      login: string;
+    }): Promise<ActionResult>;
+  };
 }
 
 export function appEnv(): AppEnv {
