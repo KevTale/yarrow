@@ -360,13 +360,10 @@ select:focus-visible {
 }
 .header-inner {
   height: 100%;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 16px;
-}
-.header-brand {
-  justify-self: center;
 }
 .brand {
   display: block;
@@ -2054,7 +2051,7 @@ tbody tr:hover {
     height: 21px;
   }
   .header-actions {
-    gap: 7px;
+    gap: 16px;
   }
   .header-actions .button {
     font-size: 10px;
@@ -3200,6 +3197,18 @@ a.bd-review-link:hover {
   border-radius: 12px;
   background:
     linear-gradient(90deg, #4c9aff12, transparent 60%), var(--surface);
+}
+/* Back from GitHub without the pasted ticket's repository. */
+.bd-connect {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.bd-connect .bd-jira-what strong {
+  font: inherit;
+  font-weight: 600;
+}
+.bd-connect .bd-jira-what .muted {
+  font-size: 13px;
 }
 .bd-jira-mark {
   display: grid;

@@ -6,6 +6,7 @@ import {
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
+import { ConnectNotice } from "@/components/dashboard/connect-notice";
 import { SponsorView } from "@/components/dashboard/sponsor";
 import { WelcomeView } from "@/components/dashboard/welcome";
 import { SignInPrompt } from "@/components/email-sign-in";
@@ -28,6 +29,8 @@ export const Route = createFileRoute("/dashboard")({
     checkout: z.enum(["success"]).optional(),
     /** Set by /connect/done: GitHub's webhook may not have landed yet. */
     installation: z.number().int().positive().optional().catch(undefined),
+    /** Set by /connect/done: an organization's admins were asked instead. */
+    requested: z.boolean().optional().catch(undefined),
   }),
   // Switching projects stays on the page: the builder view keeps every
   // project's copy and loads them in the background (see BuilderView).
@@ -36,7 +39,7 @@ export const Route = createFileRoute("/dashboard")({
     // connected. Preloading (from any page, signed in) leaves that alone.
     const search = location.search as { project?: string; from?: string };
     const connect = preload
-      ? { queued: null, waiting: null, jira: null }
+      ? { queued: null, waiting: null, issue: null, jira: null }
       : await settleConnectFn({
           data: { projectId: search.from ? search.project : undefined },
         });
@@ -58,6 +61,8 @@ export const Route = createFileRoute("/dashboard")({
 const CONNECT_POLLS = 20;
 /** After an install: up to 30 s for the first projects to appear. */
 const INSTALL_POLLS = 10;
+/** After an install, with projects there: the pasted repository is late. */
+const MISSING_POLLS = 3;
 
 function DashboardPage() {
   const { connect, builder, sponsor } = Route.useLoaderData();
@@ -66,6 +71,9 @@ function DashboardPage() {
   const navigate = Route.useNavigate();
   const router = useRouter();
   const [polls, setPolls] = useState(0);
+  const [afterInstall] = useState(search.installation !== undefined);
+  const [requested] = useState(search.requested === true);
+  const [closed, setClosed] = useState(false);
   // Back from Stripe: celebrate once, then drop the flag from the address
   // so a refresh does not replay it.
   const [celebrate] = useState(search.checkout === "success");
@@ -87,18 +95,36 @@ function DashboardPage() {
     projectCount > startCount || (projectCount > 0 && polls >= 2);
   const installing =
     search.installation !== undefined && polls < INSTALL_POLLS && !installed;
-  const waiting =
-    (polls < CONNECT_POLLS ? connect.waiting : null) ??
-    (installing ? "GitHub" : null);
+  const pending =
+    !requested && polls < CONNECT_POLLS ? connect.waiting : null;
+  // The pasted repository did not come: not picked on GitHub, or not the
+  // visitor's to install. Polling goes on, in case it was only late.
+  const missing =
+    !requested &&
+    connect.waiting !== null &&
+    (polls >= CONNECT_POLLS ||
+      (afterInstall && projectCount > 0 && polls >= MISSING_POLLS));
+  const polling = pending ?? (installing ? "GitHub" : null);
+  const waiting = missing ? null : polling;
+  const notice = (missing || requested) && !closed;
 
   useEffect(() => {
-    if (!waiting) return;
+    if (!polling) return;
     const timer = setTimeout(async () => {
       await router.invalidate();
       setPolls((count) => count + 1);
     }, 3_000);
     return () => clearTimeout(timer);
-  }, [waiting, polls, router]);
+  }, [polling, polls, router]);
+
+  // Read once: a refresh does not tell of the request again.
+  useEffect(() => {
+    if (search.requested)
+      navigate({
+        search: (current) => ({ ...current, requested: undefined }),
+        replace: true,
+      });
+  }, [search.requested, navigate]);
 
   // Done waiting: a refresh should not wait again.
   useEffect(() => {
@@ -130,7 +156,7 @@ function DashboardPage() {
 
   const isBuilder =
     builder.status === "ok" &&
-    (builder.projects.length > 0 || waiting !== null);
+    (builder.projects.length > 0 || waiting !== null || notice);
   const isSponsor = sponsor.isSponsor;
   // A new account sees both roles; without GitHub it is most likely a sponsor.
   const fresh = !isBuilder && !isSponsor;
@@ -179,6 +205,14 @@ function DashboardPage() {
             {tab === "builder" ? "Builder" : "Sponsor"}
           </h1>
         </>
+      )}
+      {tab === "builder" && notice && (
+        <ConnectNotice
+          repository={connect.waiting}
+          issue={connect.issue}
+          requested={requested}
+          onClose={() => setClosed(true)}
+        />
       )}
       {tab === "builder" && builder.status === "ok" ? (
         <BuilderView

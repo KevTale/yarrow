@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { getCookies, setCookie } from "@tanstack/react-start/server";
 import { appEnv } from "./env.server";
 
@@ -25,16 +26,30 @@ export interface Viewer {
   email: string | null;
 }
 
+/**
+ * Who the user is on GitHub. An account opened by email that linked GitHub
+ * later has it on the identity only, not yet in its metadata.
+ */
+export function githubProfile(user: User) {
+  const meta = user.user_metadata as Record<string, string | undefined>;
+  const github = user.identities?.find(
+    (identity) => identity.provider === "github",
+  )?.identity_data as Record<string, string | undefined> | undefined;
+  const pick = (key: string) => meta[key] ?? github?.[key];
+  return {
+    githubLogin: pick("user_name") ?? pick("preferred_username") ?? null,
+    name: pick("full_name") ?? pick("name") ?? null,
+    avatarUrl: pick("avatar_url") ?? null,
+  };
+}
+
 /** The signed-in user, verified against Supabase Auth, or null. */
 export async function getViewer(): Promise<Viewer | null> {
   const { data, error } = await supabaseServer().auth.getUser();
   if (error || !data.user) return null;
-  const meta = data.user.user_metadata as Record<string, string | undefined>;
   return {
     userId: data.user.id,
-    githubLogin: meta.user_name ?? meta.preferred_username ?? null,
-    name: meta.full_name ?? meta.name ?? null,
-    avatarUrl: meta.avatar_url ?? null,
+    ...githubProfile(data.user),
     email: data.user.email ?? null,
   };
 }

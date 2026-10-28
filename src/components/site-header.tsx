@@ -40,12 +40,14 @@ export function SiteHeader({
   return (
     <header className="site-header">
       <div className="container header-inner">
-        {/* Balances the account menu so the logo sits in the middle. */}
-        <span aria-hidden="true" />
         <Link to="/" aria-label="Yarrow home" className="header-brand">
           <Brand />
         </Link>
         <div className="header-actions">
+          {/* The sponsors' way in: the hero speaks to builders. */}
+          <Link to="/" hash="sponsors" className="sign-in">
+            Sponsors
+          </Link>
           {viewer ? (
             // uiarc's user menu: a panel from the avatar, a bottom sheet on
             // phones.

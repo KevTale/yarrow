@@ -35,6 +35,8 @@ export const settleConnectFn = createServerFn({ method: "POST" })
     const none = {
       queued: null as { projectId: string; key: string | null } | null,
       waiting: null as string | null,
+      /** The pasted issue of the repository being waited for. */
+      issue: null as number | null,
       jira: null as JiraStep | null,
     };
     const viewer = await getViewer().catch(() => null);
@@ -68,7 +70,7 @@ export const settleConnectFn = createServerFn({ method: "POST" })
     const projectId = await withDb((db) =>
       requestTicket(db, viewer.userId, repository, issue),
     );
-    if (!projectId) return { ...none, waiting: repository };
+    if (!projectId) return { ...none, waiting: repository, issue };
     forget();
     await kickBrain();
     return { ...none, queued: { projectId, key: String(issue) } };

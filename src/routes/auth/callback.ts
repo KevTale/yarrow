@@ -11,7 +11,16 @@ export const Route = createFileRoute("/auth/callback")({
         const next = safeNext(url.searchParams.get("next"));
         const code = url.searchParams.get("code");
         const auth = supabaseForRequest(request);
-        if (!code) return auth.redirect("/sign-in?error=Missing%20code");
+        // Linking refused: this GitHub account already has its own Yarrow
+        // account, which is where its projects are. Sign in to it.
+        if (url.searchParams.get("error_code") === "identity_already_exists")
+          return auth.redirect(
+            `/auth/github?switch&next=${encodeURIComponent(next)}`,
+          );
+        if (!code)
+          return auth.redirect(
+            `/sign-in?error=${encodeURIComponent(url.searchParams.get("error_description") ?? "Missing code")}`,
+          );
         const { data, error } =
           await auth.client.auth.exchangeCodeForSession(code);
         if (error || !data.user)

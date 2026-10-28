@@ -1,6 +1,7 @@
 import { createClient, type User } from "@supabase/supabase-js";
 import { ensureAccount } from "@/db/accounts";
 import { claimGuestSponsorships } from "@/db/sponsors";
+import { githubProfile } from "./auth.server";
 import { databaseConfigured, withDb } from "./db.server";
 import { cookieGuestId } from "./guest.server";
 import { emailConfigured, sendSignInEmail } from "./email.server";
@@ -34,13 +35,9 @@ export async function sendSignInLink(
 /** After any sign-in: the user's account, and their guest payments if any. */
 export async function afterSignIn(user: User): Promise<void> {
   if (!databaseConfigured()) return;
-  const meta = user.user_metadata as Record<string, string | undefined>;
+  const { githubLogin, name } = githubProfile(user);
   await withDb(async (db) => {
-    await ensureAccount(db, {
-      userId: user.id,
-      githubLogin: meta.user_name ?? meta.preferred_username ?? null,
-      name: meta.full_name ?? meta.name ?? null,
-    });
+    await ensureAccount(db, { userId: user.id, githubLogin, name });
     // The verified email, and the payment made from this very browser.
     await claimGuestSponsorships(db, user.id, {
       email: user.email,
