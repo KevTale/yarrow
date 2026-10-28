@@ -79,6 +79,8 @@ export interface BrainEnv {
   OPENAI_REVIEW_EFFORT?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
+  /** The app maintainers mention on a PR: yarrow-run, yarrow-run-dev. */
+  GITHUB_APP_SLUG?: string;
   TOKEN_ENCRYPTION_KEY?: string;
   LINEAR_CLIENT_ID?: string;
   LINEAR_CLIENT_SECRET?: string;
@@ -140,6 +142,7 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
     reviewerModel: env.OPENAI_REVIEW_MODEL ?? "gpt-6-astra",
     reviewerEffort: env.OPENAI_REVIEW_EFFORT ?? defaultReviewerEffort,
     reviewerRates: defaultReviewerRates,
+    appSlug: env.GITHUB_APP_SLUG,
   });
 }
 

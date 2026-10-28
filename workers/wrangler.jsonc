@@ -19,6 +19,7 @@
   "triggers": { "crons": ["* * * * *"] },
   "vars": {
     "APP_URL": "http://localhost:3000",
+    "GITHUB_APP_SLUG": "yarrow-run-dev",
     "OPENAI_REVIEW_MODEL": "gpt-6-astra",
     "OPENAI_REVIEW_EFFORT": "high",
     "DISPATCH": "on",
@@ -43,6 +44,7 @@
       "triggers": { "crons": ["* * * * *"] },
       "vars": {
         "APP_URL": "https://dev.yarrow.run",
+        "GITHUB_APP_SLUG": "yarrow-run-dev",
         "OPENAI_REVIEW_MODEL": "gpt-6-astra",
         "OPENAI_REVIEW_EFFORT": "high",
         "DISPATCH": "on",
@@ -65,6 +67,7 @@
       "triggers": { "crons": ["* * * * *"] },
       "vars": {
         "APP_URL": "https://yarrow.run",
+        "GITHUB_APP_SLUG": "yarrow-run",
         "OPENAI_REVIEW_MODEL": "gpt-6-astra",
         "OPENAI_REVIEW_EFFORT": "high",
         "DISPATCH": "on",

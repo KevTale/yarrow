@@ -45,7 +45,12 @@ export const Route = createFileRoute("/api/webhooks/github")({
         const event = request.headers.get("x-github-event") ?? "";
         const payload = JSON.parse(body) as GitHubPayload;
         const result = await withDb(async (db) => {
-          const result = await handleGitHubEvent(db, event, payload);
+          const result = await handleGitHubEvent(
+            db,
+            event,
+            payload,
+            appEnv().GITHUB_APP_SLUG,
+          );
           // A merged pull request may move its Jira ticket (see settings).
           if (result === "pull request merged" && payload.pull_request)
             await moveMergedTicket(db, payload.pull_request.html_url);

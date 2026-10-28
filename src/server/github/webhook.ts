@@ -10,6 +10,7 @@ import {
 } from "../../db/projects";
 import { projects, pullRequests } from "../../db/schema";
 import { queueCorrection, upsertTicket } from "../../db/workunits";
+import { mentionPattern, PROD_APP_SLUG } from "../../core/corrections";
 
 /* Minimal shapes of the GitHub webhook payloads we read. */
 interface GitHubUser {
@@ -49,7 +50,6 @@ export interface GitHubPayload {
   pull_request?: { html_url: string; merged: boolean };
 }
 
-const MENTION = /^\s*@yarrow-run\b[:,]?\s*/i;
 const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 async function projectForRepository(
@@ -109,6 +109,8 @@ export async function handleGitHubEvent(
   db: Database,
   event: string,
   payload: GitHubPayload,
+  /** The GitHub App's slug, which maintainers mention to ask for a change. */
+  appSlug: string = PROD_APP_SLUG,
 ): Promise<string> {
   const installationId = payload.installation
     ? String(payload.installation.id)
@@ -185,10 +187,11 @@ export async function handleGitHubEvent(
   ) {
     const { comment } = payload;
     if (comment.user.type === "Bot") return "ignored: bot comment";
-    if (!MENTION.test(comment.body)) return "ignored: no mention";
+    const mention = mentionPattern(appSlug);
+    if (!mention.test(comment.body)) return "ignored: no mention";
     if (!TRUSTED.has(comment.author_association))
       return "ignored: commenter is not a maintainer";
-    const instruction = comment.body.replace(MENTION, "").trim();
+    const instruction = comment.body.replace(mention, "").trim();
     if (!instruction) return "ignored: empty request";
     const queued = await queueCorrection(db, {
       pullRequestUrl: payload.issue.pull_request.html_url,

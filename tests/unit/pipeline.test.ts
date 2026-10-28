@@ -323,6 +323,7 @@ describe("run pipeline", async () => {
     expect((pull.body as { draft: boolean }).draft).toBe(true);
     expect(body).toContain("Closes #5");
     expect(body).toContain("pnpm test → 42 passed");
+    expect(body).toContain("Need a change? Comment `@yarrow-run` followed by");
     expect(body).toContain(
       "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
     );

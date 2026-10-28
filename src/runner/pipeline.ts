@@ -1,4 +1,5 @@
 import { pullRequestFooter } from "../core/attribution";
+import { PROD_APP_SLUG } from "../core/corrections";
 import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
 import {
   blockingComments,
@@ -97,6 +98,8 @@ export interface PipelineDeps {
   /** Reasoning effort for the reviewer; the provider default when absent. */
   reviewerEffort?: string;
   reviewerRates: TokenRates;
+  /** The GitHub App's slug, for the correction line of each PR. */
+  appSlug?: string;
   fetcher?: Fetch;
 }
 
@@ -682,6 +685,7 @@ export class RunPipeline {
           roles: this.deps.roles,
           sponsors,
           runUrl: this.runUrl(run.runId),
+          appSlug: this.deps.appSlug ?? PROD_APP_SLUG,
         }),
       });
     }

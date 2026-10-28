@@ -3,6 +3,7 @@ import {
   pullRequestFooter,
   type RunSponsor,
 } from "../core/attribution";
+import { correctionHint } from "../core/corrections";
 import { modelDisplayName, type PipelineRoles } from "../core/pipeline";
 import type { StoredReview } from "../core/review";
 
@@ -38,6 +39,8 @@ export interface PullRequestInput {
   roles: PipelineRoles;
   sponsors: RunSponsor[];
   runUrl: string;
+  /** The GitHub App's slug, mentioned to ask for a change. */
+  appSlug: string;
 }
 
 /** Strips tracker keys like "ENG-12 " from the PR title. */
@@ -78,6 +81,7 @@ export function pullRequestBody(input: PullRequestInput): string {
     sections.push(
       `## Risks\n\n${input.risks.map((risk) => `- ${risk}`).join("\n")}`,
     );
+  sections.push(correctionHint(input.appSlug));
   sections.push(
     pullRequestFooter({
       roles: input.roles,

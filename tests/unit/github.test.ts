@@ -300,6 +300,27 @@ describe("GitHub webhooks", async () => {
     ).toBe("correction queued");
     const [request] = await raw.select().from(schema.correctionRequests);
     expect(request!.instruction).toBe("rename the button to Export CSV");
+    // Each environment answers to its own app: dev's is yarrow-run-dev.
+    expect(
+      await handleGitHubEvent(
+        db,
+        "issue_comment",
+        comment("@yarrow-run-dev also the title"),
+      ),
+    ).toBe("ignored: no mention");
+    expect(
+      await handleGitHubEvent(
+        db,
+        "issue_comment",
+        comment("@yarrow-run-dev also the title"),
+        "yarrow-run-dev",
+      ),
+    ).toBe("correction queued");
+    expect(
+      (await raw.select().from(schema.correctionRequests)).map(
+        (row) => row.instruction,
+      ),
+    ).toContain("also the title");
 
     expect(
       await handleGitHubEvent(db, "pull_request", {

@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { money } from "@/core/packs";
 import { projectLogo } from "@/core/logos";
@@ -265,9 +265,12 @@ export function SponsorView({
   }, [data.guest, router]);
   const shippedList = useFlip<HTMLDivElement>(shipped);
   const live = shipped.filter((row) => working.includes(row.status)).length;
+  const [thanked, setThanked] = useState(false);
   return (
     <div className="sd">
-      {celebrate && <ThankYou data={data} />}
+      {celebrate && !thanked && (
+        <ThankYou data={data} onClose={() => setThanked(true)} />
+      )}
       <SponsorSummary data={data} />
 
       <div className="sd-shipped" ref={shippedList}>
@@ -350,12 +353,26 @@ export function SponsorView({
 }
 
 /** Back from Stripe: thanks, the place reached, and what happens next. */
-function ThankYou({ data }: { data: SponsorData }) {
+function ThankYou({
+  data,
+  onClose,
+}: {
+  data: SponsorData;
+  onClose: () => void;
+}) {
   const name = data.settings.profile.publicName;
   const rank = data.standings.today.rank;
   return (
     <section className="sd-thanks" aria-live="polite">
       <Confetti />
+      <button
+        type="button"
+        className="sd-thanks-close"
+        aria-label="Close"
+        onClick={onClose}
+      >
+        <X size={18} />
+      </button>
       <span className="sd-thanks-kicker">Payment received</span>
       <h2>Thank you{name ? `, ${name}` : ""}!</h2>
       {data.isSponsor ? (
