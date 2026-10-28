@@ -45,6 +45,7 @@ export async function sponsorsByUnit(
     .select({
       workUnitId: agentRuns.workUnitId,
       name: sponsorProfiles.publicName,
+      publicId: sponsorProfiles.publicId,
       description: sponsorProfiles.description,
       logoUrl: sponsorProfiles.logoUrl,
       websiteUrl: sponsorProfiles.websiteUrl,
@@ -58,6 +59,7 @@ export async function sponsorsByUnit(
       agentRuns.workUnitId,
       contributions.userId,
       sponsorProfiles.publicName,
+      sponsorProfiles.publicId,
       sponsorProfiles.description,
       sponsorProfiles.logoUrl,
       sponsorProfiles.websiteUrl,
@@ -68,8 +70,14 @@ export async function sponsorsByUnit(
     // An anonymous sponsor shows nothing but that it is one.
     list.push(
       name
-        ? { name, ...sponsor }
-        : { name: null, description: null, logoUrl: null, websiteUrl: null },
+        ? { name, ...sponsor, publicId: sponsor.publicId ?? null }
+        : {
+            name: null,
+            publicId: null,
+            description: null,
+            logoUrl: null,
+            websiteUrl: null,
+          },
     );
     byUnit.set(workUnitId, list);
   }

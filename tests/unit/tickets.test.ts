@@ -125,11 +125,18 @@ describe("the builder's ticket table", () => {
     expect(byNumber(rows, 3).paidBy).toEqual([
       {
         name: "Northbeam",
+        publicId: expect.any(String),
         description: "Managed Postgres.",
         logoUrl: null,
         websiteUrl: null,
       },
-      { name: null, description: null, logoUrl: null, websiteUrl: null },
+      {
+        name: null,
+        publicId: null,
+        description: null,
+        logoUrl: null,
+        websiteUrl: null,
+      },
     ]);
     expect(byNumber(rows, 1).paidBy).toEqual([]);
   });

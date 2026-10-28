@@ -46,7 +46,7 @@ import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { ModelsCell } from "./models";
 import { PaidByCell } from "./paid-by";
-import { PullPanel } from "./pull-panel";
+import { prefetchPullPanel, PullPanel } from "./pull-panel";
 
 type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
@@ -680,6 +680,9 @@ export function BuilderView({
                                     onToggle={() =>
                                       setOpened(opened === id ? null : id)
                                     }
+                                    onIntent={() =>
+                                      prefetchPullPanel(project.id, row.key)
+                                    }
                                   />
                                 )
                               )}
@@ -813,6 +816,20 @@ function ReviewList({
   onOpen: (id: string | null) => void;
   onChanged: () => void;
 }) {
+  const firstRows = rows
+    .slice(0, 6)
+    .map((row) => `${row.project.id}:${row.key}`)
+    .join(",");
+  // To review reads its first rows as soon as it shows.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      for (const id of firstRows.split(",").filter(Boolean)) {
+        const [projectId, ...key] = id.split(":");
+        prefetchPullPanel(projectId!, key.join(":"));
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [firstRows]);
   return (
     <>
       <div className="bd-head">
@@ -849,6 +866,7 @@ function ReviewList({
                     open={opened === id}
                     label={row.ref}
                     onToggle={() => onOpen(opened === id ? null : id)}
+                    onIntent={() => prefetchPullPanel(row.project.id, row.key)}
                   />
                 </span>
                 <span className="bd-ticket">
@@ -917,10 +935,13 @@ function OpenChevron({
   open,
   label,
   onToggle,
+  onIntent,
 }: {
   open: boolean;
   label: string;
   onToggle: () => void;
+  /** Hover or focus: the row is read before the click. */
+  onIntent: () => void;
 }) {
   return (
     <button
@@ -929,6 +950,8 @@ function OpenChevron({
       aria-expanded={open}
       aria-label={`${open ? "Close" : "Open"} ${label}`}
       onClick={onToggle}
+      onPointerEnter={onIntent}
+      onFocus={onIntent}
     >
       <ChevronRight size={16} aria-hidden="true" />
     </button>

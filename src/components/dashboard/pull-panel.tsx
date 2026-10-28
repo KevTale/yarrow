@@ -23,6 +23,7 @@ import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Logo } from "@/components/boards";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
+import { SponsorLink } from "./paid-by";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
 type Files = NonNullable<Awaited<ReturnType<typeof getPullFilesFn>>>;
@@ -42,6 +43,37 @@ const working = {
 } as const;
 
 /**
+ * What a row showed last, kept for this page's life: it opens at once with
+ * it and refreshes behind. The changes are kept by their size, so a new
+ * commit reads them again.
+ */
+const panels = new Map<string, Panel>();
+const changes = new Map<string, { size: string; files: Files }>();
+const inflight = new Map<string, Promise<Panel | null>>();
+
+const cacheKey = (projectId: string, key: string) => `${projectId}:${key}`;
+
+function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
+  const id = cacheKey(projectId, key);
+  const pending = inflight.get(id);
+  if (pending) return pending;
+  const request = getPullPanelFn({ data: { projectId, key } })
+    .then((panel) => {
+      if (panel) panels.set(id, panel);
+      return panel;
+    })
+    .finally(() => inflight.delete(id));
+  inflight.set(id, request);
+  return request;
+}
+
+/** Reads a row before it opens (hover, focus, To review on arrival). */
+export function prefetchPullPanel(projectId: string, key: string): void {
+  if (panels.has(cacheKey(projectId, key))) return;
+  void fetchPanel(projectId, key).catch(() => {});
+}
+
+/**
  * A ticket's row, opened: what the agents did and what to watch on the
  * left, the decisions on the right (merge, ready for review, the changes,
  * GitHub), who paid and what it cost; a change asked from here goes to
@@ -57,16 +89,19 @@ export function PullPanel({
   /** The table's row moved (merged, a correction started). */
   onChanged: () => void;
 }) {
-  const load = useServerFn(getPullPanelFn);
-  const [panel, setPanel] = useState<Panel | null | undefined>(undefined);
+  const id = cacheKey(projectId, rowKey);
+  const [panel, setPanel] = useState<Panel | null | undefined>(() =>
+    panels.get(id),
+  );
   const [showChanges, setShowChanges] = useState(false);
 
   const refresh = useCallback(
     () =>
-      load({ data: { projectId, key: rowKey } })
+      fetchPanel(projectId, rowKey)
         .then(setPanel)
-        .catch(() => setPanel(null)),
-    [load, projectId, rowKey],
+        // A failed refresh keeps what is shown.
+        .catch(() => setPanel((shown) => shown ?? null)),
+    [projectId, rowKey],
   );
   useEffect(() => {
     void refresh();
@@ -86,12 +121,7 @@ export function PullPanel({
     return () => clearInterval(timer);
   }, [busy, refresh]);
 
-  if (panel === undefined)
-    return (
-      <div className="pp pp-loading" role="status">
-        <Spinner />
-      </div>
-    );
+  if (panel === undefined) return <PanelSkeleton />;
   if (panel === null)
     return <p className="pp pp-none muted">Nothing to show for this ticket</p>;
 
@@ -215,7 +245,6 @@ export function PullPanel({
             <Composer
               projectId={projectId}
               rowKey={rowKey}
-              number={pullRequest.number}
               onSent={() => {
                 void refresh();
                 onChanged();
@@ -245,58 +274,76 @@ export function PullPanel({
             />
           )}
 
-          {panel.paidBy.length > 0 && (
+          {(panel.paidBy.length > 0 || panel.models.length > 0) && (
             <div className="pp-paid">
-              <span className="pp-label">Paid by</span>
-              {panel.paidBy.map((sponsor, i) => (
-                <div key={i} className="pp-sponsor">
-                  <Logo
-                    name={sponsor.name}
-                    url={sponsor.logoUrl}
-                    size="small"
-                  />
-                  <div>
-                    <strong>{sponsor.name ?? "Anonymous sponsor"}</strong>
-                    {sponsor.description && <span>{sponsor.description}</span>}
-                    {sponsor.websiteUrl && (
-                      <span className="pp-site">
-                        {domain(sponsor.websiteUrl)}
+              {panel.paidBy.length > 0 && (
+                <>
+                  <span className="pp-label">Paid by</span>
+                  {panel.paidBy.map((sponsor, i) => (
+                    <SponsorLink
+                      key={i}
+                      sponsor={sponsor}
+                      className="pp-sponsor"
+                    >
+                      <Logo
+                        name={sponsor.name}
+                        url={sponsor.logoUrl}
+                        size="small"
+                      />
+                      <span>
+                        <strong>{sponsor.name ?? "Anonymous sponsor"}</strong>
+                        {sponsor.description && (
+                          <span>{sponsor.description}</span>
+                        )}
+                        {sponsor.websiteUrl && (
+                          <span className="pp-site">
+                            {domain(sponsor.websiteUrl)}
+                          </span>
+                        )}
                       </span>
-                    )}
+                    </SponsorLink>
+                  ))}
+                </>
+              )}
+              {panel.models.length > 0 && (
+                <dl className="pp-facts">
+                  {panel.models.map((model) => (
+                    <div key={model.role}>
+                      <dt>{model.name}</dt>
+                      <dd>
+                        {model.seconds !== null &&
+                          `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
+                        {model.costExact ? "" : "≈ "}
+                        {money(model.costCents)}
+                      </dd>
+                    </div>
+                  ))}
+                  <div className="pp-total">
+                    <dt>Total</dt>
+                    <dd>
+                      {panel.totalSeconds !== null &&
+                        `${formatSeconds(panel.totalSeconds)} · `}
+                      {money(panel.totalCents)}
+                    </dd>
                   </div>
-                </div>
-              ))}
+                </dl>
+              )}
             </div>
-          )}
-
-          {panel.models.length > 0 && (
-            <dl className="pp-facts">
-              {panel.models.map((model) => (
-                <div key={model.role}>
-                  <dt>{model.name}</dt>
-                  <dd>
-                    {model.seconds !== null &&
-                      `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
-                    {model.costExact ? "" : "≈ "}
-                    {money(model.costCents)}
-                  </dd>
-                </div>
-              ))}
-              <div className="pp-total">
-                <dt>Total</dt>
-                <dd>
-                  {panel.totalSeconds !== null &&
-                    `${formatSeconds(panel.totalSeconds)} · `}
-                  {money(panel.totalCents)}
-                </dd>
-              </div>
-            </dl>
           )}
         </aside>
       </div>
 
       {showChanges && (
-        <Changes projectId={projectId} rowKey={rowKey} url={pullRequest?.url} />
+        <Changes
+          projectId={projectId}
+          rowKey={rowKey}
+          url={pullRequest?.url}
+          size={
+            live
+              ? `${live.additions}:${live.deletions}:${live.changedFiles}`
+              : ""
+          }
+        />
       )}
     </div>
   );
@@ -426,12 +473,10 @@ function Decisions({
 function Composer({
   projectId,
   rowKey,
-  number,
   onSent,
 }: {
   projectId: string;
   rowKey: string;
-  number: number;
   onSent: () => void;
 }) {
   const send = useServerFn(requestChangeFn);
@@ -482,7 +527,6 @@ function Composer({
         }}
       />
       <div className="pp-composer-foot">
-        <span>To #{number}</span>
         {error && (
           <span className="pp-error" role="alert">
             {error}
@@ -505,41 +549,44 @@ function Changes({
   projectId,
   rowKey,
   url,
+  size,
 }: {
   projectId: string;
   rowKey: string;
   url?: string;
+  /** Lines and files changed: a different size is a new commit. */
+  size: string;
 }) {
   const load = useServerFn(getPullFilesFn);
-  const [files, setFiles] = useState<Files | null | undefined>(undefined);
-  const [folded, setFolded] = useState<Set<string>>(new Set());
+  const id = cacheKey(projectId, rowKey);
+  const kept = changes.get(id);
+  const [files, setFiles] = useState<Files | null | undefined>(
+    kept && kept.size === size ? kept.files : undefined,
+  );
+  // Long changes open on their first file only.
+  const [folded, setFolded] = useState<Set<string>>(() =>
+    kept ? foldLong(kept.files) : new Set(),
+  );
 
   useEffect(() => {
+    const cached = changes.get(id);
+    if (cached && cached.size === size) return;
     let live = true;
     load({ data: { projectId, key: rowKey } })
       .then((result) => {
         if (!live) return;
         setFiles(result);
-        // Long changes open on their first file only.
-        const lines = (result ?? []).reduce(
-          (sum, file) => sum + (file.lines?.length ?? 0),
-          0,
-        );
-        if (result && lines > 400)
-          setFolded(new Set(result.slice(1).map((file) => file.path)));
+        if (!result) return;
+        changes.set(id, { size, files: result });
+        setFolded(foldLong(result));
       })
       .catch(() => live && setFiles(null));
     return () => {
       live = false;
     };
-  }, [load, projectId, rowKey]);
+  }, [load, id, projectId, rowKey, size]);
 
-  if (files === undefined)
-    return (
-      <div className="pp-files pp-loading" role="status">
-        <Spinner />
-      </div>
-    );
+  if (files === undefined) return <FilesSkeleton />;
   if (files === null)
     return (
       <p className="pp-files pp-none muted">
@@ -624,6 +671,68 @@ function Changes({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Past 400 lines, only the first file opens. */
+function foldLong(files: Files): Set<string> {
+  const lines = files.reduce((sum, file) => sum + (file.lines?.length ?? 0), 0);
+  return lines > 400
+    ? new Set(files.slice(1).map((file) => file.path))
+    : new Set();
+}
+
+/** The opened row's shape while it loads. */
+function PanelSkeleton() {
+  return (
+    <div className="pp" aria-busy="true" aria-label="Loading the pull request">
+      <div className="pp-grid">
+        <div className="pp-main">
+          {[
+            ["40%", "96%", "88%", "62%"],
+            ["30%", "92%", "54%"],
+            ["24%", "80%", "70%"],
+          ].map((widths, i) => (
+            <div key={i} className="pp-section">
+              {widths.map((width, j) => (
+                <span
+                  key={j}
+                  className={`sk ${j === 0 ? "sk-title" : ""}`}
+                  style={{ width }}
+                />
+              ))}
+            </div>
+          ))}
+          <span className="sk sk-composer" />
+        </div>
+        <div className="pp-aside">
+          <span className="sk sk-button" />
+          <span className="sk sk-button" />
+          <span className="sk sk-button" />
+          <span className="sk sk-card" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The changes' shape while GitHub answers. */
+function FilesSkeleton() {
+  return (
+    <div className="pp-files" aria-busy="true" aria-label="Loading the changes">
+      <div className="pp-file">
+        <div className="pp-file-head">
+          <span className="sk" style={{ width: "36%" }} />
+        </div>
+        <div className="sk-diff">
+          {["58%", "74%", "40%", "66%", "82%", "48%", "70%", "36%"].map(
+            (width, i) => (
+              <span key={i} className="sk" style={{ width }} />
+            ),
+          )}
+        </div>
+      </div>
     </div>
   );
 }

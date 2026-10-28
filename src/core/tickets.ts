@@ -83,6 +83,8 @@ interface TicketIdentity {
 /** A sponsor whose money went into a ticket's runs. Null name: anonymous. */
 export interface PaidBy {
   name: string | null;
+  /** For /out/<publicId>: the click is counted, then the website opens. */
+  publicId: string | null;
   description: string | null;
   logoUrl: string | null;
   websiteUrl: string | null;
