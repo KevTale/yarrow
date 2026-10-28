@@ -358,6 +358,11 @@ export class RunPipeline {
     return session.status === "idle" ? "done" : "working";
   }
 
+  /** Why the implementer session ended, in the provider's words. */
+  implementerError(sessionId: string): Promise<string | null> {
+    return this.deps.anthropic.lastError(sessionId);
+  }
+
   async readImplementation(sessionId: string): Promise<ImplementationSnapshot> {
     const raw = await this.deps.anthropic.readOutput(sessionId, "result.json");
     if (!raw) throw new Error("The implementer wrote no result.json");

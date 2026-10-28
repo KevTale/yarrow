@@ -217,6 +217,17 @@ export class ManagedAgentsClient {
     return events;
   }
 
+  /** The session's latest error message, or null when it has none. */
+  async lastError(sessionId: string): Promise<string | null> {
+    const query = new URLSearchParams({ limit: "1", order: "desc" });
+    query.append("types[]", "session.error");
+    const result: { data: SessionEvent[] } = await this.call(
+      "GET",
+      `/sessions/${sessionId}/events?${query}`,
+    );
+    return result.data[0]?.error?.message ?? null;
+  }
+
   async listFiles(sessionId: string): Promise<SessionFile[]> {
     const page = await this.call<{ data: SessionFile[] }>(
       "GET",

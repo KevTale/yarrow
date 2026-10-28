@@ -1,10 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  computeSummary,
   createDailyFunding,
   listDailyFundings,
   pauseDailyFunding,
   updateDailyFunding,
 } from "../../src/db/admin";
+import {
+  activePauses,
+  clearPause,
+  pauseProvider,
+  PAUSE_MINUTES,
+} from "../../src/db/pauses";
 import { sponsorBoard } from "../../src/db/boards";
 import { fundDaily } from "../../src/db/contributions";
 import * as schema from "../../src/db/schema";
@@ -20,9 +27,10 @@ const profile = {
   websiteUrl: "https://totem.game",
 };
 
+afterAll(() => test.pg.close());
+
 describe("admin: daily fundings", () => {
   beforeEach(() => test.reset());
-  afterAll(() => test.pg.close());
 
   it("creates a sponsor row with no account and credits today at once", async () => {
     const userId = await createDailyFunding(db, { profile, amountCents: 1500 });
@@ -73,5 +81,126 @@ describe("admin: daily fundings", () => {
       createDailyFunding(db, { profile, amountCents: 50 }),
     ).rejects.toThrow();
     expect(await listDailyFundings(db)).toEqual([]);
+  });
+});
+
+describe("admin: compute", () => {
+  beforeEach(() => test.reset());
+
+  it("pauses a provider once per outage and lets it go after the wait", async () => {
+    const now = new Date("2026-10-11T12:00:00Z");
+    expect(
+      await pauseProvider(db, "anthropic", "credit balance is too low", now),
+    ).toBe(true);
+    // The retry finds no credit either: the same outage, a later try.
+    const later = new Date(now.getTime() + PAUSE_MINUTES * 60_000 + 1000);
+    expect(await pauseProvider(db, "anthropic", "still too low", later)).toBe(
+      false,
+    );
+    const [pause] = await raw.select().from(schema.providerPauses);
+    expect(pause).toMatchObject({
+      provider: "anthropic",
+      since: now,
+      message: "still too low",
+    });
+    expect(await activePauses(db, later)).toHaveLength(1);
+    expect(
+      await activePauses(
+        db,
+        new Date(later.getTime() + PAUSE_MINUTES * 60_000 + 1000),
+      ),
+    ).toHaveLength(0);
+    await clearPause(db, "anthropic");
+    expect(await pauseProvider(db, "anthropic", "again", later)).toBe(true);
+  });
+
+  it("sums what each provider cost and what sponsors still have", async () => {
+    const now = new Date();
+    const accountId = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    const workUnitId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await raw.insert(schema.accounts).values({ id: accountId, name: "Acme" });
+    await raw.insert(schema.projects).values({
+      id: projectId,
+      accountId,
+      name: "app",
+      repository: "acme/app",
+    });
+    await raw.insert(schema.workUnits).values({
+      id: workUnitId,
+      projectId,
+      source: "github",
+      externalId: "1",
+      title: "A ticket",
+      url: "https://github.com/acme/app/issues/1",
+    });
+    await raw.insert(schema.agentRuns).values({
+      id: runId,
+      workUnitId,
+      status: "completed",
+      implementer: "claude-opus-5-5:high",
+      reviewer: "openai-astra",
+      uncoveredCents: 7,
+      finishedAt: now,
+    });
+    await raw.insert(schema.runModels).values([
+      {
+        agentRunId: runId,
+        role: "implementer",
+        model: "claude-opus-5-5",
+        costCents: 80,
+        costExact: true,
+      },
+      {
+        agentRunId: runId,
+        role: "reviewer",
+        model: "gpt-6-astra",
+        costCents: 30,
+      },
+    ]);
+    await raw.insert(schema.contributions).values([
+      {
+        userId: crypto.randomUUID(),
+        amountCents: 1000,
+        creditCents: 800,
+        debitedCents: 300,
+        paymentStatus: "settled",
+      },
+      {
+        userId: crypto.randomUUID(),
+        source: "direct",
+        amountCents: 500,
+        creditCents: 500,
+        paymentStatus: "settled",
+      },
+      {
+        userId: crypto.randomUUID(),
+        amountCents: 900,
+        creditCents: 700,
+        paymentStatus: "pending",
+      },
+    ]);
+    await pauseProvider(db, "openai", "insufficient_quota", now);
+
+    const summary = await computeSummary(db, now);
+    expect(summary.providers).toMatchObject([
+      {
+        provider: "anthropic",
+        pause: null,
+        todayCents: 80,
+        weekCents: 80,
+        monthCents: 80,
+        exact: true,
+      },
+      {
+        provider: "openai",
+        pause: { message: "insufficient_quota" },
+        todayCents: 30,
+        exact: false,
+      },
+    ]);
+    expect(summary.owedCents).toEqual({ stripe: 500, direct: 500, promo: 0 });
+    expect(summary.absorbedCents).toBe(7);
   });
 });

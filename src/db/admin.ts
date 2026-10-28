@@ -1,11 +1,19 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
+import type { Provider } from "../core/failures";
 import { dailyFundingSchema, type DailyFundingInput } from "../core/forms";
 import { startOfUtcDay } from "./boards";
 import type { Database } from "./client";
 import { fundDaily } from "./contributions";
 import { recordEvent } from "./events";
 import { resolveLogo } from "./images";
-import { contributions, dailyFundings, sponsorProfiles } from "./schema";
+import { listPauses, type ProviderPause } from "./pauses";
+import {
+  agentRuns,
+  contributions,
+  dailyFundings,
+  runModels,
+  sponsorProfiles,
+} from "./schema";
 
 export type { DailyFundingInput };
 
@@ -118,6 +126,94 @@ export async function updateDailyFunding(
       payload: { amountCents },
     });
   });
+}
+
+export type ProviderCompute = {
+  provider: Provider;
+  pause: Pick<ProviderPause, "since" | "until" | "message"> | null;
+  /** Compute the provider reported (Anthropic) or Yarrow priced (OpenAI). */
+  todayCents: number;
+  weekCents: number;
+  monthCents: number;
+  exact: boolean;
+};
+
+export type ComputeSummary = {
+  providers: ProviderCompute[];
+  /** Sponsor credit not spent yet: what Yarrow still owes in compute. */
+  owedCents: { stripe: number; direct: number; promo: number };
+  /** Run cost no sponsor money covered, over 30 days. */
+  absorbedCents: number;
+};
+
+const DAY = 86_400_000;
+
+/** Claude implements, OpenAI reviews (and checks clarity). */
+const roleProvider = { implementer: "anthropic", reviewer: "openai" } as const;
+
+/** The admin's view of the compute: spend per provider, pauses, what is owed. */
+export async function computeSummary(
+  db: Database,
+  now = new Date(),
+): Promise<ComputeSummary> {
+  const at = (date: Date) => sql`${date.toISOString()}::timestamptz`;
+  const day = startOfUtcDay(now);
+  const week = new Date(now.getTime() - 7 * DAY);
+  const month = new Date(now.getTime() - 30 * DAY);
+  const spent = await db
+    .select({
+      role: runModels.role,
+      today: sql<number>`coalesce(sum(${runModels.costCents}) filter (where ${runModels.createdAt} >= ${at(day)}), 0)::int`,
+      week: sql<number>`coalesce(sum(${runModels.costCents}) filter (where ${runModels.createdAt} >= ${at(week)}), 0)::int`,
+      month: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int`,
+    })
+    .from(runModels)
+    .where(gte(runModels.createdAt, month))
+    .groupBy(runModels.role);
+  const pauses = await listPauses(db);
+  const providers = (["implementer", "reviewer"] as const).map((role) => {
+    const provider = roleProvider[role];
+    const row = spent.find((line) => line.role === role);
+    const pause = pauses.find((line) => line.provider === provider);
+    return {
+      provider,
+      pause: pause
+        ? { since: pause.since, until: pause.until, message: pause.message }
+        : null,
+      todayCents: row?.today ?? 0,
+      weekCents: row?.week ?? 0,
+      monthCents: row?.month ?? 0,
+      exact: provider === "anthropic",
+    };
+  });
+
+  const owed = await db
+    .select({
+      source: contributions.source,
+      cents: sql<number>`coalesce(sum(${contributions.creditCents} - ${contributions.debitedCents}), 0)::int`,
+    })
+    .from(contributions)
+    .where(eq(contributions.paymentStatus, "settled"))
+    .groupBy(contributions.source);
+  const owedBy = (source: "stripe" | "direct" | "promo") =>
+    owed.find((line) => line.source === source)?.cents ?? 0;
+
+  const [absorbed] = await db
+    .select({
+      cents: sql<number>`coalesce(sum(${agentRuns.uncoveredCents}), 0)::int`,
+    })
+    .from(agentRuns)
+    .where(gte(agentRuns.finishedAt, month));
+
+  return {
+    providers,
+    owedCents: {
+      stripe: owedBy("stripe"),
+      direct: owedBy("direct"),
+      promo: owedBy("promo"),
+    },
+    absorbedCents: absorbed?.cents ?? 0,
+  };
 }
 
 /** Resuming the same day credits nothing more: a day is credited once. */

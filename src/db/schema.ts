@@ -350,6 +350,27 @@ export const dailyFundings = pgTable(
   (t) => [check("daily_funding_positive", sql`${t.amountCents} > 0`)],
 ).enableRLS();
 
+/**
+ * A provider that refused work because Yarrow's own account there ran out
+ * of credit. Dispatch waits until `until`, then tries again; a session that
+ * starts, or Resume in the admin, deletes the row.
+ */
+export const providerPauses = pgTable(
+  "provider_pauses",
+  {
+    provider: text("provider").primaryKey(),
+    message: text("message").notNull(),
+    since: timestamp("since", { withTimezone: true }).defaultNow().notNull(),
+    until: timestamp("until", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    check(
+      "provider_pause_provider",
+      sql`${t.provider} in ('anthropic', 'openai')`,
+    ),
+  ],
+).enableRLS();
+
 export const workUnits = pgTable(
   "work_units",
   {
@@ -458,7 +479,10 @@ export const runActivity = pgTable(
     at: timestamp("at", { withTimezone: true }).notNull(),
     actor: text("actor").notNull(), // implementer, reviewer, yarrow
     kind: text("kind").notNull(),
-    detail: jsonb("detail").$type<Record<string, unknown>>().default({}).notNull(),
+    detail: jsonb("detail")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
     externalId: text("external_id").notNull(),
     createdAt: createdAt(),
   },

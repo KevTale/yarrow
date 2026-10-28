@@ -213,6 +213,63 @@ describe("reserve and settle", () => {
     ).rejects.toThrow("exactly one pull request");
   });
 
+  it("puts the ticket back in its place when Yarrow's provider account is out of credit", async () => {
+    const [before] = await db.select().from(schema.workUnits);
+    const unpaid: RunResult = {
+      ...abstention,
+      actualCostCents: 0,
+      reason: "provider_out_of_credit",
+      summary: "Yarrow's Anthropic account ran out of credit.",
+    };
+    const request = run();
+    await ledger.reserve(request);
+    await ledger.settle(request.runId, unpaid);
+    const [after] = await db.select().from(schema.workUnits);
+    expect(after).toMatchObject({
+      status: "queued",
+      queuedAt: before!.queuedAt,
+    });
+    expect(await contribution()).toMatchObject({
+      reservedCents: 0,
+      debitedCents: 0,
+    });
+    // It runs again once the credit is back.
+    expect(await ledger.reserve(run())).toBe(800);
+  });
+
+  it("requeues a correction stopped for want of credit", async () => {
+    const first = run();
+    await ledger.reserve(first);
+    await ledger.settle(first.runId, delivered);
+    const [row] = await db
+      .insert(schema.correctionRequests)
+      .values({
+        workUnitId,
+        instruction: "Rename the button",
+        requestedBy: "owner",
+        externalCommentId: crypto.randomUUID(),
+      })
+      .returning();
+    const correction = run({
+      kind: "correction",
+      instruction: "Rename the button",
+      correctionRequestId: row!.id,
+    });
+    await ledger.reserve(correction);
+    await ledger.settle(correction.runId, {
+      ...abstention,
+      actualCostCents: 0,
+      reason: "provider_out_of_credit",
+      summary: "Yarrow's OpenAI account ran out of credit.",
+    });
+    expect(await db.select().from(schema.correctionRequests)).toMatchObject([
+      { status: "queued", agentRunId: null },
+    ]);
+    expect((await db.select().from(schema.workUnits))[0]!.status).toBe(
+      "delivered",
+    );
+  });
+
   it("rejects pending money, unauthorized or suspended work, and work already started", async () => {
     await db.update(schema.contributions).set({ paymentStatus: "pending" });
     await expect(ledger.reserve(run())).rejects.toThrow("No eligible funds");

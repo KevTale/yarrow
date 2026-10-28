@@ -91,6 +91,33 @@ describe("admin Worker", () => {
     createDailyFunding: vi.fn(async () => "id"),
     updateDailyFunding: vi.fn(async () => {}),
     pauseDailyFunding: vi.fn(async () => {}),
+    compute: vi.fn(async () => ({
+      providers: [
+        {
+          provider: "anthropic",
+          pause: {
+            since: new Date("2026-10-11T12:00:00Z"),
+            until: new Date("2026-10-11T12:30:00Z"),
+            message: "Your credit balance is <too low>",
+          },
+          todayCents: 120,
+          weekCents: 840,
+          monthCents: 2010,
+          exact: true,
+        },
+        {
+          provider: "openai",
+          pause: null,
+          todayCents: 30,
+          weekCents: 210,
+          monthCents: 500,
+          exact: false,
+        },
+      ],
+      owedCents: { stripe: 500, direct: 1000, promo: 303 },
+      absorbedCents: 7,
+    })),
+    resumeProvider: vi.fn(async () => {}),
   };
   const env = (access = true) =>
     ({
@@ -170,6 +197,29 @@ describe("admin Worker", () => {
     const bad = await post({ name: "T", amount: "0" });
     expect(bad.headers.get("location")).toMatch(/^\/\?error=/);
     expect(brain.createDailyFunding).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows each provider's spend and pause, and resumes one", async () => {
+    const page = await (
+      await admin.fetch(new Request("http://localhost:8788/"), env(false))
+    ).text();
+    expect(page).toContain("Out of credit since Oct 11, 12:00 UTC");
+    expect(page).toContain("Your credit balance is &lt;too low&gt;");
+    expect(page).toContain("≈$0.30 today");
+    expect(page).toContain("$18.03");
+    expect(page).toContain('action="/providers/anthropic/resume"');
+    expect(page).not.toContain('action="/providers/openai/resume"');
+    const resume = (provider: string) =>
+      admin.fetch(
+        new Request(`http://localhost:8788/providers/${provider}/resume`, {
+          method: "POST",
+          headers: { origin: "http://localhost:8788" },
+        }),
+        env(false),
+      );
+    expect((await resume("anthropic")).status).toBe(303);
+    expect(brain.resumeProvider).toHaveBeenCalledWith("anthropic");
+    expect((await resume("stripe")).status).toBe(404);
   });
 
   it("reads amounts in dollars", () => {

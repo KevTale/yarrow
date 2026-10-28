@@ -10,7 +10,12 @@ import {
   type AbstentionReason,
   type RunRequest,
 } from "../src/core/contracts";
-import { describeFailure, isGithubRefusal } from "../src/core/failures";
+import {
+  describeFailure,
+  isGithubRefusal,
+  outOfCredit,
+  type Provider,
+} from "../src/core/failures";
 import {
   defaultPipelineRoles,
   defaultReviewerEffort,
@@ -25,6 +30,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import { connectDatabase, type Database } from "../src/db/client";
 import {
+  computeSummary,
   createDailyFunding,
   listDailyFundings,
   pauseDailyFunding,
@@ -34,6 +40,7 @@ import {
 import { fundDaily } from "../src/db/contributions";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
+import { activePauses, clearPause, pauseProvider } from "../src/db/pauses";
 import { recordRunModels } from "../src/db/runs";
 import { recordActivity } from "../src/db/activity";
 import { agentRuns } from "../src/db/schema";
@@ -54,6 +61,7 @@ import {
   type EvidenceStore,
   type ImplementationSnapshot,
 } from "../src/runner/pipeline";
+import { sendOutOfCreditAlert } from "./alerts";
 
 export interface BrainEnv {
   WORKFLOW: Workflow<RunRequest>;
@@ -80,6 +88,11 @@ export interface BrainEnv {
   TRELLO_API_SECRET?: string;
   /** "off" pauses dispatch (kill switch) without stopping running runs. */
   DISPATCH?: string;
+  /** Where the out-of-credit alert goes; optional, like RESEND_API_KEY. */
+  ALERT_EMAIL?: string;
+  RESEND_API_KEY?: string;
+  /** Linked from the alert. */
+  ADMIN_URL?: string;
 }
 
 async function withDb<T>(
@@ -221,7 +234,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       implementer = await step.do(
         "implementer:start",
         { retries: { limit: 1, delay: "30 seconds", backoff: "constant" } },
-        () => withDb(env, (db) => pipeline(env, db).startImplementation(run)),
+        () =>
+          withDb(env, async (db) => {
+            const id = await pipeline(env, db).startImplementation(run);
+            // Anthropic took work: any pause for want of credit is over.
+            await clearPause(db, "anthropic");
+            return id;
+          }),
       );
       const implementerId = implementer;
       const implementerDone = (label: string) =>
@@ -237,9 +256,29 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           ),
         );
 
-      if ((await implementerDone("implementer:first")) !== "done")
-        throw new StopRun(
-          "provider_error",
+      // A session that ended on an error says why (no credit left, say).
+      const implementerStopped = async (
+        label: string,
+        state: string,
+        fallback: string,
+      ): Promise<Error> => {
+        const error =
+          state === "failed"
+            ? await step.do(`${label}:error`, () =>
+                withDb(env, (db) =>
+                  pipeline(env, db).implementerError(implementerId),
+                ).catch(() => null),
+              )
+            : null;
+        return error
+          ? new Error(`Anthropic session error: ${error}`)
+          : new StopRun("provider_error", fallback);
+      };
+      const implementerFirst = await implementerDone("implementer:first");
+      if (implementerFirst !== "done")
+        throw await implementerStopped(
+          "implementer:first",
+          implementerFirst,
           "The implementer session did not finish.",
         );
       let snapshot: ImplementationSnapshot =
@@ -250,9 +289,14 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         await phase("checking clarity");
         const clarityStarted = await now("clarity:started");
         const clarityId = await step.do("clarity:start", () =>
-          withDb(env, (db) =>
-            pipeline(env, db).startClarity(run, snapshot.questions),
-          ),
+          withDb(env, async (db) => {
+            const id = await pipeline(env, db).startClarity(
+              run,
+              snapshot.questions,
+            );
+            await clearPause(db, "openai");
+            return id;
+          }),
         );
         const clarity_ = { id: clarityId, seconds: null as number | null };
         reviewers.push(clarity_);
@@ -299,9 +343,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             );
           }),
         );
-        if ((await implementerDone("implementer:clarified")) !== "done")
-          throw new StopRun(
-            "provider_error",
+        const implementerClarified = await implementerDone(
+          "implementer:clarified",
+        );
+        if (implementerClarified !== "done")
+          throw await implementerStopped(
+            "implementer:clarified",
+            implementerClarified,
             "The implementer session did not finish.",
           );
         snapshot = await readImplementation("implementer:read:2");
@@ -317,9 +365,15 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         await phase(round === 1 ? "reviewing" : "re-reviewing");
         const started = await now(`review:${round}:started`);
         const reviewerId = await step.do(`review:${round}:start`, () =>
-          withDb(env, (db) =>
-            pipeline(env, db).startReview(run, implementerId, snapshot),
-          ),
+          withDb(env, async (db) => {
+            const id = await pipeline(env, db).startReview(
+              run,
+              implementerId,
+              snapshot,
+            );
+            await clearPause(db, "openai");
+            return id;
+          }),
         );
         const reviewer = { id: reviewerId, seconds: null as number | null };
         reviewers.push(reviewer);
@@ -358,8 +412,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             );
           }),
         );
-        if ((await implementerDone("implementer:fix")) !== "done")
-          throw new StopRun("provider_error", "The fix round did not finish.");
+        const implementerFixed = await implementerDone("implementer:fix");
+        if (implementerFixed !== "done")
+          throw await implementerStopped(
+            "implementer:fix",
+            implementerFixed,
+            "The fix round did not finish.",
+          );
         snapshot = await readImplementation("implementer:read:fix");
         finalReview = await review(2);
         rounds = 2;
@@ -426,10 +485,12 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           : describeFailure(raw, paths);
       const implementerId = implementer;
       const reviewerRuns = [...reviewers];
+      const unpaid =
+        failure.reason === "provider_out_of_credit" ? outOfCredit(raw) : null;
       // What must not be lost first, in as few requests as possible: the
       // real cost and the stop. A run that failed may have spent most of
       // its invocation's subrequests already.
-      await step.do("abstain", () =>
+      const newPause = await step.do("abstain", () =>
         withDb(env, async (db) => {
           const ledger = new PostgresLedger(db);
           const usage = await pipeline(env, db)
@@ -451,8 +512,16 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             summary: failure.summary.slice(0, 2000),
             evidence: [],
           });
+          // The ticket went back to the queue; dispatch waits for credit.
+          return unpaid ? pauseProvider(db, unpaid, raw) : false;
         }),
       );
+      if (unpaid && newPause)
+        await step.do("abstain:alert", () =>
+          sendOutOfCreditAlert(env, unpaid, raw).catch((error: Error) =>
+            console.warn("alert", error.message),
+          ),
+        );
       // Then the extras, which never fail the run: the feed, the board.
       await step.do("abstain:after", () =>
         withDb(env, async (db) => {
@@ -463,10 +532,12 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             phase: "abstained",
             text: failure.summary.slice(0, 2000),
           });
-          // The board follows the builder's choice for stopped tickets.
-          await pipeline(env, db)
-            .moveRunTicket(runId, "stopped")
-            .catch(() => {});
+          // The board follows the builder's choice for stopped tickets; a
+          // ticket back in the queue has not stopped.
+          if (!unpaid)
+            await pipeline(env, db)
+              .moveRunTicket(runId, "stopped")
+              .catch(() => {});
         }).catch((error: Error) =>
           console.warn("abstain:after", error.message),
         ),
@@ -500,11 +571,22 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
   return withDb(env, async (db) => {
     const log: string[] = [];
     const ledger = new PostgresLedger(db);
-    const { candidates, state } = await loadDispatch(db, {
-      perAccountLimit: PER_ACCOUNT_CONCURRENCY,
-      globalLimit: 20,
-    });
-    for (const item of planDispatch(candidates, state)) {
+    // A provider out of credit: nothing new starts until it is retried or
+    // resumed; the queue keeps its order.
+    const paused = await activePauses(db);
+    for (const pause of paused)
+      log.push(
+        `dispatch paused: ${pause.provider} out of credit until ${pause.until.toISOString()}`,
+      );
+    let plan: ReturnType<typeof planDispatch> = [];
+    if (paused.length === 0) {
+      const { candidates, state } = await loadDispatch(db, {
+        perAccountLimit: PER_ACCOUNT_CONCURRENCY,
+        globalLimit: 20,
+      });
+      plan = planDispatch(candidates, state);
+    }
+    for (const item of plan) {
       const runId = crypto.randomUUID();
       const request: RunRequest =
         item.kind === "implementation"
@@ -611,6 +693,12 @@ async function reviveDeadRun(
     summary: failure.summary,
     evidence: [],
   });
+  const unpaid =
+    failure.reason === "provider_out_of_credit" ? outOfCredit(raw) : null;
+  if (unpaid && (await pauseProvider(db, unpaid, raw)))
+    await sendOutOfCreditAlert(env, unpaid, raw).catch((error: Error) =>
+      console.warn("alert", error.message),
+    );
   return [`abstained dead run ${runId}`];
 }
 
@@ -724,6 +812,18 @@ export class Admin extends WorkerEntrypoint<BrainEnv> {
   }
   pauseDailyFunding(userId: string, paused: boolean) {
     return withDb(this.env, (db) => pauseDailyFunding(db, userId, paused));
+  }
+  compute() {
+    return withDb(this.env, (db) => computeSummary(db));
+  }
+  /** Topped up: dispatch goes on at once instead of at the next retry. */
+  async resumeProvider(provider: Provider): Promise<void> {
+    await withDb(this.env, (db) => clearPause(db, provider));
+    this.ctx.waitUntil(
+      tick(this.env, true).catch((error) =>
+        console.warn("resume", describe(error)),
+      ),
+    );
   }
 }
 

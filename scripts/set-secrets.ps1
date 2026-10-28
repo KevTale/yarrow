@@ -47,7 +47,7 @@ if ($Jira) { Add-Jira } else {
   if ((Read-Host "Is Stripe Tax active in this Stripe account? (y/N)") -eq "y") { Add STRIPE_TAX "on" -Web }
   Add GITHUB_APP_ID (Read-Host "GitHub App ID (a number)") -Web -Brain
   Add GITHUB_APP_WEBHOOK_SECRET (Read-Secret "GitHub App webhook secret") -Web
-  Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web
+  Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web -Brain
   Add SUPABASE_SECRET_KEY (Read-Secret "Supabase secret key (Settings > API Keys > Secret keys, sb_secret_...)") -Web
   $pem = Read-Host "Path to the GitHub App private key (.pem)"
   if ($pem) { Add GITHUB_APP_PRIVATE_KEY ((Get-Content -Raw $pem.Trim('"')).Trim()) -Web -Brain }

@@ -126,7 +126,7 @@ The leaderboard is the game layer on top.
 
 ### Admin
 
-Decided 2026-10-10: a separate Worker, `workers/admin.ts`, on admin.yarrow.run (admin-dev.yarrow.run for dev), rather than a route of the web app, so that nothing of it is reachable from the public site. Cloudflare Access stands in front (Zero Trust team `aged-lake-dc6c`, one application per domain, the founder's email only, by an emailed code or the Cloudflare login, sessions of 30 days, strict same-site cookie); the Worker checks Access's signed token itself as well (issuer, audience, expiry, email) and answers 404 to anything else, and refuses forms posted from another origin. It holds no secret: every read and write goes through the brain's `Admin` entrypoint over a service binding. A server-rendered page, no client bundle. For now it holds the daily fundings only; moderation, project suspension, failed runs and refunds come when they are needed.
+Decided 2026-10-10: a separate Worker, `workers/admin.ts`, on admin.yarrow.run (admin-dev.yarrow.run for dev), rather than a route of the web app, so that nothing of it is reachable from the public site. Cloudflare Access stands in front (Zero Trust team `aged-lake-dc6c`, one application per domain, the founder's email only, by an emailed code or the Cloudflare login, sessions of 30 days, strict same-site cookie); the Worker checks Access's signed token itself as well (issuer, audience, expiry, email) and answers 404 to anything else, and refuses forms posted from another origin. It holds no secret: every read and write goes through the brain's `Admin` entrypoint over a service binding. A server-rendered page, no client bundle. One page: **Compute** (decided 2026-10-11), each provider's spend today, over 7 and 30 days (Anthropic as reported, OpenAI priced by Yarrow, marked ≈), its pause with the provider's words and Resume, the sponsor credit left by source (card, direct, promo) and the run cost no sponsor money covered over 30 days; then the daily fundings. Moderation, project suspension, failed runs and refunds come when they are needed.
 - Outreach order:
   1. a working demo on real projects (the founder's own and friends') with real PRs;
   2. individuals from the founder's network;
@@ -163,6 +163,10 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
 - **Right of withdrawal:** EU consumers must give explicit consent to immediate start and acknowledge losing the 14-day withdrawal right before checkout. On the landing it is the second box of the payment dialog, "Compute starts right away: I give up my 14-day withdrawal right", beside "I have read and agree to the Terms of Service of yarrow.run".
 - Compute credit is non-refundable as cash. Reserve before a run, debit actual cost, release the rest.
 - USD only for now, integer cents.
+- **Provider credit** (decided 2026-10-11). Sponsor credit is money Yarrow owes in compute; the compute itself is prepaid on Yarrow's own Anthropic and OpenAI accounts, and Stripe pays sponsor money out days after the providers charge. So:
+  - both accounts reload themselves (the providers' own auto-reload, on the company card, with a monthly cap), set in their consoles, not in Yarrow;
+  - when a provider still refuses for want of credit (Anthropic: "credit balance is too low", "API usage limits"; OpenAI: `insufficient_quota`), the run stops as `provider_out_of_credit`: the ticket goes back to the queue in its place (or the correction request, for a correction), it does not move to "stopped" on the builder's board, and its real cost, usually nothing, is charged as for any stop;
+  - dispatch pauses (`provider_pauses`, one row per provider) and tries again every 30 minutes; a session that starts at that provider, or Resume in the admin, ends the pause. The founder gets one email per outage (Resend, from the brain, to `ALERT_EMAIL`).
 
 ## Work unit selection
 

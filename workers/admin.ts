@@ -73,11 +73,15 @@ export default {
     if (!(await authorized(request, env))) return notFound();
 
     if (request.method === "GET" && url.pathname === "/") {
-      const fundings = await env.BRAIN.dailyFundings();
+      const [fundings, compute] = await Promise.all([
+        env.BRAIN.dailyFundings(),
+        env.BRAIN.compute(),
+      ]);
       return new Response(
         adminPage({
           appUrl: env.APP_URL,
           fundings,
+          compute,
           error: url.searchParams.get("error"),
         }),
         {
@@ -95,6 +99,18 @@ export default {
     // Forms are only posted from this page.
     if (request.headers.get("origin") !== url.origin)
       return new Response("Forbidden", { status: 403 });
+
+    const resume = /^\/providers\/(anthropic|openai)\/resume$/.exec(
+      url.pathname,
+    );
+    if (resume) {
+      try {
+        await env.BRAIN.resumeProvider(resume[1] as "anthropic" | "openai");
+        return home();
+      } catch (error) {
+        return home(error instanceof Error ? error.message : String(error));
+      }
+    }
 
     const match =
       /^\/fundings(?:\/([0-9a-f-]{36}))?(?:\/(pause|resume))?$/.exec(

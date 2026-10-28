@@ -23,3 +23,6 @@ JIRA_CLIENT_ID=
 JIRA_CLIENT_SECRET=
 TRELLO_API_KEY=
 TRELLO_API_SECRET=
+
+# Optional: the out-of-credit alert to ALERT_EMAIL. Same key as the web Worker.
+RESEND_API_KEY=

@@ -1,4 +1,9 @@
-import type { DailyFundingRow } from "../src/db/admin";
+import { providerName } from "../src/core/failures";
+import type {
+  ComputeSummary,
+  DailyFundingRow,
+  ProviderCompute,
+} from "../src/db/admin";
 
 /** Every value printed in the page goes through here. */
 export function escape(value: string | number | null | undefined): string {
@@ -11,8 +16,12 @@ export function escape(value: string | number | null | undefined): string {
   );
 }
 
+// Whole dollars stay whole ($15); cents always show two digits ($0.30).
 const dollars = (cents: number) =>
-  `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  `$${(cents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: cents % 100 ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
 
 const domain = (url: string | null) => {
   if (!url) return "";
@@ -84,12 +93,71 @@ function fundingRow(appUrl: string, row: DailyFundingRow) {
   </li>`;
 }
 
+const time = (date: Date) =>
+  `${new Date(date).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  })} UTC`;
+
+function providerRow(row: ProviderCompute) {
+  const spend = (cents: number) => `${row.exact ? "" : "≈"}${dollars(cents)}`;
+  const { pause } = row;
+  const waiting = pause && new Date(pause.until) > new Date();
+  const state = !pause
+    ? `<span class="ok">Running</span>`
+    : `<span class="alert">Out of credit since ${time(pause.since)}</span>
+        <span class="muted">${waiting ? `Next try ${time(pause.until)}` : "Trying again"}</span>`;
+  return `
+  <li class="row${pause ? " alerting" : ""}">
+    <div class="view">
+      <div class="who">
+        <strong>${providerName[row.provider]}</strong>
+        ${state}
+      </div>
+      <div class="numbers">
+        <strong>${spend(row.todayCents)} today</strong>
+        <span class="muted">${spend(row.weekCents)} 7 days · ${spend(row.monthCents)} 30 days</span>
+      </div>
+      ${
+        pause
+          ? `<div class="actions">
+        <form method="post" action="/providers/${row.provider}/resume"><button>Resume</button></form>
+      </div>`
+          : ""
+      }
+    </div>
+    ${pause ? `<p class="muted said">${escape(pause.message)}</p>` : ""}
+  </li>`;
+}
+
+function owedRow(compute: ComputeSummary) {
+  const { stripe, direct, promo } = compute.owedCents;
+  return `
+  <li class="row">
+    <div class="view">
+      <div class="who">
+        <strong>Sponsor credit left</strong>
+        <span class="muted">Card ${dollars(stripe)} · Direct ${dollars(direct)} · Promo ${dollars(promo)}</span>
+      </div>
+      <div class="numbers">
+        <strong>${dollars(stripe + direct + promo)}</strong>
+        <span class="muted">${dollars(compute.absorbedCents)} absorbed · 30 days</span>
+      </div>
+    </div>
+  </li>`;
+}
+
 export function adminPage(input: {
   appUrl: string;
   fundings: DailyFundingRow[];
+  compute: ComputeSummary;
   error: string | null;
 }): string {
-  const { appUrl, fundings, error } = input;
+  const { appUrl, fundings, compute, error } = input;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -108,8 +176,13 @@ export function adminPage(input: {
     <a class="brand" href="${escape(appUrl)}">Yarrow</a>
     <span class="muted">admin</span>
   </header>
-  <h1>Daily fundings</h1>
   ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ""}
+  <h1>Compute</h1>
+  <ul class="rows">
+    ${compute.providers.map(providerRow).join("")}
+    ${owedRow(compute)}
+  </ul>
+  <h1>Daily fundings</h1>
   <ul class="rows">
     ${fundings.map((row) => fundingRow(appUrl, row)).join("")}
     <li class="row new">
@@ -139,8 +212,12 @@ main { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
 header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 40px; }
 .brand { font: 500 20px Jost, sans-serif; color: var(--text); text-decoration: none; }
 h1 { font: 500 28px Jost, sans-serif; margin: 0 0 20px; }
+.rows + h1 { margin-top: 48px; }
 .muted { color: var(--muted); }
 .ok { color: var(--green); }
+.alert { color: var(--red); }
+.row.alerting { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.said { margin: 10px 0 0; font-size: 13px; overflow-wrap: anywhere; }
 .error { color: var(--red); margin: 0 0 16px; }
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .row { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }

@@ -33,6 +33,9 @@ export const abstentionReasonSchema = z.enum([
   "policy_violation",
   // Anthropic or OpenAI failed.
   "provider_error",
+  // Yarrow's own account at Anthropic or OpenAI ran out of credit: the
+  // ticket goes back to the queue and dispatch pauses.
+  "provider_out_of_credit",
   // GitHub refused a write: a permission the app lacks, out of reach.
   "github_refused",
   // Yarrow itself failed (Cloudflare, the database).

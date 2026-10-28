@@ -14,7 +14,11 @@ import {
 } from "../../src/core/forms";
 import { amountCentsSchema, money } from "../../src/core/packs";
 import { prCardSvg, shortSite } from "../../src/core/pr-card";
-import { describeFailure, isGithubRefusal } from "../../src/core/failures";
+import {
+  describeFailure,
+  isGithubRefusal,
+  outOfCredit,
+} from "../../src/core/failures";
 import { defaultPipelineRoles } from "../../src/core/pipeline";
 import {
   estimateBreakdown,
@@ -530,6 +534,35 @@ describe("run failures", () => {
       reason: "platform_error",
       summary:
         "Yarrow stopped on an internal error before the pull request could open.",
+    });
+  });
+  it("tells Yarrow's empty provider accounts from other provider errors", () => {
+    const anthropic =
+      'Anthropic POST /sessions failed (400): {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}';
+    const limit =
+      "Anthropic session error: You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.";
+    const openai =
+      'OpenAI POST / failed (429): {"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota","code":"insufficient_quota"}}';
+    expect(outOfCredit(anthropic)).toBe("anthropic");
+    expect(outOfCredit(`NonRetryableError: ${limit}`)).toBe("anthropic");
+    expect(outOfCredit(openai)).toBe("openai");
+    expect(
+      outOfCredit(
+        'OpenAI POST / failed (429): {"error":{"type":"requests","code":"rate_limit_exceeded"}}',
+      ),
+    ).toBeNull();
+    expect(
+      outOfCredit(
+        'Anthropic POST /sessions failed (403): {"type":"forbidden"}',
+      ),
+    ).toBeNull();
+    // A sponsor's ticket that mentions billing is not Yarrow's account.
+    expect(
+      outOfCredit("GitHub POST /repos/a/b failed (422): quota"),
+    ).toBeNull();
+    expect(describeFailure(openai)).toEqual({
+      reason: "provider_out_of_credit",
+      summary: expect.stringContaining("OpenAI account ran out of credit"),
     });
   });
 });

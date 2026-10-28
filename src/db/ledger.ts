@@ -321,14 +321,28 @@ export class PostgresLedger {
             branch: result.branch,
           });
       }
+      // Yarrow's own account ran dry: not the ticket's fault, it keeps its
+      // place in the queue (same queued_at) for when the credit is back.
+      const requeue =
+        result.outcome === "abstained" &&
+        result.reason === "provider_out_of_credit";
       if (run.kind === "implementation")
         await tx
           .update(workUnits)
           .set({
             status:
-              result.outcome === "pull_request" ? "delivered" : "abstained",
+              result.outcome === "pull_request"
+                ? "delivered"
+                : requeue
+                  ? "queued"
+                  : "abstained",
           })
           .where(eq(workUnits.id, run.workUnitId));
+      else if (requeue)
+        await tx
+          .update(correctionRequests)
+          .set({ status: "queued", agentRunId: null })
+          .where(eq(correctionRequests.agentRunId, runId));
       await recordEvent(tx, {
         type: "run.finished",
         workUnitId: run.workUnitId,

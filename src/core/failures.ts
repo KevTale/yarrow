@@ -21,6 +21,38 @@ export function isGithubRefusal(message: string): boolean {
   return status === 401 || status === 403 || status === 404 || status === 422;
 }
 
+export type Provider = "anthropic" | "openai";
+
+export const providerName: Record<Provider, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+};
+
+/**
+ * The provider whose answer says Yarrow's own account there has no credit
+ * left (a prepaid balance spent, a spend limit reached), or null. Anthropic
+ * answers "Your credit balance is too low…" or "You have reached your
+ * specified API usage limits…"; OpenAI answers `insufficient_quota`.
+ */
+export function outOfCredit(message: string): Provider | null {
+  const text = bare(message);
+  if (
+    /^Anthropic /.test(text) &&
+    /credit balance is too low|billing_error|api usage limits|spend limit/i.test(
+      text,
+    )
+  )
+    return "anthropic";
+  if (
+    /^OpenAI /.test(text) &&
+    /insufficient_quota|billing_hard_limit_reached|exceeded your current quota/i.test(
+      text,
+    )
+  )
+    return "openai";
+  return null;
+}
+
 /**
  * Why a run stopped, from the error it stopped on, in words a builder can act
  * on. `paths` are the files the run changed: a refused write under
@@ -46,6 +78,12 @@ export function describeFailure(
       reason: "github_refused",
       summary:
         "GitHub refused the change: the repository or the branch is out of the Yarrow app's reach.",
+    };
+  const unpaid = outOfCredit(message);
+  if (unpaid)
+    return {
+      reason: "provider_out_of_credit",
+      summary: `Yarrow's ${providerName[unpaid]} account ran out of credit. The ticket is back in the queue and starts again once it is topped up.`,
     };
   if (/^(Anthropic|OpenAI) /.test(bare(message)))
     return { reason: "provider_error", summary: bare(message) };
