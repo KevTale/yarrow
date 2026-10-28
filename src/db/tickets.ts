@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import {
   bareTitle,
   phaseStatus,
   runModelsView,
   ticketIdentity,
+  type PaidBy,
   type ReviewRow,
   type TicketModel,
   type TicketRow,
@@ -14,10 +15,13 @@ import { recordEvent } from "./events";
 import { MAX_GITHUB_TASK_ATTEMPTS } from "./github-tasks";
 import {
   agentRuns,
+  contributions,
   githubTasks,
   pullRequests,
   results,
+  runFundings,
   runModels,
+  sponsorProfiles,
   workUnits,
 } from "./schema";
 
@@ -25,6 +29,52 @@ const iso = (date: Date | string | null | undefined) =>
   date ? new Date(date).toISOString() : "";
 const latest = (...dates: (Date | string | null | undefined)[]) =>
   dates.map(iso).sort().at(-1) ?? "";
+
+/**
+ * Who paid for each ticket, over all its runs (corrections included): one
+ * entry per sponsor, the largest share first, as the PR card draws them.
+ */
+async function sponsorsByUnit(
+  db: Database,
+  unitIds: string[],
+): Promise<Map<string, PaidBy[]>> {
+  const byUnit = new Map<string, PaidBy[]>();
+  if (unitIds.length === 0) return byUnit;
+  const share = sql<number>`sum(${runFundings.reservedCents} + ${runFundings.debitedCents})`;
+  const rows = await db
+    .select({
+      workUnitId: agentRuns.workUnitId,
+      name: sponsorProfiles.publicName,
+      description: sponsorProfiles.description,
+      logoUrl: sponsorProfiles.logoUrl,
+      websiteUrl: sponsorProfiles.websiteUrl,
+    })
+    .from(runFundings)
+    .innerJoin(agentRuns, eq(agentRuns.id, runFundings.agentRunId))
+    .innerJoin(contributions, eq(contributions.id, runFundings.contributionId))
+    .leftJoin(sponsorProfiles, eq(sponsorProfiles.userId, contributions.userId))
+    .where(inArray(agentRuns.workUnitId, unitIds))
+    .groupBy(
+      agentRuns.workUnitId,
+      contributions.userId,
+      sponsorProfiles.publicName,
+      sponsorProfiles.description,
+      sponsorProfiles.logoUrl,
+      sponsorProfiles.websiteUrl,
+    )
+    .orderBy(desc(share));
+  for (const { workUnitId, name, ...sponsor } of rows) {
+    const list = byUnit.get(workUnitId) ?? [];
+    // An anonymous sponsor shows nothing but that it is one.
+    list.push(
+      name
+        ? { name, ...sponsor }
+        : { name: null, description: null, logoUrl: null, websiteUrl: null },
+    );
+    byUnit.set(workUnitId, list);
+  }
+  return byUnit;
+}
 
 /**
  * The tickets Yarrow knows for a project (GitHub issues and tracker
@@ -86,6 +136,7 @@ export async function projectTickets(
         lt(githubTasks.attempts, MAX_GITHUB_TASK_ATTEMPTS),
       ),
     );
+  const paidBy = await sponsorsByUnit(db, unitIds);
   const pendingLabel = new Map<number, "label_issue" | "unlabel_issue">();
   for (const task of tasks)
     if (task.kind === "label_issue" || task.kind === "unlabel_issue")
@@ -136,6 +187,7 @@ export async function projectTickets(
       title: bareTitle(unit.title, unit.externalId),
       url: unit.url,
       status,
+      paidBy: status === "none" || status === "queued" ? [] : (paidBy.get(unit.id) ?? []),
       runId: run?.id ?? null,
       pending: settled && pending !== undefined,
       pullRequest: pull ? { number: pull.number, url: pull.url } : null,
@@ -163,6 +215,7 @@ export async function projectTickets(
         title: `#${number}`,
         url: "",
         status: "queued",
+        paidBy: [],
         runId: null,
         pending: true,
         pullRequest: null,

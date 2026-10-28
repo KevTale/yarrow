@@ -3497,7 +3497,7 @@ a.bd-review-link:hover {
 }
 .bd-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 190px 190px 80px;
+  grid-template-columns: 34px minmax(0, 1fr) 150px 180px 190px 72px;
   align-items: center;
   gap: 12px;
   padding: 0 12px;
@@ -3838,7 +3838,7 @@ button.md-name {
   }
   .bd-row {
     grid-template-columns: 26px minmax(0, 1fr) auto;
-    grid-template-areas: "c t w" "c s s" "c m m";
+    grid-template-areas: "c t w" "c s s" "c m m" "c p p";
     padding: 12px 4px;
     row-gap: 6px;
   }
@@ -3857,10 +3857,14 @@ button.md-name {
     grid-area: s;
   }
   .bd-row > :nth-child(5) {
+    grid-area: p;
+  }
+  .bd-row > :nth-child(6) {
     grid-area: w;
     align-self: start;
   }
-  .bd-row > :nth-child(3):empty {
+  .bd-row > :nth-child(3):empty,
+  .bd-row > :nth-child(5):empty {
     display: none;
   }
   .bd-title {
@@ -3976,6 +3980,76 @@ a.sd-row:hover {
 /* Header links jump to these landing sections, below the sticky header. */
 .sb {
   scroll-margin-top: 80px;
+}
+/* Paid by: the first sponsor on one line, all of them on hover. */
+.pb-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  outline: none;
+}
+.pb-cell:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.pb-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pb-text b {
+  font-weight: 500;
+  color: var(--text);
+}
+.pb-more {
+  flex: none;
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+.pb-pop {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  gap: 12px;
+  width: 290px;
+  padding: 12px 14px;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px #00000090;
+}
+.pb-sponsor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.pb-sponsor > span {
+  display: grid;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--secondary);
+}
+.pb-sponsor b {
+  font-weight: 500;
+  color: var(--text);
+}
+.pb-site {
+  font:
+    11.5px var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
 }
 .md-models.inline {
   display: inline-flex;

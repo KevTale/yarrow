@@ -80,8 +80,18 @@ interface TicketIdentity {
   updatedAt: string;
 }
 
+/** A sponsor whose money went into a ticket's runs. Null name: anonymous. */
+export interface PaidBy {
+  name: string | null;
+  description: string | null;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+}
+
 export interface TicketRow extends TicketIdentity {
   status: TicketStatus;
+  /** Every sponsor of the ticket's runs, the largest share first. */
+  paidBy: PaidBy[];
   /** The latest run, whose activity opens from the status. */
   runId: string | null;
   /** Waiting for the label to be added or removed on GitHub. */
@@ -157,6 +167,7 @@ export function mergeTickets(
     merged.push({
       ...issue,
       status: "none",
+      paidBy: [],
       runId: null,
       pending: false,
       pullRequest: null,

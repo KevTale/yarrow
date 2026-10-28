@@ -38,6 +38,7 @@ import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { ModelsCell } from "./models";
+import { PaidByCell } from "./paid-by";
 
 type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
@@ -628,6 +629,7 @@ export function BuilderView({
                       <span>Ticket</span>
                       <span>Models</span>
                       <span>Status</span>
+                      <span>Paid by</span>
                       <span className="right">Updated</span>
                     </div>
                     {shown.length === 0 && (
@@ -672,6 +674,9 @@ export function BuilderView({
                         </span>
                         <span>
                           <Status row={row} act={act} />
+                        </span>
+                        <span>
+                          <PaidByCell sponsors={row.paidBy} />
                         </span>
                         <span className="bd-when">
                           {row.updatedAt ? timeAgo(row.updatedAt) : ""}
@@ -779,6 +784,7 @@ function ReviewList({
           <span>Ticket</span>
           <span>Models</span>
           <span>Pull request</span>
+          <span>Paid by</span>
           <span className="right">Opened</span>
         </div>
         {rows.length === 0 && (
@@ -833,6 +839,9 @@ function ReviewList({
                   </a>
                 </RunHover>
               )}
+            </span>
+            <span>
+              <PaidByCell sponsors={row.paidBy} />
             </span>
             <span className="bd-when">{timeAgo(row.updatedAt)}</span>
           </div>

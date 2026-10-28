@@ -71,6 +71,69 @@ const byNumber = (rows: TicketRow[], number: number) =>
   rows.find((row) => row.number === number)!;
 
 describe("the builder's ticket table", () => {
+  it("names who paid for each ticket, the largest share first", async () => {
+    const shipped = await ticket(3);
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "delivered" })
+      .where(eq(schema.workUnits.id, shipped));
+    const first = await run(shipped, { status: "completed" });
+    const correction = await run(shipped, {
+      status: "completed",
+      kind: "correction",
+      instruction: "Rename the button",
+    });
+    const fund = async (
+      runId: string,
+      cents: number,
+      profile: { publicName: string | null; description?: string } | null,
+      userId = crypto.randomUUID(),
+    ) => {
+      if (profile)
+        await raw
+          .insert(schema.sponsorProfiles)
+          .values({ userId, ...profile })
+          .onConflictDoNothing();
+      const [contribution] = await raw
+        .insert(schema.contributions)
+        .values({
+          userId,
+          amountCents: 1000,
+          creditCents: 1000,
+          debitedCents: cents,
+          paymentStatus: "settled",
+        })
+        .returning();
+      await raw.insert(schema.runFundings).values({
+        agentRunId: runId,
+        contributionId: contribution!.id,
+        reservedCents: cents,
+        debitedCents: cents,
+      });
+      return userId;
+    };
+    const northbeam = await fund(first, 40, {
+      publicName: "Northbeam",
+      description: "Managed Postgres.",
+    });
+    await fund(first, 30, { publicName: null });
+    // The correction's money adds to the same sponsor's share.
+    await fund(correction, 20, null, northbeam);
+    await ticket(1);
+
+    const rows = await projectTickets(db, projectId);
+    expect(byNumber(rows, 3).paidBy).toEqual([
+      {
+        name: "Northbeam",
+        description: "Managed Postgres.",
+        logoUrl: null,
+        websiteUrl: null,
+      },
+      { name: null, description: null, logoUrl: null, websiteUrl: null },
+    ]);
+    expect(byNumber(rows, 1).paidBy).toEqual([]);
+  });
+
   it("shows each ticket's status, pull request and models", async () => {
     await ticket(1);
     const writing = await ticket(2);
@@ -265,6 +328,7 @@ describe("merging GitHub's open issues", () => {
       title: "Old title",
       url: "",
       status: "queued",
+      paidBy: [],
       runId: null,
       pending: true,
       pullRequest: null,
