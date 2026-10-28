@@ -38,6 +38,8 @@ export interface PanelCorrection {
  */
 export interface PanelData {
   workUnitId: string;
+  /** The run that opened the pull request: its public page is shared. */
+  runId: string | null;
   pullRequest: {
     number: number;
     url: string;
@@ -141,6 +143,7 @@ export async function pullPanel(
   const running = runs.find((run) => run.status === "running");
   return {
     workUnitId: unit.id,
+    runId: delivered?.id ?? null,
     pullRequest: pull
       ? { number: pull.number, url: pull.url, state: pull.state }
       : null,

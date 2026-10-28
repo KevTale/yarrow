@@ -2,12 +2,14 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowUp,
   ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronRight,
   CircleCheck,
   FileDiff,
   GitMerge,
   GitPullRequest,
+  Link2,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -262,6 +264,7 @@ export function PullPanel({
               draft={live?.draft ?? false}
               merged={pullRequest.state === "merged" || live?.merged === true}
               url={pullRequest.url}
+              runId={panel.runId}
               changes={
                 live ? { add: live.additions, del: live.deletions } : null
               }
@@ -274,61 +277,51 @@ export function PullPanel({
             />
           )}
 
-          {(panel.paidBy.length > 0 || panel.models.length > 0) && (
+          {panel.paidBy.length > 0 && (
             <div className="pp-paid">
-              {panel.paidBy.length > 0 && (
-                <>
-                  <span className="pp-label">Paid by</span>
-                  {panel.paidBy.map((sponsor, i) => (
-                    <SponsorLink
-                      key={i}
-                      sponsor={sponsor}
-                      className="pp-sponsor"
-                    >
-                      <Logo
-                        name={sponsor.name}
-                        url={sponsor.logoUrl}
-                        size="small"
-                      />
-                      <span>
-                        <strong>{sponsor.name ?? "Anonymous sponsor"}</strong>
-                        {sponsor.description && (
-                          <span>{sponsor.description}</span>
-                        )}
-                        {sponsor.websiteUrl && (
-                          <span className="pp-site">
-                            {domain(sponsor.websiteUrl)}
-                          </span>
-                        )}
+              <span className="pp-label">Paid by</span>
+              {panel.paidBy.map((sponsor, i) => (
+                <SponsorLink key={i} sponsor={sponsor} className="pp-sponsor">
+                  <Logo
+                    name={sponsor.name}
+                    url={sponsor.logoUrl}
+                    size="small"
+                  />
+                  <span>
+                    <strong>{sponsor.name ?? "Anonymous sponsor"}</strong>
+                    {sponsor.description && <span>{sponsor.description}</span>}
+                    {sponsor.websiteUrl && (
+                      <span className="pp-site">
+                        {domain(sponsor.websiteUrl)}
                       </span>
-                    </SponsorLink>
-                  ))}
-                </>
-              )}
-              {panel.models.length > 0 && (
-                <dl className="pp-facts">
-                  {panel.models.map((model) => (
-                    <div key={model.role}>
-                      <dt>{model.name}</dt>
-                      <dd>
-                        {model.seconds !== null &&
-                          `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
-                        {model.costExact ? "" : "≈ "}
-                        {money(model.costCents)}
-                      </dd>
-                    </div>
-                  ))}
-                  <div className="pp-total">
-                    <dt>Total</dt>
-                    <dd>
-                      {panel.totalSeconds !== null &&
-                        `${formatSeconds(panel.totalSeconds)} · `}
-                      {money(panel.totalCents)}
-                    </dd>
-                  </div>
-                </dl>
-              )}
+                    )}
+                  </span>
+                </SponsorLink>
+              ))}
             </div>
+          )}
+          {panel.models.length > 0 && (
+            <dl className="pp-facts">
+              {panel.models.map((model) => (
+                <div key={model.role}>
+                  <dt>{model.name}</dt>
+                  <dd>
+                    {model.seconds !== null &&
+                      `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
+                    {model.costExact ? "" : "≈ "}
+                    {money(model.costCents)}
+                  </dd>
+                </div>
+              ))}
+              <div className="pp-total">
+                <dt>Total</dt>
+                <dd>
+                  {panel.totalSeconds !== null &&
+                    `${formatSeconds(panel.totalSeconds)} · `}
+                  {money(panel.totalCents)}
+                </dd>
+              </div>
+            </dl>
           )}
         </aside>
       </div>
@@ -357,6 +350,7 @@ function Decisions({
   draft,
   merged,
   url,
+  runId,
   changes,
   showChanges,
   onChanges,
@@ -368,6 +362,7 @@ function Decisions({
   draft: boolean;
   merged: boolean;
   url: string;
+  runId: string | null;
   changes: { add: number; del: number } | null;
   showChanges: boolean;
   onChanges: () => void;
@@ -457,15 +452,48 @@ function Decisions({
           </span>
         )}
       </button>
-      <a className="pp-github" href={url} target="_blank" rel="noopener">
-        Open on GitHub <ArrowUpRight size={14} aria-hidden="true" />
-      </a>
+      <div className="pp-links">
+        <a className="pp-github" href={url} target="_blank" rel="noopener">
+          Open on GitHub <ArrowUpRight size={14} aria-hidden="true" />
+        </a>
+        {runId && <Share runId={runId} />}
+      </div>
       {error && (
         <p className="pp-error" role="alert">
           {error}
         </p>
       )}
     </div>
+  );
+}
+
+/** Copies the run's public page, and says so. */
+function Share({ runId }: { runId: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2_000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      className={`pp-github pp-share ${copied ? "copied" : ""}`}
+      onClick={() => {
+        const link = `${window.location.origin}/runs/${runId}`;
+        void navigator.clipboard
+          .writeText(link)
+          .then(() => setCopied(true))
+          .catch(() => window.open(link, "_blank", "noopener"));
+      }}
+    >
+      {copied ? (
+        <Check size={14} aria-hidden="true" />
+      ) : (
+        <Link2 size={14} aria-hidden="true" />
+      )}
+      <span aria-live="polite">{copied ? "Link copied" : "Share"}</span>
+    </button>
   );
 }
 

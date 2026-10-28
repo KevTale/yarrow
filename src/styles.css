@@ -7628,6 +7628,32 @@ body:has(.sb-dialog[open]) {
 .pp-github:hover {
   color: var(--text);
 }
+.pp-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pp-share {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pp-share.copied {
+  color: var(--green);
+}
+.rich-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.rich-link:hover {
+  text-decoration-color: currentColor;
+}
 .pp-label {
   font:
     11px var(--font-geist-mono),
@@ -7683,10 +7709,8 @@ a.pp-sponsor:focus-visible {
   gap: 9px;
   margin: 0;
 }
-.pp-label + .pp-facts,
-.pp-sponsor + .pp-facts {
-  padding-top: 12px;
-  border-top: 1px solid #1d2025;
+.pp-aside > .pp-facts {
+  padding: 2px 4px 0;
 }
 .pp-facts > div {
   display: flex;

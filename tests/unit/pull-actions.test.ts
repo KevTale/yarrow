@@ -250,6 +250,7 @@ describe("the builder's decisions on a pull request", () => {
     const panel = await pullPanel(db, projectId, "3");
     expect(panel).toMatchObject({
       workUnitId,
+      runId: run,
       pullRequest: { number: 4, url: pullUrl, state: "open" },
       implementation: {
         by: "Claude Opus 5.5",
