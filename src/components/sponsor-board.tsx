@@ -127,6 +127,12 @@ function useClaim(
     : null;
   // The pull requests the compute funds, at what one costs.
   const prs = fees ? pullRequestsFor(fees.creditCents, pullRequestCents) : null;
+  // What the smallest amount funds, said under the board's title.
+  const startPrs = pullRequestsFor(
+    estimateBreakdown(MIN_AMOUNT_CENTS, { vatRateBps: 0, founding: false })
+      .creditCents,
+    pullRequestCents,
+  );
 
   /** The card as the profile it saves, or an error to show. */
   function profileOf(next: CardValue) {
@@ -162,6 +168,7 @@ function useClaim(
     label,
     fees,
     prs,
+    startPrs,
     founding,
     profileOf,
     siteLogo,
@@ -278,8 +285,12 @@ export function SponsorBoard({
       <div className="sb-why">
         <h2 className="sb-why-title">Why is it free?</h2>
         <p className="sb-why-text">
-          Sponsors pay for the compute. In return, their company card ships in
-          every pull request they fund, where maintainers and reviewers see it.{" "}
+          Sponsors pay for the compute.{" "}
+          <span className="sb-gold">
+            Their company card ships in every pull request
+          </span>{" "}
+          they fund, where maintainers and reviewers see it.
+          <br />
           <button
             type="button"
             className="sb-why-more"
@@ -309,7 +320,18 @@ export function SponsorBoard({
         board={board}
         head={
           <>
-            <h2 id="sponsors-title">Sponsors</h2>
+            <div className="sb-board-title">
+              <h2 id="sponsors-title">Sponsors</h2>
+              {claim.startPrs > 0 && (
+                <p>
+                  <span className="sb-gold">
+                    {money(MIN_AMOUNT_CENTS, false)} funds ≈ {claim.startPrs}{" "}
+                    {claim.startPrs === 1 ? "PR" : "PRs"}.
+                  </span>{" "}
+                  Your company card ships in each one.
+                </p>
+              )}
+            </div>
             <PeriodTabs
               boards={claim.boards}
               period={period}
@@ -522,7 +544,7 @@ function Column({
             claim={claim}
             saver={saver}
             rank={place}
-            stats={stats}
+            stats={mine ? stats : null}
             focus={focus}
             onClaim={onClaim}
           />
@@ -650,13 +672,17 @@ function FormRow({
   onClaim: () => void;
 }) {
   const { card, setCard } = claim;
+  const claimText = !claim.valid
+    ? claim.label
+    : `${claim.sponsoring ? "Add" : "Sponsor for"} ${money(claim.cents, false)}${claim.prs ? ` · funds ≈${claim.prs} ${claim.prs === 1 ? "PR" : "PRs"}` : ""}`;
   const claimButton = (where: "inline" | "below") => (
     <button
       type="button"
       className={`sb-claim-go sb-row-claim ${where}`}
+      aria-label={`${claimText}, place #${rank}`}
       onClick={onClaim}
     >
-      Claim #{rank}
+      {claimText}
     </button>
   );
   const root = useRef<HTMLDivElement>(null);
@@ -741,7 +767,6 @@ function FormRow({
             claim={claim}
             label={claim.sponsoring ? "Dollars to add" : "Amount in dollars"}
           />
-          {claimButton("inline")}
         </span>
         <span className="sb-line">
           <input
@@ -754,7 +779,7 @@ function FormRow({
             onChange={change("description")}
             onBlur={() => void saver.commit()}
           />
-          <Funds prs={claim.prs} />
+          {claimButton("inline")}
         </span>
         <span className="sb-line">
           <input
@@ -773,10 +798,7 @@ function FormRow({
         </span>
       </span>
       {/* On phones Claim takes the whole width, under the card. */}
-      <span className="sb-claim-below">
-        {claimButton("below")}
-        <Funds prs={claim.prs} />
-      </span>
+      <span className="sb-claim-below">{claimButton("below")}</span>
       {saver.error && (
         <p className="sb-error" role="alert">
           {saver.error}
@@ -784,11 +806,6 @@ function FormRow({
       )}
     </div>
   );
-}
-
-/** Under Claim: the pull requests the amount funds. */
-function Funds({ prs }: { prs: number | null }) {
-  return <small className="sb-funds">{prs ? `funds ≈${prs} PRs` : ""}</small>;
 }
 
 /** The place, the same plain figure for every row. */

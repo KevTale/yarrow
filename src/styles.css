@@ -6329,6 +6329,10 @@ a.tk-paid:hover b {
   color: var(--secondary);
   text-wrap: pretty;
 }
+/* What sponsors get, in the board's gold. */
+.sb-gold {
+  color: var(--amber);
+}
 /* The link says what it opens; a link, not a button, to the eye. */
 .sb-why-more {
   padding: 0;
@@ -6521,6 +6525,15 @@ a.tk-paid:hover b {
 .sb-board-head h2 {
   font-size: 24px;
 }
+.sb-board-title {
+  display: grid;
+  gap: 4px;
+}
+.sb-board-title p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--secondary);
+}
 /* The rows move through `order`: the page order stays put. */
 .sb-list {
   display: flex;
@@ -6603,6 +6616,8 @@ a.sb-row-link:hover .sb-name b {
     sans-serif;
 }
 .sb-description {
+  /* A sentence, not a banner: cut before it runs under the stats. */
+  max-width: min(100%, 52ch);
   min-height: 1.4em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6680,8 +6695,25 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .logo-picker .board-logo.large {
   border: 1px dashed #454a52;
 }
+/* Fields to fill, as fields: a quiet box, warmer on hover, amber in use. */
 .sb-form-row .fund-input {
-  padding: 0;
+  padding: 2px 8px;
+  border: 1px solid #2a2d33;
+  border-radius: 7px;
+  background: #0d0e10;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.sb-form-row .fund-input:hover {
+  border-color: #3d4149;
+}
+.sb-form-row .fund-input:focus {
+  border: 1px solid #f2b544a6;
+  box-shadow: 0 0 0 3px #f2b5441a;
+}
+.sb-form-row .sb-line > .fund-input:last-child {
+  margin-left: 0;
 }
 .sb-form-row .fund-name {
   min-width: 6ch;
@@ -6722,12 +6754,9 @@ a.sb-row-link:hover .sb-site {
 .sb-form-row .sb-amount-field {
   margin-left: auto;
 }
-/* The name's line: the amount and Claim on one center line. */
-.sb-form-row .sb-line:first-child {
+/* The amount on the name's line, Claim under it on the sentence's. */
+.sb-form-row .sb-line:nth-child(-n + 2) {
   align-items: center;
-}
-.sb-form-row .sb-line > .sb-row-claim {
-  margin-left: 0;
 }
 .sb-row-claim {
   height: 30px;
