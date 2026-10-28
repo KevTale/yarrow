@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -40,6 +41,11 @@ import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integra
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -178,6 +184,7 @@ const IntegrationsTrackerConnectRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
   LegalRoute: typeof LegalRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -580,6 +600,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
   LegalRoute: LegalRoute,
   PrivacyRoute: PrivacyRoute,

@@ -40,14 +40,19 @@ export function SiteHeader({
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link to="/" aria-label="Yarrow home" className="header-brand">
-          <Brand />
-        </Link>
-        <div className="header-actions">
-          {/* The sponsors' way in: the hero speaks to builders. */}
-          <Link to="/" hash="sponsors" className="sign-in">
-            Sponsors
+        <div className="header-start">
+          <Link to="/" aria-label="Yarrow home" className="header-brand">
+            <Brand />
           </Link>
+          <nav className="header-nav" aria-label="Site">
+            {/* The sponsors' way in: the hero speaks to builders. */}
+            <Link to="/" hash="sponsors" activeOptions={{ includeHash: true }}>
+              Sponsors
+            </Link>
+            <Link to="/changelog">Changelog</Link>
+          </nav>
+        </div>
+        <div className="header-actions">
           {viewer ? (
             // uiarc's user menu: a panel from the avatar, a bottom sheet on
             // phones.
