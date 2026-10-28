@@ -99,6 +99,12 @@ function RunPage() {
           </span>
         </a>
       )}
+      {pr && run.pullRequestOpen && (
+        <p className="rp-correct">
+          Need a change? Comment <code>{run.mention}</code> on the pull request,
+          followed by what to change.
+        </p>
+      )}
       {run.status === "abstained" && (
         <StopReason reason={run.abstentionReason} summary={run.summary} />
       )}

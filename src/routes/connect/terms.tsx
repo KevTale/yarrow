@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Checkbox } from "@/components/arc/checkbox/checkbox";
 import { Spinner } from "@/components/navigation-feedback";
 import { PrSketch } from "@/components/sponsor-board";
-import { acceptTermsFn } from "@/functions/builder.functions";
+import { acceptTermsFn, getMentionFn } from "@/functions/builder.functions";
 
 /**
  * Between signing in with GitHub and installing the App, once per version
@@ -21,12 +21,14 @@ export const Route = createFileRoute("/connect/terms")({
       .refine((next) => next.startsWith("/connect/github"))
       .catch("/connect/github"),
   }),
+  loader: () => getMentionFn(),
   head: () => ({ meta: [{ title: "Connect GitHub · Yarrow" }] }),
   component: ConnectTerms,
 });
 
 function ConnectTerms() {
   const { next } = Route.useSearch();
+  const mention = Route.useLoaderData();
   const accept = useServerFn(acceptTermsFn);
   const [agreed, setAgreed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -61,6 +63,9 @@ function ConnectTerms() {
             logo: null,
           }}
         />
+        <p className="connect-terms-correct">
+          Need a change? Comment <code>{mention}</code> on the pull request.
+        </p>
         <Checkbox
           className="connect-terms-check"
           checked={agreed}

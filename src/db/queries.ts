@@ -205,6 +205,8 @@ export async function runDetail(
       evidence: results.evidence,
       review: results.review,
       artifacts: results.artifacts,
+      // Its maintainers can still ask for changes on it.
+      pullRequestOpen: sql<boolean>`exists (select 1 from ${pullRequests} where ${pullRequests.workUnitId} = ${workUnits.id} and ${pullRequests.state} = 'open')`,
     })
     .from(agentRuns)
     .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
@@ -215,10 +217,12 @@ export async function runDetail(
   const member = await isMember(db, viewerUserId, row.accountId);
   if (row.visibility === "hidden" && !member) return null;
   const detailed = member || row.visibility === "public";
-  const redacted = redactRun(row, member);
+  const { pullRequestOpen, ...rest } = row;
+  const redacted = redactRun(rest, member);
   return {
     ...redacted,
     member,
+    pullRequestOpen: member && pullRequestOpen,
     instruction: detailed ? row.instruction : null,
     summary: detailed ? row.summary : null,
     evidence: detailed ? (row.evidence ?? []) : [],

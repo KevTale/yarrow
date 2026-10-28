@@ -184,7 +184,7 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
   - each one is a normal run, funded the same way and with **no priority**;
   - it updates the same PR.
   - only a maintainer's comment that starts with the mention counts (owner, member, collaborator; never a bot);
-  - every pull request says so, in one line above the footer: "Need a change? Comment `@yarrow-run` followed by what to change…" (decided 2026-10-11).
+  - every pull request says so, in one line above the footer: "Need a change? Comment `@yarrow-run` followed by what to change…" (decided 2026-10-11); so do the run page, to the project's members while the pull request is open, and /connect/terms before GitHub. A correction's commit is titled "Correction: …".
 
   Priority processing is a candidate for a later paid offer.
 

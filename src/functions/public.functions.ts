@@ -13,6 +13,7 @@ import { currentGuest } from "@/server/guest.server";
 import { runActivityFor, runDetail } from "@/db/queries";
 import { syncRunActivity } from "@/db/activity";
 import { appEnv } from "@/server/env.server";
+import { mention } from "@/core/corrections";
 import { ManagedAgentsClient } from "@/runner/anthropic";
 import { getViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
@@ -91,5 +92,5 @@ export const getRunFn = createServerFn({ method: "GET" })
       runDetail(db, data.runId, viewer?.userId ?? null),
     );
     if (!run) throw notFound();
-    return run;
+    return { ...run, mention: mention(appEnv().GITHUB_APP_SLUG) };
   });

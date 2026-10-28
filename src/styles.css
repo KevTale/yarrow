@@ -5570,6 +5570,12 @@ button.st-back {
 .rp-pr:hover .rp-pr-open {
   border-color: #5ccb9560;
 }
+.rp-correct {
+  margin: -12px 0 0;
+  padding: 0 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
 .rp > .ra-stop {
   padding: 16px 18px;
 }
@@ -7159,6 +7165,25 @@ body:has(.sb-dialog[open]) {
   font-size: clamp(36px, 5vw, 44px);
   letter-spacing: -0.02em;
   text-align: center;
+}
+.connect-terms-correct {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  text-wrap: balance;
+}
+.connect-terms-correct code,
+.rp-correct code {
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--text);
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  user-select: all;
 }
 .connect-terms-lede {
   margin: -8px auto 0;

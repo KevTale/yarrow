@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { mention } from "@/core/corrections";
 import { logoSchema } from "@/core/forms";
 import { projectLogo } from "@/core/logos";
 import { TERMS_VERSION } from "@/core/terms";
@@ -14,6 +15,7 @@ import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
+import { appEnv } from "@/server/env.server";
 import { openIssues } from "@/server/github/issues.server";
 import {
   jiraReady,
@@ -103,6 +105,11 @@ export const acceptTermsFn = createServerFn({ method: "POST" }).handler(
     );
     return { ok: true };
   },
+);
+
+/** What maintainers comment on a Yarrow pull request to ask for a change. */
+export const getMentionFn = createServerFn({ method: "GET" }).handler(() =>
+  mention(appEnv().GITHUB_APP_SLUG),
 );
 
 /** The logo tile in the project's head: saved as soon as it is chosen. */

@@ -100,7 +100,7 @@ export function commitMessage(input: {
   correction?: string | null;
 }): string {
   const subject = input.correction
-    ? `Address review: ${input.correction.split("\n")[0]!.slice(0, 60)}`
+    ? `Correction: ${input.correction.split("\n")[0]!.slice(0, 60)}`
     : cleanTitle(input.title).slice(0, 72);
   return [
     subject,
