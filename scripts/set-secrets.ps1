@@ -2,11 +2,12 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts/set-secrets.ps1 -Target dev
 #   ... -Target dev -Jira    only the Jira app's two values
+#   ... -Target dev -Providers    only the Anthropic, OpenAI and Resend keys
 #
 # Each value is typed once, hidden, and sent to every Worker that needs it
 # through `wrangler secret bulk` on stdin: nothing is written to disk.
 # Empty answers are skipped. Run `pnpm exec wrangler login` first.
-param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira)
+param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira, [switch]$Providers)
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
@@ -29,8 +30,8 @@ function Add-Jira {
   Add JIRA_CLIENT_ID (Read-Host "Atlassian app Client ID") -Web -Brain
   Add JIRA_CLIENT_SECRET (Read-Secret "Atlassian app Secret") -Web -Brain
 }
-if ($Jira) { Add-Jira } else {
-  Add DATABASE_URL (Read-Secret "Supabase DATABASE_URL (Connect > Transaction pooler, port 6543)") -Web -Brain
+# The AI providers' platform keys, and Resend (sponsor emails, the brain's alerts).
+function Add-Providers {
   $anthropic = Read-Secret "Anthropic API key"
   Add ANTHROPIC_API_KEY $anthropic -Web -Brain
   # The brain's Claude agent lives in the key's Anthropic workspace.
@@ -41,13 +42,17 @@ if ($Jira) { Add-Jira } else {
     if (-not $brainSecrets.ContainsKey("ANTHROPIC_AGENT_ID")) { throw "The Claude agent was not created: $out" }
   }
   Add OPENAI_API_KEY (Read-Secret "OpenAI API key") -Brain
+  Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web -Brain
+}
+if ($Jira) { Add-Jira } elseif ($Providers) { Add-Providers } else {
+  Add DATABASE_URL (Read-Secret "Supabase DATABASE_URL (Connect > Transaction pooler, port 6543)") -Web -Brain
+  Add-Providers
   $stripeKey = if ($Target -eq "production") { "sk_live_..." } else { "sk_test_..." }
   Add STRIPE_SECRET_KEY (Read-Secret "Stripe secret key ($stripeKey)") -Web
   Add STRIPE_WEBHOOK_SECRET (Read-Secret "Stripe webhook signing secret (whsec_...)") -Web
   if ((Read-Host "Is Stripe Tax active in this Stripe account? (y/N)") -eq "y") { Add STRIPE_TAX "on" -Web }
   Add GITHUB_APP_ID (Read-Host "GitHub App ID (a number)") -Web -Brain
   Add GITHUB_APP_WEBHOOK_SECRET (Read-Secret "GitHub App webhook secret") -Web
-  Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web -Brain
   Add SUPABASE_SECRET_KEY (Read-Secret "Supabase secret key (Settings > API Keys > Secret keys, sb_secret_...)") -Web
   $pem = Read-Host "Path to the GitHub App private key (.pem)"
   if ($pem) { Add GITHUB_APP_PRIVATE_KEY ((Get-Content -Raw $pem.Trim('"')).Trim()) -Web -Brain }
