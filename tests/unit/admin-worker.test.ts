@@ -197,6 +197,25 @@ describe("admin Worker", () => {
     const bad = await post({ name: "T", amount: "0" });
     expect(bad.headers.get("location")).toMatch(/^\/\?error=/);
     expect(brain.createDailyFunding).toHaveBeenCalledTimes(1);
+    await post({
+      name: "Totem",
+      website: "https://totem.game",
+      amount: "12",
+      from: "05:00",
+      to: "09:30",
+    });
+    expect(brain.createDailyFunding).toHaveBeenLastCalledWith(
+      expect.objectContaining({ windowStart: 300, windowEnd: 570 }),
+    );
+    const reversed = await post({
+      name: "Totem",
+      website: "https://totem.game",
+      amount: "12",
+      from: "18:00",
+      to: "11:30",
+    });
+    expect(reversed.headers.get("location")).toMatch(/^\/\?error=/);
+    expect(brain.createDailyFunding).toHaveBeenCalledTimes(2);
   });
 
   it("shows each provider's spend and pause, and resumes one", async () => {

@@ -1,3 +1,4 @@
+import { clock, DEFAULT_WINDOW } from "../src/core/daily-funding";
 import { providerName } from "../src/core/failures";
 import type {
   ComputeSummary,
@@ -53,11 +54,19 @@ function fields(appUrl: string, row?: DailyFundingRow) {
       <input name="description" placeholder="What it does, in a sentence" maxlength="160" value="${escape(row?.description)}">
       <input name="website" type="url" placeholder="https://" pattern="https://.*" value="${escape(row?.websiteUrl)}">
     </div>
-    <label class="amount">
-      <span>$</span>
-      <input name="amount" type="number" min="1" max="10000" step="1" required value="${row ? row.amountCents / 100 : ""}">
-      <span>/ day</span>
-    </label>`;
+    <div class="when">
+      <label class="amount">
+        <span>$</span>
+        <input name="amount" type="number" min="1" max="10000" step="1" required value="${row ? row.amountCents / 100 : ""}">
+        <span>/ day</span>
+      </label>
+      <div class="window">
+        <input name="from" type="time" required aria-label="Lands from (UTC)" value="${clock(row?.windowStart ?? DEFAULT_WINDOW.start)}">
+        <span>to</span>
+        <input name="to" type="time" required aria-label="Lands until (UTC)" value="${clock(row?.windowEnd ?? DEFAULT_WINDOW.end)}">
+        <span>UTC</span>
+      </div>
+    </div>`;
 }
 
 function fundingRow(appUrl: string, row: DailyFundingRow) {
@@ -74,7 +83,8 @@ function fundingRow(appUrl: string, row: DailyFundingRow) {
       <div class="numbers">
         <strong>${dollars(row.amountCents)} / day</strong>
         <span class="muted">${dollars(row.creditedCents)} credited · ${dollars(row.spentCents)} spent</span>
-        <span class="${row.paused ? "muted" : row.creditedToday ? "ok" : "muted"}">${row.paused ? "Paused" : row.creditedToday ? "Credited today" : "Waiting for midnight UTC"}</span>
+        <span class="muted">${clock(row.windowStart)}–${clock(row.windowEnd)} UTC</span>
+        <span class="${row.paused ? "muted" : row.creditedToday ? "ok" : "muted"}">${row.paused ? "Paused" : row.creditedToday ? "Credited today" : `Lands at ${clock(row.landsAt)} UTC`}</span>
       </div>
       <div class="actions">
         <button type="button" class="line" data-edit>Edit</button>
@@ -239,6 +249,9 @@ input { width: 100%; background: var(--bg); color: var(--text); border: 1px soli
 input:focus { outline: none; border-color: var(--amber); }
 .amount { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .amount input { width: 84px; text-align: right; }
+.when { display: grid; gap: 6px; justify-items: end; }
+.window { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.window input { width: 96px; }
 button { font: inherit; font-weight: 500; border-radius: 999px; padding: 7px 16px; cursor: pointer; border: 1px solid var(--amber); background: var(--amber); color: var(--bg); }
 button.line { background: transparent; color: var(--text); border-color: var(--line); }
 button.line:hover { border-color: var(--muted); }

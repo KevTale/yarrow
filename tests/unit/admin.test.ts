@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   computeSummary,
   createDailyFunding,
@@ -13,13 +14,16 @@ import {
   PAUSE_MINUTES,
 } from "../../src/db/pauses";
 import { sponsorBoard } from "../../src/db/boards";
-import { fundDaily } from "../../src/db/contributions";
+import { fundingMinute } from "../../src/core/daily-funding";
+import { expireDailyCredit, fundDaily } from "../../src/db/contributions";
 import * as schema from "../../src/db/schema";
 import { createTestDatabase } from "./helpers/pglite";
 
 const test = await createTestDatabase();
 const { db, raw } = test;
 const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+// Lands at midnight: credited at once, whatever the hour the test runs.
+const now = { windowStart: 0, windowEnd: 0 };
 const profile = {
   publicName: "Totem",
   tagline: null,
@@ -33,7 +37,11 @@ describe("admin: daily fundings", () => {
   beforeEach(() => test.reset());
 
   it("creates a sponsor row with no account and credits today at once", async () => {
-    const userId = await createDailyFunding(db, { profile, amountCents: 1500 });
+    const userId = await createDailyFunding(db, {
+      profile,
+      amountCents: 1500,
+      ...now,
+    });
     const [row] = await listDailyFundings(db);
     expect(row).toMatchObject({
       userId,
@@ -50,10 +58,15 @@ describe("admin: daily fundings", () => {
   });
 
   it("applies a new amount from the next day", async () => {
-    const userId = await createDailyFunding(db, { profile, amountCents: 1500 });
+    const userId = await createDailyFunding(db, {
+      profile,
+      amountCents: 1500,
+      ...now,
+    });
     await updateDailyFunding(db, userId, {
       profile: { ...profile, publicName: "Totem Games" },
       amountCents: 500,
+      ...now,
     });
     await fundDaily(db);
     await fundDaily(db, tomorrow);
@@ -62,12 +75,74 @@ describe("admin: daily fundings", () => {
   });
 
   it("skips paused fundings and never credits a day twice", async () => {
-    const userId = await createDailyFunding(db, { profile, amountCents: 1000 });
+    const userId = await createDailyFunding(db, {
+      profile,
+      amountCents: 1000,
+      ...now,
+    });
     await pauseDailyFunding(db, userId, true);
     expect(await fundDaily(db, tomorrow)).toEqual([]);
     await pauseDailyFunding(db, userId, false);
     expect(await raw.select().from(schema.contributions)).toHaveLength(1);
     expect(await fundDaily(db, tomorrow)).toEqual([userId]);
+  });
+
+  it("lands each day at a minute drawn in its window", async () => {
+    const window = { windowStart: 5 * 60, windowEnd: 9 * 60 };
+    const day = new Date("2030-01-15T00:00:00Z");
+    const at = (minutes: number) => new Date(day.getTime() + minutes * 60_000);
+    const userId = await createDailyFunding(db, {
+      profile,
+      amountCents: 1000,
+      ...window,
+    });
+    const draw = fundingMinute(userId, "2030-01-15", {
+      start: window.windowStart,
+      end: window.windowEnd,
+    });
+    expect(draw).toBeGreaterThanOrEqual(300);
+    expect(draw).toBeLessThanOrEqual(540);
+    expect(await fundDaily(db, at(draw - 1))).toEqual([]);
+    expect(await fundDaily(db, at(draw))).toEqual([userId]);
+    expect(await fundDaily(db, at(draw + 5))).toEqual([]);
+    const [row] = await listDailyFundings(db, at(draw));
+    expect(row).toMatchObject({ windowStart: 300, windowEnd: 540 });
+    // Another day, another minute: not every day at the same time.
+    const days = Array.from({ length: 10 }, (_, i) =>
+      fundingMinute(userId, `2030-01-${String(16 + i)}`, {
+        start: 300,
+        end: 540,
+      }),
+    );
+    expect(new Set(days).size).toBeGreaterThan(5);
+  });
+
+  it("lets what a day left unspent expire at midnight", async () => {
+    const userId = await createDailyFunding(db, {
+      profile,
+      amountCents: 1000,
+      ...now,
+    });
+    const [credit] = await raw.select().from(schema.contributions);
+    // A run spent $3 and holds $2 for its next step.
+    await raw
+      .update(schema.contributions)
+      .set({ debitedCents: 300, reservedCents: 200 })
+      .where(eq(schema.contributions.id, credit!.id));
+    expect(await expireDailyCredit(db)).toBe(0);
+    expect(await expireDailyCredit(db, tomorrow)).toBe(500);
+    expect(await expireDailyCredit(db, tomorrow)).toBe(0);
+    // The run releases its hold: that part expires at the next pass.
+    await raw
+      .update(schema.contributions)
+      .set({ reservedCents: 0 })
+      .where(eq(schema.contributions.id, credit!.id));
+    expect(await expireDailyCredit(db, tomorrow)).toBe(200);
+    const [after] = await raw.select().from(schema.contributions);
+    expect(after).toMatchObject({ amountCents: 1000, creditCents: 300 });
+    // The boards count what was put in; the admin too.
+    const [row] = await listDailyFundings(db);
+    expect(row).toMatchObject({ userId, creditedCents: 1000, spentCents: 300 });
   });
 
   it("refuses an incomplete row", async () => {
@@ -79,6 +154,14 @@ describe("admin: daily fundings", () => {
     ).rejects.toThrow();
     await expect(
       createDailyFunding(db, { profile, amountCents: 50 }),
+    ).rejects.toThrow();
+    await expect(
+      createDailyFunding(db, {
+        profile,
+        amountCents: 1000,
+        windowStart: 600,
+        windowEnd: 300,
+      }),
     ).rejects.toThrow();
     expect(await listDailyFundings(db)).toEqual([]);
   });

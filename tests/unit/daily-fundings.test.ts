@@ -14,7 +14,10 @@ const tomorrow = new Date("2026-10-11T00:00:00Z");
 async function funded(name: string, amountCents: number) {
   const userId = crypto.randomUUID();
   await raw.insert(schema.sponsorProfiles).values({ userId, publicName: name });
-  await raw.insert(schema.dailyFundings).values({ userId, amountCents });
+  // Lands at midnight: the draw in a wider window is tested in admin.test.ts.
+  await raw
+    .insert(schema.dailyFundings)
+    .values({ userId, amountCents, windowStart: 0, windowEnd: 0 });
   return userId;
 }
 

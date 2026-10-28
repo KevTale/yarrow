@@ -37,7 +37,7 @@ import {
   updateDailyFunding,
   type DailyFundingInput,
 } from "../src/db/admin";
-import { fundDaily } from "../src/db/contributions";
+import { expireDailyCredit, fundDaily } from "../src/db/contributions";
 import { recordEvent } from "../src/db/events";
 import { PostgresLedger } from "../src/db/ledger";
 import { activePauses, clearPause, pauseProvider } from "../src/db/pauses";
@@ -896,12 +896,19 @@ export default {
       (async () => {
         const fiveMinutes =
           new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0;
-        // Today's daily fundings, before the pass that can spend them.
-        if (fiveMinutes && env.DATABASE_URL) {
-          const credited = await withDb(env, (db) => fundDaily(db)).catch(
-            (error) => [describe(error)],
-          );
-          if (credited.length) console.log("daily fundings", credited);
+        // Yesterday's unspent daily credit out, today's in as its minute
+        // comes, before the pass that can spend it.
+        if (env.DATABASE_URL) {
+          const daily = await withDb(env, async (db) => ({
+            expired: await expireDailyCredit(db),
+            credited: await fundDaily(db),
+          })).catch((error) => ({ error: describe(error) }));
+          if (
+            "error" in daily ||
+            daily.expired > 0 ||
+            daily.credited.length > 0
+          )
+            console.log("daily fundings", daily);
         }
         // The minute's pass is the safety net: a kick may be running.
         await tick(env, false);

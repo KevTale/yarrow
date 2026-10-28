@@ -1,3 +1,4 @@
+import { parseClock } from "../src/core/daily-funding";
 import { dailyFundingSchema, type DailyFundingInput } from "../src/core/forms";
 import { verifyAccessToken } from "./admin-access";
 import { adminPage } from "./admin-page";
@@ -44,6 +45,9 @@ export async function authorized(
 export function fundingFromForm(form: FormData): DailyFundingInput {
   const text = (name: string) => String(form.get(name) ?? "").trim();
   const logo = text("logo");
+  // An empty time keeps the default; one that is not a time fails the check.
+  const minute = (name: string) =>
+    text(name) ? (parseClock(text(name)) ?? -1) : undefined;
   return {
     profile: {
       publicName: text("name"),
@@ -53,11 +57,13 @@ export function fundingFromForm(form: FormData): DailyFundingInput {
       logo: logo || undefined,
     },
     amountCents: Math.round(Number(text("amount")) * 100),
+    windowStart: minute("from"),
+    windowEnd: minute("to"),
   };
 }
 
 const INVALID =
-  "Check the name (2 characters at least), the website (https) and the amount ($1 at least).";
+  "Check the name (2 characters at least), the website (https), the amount ($1 at least) and the window (from before to).";
 
 const home = (error?: string) =>
   new Response(null, {

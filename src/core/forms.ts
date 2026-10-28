@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_WINDOW, MINUTES_PER_DAY } from "./daily-funding";
 import { amountCentsSchema } from "./packs";
 
 /** Project categories, declared by owners and used by sponsors to opt out. */
@@ -125,12 +126,26 @@ export const sponsorProfileSchema = z.object({
 export type SponsorProfile = z.infer<typeof sponsorProfileSchema>;
 
 /** A sponsor the founder funds every day, as the admin edits it. */
-export const dailyFundingSchema = z.object({
-  profile: sponsorProfileSchema.extend({
-    publicName: z.string().trim().min(2).max(60),
-  }),
-  amountCents: z.number().int().min(100).max(1_000_000),
-});
+const minuteOfDay = z
+  .number()
+  .int()
+  .min(0)
+  .max(MINUTES_PER_DAY - 1);
+
+export const dailyFundingSchema = z
+  .object({
+    profile: sponsorProfileSchema.extend({
+      publicName: z.string().trim().min(2).max(60),
+    }),
+    amountCents: z.number().int().min(100).max(1_000_000),
+    // The UTC minutes between which the day's credit lands.
+    windowStart: minuteOfDay.default(DEFAULT_WINDOW.start),
+    windowEnd: minuteOfDay.default(DEFAULT_WINDOW.end),
+  })
+  .refine((funding) => funding.windowStart <= funding.windowEnd, {
+    path: ["windowEnd"],
+    error: "The window ends before it starts.",
+  });
 export type DailyFundingInput = z.input<typeof dailyFundingSchema>;
 
 export const checkoutSchema = z.object({

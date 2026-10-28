@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { fundingMinute } from "../core/daily-funding";
 import type { Provider } from "../core/failures";
 import { dailyFundingSchema, type DailyFundingInput } from "../core/forms";
 import { startOfUtcDay } from "./boards";
@@ -25,7 +26,13 @@ export type DailyFundingRow = {
   websiteUrl: string | null;
   logoUrl: string | null;
   amountCents: number;
+  /** UTC minutes between which the day's credit lands. */
+  windowStart: number;
+  windowEnd: number;
+  /** The minute today's credit lands, drawn in the window. */
+  landsAt: number;
   paused: boolean;
+  /** What was put in, every day; unspent credit expires, so this is not a balance. */
   creditedCents: number;
   spentCents: number;
   creditedToday: boolean;
@@ -48,8 +55,10 @@ export async function listDailyFundings(
       websiteUrl: sponsorProfiles.websiteUrl,
       logoUrl: sponsorProfiles.logoUrl,
       amountCents: dailyFundings.amountCents,
+      windowStart: dailyFundings.windowStart,
+      windowEnd: dailyFundings.windowEnd,
       pausedAt: dailyFundings.pausedAt,
-      creditedCents: sql<number>`(select coalesce(sum(${contributions.creditCents}), 0)::int from ${contributions} where ${direct})`,
+      creditedCents: sql<number>`(select coalesce(sum(${contributions.amountCents}), 0)::int from ${contributions} where ${direct})`,
       spentCents: sql<number>`(select coalesce(sum(${contributions.debitedCents}), 0)::int from ${contributions} where ${direct})`,
       creditedToday: sql<boolean>`exists (select 1 from ${contributions} where ${direct} and ${contributions.createdAt} >= ${startOfUtcDay(now).toISOString()}::timestamptz)`,
     })
@@ -59,21 +68,27 @@ export async function listDailyFundings(
       eq(sponsorProfiles.userId, dailyFundings.userId),
     )
     .orderBy(desc(dailyFundings.createdAt));
+  const date = startOfUtcDay(now).toISOString().slice(0, 10);
   return rows.map(({ pausedAt, ...row }) => ({
     ...row,
+    landsAt: fundingMinute(row.userId, date, {
+      start: row.windowStart,
+      end: row.windowEnd,
+    }),
     paused: pausedAt !== null,
   }));
 }
 
 /**
  * Creates the sponsor row (no account behind it: the userId is the row's
- * own) and its daily funding, then credits today at once.
+ * own) and its daily funding, credited today at once if its minute passed.
  */
 export async function createDailyFunding(
   db: Database,
   input: DailyFundingInput,
 ): Promise<string> {
-  const { profile, amountCents } = dailyFundingSchema.parse(input);
+  const { profile, amountCents, windowStart, windowEnd } =
+    dailyFundingSchema.parse(input);
   const logoUrl = await resolveLogo(db, profile.logo);
   const userId = crypto.randomUUID();
   await db.transaction(async (tx) => {
@@ -84,29 +99,36 @@ export async function createDailyFunding(
       websiteUrl: profile.websiteUrl,
       logoUrl: logoUrl ?? null,
     });
-    await tx.insert(dailyFundings).values({ userId, amountCents });
+    await tx
+      .insert(dailyFundings)
+      .values({ userId, amountCents, windowStart, windowEnd });
     await recordEvent(tx, {
       type: "admin.daily_funding_saved",
       userId,
-      payload: { amountCents, created: true },
+      payload: { amountCents, windowStart, windowEnd, created: true },
     });
   });
   await fundDaily(db);
   return userId;
 }
 
-/** Today's credit stays as it was: a new amount applies from tomorrow. */
+/**
+ * A credit already landed today stays as it was: a new amount applies from
+ * the next credit, a new window from the next draw (today's, if it has
+ * not landed yet).
+ */
 export async function updateDailyFunding(
   db: Database,
   userId: string,
   input: DailyFundingInput,
 ): Promise<void> {
-  const { profile, amountCents } = dailyFundingSchema.parse(input);
+  const { profile, amountCents, windowStart, windowEnd } =
+    dailyFundingSchema.parse(input);
   const logoUrl = await resolveLogo(db, profile.logo);
   await db.transaction(async (tx) => {
     const [funding] = await tx
       .update(dailyFundings)
-      .set({ amountCents })
+      .set({ amountCents, windowStart, windowEnd })
       .where(eq(dailyFundings.userId, userId))
       .returning({ userId: dailyFundings.userId });
     if (!funding) throw new Error("No daily funding for this sponsor.");
@@ -123,9 +145,10 @@ export async function updateDailyFunding(
     await recordEvent(tx, {
       type: "admin.daily_funding_saved",
       userId,
-      payload: { amountCents },
+      payload: { amountCents, windowStart, windowEnd },
     });
   });
+  await fundDaily(db);
 }
 
 export type ProviderCompute = {

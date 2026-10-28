@@ -1,0 +1,3 @@
+ALTER TABLE "daily_fundings" ADD COLUMN "window_start" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "daily_fundings" ADD COLUMN "window_end" integer DEFAULT 30 NOT NULL;--> statement-breakpoint
+ALTER TABLE "daily_fundings" ADD CONSTRAINT "daily_funding_window" CHECK ("daily_fundings"."window_start" >= 0 AND "daily_fundings"."window_start" <= "daily_fundings"."window_end" AND "daily_fundings"."window_end" < 1440);

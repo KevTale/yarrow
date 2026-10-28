@@ -23,6 +23,7 @@ export type EventType =
   | "contribution.created"
   | "contribution.settled"
   | "contribution.refunded"
+  | "contribution.expired"
   | "work_unit.queued"
   | "work_unit.unqueued"
   | "correction.requested"

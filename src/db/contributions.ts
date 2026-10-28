@@ -1,4 +1,5 @@
-import { eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, like, lt, sql } from "drizzle-orm";
+import { fundingMinute } from "../core/daily-funding";
 import { settleBreakdown } from "../core/pricing";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -147,23 +148,30 @@ export async function refundContribution(
 }
 
 /**
- * Each daily funding's credit for today (UTC), settled at once: no fee, no
- * tax, no margin. Idempotent: the cron runs every minute and a day is
- * credited once. Returns the users credited by this call.
+ * Each daily funding's credit for today (UTC), settled once its minute of
+ * the window has come: no fee, no tax, no margin. Idempotent: the cron runs
+ * every minute and a day is credited once. Returns the users credited by
+ * this call.
  */
 export async function fundDaily(
   db: Database,
   now = new Date(),
 ): Promise<string[]> {
   const day = startOfUtcDay(now);
-  const key = (userId: string) =>
-    `daily:${userId}:${day.toISOString().slice(0, 10)}`;
+  const date = day.toISOString().slice(0, 10);
+  const minute = Math.floor((now.getTime() - day.getTime()) / 60_000);
+  const key = (userId: string) => `daily:${userId}:${date}`;
   const fundings = await db
     .select()
     .from(dailyFundings)
     .where(isNull(dailyFundings.pausedAt));
   const credited: string[] = [];
   for (const funding of fundings) {
+    const at = fundingMinute(funding.userId, date, {
+      start: funding.windowStart,
+      end: funding.windowEnd,
+    });
+    if (minute < at) continue;
     const done = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(contributions)
@@ -195,4 +203,49 @@ export async function fundDaily(
     if (done) credited.push(funding.userId);
   }
   return credited;
+}
+
+/**
+ * A daily funding's credit is for its day: at midnight UTC what it left
+ * unspent expires, so unused days never pile up into a balance. Compute
+ * reserved by a run at work stays until the run settles; whatever it
+ * releases then expires at the next pass. Returns the cents expired.
+ */
+export async function expireDailyCredit(
+  db: Database,
+  now = new Date(),
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const spent = sql`(${contributions.reservedCents} + ${contributions.debitedCents})`;
+    const rows = await tx
+      .select({
+        id: contributions.id,
+        userId: contributions.userId,
+        unspent: sql<number>`(${contributions.creditCents} - ${spent})::int`,
+      })
+      .from(contributions)
+      .where(
+        and(
+          eq(contributions.source, "direct"),
+          like(contributions.directKey, "daily:%"),
+          lt(contributions.createdAt, startOfUtcDay(now)),
+          sql`${contributions.creditCents} > ${spent}`,
+        ),
+      )
+      .for("update");
+    let expired = 0;
+    for (const row of rows) {
+      await tx
+        .update(contributions)
+        .set({ creditCents: sql`${spent}` })
+        .where(eq(contributions.id, row.id));
+      await recordEvent(tx, {
+        type: "contribution.expired",
+        userId: row.userId,
+        payload: { expiredCents: row.unspent },
+      });
+      expired += row.unspent;
+    }
+    return expired;
+  });
 }

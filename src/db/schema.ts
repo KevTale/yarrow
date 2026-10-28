@@ -344,11 +344,20 @@ export const dailyFundings = pgTable(
   {
     userId: uuid("user_id").primaryKey(),
     amountCents: integer("amount_cents").notNull(),
+    // The day's credit lands at a minute drawn between these (UTC minutes).
+    windowStart: integer("window_start").default(0).notNull(),
+    windowEnd: integer("window_end").default(30).notNull(),
     // Paused fundings are skipped by the cron; the sponsor row stays.
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [check("daily_funding_positive", sql`${t.amountCents} > 0`)],
+  (t) => [
+    check("daily_funding_positive", sql`${t.amountCents} > 0`),
+    check(
+      "daily_funding_window",
+      sql`${t.windowStart} >= 0 AND ${t.windowStart} <= ${t.windowEnd} AND ${t.windowEnd} < 1440`,
+    ),
+  ],
 ).enableRLS();
 
 /**

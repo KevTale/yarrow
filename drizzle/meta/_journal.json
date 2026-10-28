@@ -120,6 +120,13 @@
       "when": 1791724974701,
       "tag": "0016_result_details",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791798818035,
+      "tag": "0017_daily_funding_window",
+      "breakpoints": true
     }
   ]
 }
