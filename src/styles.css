@@ -2659,11 +2659,16 @@ tbody tr:hover {
 }
 /* The second way in, under the field: "or" in gray, the action underlined. */
 .ship-alt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px 24px;
   margin: -4px 0 0;
-  padding-left: 6px;
-  text-align: left;
+  padding: 0 6px;
   font-size: 14px;
   color: var(--muted);
+}
+.ship-alt p {
+  margin: 0;
 }
 .ship-alt a {
   color: var(--secondary);
@@ -2680,8 +2685,9 @@ tbody tr:hover {
 }
 @media (max-width: 1040px) {
   .ship-alt {
-    padding-left: 0;
-    text-align: center;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
   }
 }
 .go {

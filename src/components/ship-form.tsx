@@ -116,18 +116,21 @@ export function ShipForm({ jira = false }: { jira?: boolean }) {
           time": the same connection, with nothing to paste. Jira passes
           its source, so a builder already on GitHub lands on the dashboard,
           where Jira connects. */}
-      <p className="ship-alt">
-        or{" "}
-        <a
-          href={
-            source.id === "jira"
-              ? "/connect/github?source=jira"
-              : "/connect/github"
-          }
-        >
-          connect your backlog
-        </a>
-      </p>
+      <div className="ship-alt">
+        <p>
+          or{" "}
+          <a
+            href={
+              source.id === "jira"
+                ? "/connect/github?source=jira"
+                : "/connect/github"
+            }
+          >
+            connect your backlog
+          </a>
+        </p>
+        <p className="ship-free">No API key · No card · No subscription</p>
+      </div>
     </div>
   );
 }
