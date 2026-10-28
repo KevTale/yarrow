@@ -27,9 +27,9 @@ import {
 } from "@/functions/viewer.functions";
 import { siteJsonLd } from "@/core/company";
 
-const TITLE = "Yarrow · Frontier AI for free";
+const TITLE = "Yarrow · Free pull requests from frontier AI";
 const DESCRIPTION =
-  "Paste an issue: Claude Opus and GPT Astra turn it into a pull request in minutes. Free because sponsors fund the compute, and their company names ship with every pull request.";
+  "Paste an issue: Claude Opus and GPT Astra turn it into a reviewed pull request in minutes, paid for by sponsors whose names ship with every PR.";
 
 export const Route = createRootRoute({
   loader: async () => {
@@ -68,7 +68,7 @@ export const Route = createRootRoute({
       { property: "og:image:height", content: "630" },
       {
         property: "og:image:alt",
-        content: "Yarrow: Frontier AI for free",
+        content: "Yarrow: Free pull requests from frontier AI",
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: TITLE },

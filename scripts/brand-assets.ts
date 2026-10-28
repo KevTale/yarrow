@@ -283,7 +283,10 @@ writeFileSync(
 );
 // Email clients do not show SVG: the logo for Yarrow's emails, at 2x for a 28 px height.
 async function wide(source: string, height: number): Promise<Buffer> {
-  const [, , w, h] = source.match(/viewBox="([^"]+)"/)![1]!.split(/\s+/).map(Number);
+  const [, , w, h] = source
+    .match(/viewBox="([^"]+)"/)![1]!
+    .split(/\s+/)
+    .map(Number);
   const width = Math.round((height * w!) / h!);
   await page.setViewportSize({ width, height });
   const sized = source.replace(
@@ -312,7 +315,7 @@ const ogHtml = `<!doctype html>
   .card { box-sizing: border-box; display: grid; align-content: space-between; width: 100%; height: 100%; padding: 64px 72px 60px; }
   .logo { height: 44px; }
   .logo svg { height: 100%; width: auto; display: block; }
-  h1 { margin: 0 0 22px; font: 500 112px/1 Jost, sans-serif; letter-spacing: -0.02em; }
+  h1 { margin: 0 0 26px; max-width: 13ch; font: 500 96px/1.02 Jost, sans-serif; letter-spacing: -0.02em; }
   p { margin: 0; max-width: 36ch; font-size: 34px; line-height: 1.35; color: #b4b9c3; }
   .claude { color: #e8a98d; font-weight: 500; }
   .gpt { color: #7fd6b2; font-weight: 500; }
@@ -321,8 +324,8 @@ const ogHtml = `<!doctype html>
 <body><div class="card">
   <div class="logo">${files["yarrow-logo-on-dark.svg"]}</div>
   <div>
-    <h1>Frontier AI for free</h1>
-    <p>Paste an issue: <span class="claude">Claude Opus</span> and <span class="gpt">GPT Astra</span> turn it into a <b>pull request</b>. Sponsors fund the compute.</p>
+    <h1>Free pull requests from frontier AI</h1>
+    <p>Paste an issue: <span class="claude">Claude Opus</span> and <span class="gpt">GPT Astra</span> turn it into a reviewed <b>pull request</b>, paid for by sponsors.</p>
   </div>
 </div></body>`;
 await page.setViewportSize({ width: 1200, height: 630 });

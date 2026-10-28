@@ -12,7 +12,7 @@ export function SiteFooter() {
         <span className="badge">BETA</span>
       </div>
       <div className="container footer-bottom">
-        <span>Frontier AI for free. {operatorStatement}</span>
+        <span>Free pull requests from frontier AI. {operatorStatement}</span>
         <nav aria-label="Legal" className="footer-legal">
           <Link to="/legal">Legal notice</Link>
           <Link to="/terms">Terms</Link>
