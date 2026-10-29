@@ -40,6 +40,7 @@ import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { NewTicket } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
+import { RowMenu } from "./row-menu";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
 import { setReviewCount } from "@/components/review-count";
@@ -777,6 +778,7 @@ function TicketLine({
         className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
         onAnimationEnd={onFreshEnd}
       >
+        <RowMenu row={row} />
         <button
           type="button"
           className="tix-open"

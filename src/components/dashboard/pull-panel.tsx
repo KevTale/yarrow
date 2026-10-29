@@ -1,7 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowUp,
-  Check,
   ChevronDown,
   ChevronRight,
   CircleCheck,
@@ -11,9 +10,7 @@ import {
   GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
-  Link2,
   ScanSearch,
-  Ticket,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -77,13 +74,10 @@ export function prefetchPullPanel(projectId: string, key: string): void {
 export function PullPanel({
   projectId,
   rowKey,
-  ticketUrl,
   onChanged,
 }: {
   projectId: string;
   rowKey: string;
-  /** The ticket in its tracker, beside the pull request's own link. */
-  ticketUrl?: string;
   /** The table's row moved (merged, a correction started). */
   onChanged: () => void;
 }) {
@@ -219,9 +213,6 @@ export function PullPanel({
               busy={Boolean(busy)}
               draft={live?.draft ?? false}
               merged={pullRequest.state === "merged" || live?.merged === true}
-              url={pullRequest.url}
-              ticketUrl={ticketUrl}
-              runId={panel.runId}
               changes={
                 live ? { add: live.additions, del: live.deletions } : null
               }
@@ -507,9 +498,6 @@ function Decisions({
   busy,
   draft,
   merged,
-  url,
-  ticketUrl,
-  runId,
   changes,
   showChanges,
   onChanges,
@@ -522,9 +510,6 @@ function Decisions({
   busy: boolean;
   draft: boolean;
   merged: boolean;
-  url: string;
-  ticketUrl?: string;
-  runId: string | null;
   changes: { add: number; del: number } | null;
   showChanges: boolean;
   onChanges: () => void;
@@ -615,60 +600,12 @@ function Decisions({
           </span>
         )}
       </button>
-      <div className="pp-links">
-        <a className="pp-github" href={url} target="_blank" rel="noopener">
-          <GitPullRequest size={14} aria-hidden="true" />
-          PR
-        </a>
-        {ticketUrl && (
-          <a
-            className="pp-github"
-            href={ticketUrl}
-            target="_blank"
-            rel="noopener"
-          >
-            <Ticket size={14} aria-hidden="true" />
-            Ticket
-          </a>
-        )}
-        {runId && <Share runId={runId} />}
-      </div>
       {error && (
         <p className="pp-error" role="alert">
           {error}
         </p>
       )}
     </div>
-  );
-}
-
-/** Copies the run's public page, and says so. */
-function Share({ runId }: { runId: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2_000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-  return (
-    <button
-      type="button"
-      className={`pp-github pp-share ${copied ? "copied" : ""}`}
-      onClick={() => {
-        const link = `${window.location.origin}/runs/${runId}`;
-        void navigator.clipboard
-          .writeText(link)
-          .then(() => setCopied(true))
-          .catch(() => window.open(link, "_blank", "noopener"));
-      }}
-    >
-      {copied ? (
-        <Check size={14} aria-hidden="true" />
-      ) : (
-        <Link2 size={14} aria-hidden="true" />
-      )}
-      <span aria-live="polite">{copied ? "Link copied" : "Share"}</span>
-    </button>
   );
 }
 

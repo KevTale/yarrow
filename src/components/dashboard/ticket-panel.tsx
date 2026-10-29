@@ -1,11 +1,4 @@
-import { Link } from "@tanstack/react-router";
-import {
-  Activity,
-  Play,
-  RotateCcw,
-  Ticket as TicketIcon,
-  X,
-} from "lucide-react";
+import { Play, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Markdown } from "@/components/markdown";
@@ -66,12 +59,7 @@ export function TicketPanel({
 }) {
   if (row.pullRequest)
     return (
-      <PullPanel
-        projectId={projectId}
-        rowKey={row.key}
-        ticketUrl={row.url || undefined}
-        onChanged={onChanged}
-      />
+      <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
     );
   return <TicketBrief projectId={projectId} row={row} act={act} />;
 }
@@ -105,7 +93,6 @@ function TicketBrief({
     // A ticket edited in GitHub or Jira comes back with a newer date.
   }, [projectId, row.key, row.updatedAt]);
 
-  const url = detail?.url || row.url;
   const work = workText(row.status, row.models);
   return (
     <div className="pp-grid">
@@ -130,29 +117,6 @@ function TicketBrief({
         <div className="pp-actions">
           {act && <TicketActions row={row} act={act} />}
           {work && <TextShimmer className="tp-state">{work}</TextShimmer>}
-          <div className="pp-links">
-            {url && (
-              <a
-                className="pp-github"
-                href={url}
-                target="_blank"
-                rel="noopener"
-              >
-                <TicketIcon size={14} aria-hidden="true" />
-                Ticket
-              </a>
-            )}
-            {work && row.runId && (
-              <Link
-                to="/runs/$runId"
-                params={{ runId: row.runId }}
-                className="pp-github"
-              >
-                <Activity size={14} aria-hidden="true" />
-                Run
-              </Link>
-            )}
-          </div>
         </div>
         {detail && (detail.author || detail.labels.length > 0) && (
           <p className="tp-by">

@@ -3703,6 +3703,7 @@ tbody tr:hover {
   background: #ffffff09;
 }
 .tix-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -3713,6 +3714,59 @@ tbody tr:hover {
 }
 .tix-row:hover {
   background: #ffffff06;
+}
+/* "…" in the gutter, under the group's chevron, shown with the pointer. */
+.tix-dots {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    color 0.15s,
+    background 0.15s;
+}
+.tix-row:hover .tix-dots,
+.tix-dots:focus-visible,
+.tix-dots[aria-expanded="true"] {
+  opacity: 1;
+}
+.tix-dots:hover,
+.tix-dots[aria-expanded="true"] {
+  background: var(--hover);
+  color: var(--text);
+}
+@media (hover: none) {
+  .tix-dots {
+    opacity: 1;
+  }
+}
+.row-menu {
+  position: fixed;
+  z-index: 40;
+  width: 220px;
+  padding: 6px;
+  display: grid;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-floating);
+  transform-origin: top left;
+}
+.row-menu .ps-item.copied,
+.row-menu .ps-item.copied svg {
+  color: var(--green);
 }
 .tix-item.open .tix-row:hover {
   background: none;
@@ -8111,62 +8165,6 @@ body:has(.sb-dialog[open]) {
   color: var(--green);
   font-size: 13.5px;
   font-weight: 500;
-}
-.pp-github {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 2px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.pp-github:hover {
-  color: var(--text);
-}
-/* Where else the ticket lives: one bar of equal cells under the actions. */
-.pp-links {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  overflow: hidden;
-}
-.pp-links > .pp-github {
-  justify-content: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 8px;
-  border: 0;
-  border-left: 1px solid var(--line);
-  background: none;
-  font-size: 12.5px;
-  color: var(--secondary);
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-.pp-links > .pp-github:first-child {
-  border-left: 0;
-}
-.pp-links > .pp-github:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-.pp-links > .pp-share.copied {
-  color: var(--green);
-}
-.pp-share {
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.pp-share.copied {
-  color: var(--green);
 }
 .rich-link {
   color: var(--text);
