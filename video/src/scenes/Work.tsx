@@ -5,7 +5,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Glow } from "../components/Ambience";
 import { LiveDot, ModelName } from "../components/kit";
 import { checks, issue, runSeconds } from "../story";
 import { c, clamp, ease, font } from "../theme";
@@ -148,7 +147,6 @@ export const Work: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
-      <Glow />
       {/* The run's card. */}
       <div
         style={{

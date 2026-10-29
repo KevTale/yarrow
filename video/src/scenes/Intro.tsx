@@ -7,7 +7,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Glow } from "../components/Ambience";
 import { Cursor } from "../components/kit";
 import { Spoken, wordAt } from "../components/Spoken";
 import { backlog, issue } from "../story";
@@ -194,7 +193,6 @@ export const Intro: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
-      <Glow />
       {frame < QUESTION_OUT + 10 && (
         <AbsoluteFill
           style={{ opacity: 1 - out, translate: `0 ${-60 * out}px` }}

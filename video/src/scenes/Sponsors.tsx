@@ -5,7 +5,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Glow } from "../components/Ambience";
 import { Logo, Tile } from "../components/kit";
 import { Spoken } from "../components/Spoken";
 import { board, prCostCents, sponsor, topUpCents } from "../story";
@@ -49,7 +48,6 @@ export const Sponsors: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
-      <Glow strength={0.7} />
       <div
         style={{
           position: "absolute",
