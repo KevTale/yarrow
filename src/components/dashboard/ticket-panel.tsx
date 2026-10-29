@@ -67,7 +67,12 @@ export function TicketPanel({
 }) {
   if (row.pullRequest)
     return (
-      <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
+      <PullPanel
+        projectId={projectId}
+        rowKey={row.key}
+        ticketUrl={row.url || undefined}
+        onChanged={onChanged}
+      />
     );
   return <TicketBrief projectId={projectId} row={row} act={act} />;
 }

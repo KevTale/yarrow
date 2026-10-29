@@ -3779,33 +3779,16 @@ tbody tr:hover {
   gap: 16px;
   flex: none;
 }
-/* The pull request or the ticket's state, at a set width so the columns
-   line up under their names. */
+/* What is happening to the ticket, then Start or Retry under the pointer. */
 .tix-cell {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 170px;
   min-width: 0;
-  overflow: hidden;
 }
 .tix-cell .tix-state {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-/* The columns' names, once above the groups, on the rows' grid. */
-.tix-columns {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 0 10px 0 36px;
-  margin-bottom: -4px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.tix-columns .tix-sponsor {
-  color: inherit;
-  font-size: inherit;
 }
 /* Start and Retry show on the line under the pointer, always on touch. */
 .tix-go {
@@ -3860,34 +3843,11 @@ tbody tr:hover {
 .tix-run {
   color: inherit;
 }
-.tix-pr {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--green);
-  transition: background 0.15s;
-}
-.tix-pr:hover {
-  background: var(--hover);
-}
-.tix-pr.merged {
-  color: #a99cf5;
-}
-.tix-pr.closed {
-  color: var(--muted);
-}
 .tix-sponsor {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 150px;
+  width: 210px;
   min-width: 0;
   font-size: 13px;
   color: var(--secondary);
@@ -3896,6 +3856,11 @@ tbody tr:hover {
 .tix-sponsor > span:not(.board-logo) {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.tix-sponsor > .tix-paid {
+  flex: none;
+  color: var(--muted);
+  font-size: 12.5px;
 }
 .tix-more {
   flex: none;
@@ -4202,12 +4167,6 @@ tbody tr:hover {
   margin-right: auto;
 }
 @media (max-width: 760px) {
-  .tix-columns {
-    display: none;
-  }
-  .tix-cell {
-    width: auto;
-  }
   .tix-row {
     flex-wrap: wrap;
     gap: 6px 12px;
@@ -4226,7 +4185,7 @@ tbody tr:hover {
   .tix-sponsor {
     width: auto;
   }
-  .tix-sponsor > span:not(.board-logo) {
+  .tix-sponsor > span:not(.board-logo, .tix-paid) {
     display: none;
   }
   .tix-card {
@@ -8174,8 +8133,11 @@ body:has(.sb-dialog[open]) {
 .pp-links {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.pp-links .pp-share {
+  margin-left: auto;
 }
 .pp-share {
   border: 0;

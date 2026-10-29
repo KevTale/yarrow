@@ -14,6 +14,7 @@ import {
   GitPullRequest,
   Link2,
   ScanSearch,
+  Ticket,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -77,10 +78,13 @@ export function prefetchPullPanel(projectId: string, key: string): void {
 export function PullPanel({
   projectId,
   rowKey,
+  ticketUrl,
   onChanged,
 }: {
   projectId: string;
   rowKey: string;
+  /** The ticket in its tracker, beside the pull request's own link. */
+  ticketUrl?: string;
   /** The table's row moved (merged, a correction started). */
   onChanged: () => void;
 }) {
@@ -217,6 +221,7 @@ export function PullPanel({
               draft={live?.draft ?? false}
               merged={pullRequest.state === "merged" || live?.merged === true}
               url={pullRequest.url}
+              ticketUrl={ticketUrl}
               runId={panel.runId}
               changes={
                 live ? { add: live.additions, del: live.deletions } : null
@@ -504,6 +509,7 @@ function Decisions({
   draft,
   merged,
   url,
+  ticketUrl,
   runId,
   changes,
   showChanges,
@@ -518,6 +524,7 @@ function Decisions({
   draft: boolean;
   merged: boolean;
   url: string;
+  ticketUrl?: string;
   runId: string | null;
   changes: { add: number; del: number } | null;
   showChanges: boolean;
@@ -611,8 +618,22 @@ function Decisions({
       </button>
       <div className="pp-links">
         <a className="pp-github" href={url} target="_blank" rel="noopener">
-          Open on GitHub <ArrowUpRight size={14} aria-hidden="true" />
+          <GitPullRequest size={14} aria-hidden="true" />
+          Pull request
+          <ArrowUpRight size={13} aria-hidden="true" />
         </a>
+        {ticketUrl && (
+          <a
+            className="pp-github"
+            href={ticketUrl}
+            target="_blank"
+            rel="noopener"
+          >
+            <Ticket size={14} aria-hidden="true" />
+            Ticket
+            <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+        )}
         {runId && <Share runId={runId} />}
       </div>
       {error && (

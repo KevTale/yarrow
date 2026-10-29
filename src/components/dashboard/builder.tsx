@@ -3,9 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronDown,
   ChevronRight,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
   Github,
   Play,
   Plus,
@@ -596,7 +593,6 @@ export function BuilderView({
                   </p>
                 )}
                 <div className="tix-list" ref={list} style={refColumn(matches)}>
-                  <Columns />
                   {stages.map((stage) => {
                     const shown = matches.filter(stage.test);
                     // Stopped only when a ticket is there; searching shows
@@ -846,35 +842,15 @@ function TicketLine({
 
 /** Where a ticket stands, when the group does not say it all. */
 function RowState({ row }: { row: TicketRow }) {
+  // The pull request itself is in the opened row; the line says only what
+  // is happening to it.
   if (row.pullRequest) {
-    const merged = row.status === "merged";
-    const closed = row.status === "pr_closed";
-    const Icon = merged
-      ? GitMerge
-      : closed
-        ? GitPullRequestClosed
-        : GitPullRequest;
-    const pill = (
-      <a
-        className={`tix-pr ${merged ? "merged" : closed ? "closed" : ""}`}
-        href={row.pullRequest.url}
-        target="_blank"
-        rel="noopener"
-        aria-label={`Pull request #${row.pullRequest.number}${merged ? ", merged" : closed ? ", closed" : ""}`}
-      >
-        <Icon size={13} aria-hidden="true" />#{row.pullRequest.number}
-      </a>
-    );
-    // A pull request being changed shows its model at work beside it.
     const work = workText(row.status, row.models);
-    return (
-      <>
-        {work && (
-          <TextShimmer className="tix-state working">{work}</TextShimmer>
-        )}
-        {row.runId ? <RunHover runId={row.runId}>{pill}</RunHover> : pill}
-      </>
-    );
+    if (work)
+      return <TextShimmer className="tix-state working">{work}</TextShimmer>;
+    return row.status === "pr_closed" ? (
+      <span className="tix-state">Closed</span>
+    ) : null;
   }
   if (row.status === "queued")
     return (
@@ -908,6 +884,7 @@ function Sponsor({ row }: { row: TicketRow }) {
   );
   return (
     <span className="tix-sponsor" title={`Paid by ${names.join(", ")}`}>
+      <span className="tix-paid">Paid by</span>
       <Logo name={first.name} url={first.logoUrl} size="small" />
       <span>{names[0]}</span>
       {names.length > 1 && (
@@ -953,7 +930,6 @@ function ReviewList({
     return <p className="bd-none muted">Nothing to review</p>;
   return (
     <div className="tix-list" ref={list} style={refColumn(rows)}>
-      <Columns />
       <TicketGroup
         stage="review"
         label="To review"
@@ -1010,17 +986,6 @@ function OpenRow({
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-/** What the columns on the right of every row are, said once on top. */
-function Columns() {
-  return (
-    <div className="tix-columns" aria-hidden="true">
-      <span className="tix-cell">Pull request</span>
-      <span className="tix-sponsor">Paid by</span>
-      <span className="tix-date">Created</span>
-    </div>
   );
 }
 
