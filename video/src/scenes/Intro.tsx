@@ -12,8 +12,8 @@ import { Spoken } from "../components/Spoken";
 import { issue } from "../story";
 import { c, clamp, ease, font } from "../theme";
 
-/** The field, on the 1920×1080 frame: centered, nothing above it. */
-const FIELD = { left: 380, top: 488, width: 1160, height: 104 };
+/** The field, on the 1920×1080 frame, under the spoken headline. */
+const FIELD = { left: 380, top: 560, width: 1160, height: 104 };
 const BUTTON = { x: 1388, y: FIELD.top + FIELD.height / 2 };
 
 /** The scene's beats (local frames). */
@@ -26,8 +26,8 @@ const GO_CLICK = 186;
 
 /**
  * The question, written as it is asked: what if your backlog built itself,
- * for free. Then the landing, reduced to its field: on "Paste a ticket" a
- * pointer pastes one and asks for a pull request.
+ * for free. Then the landing, its headline the line being said: on "Paste
+ * a ticket" a pointer pastes one and asks for a pull request.
  */
 export const Intro: React.FC = () => {
   const frame = useCurrentFrame();
@@ -114,20 +114,21 @@ export const Intro: React.FC = () => {
           transformOrigin: `960px ${FIELD.top + FIELD.height / 2}px`,
         }}
       >
-        {/* The header: logo centered, a hairline. */}
+        {/* The spoken line, as the page's headline. */}
         <div
           style={{
             position: "absolute",
-            inset: "0 0 auto 0",
-            height: 92,
-            borderBottom: `1px solid ${c.line}`,
-            opacity: pageIn,
+            top: 340,
+            width: "100%",
+            textAlign: "center",
+            fontFamily: font.display,
+            fontWeight: 500,
+            fontSize: 104,
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
           }}
         >
-          <Img
-            src={staticFile("yarrow-logo-on-dark.svg")}
-            style={{ position: "absolute", left: 853, top: 22, height: 48 }}
-          />
+          <Spoken line="intro" sceneFrom={0} words={[8, 13]} trim />
         </div>
         {/* The ship field: the link, then the button. */}
         <div
@@ -255,6 +256,22 @@ export const Intro: React.FC = () => {
           clicks={[PASTE_CLICK, GO_CLICK]}
         />
       </AbsoluteFill>
+      {/* The header: logo centered, a hairline; it stays put as the page leans in. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "0 0 auto 0",
+          height: 92,
+          borderBottom: `1px solid ${c.line}`,
+          background: c.bg,
+          opacity: pageIn,
+        }}
+      >
+        <Img
+          src={staticFile("yarrow-logo-on-dark.svg")}
+          style={{ position: "absolute", left: 853, top: 22, height: 48 }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };

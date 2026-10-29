@@ -13,8 +13,8 @@ import { SCENE } from "../timeline";
 
 const ROW = 124;
 /** The payment lands, then the row climbs on the music's lift (local frames). */
-const PAY = 66;
-const CLIMB = 74;
+const PAY = 132;
+const CLIMB = 140;
 
 const dollars = (cents: number) =>
   `$${Math.round(cents / 100).toLocaleString("en-US")}`;

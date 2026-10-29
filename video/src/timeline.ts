@@ -15,10 +15,10 @@ export const SCENE = {
   work: { from: s(7), duration: s(7.5) },
   dashboard: { from: s(14.5), duration: s(7.2) },
   github: { from: s(21.7), duration: s(5.3) },
-  sponsors: { from: s(27), duration: s(6) },
-  end: { from: s(33), duration: s(4.5) },
+  sponsors: { from: s(27), duration: s(6.5) },
+  end: { from: s(33.5), duration: s(4.5) },
 };
-export const TOTAL = s(37.5);
+export const TOTAL = s(38);
 
 /**
  * Where the film starts in public/music.mp3: its groove, measured at
@@ -37,7 +37,7 @@ export const VOICE_AT: Record<keyof typeof take, number> = {
   dashboard: s(15),
   card: s(22.2),
   sponsors: s(27.3),
-  end: s(33.4),
+  end: s(33.9),
 };
 
 /** In-scene beats the music and sound effects answer (frames, absolute). */
@@ -49,5 +49,5 @@ export const BEAT = {
   mergeClick: SCENE.dashboard.from + 140,
   merged: SCENE.dashboard.from + 154,
   githubClick: SCENE.dashboard.from + 192,
-  climb: SCENE.sponsors.from + 74,
+  climb: SCENE.sponsors.from + 140,
 };
