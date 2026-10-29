@@ -5,22 +5,22 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Tile } from "../components/kit";
+import { Logo, Tile } from "../components/kit";
 import { board, prCostCents, sponsor, topUpCents } from "../story";
 import { c, clamp, ease, font } from "../theme";
 
-const ROW = 112;
+const ROW = 124;
 /** The payment lands, then the row climbs on the music's lift (local frames). */
-const PAY = 82;
-const CLIMB = 90;
+const PAY = 52;
+const CLIMB = 60;
 
 const dollars = (cents: number) =>
   `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 
 /**
  * Why it is free: sponsors fund the compute. Today's board, then a new
- * payment lifts a sponsor to the top. Each row: rank, logo, name, what it
- * funded, what it paid.
+ * payment lifts a sponsor to the top. Each row: rank, logo, name over its
+ * site, what it paid over the PRs it funded.
  */
 export const Sponsors: React.FC = () => {
   const frame = useCurrentFrame();
@@ -73,7 +73,7 @@ export const Sponsors: React.FC = () => {
           Why is it free?
         </div>
         <div style={{ marginTop: 18, fontSize: 38, color: c.gold }}>
-          Sponsors fund the compute.
+          Sponsors fund the compute and show up on every PR.
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export const Sponsors: React.FC = () => {
                 top: slot(i) * ROW,
                 height: ROW,
                 display: "grid",
-                gridTemplateColumns: "56px 64px 1fr auto auto",
+                gridTemplateColumns: "56px 64px 1fr auto",
                 gap: 26,
                 alignItems: "center",
                 padding: "0 16px",
@@ -138,13 +138,8 @@ export const Sponsors: React.FC = () => {
               >
                 {rank}
               </span>
-              {row.name ? (
-                <Tile
-                  letter={row.letter}
-                  bg={row.color}
-                  size={64}
-                  radius={16}
-                />
+              {row.logo ? (
+                <Logo src={row.logo} size={64} radius={16} />
               ) : (
                 <Tile
                   letter="?"
@@ -154,54 +149,74 @@ export const Sponsors: React.FC = () => {
                   radius={16}
                 />
               )}
-              <span
-                style={{
-                  fontSize: 34,
-                  fontWeight: 600,
-                  fontStyle: row.name ? "normal" : "italic",
-                  color: row.name ? c.text : c.secondary,
-                }}
-              >
-                {row.name ?? "Anonymous sponsor"}
+              <span style={{ display: "grid" }}>
+                <span
+                  style={{
+                    fontSize: 34,
+                    lineHeight: "46px",
+                    fontWeight: 600,
+                    fontStyle: row.name ? "normal" : "italic",
+                    color: row.name ? c.text : c.secondary,
+                  }}
+                >
+                  {row.name ?? "Anonymous sponsor"}
+                </span>
+                <span
+                  style={{
+                    fontFamily: font.mono,
+                    fontSize: 22,
+                    lineHeight: "30px",
+                    color: c.muted,
+                  }}
+                >
+                  {row.site ?? " "}
+                </span>
               </span>
-              <span
-                style={{ fontFamily: font.mono, fontSize: 24, color: c.muted }}
-              >
-                {prs} PRs
-              </span>
-              <span
-                style={{
-                  position: "relative",
-                  minWidth: 110,
-                  textAlign: "right",
-                  fontFamily: font.display,
-                  fontWeight: 500,
-                  fontSize: 40,
-                  color: lit > 0.5 ? c.amber : c.text,
-                }}
-              >
-                {dollars(cents)}
-                {isSponsor && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      bottom: "100%",
-                      fontSize: 28,
-                      whiteSpace: "nowrap",
-                      color: c.amber,
-                      opacity: interpolate(
-                        frame,
-                        [PAY - 4, PAY + 2, PAY + 34, PAY + 46],
-                        [0, 1, 1, 0],
-                        clamp,
-                      ),
-                      translate: `0 ${interpolate(frame, [PAY - 4, PAY + 10], [14, 0], { ...clamp, easing: ease.enter })}px`,
-                    }}
-                  >
-                    +{dollars(topUpCents)}
-                  </span>
-                )}
+              <span style={{ display: "grid", justifyItems: "end" }}>
+                <span
+                  style={{
+                    position: "relative",
+                    fontFamily: font.display,
+                    fontWeight: 500,
+                    fontSize: 40,
+                    lineHeight: "46px",
+                    color: lit > 0.5 ? c.amber : c.text,
+                  }}
+                >
+                  {dollars(cents)}
+                  {isSponsor && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        bottom: "100%",
+                        fontSize: 28,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
+                        color: c.amber,
+                        opacity: interpolate(
+                          frame,
+                          [PAY - 4, PAY + 2, PAY + 34, PAY + 46],
+                          [0, 1, 1, 0],
+                          clamp,
+                        ),
+                        translate: `0 ${interpolate(frame, [PAY - 4, PAY + 10], [14, 0], { ...clamp, easing: ease.enter })}px`,
+                      }}
+                    >
+                      +{dollars(topUpCents)}
+                    </span>
+                  )}
+                </span>
+                <span
+                  style={{
+                    fontFamily: font.mono,
+                    fontSize: 22,
+                    lineHeight: "30px",
+                    color: c.muted,
+                  }}
+                >
+                  {prs} PRs
+                </span>
               </span>
             </div>
           );

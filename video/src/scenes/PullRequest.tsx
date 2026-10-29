@@ -22,10 +22,6 @@ const gh = {
   box: "#151b23",
 };
 
-const logo = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" fill="${sponsor.color}"/><text x="24" y="32" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="24" font-weight="600" fill="#141714">${sponsor.letter}</text></svg>`,
-)}`;
-
 /** The real card from src/core/pr-card.ts, with the story's sponsor. */
 const card = `data:image/svg+xml;utf8,${encodeURIComponent(
   prCardSvg({
@@ -34,7 +30,7 @@ const card = `data:image/svg+xml;utf8,${encodeURIComponent(
         name: sponsor.name,
         description: sponsor.description,
         site: sponsor.site,
-        logo,
+        logo: sponsor.logo,
       },
     ],
   }),

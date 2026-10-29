@@ -7,14 +7,14 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Cursor, Tile } from "../components/kit";
+import { Cursor, Logo } from "../components/kit";
 import { issue, sponsor } from "../story";
 import { c, clamp, ease, font } from "../theme";
 import { Check } from "./Work";
 
 /** The scene's beats (local frames). */
 const CHEVRON = 28;
-const HOVER_MERGE = 104;
+const HOVER_MERGE = 116;
 const LEAVE_MERGE = 152;
 const GITHUB = 196;
 
@@ -224,12 +224,7 @@ export const Dashboard: React.FC = () => {
               fontSize: 22,
             }}
           >
-            <Tile
-              letter={sponsor.letter}
-              bg={sponsor.color}
-              size={30}
-              radius={8}
-            />
+            <Logo src={sponsor.logo} size={30} radius={8} />
             {sponsor.name}
           </span>
           <span
@@ -483,12 +478,7 @@ export const Dashboard: React.FC = () => {
               <span
                 style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
               >
-                <Tile
-                  letter={sponsor.letter}
-                  bg={sponsor.color}
-                  size={48}
-                  radius={12}
-                />
+                <Logo src={sponsor.logo} size={48} radius={12} />
                 <span
                   style={{
                     display: "grid",

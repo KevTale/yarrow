@@ -50,7 +50,12 @@ export const Intro: React.FC = () => {
     clamp,
   );
   const pasted = frame >= PASTED;
-  const flash = interpolate(frame, [PASTED, PASTED + 16], [1, 0], clamp);
+  const flash = interpolate(
+    frame,
+    [PASTED - 1, PASTED, PASTED + 16],
+    [0, 1, 0],
+    clamp,
+  );
   const caret =
     frame >= PASTE_CLICK && frame < GO_CLICK && Math.floor(frame / 8) % 2 === 0;
   const hover = interpolate(frame, [128, 136], [0, 1], clamp);

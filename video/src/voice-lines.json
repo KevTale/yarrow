@@ -6,11 +6,11 @@
       "id": "intro",
       "text": "[curious, a little playful] Got an issue you never get to? [confident] Paste it into Yarrow."
     },
-    { "id": "write", "text": "[upbeat] Claude Opus writes the fix." },
+    { "id": "build", "text": "[upbeat] Claude Opus builds it." },
     { "id": "review", "text": "GPT Astra reviews it." },
     {
       "id": "dashboard",
-      "text": "[warm, relaxed] Minutes later, it's in your dashboard... reviewed, and ONE click from merged."
+      "text": "[warm, relaxed] Minutes later, it's in your dashboard... ready to be reviewed, and ONE click from merged."
     },
     {
       "id": "card",
@@ -18,7 +18,7 @@
     },
     {
       "id": "sponsors",
-      "text": "[smiling] That's why it's free. Sponsors fund the compute."
+      "text": "[smiling] That's why it's free. Sponsors fund the compute... and show up on every PR they pay for."
     },
     {
       "id": "end",

@@ -63,7 +63,7 @@ export const Check: React.FC<{ at: number; size?: number }> = ({
   );
 };
 
-/** One of the three steps: waiting, at work, or done. */
+/** One of the two steps: waiting, at work, or done. */
 const Step: React.FC<{
   from: number;
   to: number;
@@ -109,8 +109,8 @@ const Step: React.FC<{
 };
 
 /**
- * The run: Claude Opus writes the change, GPT Astra reviews it, the pull
- * request opens. The run's card on the left, the three steps on the right.
+ * The run: Claude Opus builds the change, GPT Astra reviews it, the pull
+ * request opens. The run's card on the left, the two models on the right.
  * One thing moves at a time: the code while it is written, the checks
  * while it is reviewed.
  */
@@ -225,7 +225,7 @@ export const Work: React.FC = () => {
             }}
           >
             {writing
-              ? "is writing"
+              ? "is building"
               : frame < DELIVER
                 ? "is reviewing"
                 : "Opening the PR"}
@@ -341,7 +341,7 @@ export const Work: React.FC = () => {
         style={{
           position: "absolute",
           left: 1130,
-          top: 360,
+          top: 440,
           display: "grid",
           gap: 50,
         }}
@@ -351,7 +351,7 @@ export const Work: React.FC = () => {
             <ModelName model="claude" sheenAt={WRITE + 6}>
               Claude Opus
             </ModelName>{" "}
-            writes
+            builds
           </span>
         </Step>
         <Step from={REVIEW} to={APPROVED}>
@@ -361,9 +361,6 @@ export const Work: React.FC = () => {
             </ModelName>{" "}
             reviews
           </span>
-        </Step>
-        <Step from={DELIVER} to={9999}>
-          <span>The PR opens</span>
         </Step>
       </div>
     </AbsoluteFill>

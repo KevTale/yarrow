@@ -11,10 +11,10 @@ import { BEAT, FPS, MUSIC_OFFSET, SCENE, take, VOICE_AT } from "./timeline";
 type LineId = keyof typeof take;
 const lines = Object.keys(VOICE_AT) as LineId[];
 
-/** A line's span in the take, in frames: a breath before, its tail after. */
+/** A line's span in the take, in frames: its cuts already sit in silence. */
 const span = (id: LineId) => ({
-  from: Math.max(0, Math.floor(take[id].start * FPS) - 2),
-  to: Math.ceil(take[id].end * FPS) + 6,
+  from: Math.round(take[id].start * FPS),
+  to: Math.round(take[id].end * FPS),
 });
 
 /** Frames where the voice speaks, for the music to step back. */

@@ -1,4 +1,10 @@
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  Img,
+  interpolate,
+  spring,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { c, clamp, ease, font } from "../theme";
 
 /** A model's name in its maker's colors, the sheen passing on the frame. */
@@ -224,4 +230,16 @@ export const Tile: React.FC<{
   >
     {letter}
   </span>
+);
+
+/** A sponsor's logo (a data URI from src/logos.ts), corners rounded. */
+export const Logo: React.FC<{ src: string; size: number; radius?: number }> = ({
+  src,
+  size,
+  radius = size * 0.28,
+}) => (
+  <Img
+    src={src}
+    style={{ width: size, height: size, borderRadius: radius, flex: "none" }}
+  />
 );

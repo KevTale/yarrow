@@ -1,4 +1,5 @@
 import { PULL_REQUEST_COST_CENTS } from "../../src/core/pricing";
+import { mossgrove, orbitkit, quillfern } from "./logos";
 import { c } from "./theme";
 
 /**
@@ -19,6 +20,7 @@ export const sponsor = {
   site: "quillfern.dev",
   letter: "Q",
   color: "#9fd4ff",
+  logo: quillfern,
 };
 
 /** What one pull request costs a sponsor, from the app's own pricing. */
@@ -32,6 +34,7 @@ export const board = [
     site: "mossgrove.io",
     letter: "M",
     color: "#b9e3a8",
+    logo: mossgrove,
     cents: 3000,
   },
   {
@@ -40,6 +43,7 @@ export const board = [
     site: "orbitkit.dev",
     letter: "O",
     color: "#f5b8a8",
+    logo: orbitkit,
     cents: 2000,
   },
   {
@@ -48,6 +52,7 @@ export const board = [
     site: sponsor.site,
     letter: sponsor.letter,
     color: sponsor.color,
+    logo: sponsor.logo,
     cents: 1500,
   },
   {
@@ -56,6 +61,7 @@ export const board = [
     site: null,
     letter: "?",
     color: c.elevated,
+    logo: null,
     cents: 1000,
   },
 ] as const;

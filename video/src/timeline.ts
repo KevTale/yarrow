@@ -15,16 +15,16 @@ export const SCENE = {
   work: { from: s(6), duration: s(7.5) },
   dashboard: { from: s(13.5), duration: s(7.2) },
   github: { from: s(20.7), duration: s(5.3) },
-  sponsors: { from: s(26), duration: s(5) },
-  end: { from: s(31), duration: s(4) },
+  sponsors: { from: s(26), duration: s(6) },
+  end: { from: s(32), duration: s(4.5) },
 };
-export const TOTAL = s(35);
+export const TOTAL = s(36.5);
 
 /**
- * Where the film starts in public/music.mp3: its drop, measured at 7.85 s,
- * lands on the first cut (6 s), and its last hit on the end card's cut.
+ * Where the film starts in public/music.mp3: its groove, measured at
+ * 7.89 s, lands on the first cut (6 s).
  */
-export const MUSIC_OFFSET = s(1.87);
+export const MUSIC_OFFSET = s(1.89);
 
 /**
  * Each voice line: its span in the one take (public/voice/take.mp3, spans
@@ -32,12 +32,12 @@ export const MUSIC_OFFSET = s(1.87);
  */
 export const VOICE_AT: Record<keyof typeof take, number> = {
   intro: s(0.6),
-  write: s(6.3),
+  build: s(6.3),
   review: s(9.9),
   dashboard: s(14),
   card: s(21.2),
   sponsors: s(26.3),
-  end: s(31.4),
+  end: s(32.4),
 };
 
 /** In-scene beats the music and sound effects answer (frames, absolute). */
@@ -47,5 +47,5 @@ export const BEAT = {
   approved: SCENE.work.from + 186,
   chevronClick: SCENE.dashboard.from + 28,
   githubClick: SCENE.dashboard.from + 196,
-  climb: SCENE.sponsors.from + 90,
+  climb: SCENE.sponsors.from + 60,
 };
