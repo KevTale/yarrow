@@ -40,9 +40,8 @@ const toBase64Url = (text: string) =>
 
 const fromBase64Url = (value: string) =>
   new TextDecoder().decode(
-    Uint8Array.from(
-      atob(value.replace(/-/g, "+").replace(/_/g, "/")),
-      (char) => char.charCodeAt(0),
+    Uint8Array.from(atob(value.replace(/-/g, "+").replace(/_/g, "/")), (char) =>
+      char.charCodeAt(0),
     ),
   );
 

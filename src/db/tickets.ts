@@ -204,6 +204,7 @@ export async function projectTickets(
           ? (run?.abstentionReason ?? run?.summary ?? null)
           : null,
       models: status === "none" || status === "queued" ? [] : ticketModels,
+      createdAt: unit.createdAt.toISOString(),
       updatedAt: latest(
         unit.status === "queued" ? unit.queuedAt : unit.createdAt,
         run?.createdAt,
@@ -229,6 +230,7 @@ export async function projectTickets(
         pullRequest: null,
         reason: null,
         models: [],
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
   return rows;

@@ -15,7 +15,10 @@ export const moveEvents: MoveEvent[] = [
  * Target status per event (its id in the tracker); null: don't move.
  * "stopped" may be missing from moves saved before it existed.
  */
-export type TicketMoves = Record<Exclude<MoveEvent, "stopped">, string | null> & {
+export type TicketMoves = Record<
+  Exclude<MoveEvent, "stopped">,
+  string | null
+> & {
   stopped?: string | null;
 };
 

@@ -1,5 +1,5 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, LogIn, UserRound } from "lucide-react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, LogIn, ScrollText, UserRound } from "lucide-react";
 import { UserMenu } from "./arc/user-menu/user-menu";
 import { logoOnDark } from "./brand-svg";
 import { useReviewCount } from "./review-count";
@@ -34,7 +34,13 @@ export function SiteHeader({
   toReview: number;
 }) {
   const navigate = useNavigate();
-  const waiting = useReviewCount(Boolean(viewer && !viewer.guest), toReview);
+  const member = Boolean(viewer && !viewer.guest);
+  const waiting = useReviewCount(member, toReview);
+  const location = useLocation();
+  const tab =
+    location.pathname === "/dashboard"
+      ? (location.search as { tab?: string }).tab
+      : undefined;
   const name =
     viewer?.githubLogin ?? viewer?.name ?? viewer?.email ?? "Account";
   return (
@@ -44,13 +50,49 @@ export function SiteHeader({
           <Link to="/" aria-label="Yarrow home" className="header-brand">
             <Brand />
           </Link>
-          <nav className="header-nav" aria-label="Site">
-            {/* The sponsors' way in: the hero speaks to builders. */}
-            <Link to="/" hash="sponsors" activeOptions={{ includeHash: true }}>
-              Sponsors
-            </Link>
-            <Link to="/changelog">Changelog</Link>
-          </nav>
+          {member ? (
+            // Signed in: the two places one works in, side by side.
+            <nav className="header-nav" aria-label="Dashboard">
+              <Link
+                to="/dashboard"
+                search={{ tab: "builder" }}
+                data-status={tab === "builder" ? "active" : undefined}
+                aria-current={tab === "builder" ? "page" : undefined}
+                activeOptions={{ exact: true, includeSearch: true }}
+              >
+                Tickets
+                {waiting > 0 && (
+                  <span
+                    className="header-count"
+                    aria-label={`${waiting} to review`}
+                  >
+                    {waiting > 99 ? "99+" : waiting}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/dashboard"
+                search={{ tab: "sponsor" }}
+                data-status={tab === "sponsor" ? "active" : undefined}
+                aria-current={tab === "sponsor" ? "page" : undefined}
+                activeOptions={{ exact: true, includeSearch: true }}
+              >
+                Sponsoring
+              </Link>
+            </nav>
+          ) : (
+            <nav className="header-nav" aria-label="Site">
+              {/* The sponsors' way in: the hero speaks to builders. */}
+              <Link
+                to="/"
+                hash="sponsors"
+                activeOptions={{ includeHash: true }}
+              >
+                Sponsors
+              </Link>
+              <Link to="/changelog">Changelog</Link>
+            </nav>
+          )}
         </div>
         <div className="header-actions">
           {viewer ? (
@@ -63,14 +105,18 @@ export function SiteHeader({
                 avatarSrc: viewer.avatarUrl ?? undefined,
               }}
               showTheme={false}
-              badge={waiting}
               items={[
-                {
-                  label: "Dashboard",
-                  icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
-                  badge: waiting,
-                  onSelect: () => void navigate({ to: "/dashboard" }),
-                },
+                viewer.guest
+                  ? {
+                      label: "Dashboard",
+                      icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
+                      onSelect: () => void navigate({ to: "/dashboard" }),
+                    }
+                  : {
+                      label: "Changelog",
+                      icon: <ScrollText size={16} strokeWidth={1.75} />,
+                      onSelect: () => void navigate({ to: "/changelog" }),
+                    },
                 viewer.guest
                   ? {
                       label: "Sign in",

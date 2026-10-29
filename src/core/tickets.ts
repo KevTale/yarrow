@@ -77,6 +77,8 @@ interface TicketIdentity {
   number: number;
   title: string;
   url: string;
+  /** When the ticket was written: the tracker's date, else Yarrow's first sight. */
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -163,6 +165,7 @@ export function mergeTickets(
       // The tracker has the current title.
       row.title = issue.title;
       row.url ||= issue.url;
+      row.createdAt = issue.createdAt;
       if (issue.updatedAt > row.updatedAt) row.updatedAt = issue.updatedAt;
       continue;
     }

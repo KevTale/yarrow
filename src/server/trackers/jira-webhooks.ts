@@ -22,7 +22,11 @@ import { json, type Fetch } from "./types";
  * brain refreshes them every hour it finds one with less than 20 days left.
  */
 
-const EVENTS = ["jira:issue_created", "jira:issue_updated", "jira:issue_deleted"];
+const EVENTS = [
+  "jira:issue_created",
+  "jira:issue_updated",
+  "jira:issue_deleted",
+];
 // The changes that matter to the queue: the label, the status, the text.
 const FIELDS = ["labels", "status", "summary", "description"];
 const DAY = 24 * 60 * 60_000;
@@ -67,12 +71,15 @@ function webhookApi(cloudId: string, token: string, fetcher: Fetch = fetch) {
     /** The ids Jira still holds for this app (and token). */
     async ids(): Promise<Set<string>> {
       const ids = new Set<string>();
-      for (let startAt = 0; ; ) {
+      for (let startAt = 0; ;) {
         const page = await json<{
           values: { id: number }[];
           isLast?: boolean;
         }>(
-          await fetcher(`${url}?startAt=${startAt}&maxResults=100`, init("GET")),
+          await fetcher(
+            `${url}?startAt=${startAt}&maxResults=100`,
+            init("GET"),
+          ),
           "Jira webhooks",
         );
         for (const webhook of page.values) ids.add(String(webhook.id));
@@ -179,7 +186,8 @@ export async function ensureJiraWebhook(
   now = Date.now(),
 ): Promise<string> {
   const connection = await getConnection(db, connectionId);
-  if (!connection || connection.tracker !== "jira") return "not a Jira connection";
+  if (!connection || connection.tracker !== "jira")
+    return "not a Jira connection";
   try {
     return await ensureFor(db, ctx, connection, now);
   } catch (error) {

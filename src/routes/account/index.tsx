@@ -209,8 +209,8 @@ function Payments({ data }: { data: Account }) {
                 : payment.source === "direct"
                   ? "Direct"
                   : payment.paymentStatus === "refunded"
-                  ? "Refunded"
-                  : "Card"}
+                    ? "Refunded"
+                    : "Card"}
             </span>
             <span className="ac-amount">{money(payment.amountCents)}</span>
             {payment.invoice ? (
@@ -220,11 +220,7 @@ function Payments({ data }: { data: Account }) {
                 onClick={() => void open(payment.id)}
                 disabled={opening === payment.id}
               >
-                {opening === payment.id ? (
-                  <Spinner />
-                ) : (
-                  <FileText size={14} />
-                )}
+                {opening === payment.id ? <Spinner /> : <FileText size={14} />}
                 Invoice
               </button>
             ) : (

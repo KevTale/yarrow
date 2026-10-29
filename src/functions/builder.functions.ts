@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { mention } from "@/core/corrections";
 import { logoSchema } from "@/core/forms";
@@ -16,19 +16,20 @@ import { requireProjectMember } from "@/db/accounts";
 import { requestGithubTask } from "@/db/github-tasks";
 import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
-import { projects as projectsTable } from "@/db/schema";
+import { projects as projectsTable, workUnits } from "@/db/schema";
 import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
-import { openIssues } from "@/server/github/issues.server";
+import { openIssues, readIssue } from "@/server/github/issues.server";
 import {
   createTrackerTicket,
   jiraReady,
   labelTrackerTickets,
   openTrackerTickets,
   trackerContext,
+  trackerTicketDetail,
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
 import { pullPanel } from "@/db/pull-panel";
@@ -142,6 +143,53 @@ export const getPullPanelFn = createServerFn({ method: "GET" })
       ? await livePull(project, panel.pullRequest.number)
       : null;
     return { ...panel, live };
+  });
+
+/**
+ * What a ticket asks, read live from GitHub or Jira when its row opens:
+ * the description, when and by whom it was written, its labels. Yarrow's
+ * own copy of the description stands in when the tracker cannot be read.
+ */
+export const getTicketFn = createServerFn({ method: "GET" })
+  .validator(ticketRef)
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    const { project, stored } = await withDb(async (db) => {
+      const project = await requireProjectMember(
+        db,
+        viewer.userId,
+        data.projectId,
+      );
+      const [stored] = await db
+        .select({
+          body: workUnits.body,
+          url: workUnits.url,
+          createdAt: workUnits.createdAt,
+        })
+        .from(workUnits)
+        .where(
+          and(
+            eq(workUnits.projectId, project.id),
+            eq(workUnits.externalId, data.key),
+          ),
+        )
+        .limit(1);
+      return { project, stored };
+    });
+    const live = /^\d+$/.test(data.key)
+      ? await readIssue(project, Number(data.key))
+      : await withDb((db) =>
+          trackerTicketDetail(db, trackerContext(), project.id, data.key),
+        );
+    if (live) return live;
+    if (!stored) return null;
+    return {
+      body: stored.body,
+      createdAt: stored.createdAt.toISOString(),
+      author: null,
+      labels: [] as string[],
+      url: stored.url,
+    };
   });
 
 /** The pull request's changes, read when the builder asks for them. */
@@ -314,7 +362,9 @@ export const createTicketFn = createServerFn({ method: "POST" })
     }),
   )
   .handler(
-    async ({ data }): Promise<{ ok: true; key: string } | { ok: false; error: string }> => {
+    async ({
+      data,
+    }): Promise<{ ok: true; key: string } | { ok: false; error: string }> => {
       const viewer = await requireViewer();
       const body = openedFromYarrow(
         data.body,

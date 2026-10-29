@@ -147,6 +147,33 @@ export function timeAgo(value: Date | string | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+/** "Oct 9", with the year when it is not this one. UTC, as the server says it. */
+export function shortDate(value: Date | string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(date.getUTCFullYear() !== new Date().getUTCFullYear()
+      ? { year: "numeric" as const }
+      : {}),
+    timeZone: "UTC",
+  });
+}
+
+/** "October 9, 2026 at 14:05 UTC", for a date's tooltip. */
+export function longDate(value: Date | string | null): string {
+  if (!value) return "";
+  return (
+    new Date(value).toLocaleString("en-US", {
+      dateStyle: "long",
+      timeStyle: "short",
+      hour12: false,
+      timeZone: "UTC",
+    }) + " UTC"
+  );
+}
+
 /** "48s", "2m 34s", "1h 05m". */
 export function duration(from: Date | string, to: Date | string): string {
   const seconds = Math.max(

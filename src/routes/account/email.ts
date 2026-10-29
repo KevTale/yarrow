@@ -3,10 +3,7 @@ import { recordEvent } from "@/db/events";
 import { supabaseForRequest } from "@/server/auth-request.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { readEmailChangeToken } from "@/server/email-change";
-import {
-  sendEmailChangedNotice,
-  supabaseAdmin,
-} from "@/server/email.server";
+import { sendEmailChangedNotice, supabaseAdmin } from "@/server/email.server";
 import { appEnv } from "@/server/env.server";
 
 const back = (message: string) =>

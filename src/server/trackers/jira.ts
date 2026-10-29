@@ -1,7 +1,4 @@
-import {
-  categoryRank,
-  type TrackerStatus,
-} from "../../core/tracker-moves";
+import { categoryRank, type TrackerStatus } from "../../core/tracker-moves";
 import {
   json,
   type Fetch,
@@ -28,7 +25,11 @@ export function adfToText(node: unknown): string {
 
 /** Jira's status categories: new, indeterminate, done. */
 function categoryOf(key: string): TrackerStatus["category"] {
-  return key === "done" ? "done" : key === "indeterminate" ? "progress" : "todo";
+  return key === "done"
+    ? "done"
+    : key === "indeterminate"
+      ? "progress"
+      : "todo";
 }
 
 function adfDocument(body: string) {
@@ -192,6 +193,8 @@ interface JiraIssue {
     description: unknown;
     labels: string[];
     updated?: string;
+    created?: string;
+    reporter?: { displayName?: string } | null;
     statusCategory?: { key: string };
     status?: { statusCategory?: { key: string } };
   };
@@ -237,6 +240,12 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       ...(issue.fields.updated
         ? { updatedAt: new Date(issue.fields.updated).toISOString() }
         : {}),
+      ...(issue.fields.created
+        ? { createdAt: new Date(issue.fields.created).toISOString() }
+        : {}),
+      ...(issue.fields.reporter?.displayName
+        ? { author: issue.fields.reporter.displayName }
+        : {}),
       body: adfToText(issue.fields.description).trim(),
       url: `${await siteUrl(cloudId, token)}/browse/${issue.key}`,
       labels: issue.fields.labels ?? [],
@@ -278,7 +287,14 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         body: JSON.stringify({
           jql,
           maxResults: 100,
-          fields: ["summary", "description", "labels", "status", "updated"],
+          fields: [
+            "summary",
+            "description",
+            "labels",
+            "status",
+            "updated",
+            "created",
+          ],
         }),
       }),
       "Jira search",
@@ -336,7 +352,10 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       );
       // Named by their address (acme.atlassian.net): what builders paste.
       return resources
-        .filter((resource) => resource.scopes?.some((scope) => scope.includes("jira")) ?? true)
+        .filter(
+          (resource) =>
+            resource.scopes?.some((scope) => scope.includes("jira")) ?? true,
+        )
         .map((resource) => ({
           ...tokens,
           externalId: resource.id,
@@ -435,7 +454,7 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       if (
         !backwards &&
         categoryRank[categoryOf(current.fields.status.statusCategory.key)] >
-        categoryRank[categoryOf(transition.to.statusCategory.key)]
+          categoryRank[categoryOf(transition.to.statusCategory.key)]
       )
         return "already";
       const response = await fetcher(`${issue}/transitions`, {
@@ -464,7 +483,7 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
     },
     async getTicket({ externalId, accessToken }, _credentials, key) {
       const response = await fetcher(
-        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status,updated`,
+        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status,updated,created,reporter`,
         { headers: headers(accessToken) },
       );
       if (response.status === 404) return null;
@@ -515,7 +534,13 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         "Jira fields",
       );
       const fields = meta.fields ?? meta.results ?? [];
-      const filled = ["summary", "description", "project", "issuetype", "reporter"];
+      const filled = [
+        "summary",
+        "description",
+        "project",
+        "issuetype",
+        "reporter",
+      ];
       const missing = fields
         .filter(
           (field) =>

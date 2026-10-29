@@ -1,29 +1,26 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ChevronDown,
   ChevronRight,
+  GitMerge,
   GitPullRequest,
+  GitPullRequestClosed,
   Github,
+  Play,
   Plus,
+  RotateCcw,
   Settings,
-  X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { AnimatedCounter } from "@/components/arc/animated-counter/animated-counter";
-import { Checkbox } from "@/components/arc/checkbox/checkbox";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
-import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { Segmented } from "@/components/segmented";
 import {
   inYarrow,
   mergeTickets,
   moving,
-  queueable,
-  removable,
-  selectable,
   done,
   workText,
   type ReviewRow,
@@ -40,34 +37,93 @@ import { Logo } from "@/components/boards";
 import { JiraIcon } from "@/components/brand-icons";
 import { RunHover } from "@/components/run-activity";
 import { LogoPicker } from "@/components/logo-picker";
-import { timeAgo } from "@/components/ui";
+import { longDate, shortDate } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { NewTicket } from "./new-ticket";
-import { ModelsCell } from "./models";
-import { PaidByCell } from "./paid-by";
-import { prefetchPullPanel, PullPanel } from "./pull-panel";
+import { ProjectSwitcher } from "./project-switcher";
+import { prefetchPullPanel } from "./pull-panel";
+import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
 import { setReviewCount } from "@/components/review-count";
 
 type BuilderData = Extract<
   Awaited<ReturnType<typeof getBuilderFn>>,
   { status: "ok" }
 >;
-/** The ticket's stage: each ticket is in exactly one. */
-type Filter = "todo" | "progress" | "stopped" | "review" | "done";
 
-const statusLabel: Record<TicketRow["status"], string> = {
-  none: "",
-  queued: "Queued",
-  writing: "Writing",
-  reviewing: "Reviewing",
-  delivering: "Opening the pull request",
-  pull_request: "",
-  merged: " merged",
-  pr_closed: " closed",
-  abstained: "Abstained",
+/** The ticket's stage: each ticket is in exactly one group. */
+type Stage = "review" | "progress" | "todo" | "stopped" | "done";
+
+/**
+ * The groups, in the order the builder acts on them: what waits for them
+ * first. "+" writes a ticket into To do, or into In progress, started.
+ */
+const stages: {
+  key: Stage;
+  label: string;
+  test: (row: TicketRow) => boolean;
+  add?: "create" | "start";
+}[] = [
+  {
+    key: "review",
+    label: "To review",
+    test: (row) => row.status === "pull_request",
+  },
+  {
+    key: "progress",
+    label: "In progress",
+    test: (row) =>
+      inYarrow(row) &&
+      !done(row) &&
+      row.status !== "pull_request" &&
+      row.status !== "abstained",
+    add: "start",
+  },
+  { key: "todo", label: "To do", test: (row) => !inYarrow(row), add: "create" },
+  // Abandoned by the agents: the builder's turn (edit, then retry).
+  {
+    key: "stopped",
+    label: "Stopped",
+    test: (row) => row.status === "abstained",
+  },
+  { key: "done", label: "Done", test: done },
+];
+
+/** Groups folded on this browser; Done starts folded, it only grows. */
+const FOLDED_KEY = "yarrow:folded-groups";
+const defaultFolded: Stage[] = ["done"];
+const foldListeners = new Set<() => void>();
+// Where the folding lives when the browser keeps no storage.
+let foldedInMemory: string | null = null;
+const readFolded = () => {
+  try {
+    return localStorage.getItem(FOLDED_KEY) ?? foldedInMemory;
+  } catch {
+    return foldedInMemory;
+  }
 };
+const subscribeFolded = (listener: () => void) => {
+  foldListeners.add(listener);
+  return () => void foldListeners.delete(listener);
+};
+function writeFolded(stages: Stage[]) {
+  foldedInMemory = JSON.stringify(stages);
+  try {
+    localStorage.setItem(FOLDED_KEY, foldedInMemory);
+  } catch {
+    // Kept for this visit only.
+  }
+  for (const listener of foldListeners) listener();
+}
+function parseFolded(text: string | null): Stage[] {
+  try {
+    const stages: unknown = JSON.parse(text ?? "null");
+    return Array.isArray(stages) ? (stages as Stage[]) : defaultFolded;
+  } catch {
+    return defaultFolded;
+  }
+}
 
 /**
  * Every project's last copy, kept for the whole visit: switching projects
@@ -81,8 +137,9 @@ const issuesRead = new Map<string, number>();
 const ISSUES_TTL = 60_000;
 
 /**
- * Builder tab: one project's tickets, queued from here or by label on
- * GitHub, or the pull requests waiting for review across all projects.
+ * Tickets: one project's tickets in groups, from To review to Done, each
+ * opening in place; or the pull requests waiting for review across all
+ * projects.
  */
 export function BuilderView({
   data,
@@ -104,7 +161,6 @@ export function BuilderView({
   jira?: JiraStep | null;
 }) {
   const navigate = useNavigate({ from: "/dashboard" });
-  const reduced = useReducedMotion();
   const refresh = useServerFn(getBuilderFn);
   const queue = useServerFn(queueTicketsFn);
   const unqueue = useServerFn(unqueueTicketsFn);
@@ -119,18 +175,20 @@ export function BuilderView({
     projects: data.projects,
     review: data.review,
   });
-  // Null: the default, In progress, or To queue while nothing is.
-  const [chosenFilter, setFilter] = useState<Filter | null>(null);
   const [query, setQuery] = useState("");
-  // Searching looks in every stage, until a stage is picked again.
-  const [narrowed, setNarrowed] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Read from the browser after hydration; the server folds Done only.
+  const foldedText = useSyncExternalStore(
+    subscribeFolded,
+    readFolded,
+    () => null,
+  );
+  const folded = useMemo(() => parseFolded(foldedText), [foldedText]);
   const [fresh, setFresh] = useState<string | null>(highlight);
-  // The row opened under its chevron ("projectId:key"), one at a time.
+  // The row opened in place ("projectId:key"), one at a time.
   const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
-  // The new ticket form, open above the table.
-  const [composing, setComposing] = useState(false);
+  // The new ticket dialog, and whether it came from In progress.
+  const [composing, setComposing] = useState<{ start: boolean } | null>(null);
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
   // The dashboard opens on To review while pull requests wait there.
@@ -164,10 +222,19 @@ export function BuilderView({
   }
   if (shownId !== currentId) {
     setShownId(currentId);
-    setSelected(new Set());
-    setFilter(null);
-    setComposing(false);
+    setQuery("");
+    setComposing(null);
   }
+  const fold = (stage: Stage) =>
+    writeFolded(
+      folded.includes(stage)
+        ? folded.filter((item) => item !== stage)
+        : [...folded, stage],
+    );
+  const unfold = (stage: Stage) => {
+    if (folded.includes(stage))
+      writeFolded(folded.filter((item) => item !== stage));
+  };
   useEffect(() => {
     if (!data.project) return;
     readAt.set(data.project.id, Date.now());
@@ -176,7 +243,7 @@ export function BuilderView({
   useEffect(() => {
     for (const [id, copy] of Object.entries(store)) cache.set(id, copy);
   }, [store]);
-  // The header's badge follows what the dashboard knows.
+  // The header's count follows what the page knows.
   useEffect(() => setReviewCount(meta.review.length), [meta.review.length]);
 
   const absorb = (next: BuilderData, withIssues: boolean) => {
@@ -236,7 +303,7 @@ export function BuilderView({
 
   const live = currentId ? store[currentId] : undefined;
   const project = live?.project ?? null;
-  // Opened from the rail: a copy shows at once and refreshes; none loads now.
+  // Opened from the switcher: a copy shows at once and refreshes; none loads now.
   useEffect(() => {
     if (!currentId || Date.now() - (readAt.get(currentId) ?? 0) < 10_000)
       return;
@@ -271,12 +338,33 @@ export function BuilderView({
     const timer = setTimeout(() => void pull(), busy ? 15_000 : 60_000);
     return () => clearTimeout(timer);
   });
-  const table = useFlip<HTMLDivElement>(
+  const list = useFlip<HTMLDivElement>(
     reviewing ? meta.review : live,
     reviewing ? "review" : (currentId ?? ""),
   );
 
-  async function act(kind: "queue" | "unqueue" | "retry", keys: string[]) {
+  // "C" writes a ticket, as in the trackers builders know.
+  const canWrite = Boolean(!reviewing && project?.linked && !composing);
+  useEffect(() => {
+    if (!canWrite) return;
+    const keys = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.key.toLowerCase() !== "c" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        target?.closest("input, textarea, select, [contenteditable=true]")
+      )
+        return;
+      event.preventDefault();
+      setComposing({ start: false });
+    };
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  }, [canWrite]);
+
+  const act: TicketAct = async (kind, keys) => {
     if (!project || keys.length === 0) return;
     const id = project.id;
     setError("");
@@ -317,7 +405,9 @@ export function BuilderView({
         },
       };
     });
-    setSelected(new Set());
+    if (kind !== "unqueue") unfold("progress");
+    else unfold("todo");
+    for (const key of keys) setFresh(key);
     try {
       if (kind === "retry")
         await retry({ data: { projectId: id, key: keys[0]! } });
@@ -328,7 +418,7 @@ export function BuilderView({
     } catch {
       setError("That did not go through. Try again in a moment.");
     }
-  }
+  };
 
   async function changeLogo(logo: string | null) {
     if (!project) return;
@@ -381,49 +471,10 @@ export function BuilderView({
       </div>
     );
 
-  // A pipeline: to queue, in progress, to review, done.
-  const filters: Record<Filter, (row: TicketRow) => boolean> = {
-    todo: (row) => !inYarrow(row),
-    progress: (row) =>
-      inYarrow(row) &&
-      !done(row) &&
-      row.status !== "pull_request" &&
-      row.status !== "abstained",
-    // Abandoned by the agents: the builder's turn (edit, then retry).
-    stopped: (row) => row.status === "abstained",
-    review: (row) => row.status === "pull_request",
-    done,
-  };
   const q = query.trim().toLowerCase();
   const matches = rows.filter(
     (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
   );
-  // While searching, each stage counts its matches.
-  const counts = Object.fromEntries(
-    Object.entries(filters).map(([key, test]) => [
-      key,
-      matches.filter(test).length,
-    ]),
-  ) as Record<Filter, number>;
-  // A project opens where the builder has something to do: its pull
-  // requests to review, else its tickets to queue.
-  const filter: Filter =
-    chosenFilter ?? (rows.some(filters.review) ? "review" : "todo");
-  const everywhere = q !== "" && !narrowed;
-  const shown = everywhere ? matches : matches.filter(filters[filter]);
-  const chosen = rows.filter((row) => selected.has(row.key));
-  const canQueue = chosen.filter(queueable).map((row) => row.key);
-  const canRemove = chosen.filter(removable).map((row) => row.key);
-  const pickable = shown.filter(selectable);
-  const allShown =
-    pickable.length > 0 && pickable.every((row) => selected.has(row.key));
-  const toggle = (key: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
   const choose = (id: string) =>
     navigate({
       search: (current) => ({
@@ -441,7 +492,6 @@ export function BuilderView({
         view: "review" as const,
       }),
     });
-  const many = meta.projects.length > 1;
   const jiraCard = jiraStep && jiraStep.projects.length > 0 && (
     <JiraCard
       step={jiraStep}
@@ -456,361 +506,224 @@ export function BuilderView({
     />
   );
   const loading = currentId !== null && !live;
+  const shownProject =
+    project ?? meta.projects.find((item) => item.id === currentId) ?? null;
+  const toggle = (id: string) => setOpened(opened === id ? null : id);
 
   return (
-    <div className={`bd ${many ? "with-rail" : ""}`}>
-      {many && (
-        <nav className="bd-rail" aria-label="Projects">
-          <button
-            type="button"
-            className="bd-review"
-            aria-current={reviewing}
-            onClick={openReview}
-          >
-            <span>
-              <GitPullRequest size={14} /> To review
-            </span>
-            {meta.review.length > 0 && (
-              <span className="bd-review-count">{meta.review.length}</span>
-            )}
-            {reviewing && <RailMark reduced={reduced} />}
-          </button>
-          <span className="bd-label">Projects</span>
-          {meta.projects.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              aria-current={item.id === currentId}
-              onClick={() => choose(item.id)}
-            >
-              <span>
-                <Logo name={item.name} url={item.logoUrl} size="small" />
-                {item.name}
-              </span>
-              {item.id === currentId && <RailMark reduced={reduced} />}
-            </button>
-          ))}
-          <a className="bd-add" href="/connect/github">
-            <Plus size={14} /> Add a project
-          </a>
-        </nav>
-      )}
-      <div className="bd-main">
-        {jiraCard}
-        {many && (
-          // uiarc's morph select, in the rail's place on phones.
-          <div className="bd-picker">
-            <MorphSelect
-              label="Project"
-              hideLabel
-              value={reviewing ? "review" : (currentId ?? null)}
-              onValueChange={(value) =>
-                value === "add"
-                  ? window.location.assign("/connect/github")
-                  : value === "review"
-                    ? openReview()
-                    : choose(value)
-              }
-              items={[
-                {
-                  value: "review",
-                  label: "To review",
-                  icon: <GitPullRequest size={14} />,
-                  meta: meta.review.length
-                    ? String(meta.review.length)
-                    : undefined,
-                },
-                {
-                  label: "Projects",
-                  options: meta.projects.map((item) => ({
-                    value: item.id,
-                    label: item.name,
-                    icon: (
-                      <Logo name={item.name} url={item.logoUrl} size="small" />
-                    ),
-                  })),
-                },
-                {
-                  value: "add",
-                  label: "Add a project",
-                  icon: <Plus size={14} />,
-                },
-              ]}
-            />
-          </div>
+    <div className="bd">
+      {jiraCard}
+      <div className="tix-head">
+        {!reviewing && project && (
+          <LogoPicker
+            name={project.name}
+            value={project.logoUrl}
+            removable={project.uploadedLogo}
+            onChange={(logo) => void changeLogo(logo)}
+            size="small"
+          />
         )}
-        {reviewing ? (
-          <ReviewList
-            rows={meta.review}
-            table={table}
-            onProject={choose}
-            opened={opened}
-            onOpen={setOpened}
-            onChanged={() => void pull()}
+        <ProjectSwitcher
+          projects={meta.projects}
+          current={shownProject}
+          reviewing={reviewing}
+          toReview={meta.review.length}
+          onProject={choose}
+          onReview={openReview}
+        />
+        {!reviewing && shownProject && (
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: shownProject.id }}
+            className="bd-cog"
+            aria-label="Settings"
+            data-tip="Settings"
+          >
+            <Settings size={16} />
+          </Link>
+        )}
+        {!reviewing && project?.linked && (
+          <SearchField
+            fieldClassName="bd-search"
+            label="Search tickets"
+            hideLabel
+            placeholder="Search tickets"
+            value={query}
+            onValueChange={setQuery}
           />
-        ) : loading ? (
-          <BuilderSkeleton
-            name={meta.projects.find((item) => item.id === currentId)?.name}
-          />
-        ) : (
-          project && (
-            <>
-              <div className="bd-head">
-                <LogoPicker
-                  name={project.name}
-                  value={project.logoUrl}
-                  removable={project.uploadedLogo}
-                  onChange={(logo) => void changeLogo(logo)}
-                  size="small"
-                />
-                <h2 title={project.repository}>{project.name}</h2>
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: project.id }}
-                  className="bd-cog"
-                  aria-label="Settings"
-                  data-tip="Settings"
-                >
-                  <Settings size={16} />
-                </Link>
-                <span className="bd-head-actions">
-                  {!many && (
-                    <a className="text-link" href="/connect/github">
-                      <Plus size={14} /> Add a project
-                    </a>
-                  )}
-                </span>
-              </div>
-              {waiting && (
-                <p className="bd-wait" role="status">
-                  Connecting <span className="mono">{waiting}</span>…
-                </p>
-              )}
-              {!project.linked ? (
-                <div className="bd-empty">
-                  <p className="muted">
-                    GitHub is not connected to this repository
-                  </p>
-                  <a className="go" href="/connect/github">
-                    <Github size={16} /> Connect GitHub
-                  </a>
-                </div>
-              ) : (
-                <>
-                  <div className="bd-toolbar">
-                    <Segmented
-                      className="bd-filters"
-                      label="Show"
-                      kind="pressed"
-                      value={everywhere ? null : filter}
-                      onChange={(key) => {
-                        setFilter(key);
-                        if (q) setNarrowed(true);
-                      }}
-                      items={(
-                        [
-                          ["todo", "To queue"],
-                          ["progress", "In progress"],
-                          ["stopped", "Stopped"],
-                          ["review", "To review"],
-                          ["done", "Done"],
-                        ] as const
-                      )
-                        // Stopped shows only when a ticket is there.
-                        .filter(
-                          ([key]) =>
-                            key !== "stopped" ||
-                            counts.stopped > 0 ||
-                            filter === "stopped",
-                        )
-                        .map(([key, label]) => ({
-                          value: key,
-                          label,
-                          extra: <AnimatedCounter inline value={counts[key]} />,
-                        }))}
-                    />
-                    <SearchField
-                      fieldClassName="bd-search"
-                      label="Search tickets"
-                      hideLabel
-                      placeholder="Search tickets"
-                      value={query}
-                      onValueChange={(next) => {
-                        setQuery(next);
-                        if (!next.trim()) setNarrowed(false);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="bd-btn bd-btn-amber bd-new"
-                      aria-expanded={composing}
-                      onClick={() => setComposing(true)}
-                    >
-                      <Plus size={14} /> New ticket
-                    </button>
-                  </div>
-                  {composing && (
-                    <NewTicket
-                      projectId={project.id}
-                      boards={project.boards}
-                      onClose={() => setComposing(false)}
-                      onCreated={(key, queued) => {
-                        setComposing(false);
-                        setQuery("");
-                        setNarrowed(false);
-                        // Where it now stands, lit like a pasted ticket.
-                        setFilter(queued ? "progress" : "todo");
-                        setFresh(key);
-                        issuesRead.delete(project.id);
-                        void pull(project.id);
-                      }}
-                    />
-                  )}
-                  {live?.issues === null && (
-                    <p className="bd-note">
-                      GitHub did not answer: only the tickets already in Yarrow
-                      are listed.
-                    </p>
-                  )}
-                  {error && (
-                    <p className="feedback feedback-error" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <div
-                    className="bd-table"
-                    role="table"
-                    aria-label="Tickets"
-                    ref={table}
-                  >
-                    <div className="bd-row bd-thead" role="row">
-                      <span>
-                        {pickable.length > 0 && (
-                          <Checkbox
-                            aria-label="Select all"
-                            checked={allShown}
-                            onCheckedChange={() =>
-                              setSelected(
-                                allShown
-                                  ? new Set()
-                                  : new Set(pickable.map((row) => row.key)),
-                              )
-                            }
-                          />
-                        )}
-                      </span>
-                      <span>Ticket</span>
-                      <span>Models</span>
-                      <span>Status</span>
-                      <span>Paid by</span>
-                      <span className="right">Updated</span>
-                    </div>
-                    {shown.length === 0 && (
-                      <p className="bd-none muted">No ticket here</p>
-                    )}
-                    {shown.map((row) => {
-                      const id = `${project.id}:${row.key}`;
-                      return (
-                        <Fragment key={row.key}>
-                          <div
-                            role="row"
-                            data-flip={row.key}
-                            data-flip-value={row.status}
-                            className={`bd-row ${selected.has(row.key) ? "selected" : ""} ${fresh === row.key ? "fresh" : ""} ${opened === id ? "opened" : ""}`}
-                            onAnimationEnd={() => setFresh(null)}
-                          >
-                            <span>
-                              {/* Only rows the batch bar can act on; a pull
-                              request opens under its chevron instead. */}
-                              {selectable(row) ? (
-                                <Checkbox
-                                  aria-label={`Select ${row.ref}`}
-                                  checked={selected.has(row.key)}
-                                  onCheckedChange={() => toggle(row.key)}
-                                />
-                              ) : (
-                                row.pullRequest && (
-                                  <OpenChevron
-                                    open={opened === id}
-                                    label={row.ref}
-                                    onToggle={() =>
-                                      setOpened(opened === id ? null : id)
-                                    }
-                                    onIntent={() =>
-                                      prefetchPullPanel(project.id, row.key)
-                                    }
-                                  />
-                                )
-                              )}
-                            </span>
-                            <span className="bd-ticket">
-                              <TicketRef row={row} />
-                              {row.url ? (
-                                <a
-                                  className="bd-title"
-                                  href={row.url}
-                                  target="_blank"
-                                  rel="noopener"
-                                >
-                                  {row.title}
-                                </a>
-                              ) : (
-                                <span className="bd-title">{row.title}</span>
-                              )}
-                            </span>
-                            <span>
-                              <ModelsCell models={row.models} />
-                            </span>
-                            <span>
-                              <Status row={row} act={act} />
-                            </span>
-                            <span>
-                              <PaidByCell sponsors={row.paidBy} />
-                            </span>
-                            <span className="bd-when">
-                              {row.updatedAt ? timeAgo(row.updatedAt) : ""}
-                            </span>
-                          </div>
-                          <OpenRow open={opened === id}>
-                            <PullPanel
-                              projectId={project.id}
-                              rowKey={row.key}
-                              onChanged={() => void pull()}
-                            />
-                          </OpenRow>
-                        </Fragment>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </>
-          )
         )}
       </div>
-      {/* The selection's actions rise from the bottom edge and sink back
-          when it clears; the count rolls. */}
-      <AnimatePresence>
-        {selected.size > 0 && !reviewing && (
-          <motion.div
-            key="batch"
-            className="bd-batch"
-            role="region"
-            aria-label="Selection"
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={
-              reduced
-                ? { opacity: 0 }
-                : {
-                    opacity: 0,
-                    y: 12,
-                    transition: {
-                      duration: motionTokens.duration.fast,
-                      ease: [...motionTokens.ease.standard],
-                    },
-                  }
+      {reviewing ? (
+        <ReviewList
+          rows={meta.review}
+          list={list}
+          opened={opened}
+          onOpen={toggle}
+          onChanged={() => void pull()}
+          folded={folded.includes("review")}
+          onFold={() => fold("review")}
+        />
+      ) : loading ? (
+        <BuilderSkeleton />
+      ) : (
+        project && (
+          <>
+            {waiting && (
+              <p className="bd-wait" role="status">
+                Connecting <span className="mono">{waiting}</span>…
+              </p>
+            )}
+            {!project.linked ? (
+              <div className="bd-empty">
+                <p className="muted">
+                  GitHub is not connected to this repository
+                </p>
+                <a className="go" href="/connect/github">
+                  <Github size={16} /> Connect GitHub
+                </a>
+              </div>
+            ) : (
+              <>
+                {live?.issues === null && (
+                  <p className="bd-note">
+                    GitHub did not answer: only the tickets already in Yarrow
+                    are listed.
+                  </p>
+                )}
+                {error && (
+                  <p className="feedback feedback-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                <div className="tix-list" ref={list}>
+                  {stages.map((stage) => {
+                    const shown = matches.filter(stage.test);
+                    // Stopped only when a ticket is there; searching shows
+                    // only the groups with a match.
+                    if ((stage.key === "stopped" || q) && shown.length === 0)
+                      return null;
+                    return (
+                      <TicketGroup
+                        key={stage.key}
+                        stage={stage.key}
+                        label={stage.label}
+                        count={shown.length}
+                        folded={!q && folded.includes(stage.key)}
+                        onFold={() => fold(stage.key)}
+                        onAdd={
+                          stage.add
+                            ? () =>
+                                setComposing({ start: stage.add === "start" })
+                            : undefined
+                        }
+                      >
+                        {shown.map((row) => {
+                          const id = `${project.id}:${row.key}`;
+                          return (
+                            <TicketLine
+                              key={row.key}
+                              row={row}
+                              projectId={project.id}
+                              open={opened === id}
+                              onToggle={() => toggle(id)}
+                              fresh={fresh === row.key}
+                              onFreshEnd={() => setFresh(null)}
+                              act={act}
+                              onChanged={() => void pull()}
+                            />
+                          );
+                        })}
+                      </TicketGroup>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )
+      )}
+      {composing && project && (
+        <NewTicket
+          projectId={project.id}
+          projectName={project.name}
+          boards={project.boards}
+          start={composing.start}
+          onClose={() => setComposing(null)}
+          onCreated={(key, started) => {
+            setComposing(null);
+            setQuery("");
+            // Where it now stands, lit like a pasted ticket.
+            unfold(started ? "progress" : "todo");
+            setFresh(key);
+            issuesRead.delete(project.id);
+            void pull(project.id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A stage: its head folds it, its "+" writes a ticket into it. */
+function TicketGroup({
+  stage,
+  label,
+  count,
+  folded,
+  onFold,
+  onAdd,
+  children,
+}: {
+  stage: Stage;
+  label: string;
+  count: number;
+  folded: boolean;
+  onFold: () => void;
+  onAdd?: () => void;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <section className="tix-group" aria-label={label}>
+      <div className="tix-ghead">
+        <button
+          type="button"
+          className="tix-gtoggle"
+          aria-expanded={!folded}
+          onClick={onFold}
+        >
+          <ChevronDown
+            size={14}
+            className={`tix-gchev ${folded ? "folded" : ""}`}
+            aria-hidden="true"
+          />
+          <span className={`tix-stage ${stage}`} aria-hidden="true" />
+          {label}
+          <span className="tix-count">{count}</span>
+        </button>
+        {onAdd && (
+          <button
+            type="button"
+            className="tix-icon-btn"
+            aria-label={
+              stage === "progress" ? "New ticket, started" : "New ticket"
             }
+            data-tip={
+              stage === "progress" ? "New ticket, started" : "New ticket"
+            }
+            onClick={onAdd}
+          >
+            <Plus size={16} />
+          </button>
+        )}
+      </div>
+      <AnimatePresence initial={false}>
+        {!folded && count > 0 && (
+          <motion.ul
+            className="tix-rows"
+            initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
             transition={
               reduced
                 ? { duration: motionTokens.duration.instant }
@@ -820,57 +733,200 @@ export function BuilderView({
                   }
             }
           >
-            <b>
-              <AnimatedCounter inline value={selected.size} /> selected
-            </b>
-            {canQueue.length > 0 && (
-              <button
-                type="button"
-                className="bd-btn bd-btn-amber"
-                onClick={() => act("queue", canQueue)}
-              >
-                Add to queue
-              </button>
-            )}
-            {canRemove.length > 0 && (
-              <button
-                type="button"
-                className="bd-btn bd-btn-line"
-                onClick={() => act("unqueue", canRemove)}
-              >
-                Remove from queue
-              </button>
-            )}
-            <button
-              type="button"
-              className="bd-btn bd-btn-ghost"
-              aria-label="Clear selection"
-              onClick={() => setSelected(new Set())}
-            >
-              <X size={15} />
-            </button>
-          </motion.div>
+            {children}
+          </motion.ul>
         )}
       </AnimatePresence>
-    </div>
+    </section>
+  );
+}
+
+/**
+ * One ticket: its key and title open it in place; on the right, what to do
+ * with it now (Start, Retry), where it stands, its pull request, who paid,
+ * and when it was written.
+ */
+function TicketLine({
+  row,
+  projectId,
+  project,
+  open,
+  onToggle,
+  fresh = false,
+  onFreshEnd,
+  act,
+  onChanged,
+}: {
+  row: TicketRow;
+  projectId: string;
+  /** In the cross-project review list: whose ticket it is. */
+  project?: ReviewRow["project"];
+  open: boolean;
+  onToggle: () => void;
+  fresh?: boolean;
+  onFreshEnd?: () => void;
+  act?: TicketAct;
+  onChanged: () => void;
+}) {
+  const intent = () => {
+    prefetchTicket(projectId, row.key);
+    if (row.pullRequest) prefetchPullPanel(projectId, row.key);
+  };
+  return (
+    <li className="tix-item">
+      <div
+        data-flip={`${projectId}:${row.key}`}
+        data-flip-value={row.status}
+        className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
+        onAnimationEnd={onFreshEnd}
+      >
+        <button
+          type="button"
+          className="tix-open"
+          aria-expanded={open}
+          onClick={onToggle}
+          onPointerEnter={intent}
+          onFocus={intent}
+        >
+          <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
+          {project && (
+            <span className="tix-project">
+              <Logo name={project.name} url={project.logoUrl} size="small" />
+              {project.name}
+            </span>
+          )}
+          <TicketRef row={row} />
+          <span className="tix-title">{row.title}</span>
+        </button>
+        <span className="tix-meta">
+          {act && row.status === "none" && (
+            <button
+              type="button"
+              className="tix-go"
+              disabled={row.pending}
+              onClick={() => act("queue", [row.key])}
+            >
+              <Play size={10} fill="currentColor" aria-hidden="true" /> Start
+            </button>
+          )}
+          {act && row.status === "abstained" && (
+            <button
+              type="button"
+              className="tix-go"
+              onClick={() => act("retry", [row.key])}
+            >
+              <RotateCcw size={12} aria-hidden="true" /> Retry
+            </button>
+          )}
+          <RowState row={row} />
+          <Sponsor row={row} />
+          <time
+            className="tix-date"
+            dateTime={row.createdAt}
+            title={longDate(row.createdAt)}
+          >
+            {shortDate(row.createdAt)}
+          </time>
+        </span>
+      </div>
+      <OpenRow open={open}>
+        <TicketPanel
+          projectId={projectId}
+          row={row}
+          onChanged={onChanged}
+          act={act}
+        />
+      </OpenRow>
+    </li>
+  );
+}
+
+/** Where a ticket stands, when the group does not say it all. */
+function RowState({ row }: { row: TicketRow }) {
+  if (row.pullRequest) {
+    const merged = row.status === "merged";
+    const closed = row.status === "pr_closed";
+    const Icon = merged
+      ? GitMerge
+      : closed
+        ? GitPullRequestClosed
+        : GitPullRequest;
+    const pill = (
+      <a
+        className={`tix-pr ${merged ? "merged" : closed ? "closed" : ""}`}
+        href={row.pullRequest.url}
+        target="_blank"
+        rel="noopener"
+        aria-label={`Pull request #${row.pullRequest.number}${merged ? ", merged" : closed ? ", closed" : ""}`}
+      >
+        <Icon size={13} aria-hidden="true" />#{row.pullRequest.number}
+      </a>
+    );
+    // A pull request being changed shows its model at work beside it.
+    const work = workText(row.status, row.models);
+    return (
+      <>
+        {work && <TextShimmer className="tix-state working">{work}</TextShimmer>}
+        {row.runId ? <RunHover runId={row.runId}>{pill}</RunHover> : pill}
+      </>
+    );
+  }
+  if (row.status === "queued")
+    return (
+      <span className="tix-state waiting">
+        {row.pending ? "Starting" : "Waiting"}
+      </span>
+    );
+  if (row.status === "abstained")
+    return <span className="tix-state stopped">Abstained</span>;
+  // "Claude Opus is writing": the model at work, as on the landing.
+  const work = workText(row.status, row.models);
+  if (!work) return null;
+  const text = <TextShimmer className="tix-state working">{work}</TextShimmer>;
+  return row.runId ? (
+    <RunHover runId={row.runId}>
+      <Link to="/runs/$runId" params={{ runId: row.runId }} className="tix-run">
+        {text}
+      </Link>
+    </RunHover>
+  ) : (
+    text
+  );
+}
+
+/** The first sponsor of the ticket's runs, the others named on hover. */
+function Sponsor({ row }: { row: TicketRow }) {
+  const first = row.paidBy[0];
+  if (!first) return <span className="tix-sponsor" />;
+  const names = row.paidBy.map(
+    (sponsor) => sponsor.name ?? "Anonymous sponsor",
+  );
+  return (
+    <span className="tix-sponsor" title={`Paid by ${names.join(", ")}`}>
+      <Logo name={first.name} url={first.logoUrl} size="small" />
+      <span>{names[0]}</span>
+      {names.length > 1 && <span className="tix-more">+{names.length - 1}</span>}
+    </span>
   );
 }
 
 /** Draft pull requests from every project, newest first. */
 function ReviewList({
   rows,
-  table,
-  onProject,
+  list,
   opened,
   onOpen,
   onChanged,
+  folded,
+  onFold,
 }: {
   rows: ReviewRow[];
-  table: React.Ref<HTMLDivElement>;
-  onProject: (projectId: string) => void;
+  list: React.Ref<HTMLDivElement>;
   opened: string | null;
-  onOpen: (id: string | null) => void;
+  onOpen: (id: string) => void;
   onChanged: () => void;
+  folded: boolean;
+  onFold: () => void;
 }) {
   const firstRows = rows
     .slice(0, 6)
@@ -886,131 +942,33 @@ function ReviewList({
     }, 400);
     return () => clearTimeout(timer);
   }, [firstRows]);
+  if (rows.length === 0)
+    return <p className="bd-none muted">Nothing to review</p>;
   return (
-    <>
-      <div className="bd-head">
-        <h2>To review</h2>
-      </div>
-      <div
-        className="bd-table"
-        role="table"
-        aria-label="Pull requests to review"
-        ref={table}
+    <div className="tix-list" ref={list}>
+      <TicketGroup
+        stage="review"
+        label="To review"
+        count={rows.length}
+        folded={folded}
+        onFold={onFold}
       >
-        <div className="bd-row bd-thead" role="row">
-          <span />
-          <span>Ticket</span>
-          <span>Models</span>
-          <span>Pull request</span>
-          <span>Paid by</span>
-          <span className="right">Opened</span>
-        </div>
-        {rows.length === 0 && (
-          <p className="bd-none muted">Nothing to review</p>
-        )}
         {rows.map((row) => {
           const id = `${row.project.id}:${row.key}`;
           return (
-            <Fragment key={id}>
-              <div
-                role="row"
-                data-flip={id}
-                className={`bd-row ${opened === id ? "opened" : ""}`}
-              >
-                <span>
-                  <OpenChevron
-                    open={opened === id}
-                    label={row.ref}
-                    onToggle={() => onOpen(opened === id ? null : id)}
-                    onIntent={() => prefetchPullPanel(row.project.id, row.key)}
-                  />
-                </span>
-                <span className="bd-ticket">
-                  <Logo
-                    name={row.project.name}
-                    url={row.project.logoUrl}
-                    size="small"
-                  />
-                  <button
-                    type="button"
-                    className="bd-project"
-                    onClick={() => onProject(row.project.id)}
-                  >
-                    {row.project.name}
-                  </button>
-                  <TicketRef row={row} />
-                  <a
-                    className="bd-title"
-                    href={row.url}
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    {row.title}
-                  </a>
-                </span>
-                <span>
-                  <ModelsCell models={row.models} />
-                </span>
-                <span>
-                  {row.pullRequest && row.runId && (
-                    <RunHover runId={row.runId}>
-                      <a
-                        className="bd-status s-pull_request bd-review-link"
-                        href={`${row.pullRequest.url}/files`}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        <span className="dot" aria-hidden="true" />
-                        Review #{row.pullRequest.number}
-                      </a>
-                    </RunHover>
-                  )}
-                </span>
-                <span>
-                  <PaidByCell sponsors={row.paidBy} />
-                </span>
-                <span className="bd-when">{timeAgo(row.updatedAt)}</span>
-              </div>
-              <OpenRow open={opened === id}>
-                <PullPanel
-                  projectId={row.project.id}
-                  rowKey={row.key}
-                  onChanged={onChanged}
-                />
-              </OpenRow>
-            </Fragment>
+            <TicketLine
+              key={id}
+              row={row}
+              projectId={row.project.id}
+              project={row.project}
+              open={opened === id}
+              onToggle={() => onOpen(id)}
+              onChanged={onChanged}
+            />
           );
         })}
-      </div>
-    </>
-  );
-}
-
-/** The chevron that opens the row of a pull request. */
-function OpenChevron({
-  open,
-  label,
-  onToggle,
-  onIntent,
-}: {
-  open: boolean;
-  label: string;
-  onToggle: () => void;
-  /** Hover or focus: the row is read before the click. */
-  onIntent: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="bd-chev"
-      aria-expanded={open}
-      aria-label={`${open ? "Close" : "Open"} ${label}`}
-      onClick={onToggle}
-      onPointerEnter={onIntent}
-      onFocus={onIntent}
-    >
-      <ChevronRight size={16} aria-hidden="true" />
-    </button>
+      </TicketGroup>
+    </div>
   );
 }
 
@@ -1027,7 +985,7 @@ function OpenRow({
     <AnimatePresence initial={false}>
       {open && (
         <motion.div
-          className="bd-open"
+          className="tix-opened"
           initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
@@ -1040,26 +998,10 @@ function OpenRow({
                 }
           }
         >
-          {children}
+          <div className="tix-card">{children}</div>
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-/**
- * The rail's chosen row: one soft fill handed from row to row on a spring
- * (motion's shared layout), as in uiarc's button group.
- */
-function RailMark({ reduced }: { reduced: boolean | null }) {
-  return (
-    <motion.span
-      layoutId="bd-rail-mark"
-      className="bd-rail-mark"
-      aria-hidden="true"
-      style={{ borderRadius: 8 }}
-      transition={reduced ? { duration: 0 } : motionTokens.spring.highlight}
-    />
   );
 }
 
@@ -1068,7 +1010,7 @@ function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>
       {row.source === "jira" && (
-        <span className="bd-source" data-tip="Jira">
+        <span className="bd-source">
           <JiraIcon size={12} />
         </span>
       )}
@@ -1077,102 +1019,26 @@ function TicketRef({ row }: { row: TicketRow }) {
   );
 }
 
-function Status({
-  row,
-  act,
-}: {
-  row: TicketRow;
-  act: (kind: "queue" | "unqueue" | "retry", keys: string[]) => void;
-}) {
-  if (row.status === "none")
-    return (
-      <span className="bd-status s-none">
-        <span className="dot" aria-hidden="true" />
-        Not queued
-        <button
-          type="button"
-          className="bd-queue"
-          aria-label={`Add ${row.ref} to the queue`}
-          onClick={() => act("queue", [row.key])}
-        >
-          <Plus size={12} strokeWidth={2.4} /> Add
-        </button>
-      </span>
-    );
-  // "Claude Opus is writing": the model at work, named as on the landing,
-  // uiarc's shimmer passing over it while it works.
-  const work = workText(row.status, row.models);
-  const label = work ? (
-    <TextShimmer>{work}</TextShimmer>
-  ) : (
-    statusLabel[row.status]
-  );
-  const text = ["pull_request", "merged", "pr_closed"].includes(row.status) ? (
-    // "PR #4", "PR #4 merged": the pull request, never the issue.
-    row.pullRequest ? (
-      <a href={row.pullRequest.url} target="_blank" rel="noopener">
-        PR #{row.pullRequest.number}
-        {label}
-      </a>
-    ) : (
-      <span>PR{label}</span>
-    )
-  ) : row.runId && row.status !== "queued" ? (
-    <Link
-      to="/runs/$runId"
-      params={{ runId: row.runId }}
-      className="bd-run-link"
-    >
-      {label}
-    </Link>
-  ) : (
-    <span>{label}</span>
-  );
+/** The next project's groups, drawn while its tickets load. */
+function BuilderSkeleton() {
   return (
-    <span className={`bd-status s-${row.status}`}>
-      <span className="dot" aria-hidden="true" />
-      {/* Hovering the status shows what the agents did, live. */}
-      {row.runId && row.status !== "queued" ? (
-        <RunHover runId={row.runId}>{text}</RunHover>
-      ) : (
-        text
-      )}
-      {row.status === "abstained" && (
-        <button
-          type="button"
-          className="bd-retry"
-          onClick={() => act("retry", [row.key])}
-        >
-          Retry
-        </button>
-      )}
-    </span>
-  );
-}
-
-/** The next project's head and table, drawn while its tickets load. */
-function BuilderSkeleton({ name }: { name?: string }) {
-  return (
-    <div className="bd-skeleton" aria-busy="true" aria-label="Loading tickets">
-      <div className="bd-head">
-        <h2>{name}</h2>
-        <span className="sk sk-text" />
-      </div>
-      <div className="bd-toolbar">
-        <span className="sk sk-filters" />
-        <span className="sk sk-search" />
-      </div>
-      <div className="bd-table">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div className="bd-row sk-row" key={i}>
-            <span className="sk sk-box" />
-            <span className="sk sk-line" style={{ width: `${72 - i * 7}%` }} />
-            <span className="sk sk-chip" />
-            <span className="sk sk-chip" />
-            <span className="sk sk-when" />
+    <div className="tix-list" aria-busy="true" aria-label="Loading tickets">
+      {[3, 2, 5].map((count, group) => (
+        <div className="tix-group" key={group}>
+          <div className="tix-ghead">
+            <span className="sk sk-group" />
           </div>
-        ))}
-      </div>
+          {Array.from({ length: count }, (_, i) => (
+            <div className="tix-row sk-row" key={i}>
+              <span
+                className="sk sk-line"
+                style={{ width: `${62 - ((group + i) % 4) * 9}%` }}
+              />
+              <span className="sk sk-when" />
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

@@ -3053,58 +3053,11 @@ tbody tr:hover {
   gap: 26px;
   padding-block: 48px 120px;
 }
-.dashboard-roles {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 28px;
-}
-.dashboard-role {
-  font:
-    500 clamp(30px, 4vw, 42px) / 1 var(--font-display),
-    sans-serif;
-  letter-spacing: -0.02em;
-  color: #4a4f58;
-  background: none;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  transition: color 0.15s;
-}
-button.dashboard-role {
-  cursor: pointer;
-}
-button.dashboard-role:hover {
-  color: var(--secondary);
-}
-.dashboard-role[aria-selected="true"] {
-  color: var(--text);
-}
-.dashboard-roles .dashboard-actions {
-  margin-left: auto;
-}
 
 /* ---------- Dashboard: builder ---------- */
 .bd {
   display: grid;
   gap: 40px;
-}
-.bd.with-rail {
-  grid-template-columns: 210px minmax(0, 1fr);
-}
-.bd-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  align-content: start;
-  min-width: 0;
-}
-.bd-rail {
-  display: grid;
-  gap: 2px;
-  align-content: start;
-  position: sticky;
-  top: 90px;
 }
 .bd-label {
   font:
@@ -3114,88 +3067,6 @@ button.dashboard-role:hover {
   letter-spacing: 0.07em;
   color: var(--muted);
   padding: 0 10px 8px;
-}
-.bd-rail button {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  text-align: left;
-  font-size: 14px;
-  color: var(--secondary);
-  cursor: pointer;
-}
-.bd-rail button {
-  position: relative;
-  transition: color var(--duration-fast) var(--ease-standard);
-}
-.bd-rail button:hover,
-.bd-rail button[aria-current="true"] {
-  color: var(--text);
-}
-/* The chosen row's fill, handed from row to row (RailMark). */
-.bd-rail-mark {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: var(--elevated);
-  pointer-events: none;
-}
-.bd-rail button > span:not(.bd-rail-mark) {
-  position: relative;
-  z-index: 1;
-}
-.bd-rail button > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.bd-rail .board-logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  font-size: 10px;
-  flex: none;
-}
-.bd-rail .bd-review {
-  margin-bottom: 14px;
-}
-.bd-review svg {
-  color: var(--amber);
-}
-.bd-review-count {
-  font:
-    600 11.5px var(--font-geist-mono),
-    monospace;
-  color: #141714;
-  background: var(--amber);
-  border-radius: 999px;
-  min-width: 20px;
-  padding: 1px 6px;
-  text-align: center;
-}
-.bd-project {
-  flex: none;
-  background: none;
-  border: 0;
-  padding: 0;
-  font-size: 13px;
-  color: var(--secondary);
-  cursor: pointer;
-}
-.bd-project:hover {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-a.bd-review-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 /* Jira's mark in front of its keys and on its setup card. */
@@ -3381,49 +3252,6 @@ a.bd-review-link:hover {
     opacity: 1;
   }
 }
-.bd-count {
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.bd-add {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  margin-top: 8px;
-  font-size: 13.5px;
-  color: var(--muted);
-}
-.bd-add:hover {
-  color: var(--text);
-}
-.bd-picker {
-  display: none;
-}
-.bd-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-}
-.bd-head h2 {
-  font-size: 26px;
-  letter-spacing: -0.01em;
-}
-.bd-head .mono {
-  font-size: 13px;
-}
-.bd-chip {
-  font:
-    500 11.5px var(--font-geist-mono),
-    monospace;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 9px;
-  color: var(--secondary);
-}
 /* The project's settings: a cog that names itself on hover. */
 .bd-cog {
   position: relative;
@@ -3476,137 +3304,11 @@ a.bd-review-link:hover {
   opacity: 1;
   transform: translate(-50%, 0);
 }
-.bd-head-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.bd-settings {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--secondary);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 7px 11px;
-}
-.bd-settings:hover {
-  color: var(--text);
-  background: var(--hover);
-}
-.bd-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-/* The stages: uiarc's button group (Segmented), counts in the text's
-   face. */
-.bd-filters .seg-extra {
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.bd-filters button[data-chosen] .seg-extra {
-  color: var(--secondary);
-}
-.bd-filters {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.bd-filters button {
-  padding: 0 12px;
-  font-size: 13px;
-}
 /* uiarc's search field at the stages' height. */
 .bd-search {
   --control-height-md: 38px;
   margin-left: auto;
   width: min(260px, 100%);
-}
-/* New ticket: the button after the search, the form above the table,
-   the change composer's face. */
-.bd-new {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-}
-.bd-new[aria-expanded="true"] {
-  opacity: 0.45;
-}
-.nt {
-  display: grid;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-  transition: border-color 0.15s;
-}
-.nt:focus-within {
-  border-color: #f2b54480;
-}
-.nt-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.nt-where {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--secondary);
-}
-.nt-close {
-  margin-left: auto;
-}
-.nt-title,
-.nt-body {
-  border: 0;
-  outline: none;
-  padding: 0;
-  background: transparent;
-  color: var(--text);
-}
-.nt-title {
-  font:
-    500 16px/1.4 var(--font-geist-sans),
-    sans-serif;
-}
-.nt-body {
-  resize: vertical;
-  min-height: 96px;
-  font:
-    14px/1.55 var(--font-geist-sans),
-    sans-serif;
-}
-.nt-title::placeholder,
-.nt-body::placeholder {
-  color: var(--muted);
-}
-.nt-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.nt-foot .pp-error {
-  margin-right: auto;
-}
-.nt-foot .bd-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
 }
 .bd-note {
   font-size: 13px;
@@ -3623,25 +3325,6 @@ a.bd-review-link:hover {
   padding-block: 56px;
   text-align: center;
 }
-.bd-row {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 150px 180px 190px 72px;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  min-height: 58px;
-  border-bottom: 1px solid #1d2025;
-  transition: background 0.15s;
-}
-.bd-row:hover {
-  background: var(--surface);
-}
-.bd-row.selected {
-  background: #f2b5440d;
-}
-.bd-row.fresh {
-  animation: bd-fresh 2.6s ease-out;
-}
 @keyframes bd-fresh {
   0%,
   40% {
@@ -3651,52 +3334,12 @@ a.bd-review-link:hover {
     background: transparent;
   }
 }
-.bd-thead {
-  min-height: 0;
-  padding-block: 10px;
-  border-bottom-color: var(--line);
-  font:
-    500 11px var(--font-geist-mono),
-    monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-}
-.bd-thead:hover {
-  background: none;
-}
-.bd-thead .right,
-.bd-when {
-  text-align: right;
-}
-.bd-ticket {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
 .bd-num {
   font:
     13px var(--font-geist-mono),
     monospace;
   color: var(--muted);
   flex: none;
-}
-.bd-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-}
-a.bd-title:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.bd-when {
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
 }
 .bd-none {
   padding: 28px 12px;
@@ -3770,70 +3413,6 @@ a.bd-title:hover {
 .s-none .dot {
   border: 1.5px solid #4a4f57;
 }
-/* "Add" shows on the row under the pointer, always on touch screens. */
-.bd-queue {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--amber);
-  background: #f2b5441a;
-  border: 1px solid #f2b5444d;
-  border-radius: 999px;
-  padding: 2px 9px 2px 7px;
-  cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity 0.15s,
-    background 0.15s;
-}
-.bd-row:hover .bd-queue,
-.bd-queue:focus-visible {
-  opacity: 1;
-}
-.bd-queue:hover {
-  background: #f2b5442e;
-}
-@media (hover: none) {
-  .bd-queue {
-    opacity: 1;
-  }
-}
-.bd-retry {
-  font-size: 12.5px;
-  color: var(--secondary);
-  background: none;
-  border: 0;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.bd-batch {
-  position: fixed;
-  left: 0;
-  right: 0;
-  width: fit-content;
-  margin-inline: auto;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 8px 8px 16px;
-  background: var(--elevated);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 18px 50px #000000a0;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-.bd-batch b {
-  font-weight: 500;
-  margin-right: 6px;
-}
 .bd-btn {
   border-radius: 8px;
   padding: 7px 13px;
@@ -3861,6 +3440,761 @@ a.bd-title:hover {
   padding: 7px 9px;
   display: grid;
   place-items: center;
+}
+
+/* ---------- Dashboard: tickets ---------- */
+/* The header's Tickets carries the pull requests waiting for review. */
+.header-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.header-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--amber);
+  color: #1a1408;
+  font-size: 11px;
+  font-weight: 600;
+}
+/* The project's logo, its name opening the switcher, its settings, the
+   search at the far end. */
+.tix-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.ps {
+  position: relative;
+}
+.ps-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.ps-button:hover,
+.ps-button[aria-expanded="true"] {
+  background: var(--hover);
+}
+.ps-button h2 {
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+.ps-button svg {
+  color: var(--muted);
+  margin-top: 3px;
+  transition: transform 0.2s var(--ease-standard);
+}
+.ps-button[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.ps-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 290px;
+  max-height: min(420px, 70vh);
+  overflow-y: auto;
+  padding: 6px;
+  display: grid;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-floating);
+  transform-origin: top left;
+}
+.ps-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--secondary);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ps-item:hover,
+.ps-item:focus-visible {
+  background: var(--hover);
+  color: var(--text);
+  outline: none;
+}
+.ps-item svg {
+  flex: none;
+  color: var(--muted);
+}
+.ps-item .board-logo.small {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+.ps-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ps-item .ps-check {
+  color: var(--amber);
+}
+.ps-count {
+  margin-left: auto;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--amber);
+}
+.ps-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border-subtle);
+}
+
+/* The groups: a soft band each, the tickets as plain lines under it. */
+.tix-list {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+.tix-group {
+  display: grid;
+}
+.tix-ghead {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding-right: 5px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.tix-gtoggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.tix-gchev {
+  color: var(--muted);
+  transition: transform 0.2s var(--ease-standard);
+}
+.tix-gchev.folded {
+  transform: rotate(-90deg);
+}
+.tix-count {
+  font-weight: 400;
+  color: var(--muted);
+}
+/* Each stage's mark, drawn: hollow to do, half full at work, a dot to
+   review, a cross stopped, ticked done. */
+.tix-stage {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+}
+.tix-stage.progress {
+  border-color: var(--amber);
+  padding: 2px;
+  background: conic-gradient(var(--amber) 0 50%, transparent 50% 100%)
+    content-box;
+}
+.tix-stage.review {
+  border-color: var(--green);
+  padding: 3px;
+  background: var(--green) content-box;
+}
+.tix-stage.stopped {
+  border-color: var(--red);
+}
+.tix-stage.stopped::before,
+.tix-stage.stopped::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 1.5px;
+  background: var(--red);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.tix-stage.stopped::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.tix-stage.done {
+  border-color: #a99cf5;
+  background: #a99cf5;
+}
+.tix-stage.done::after {
+  content: "";
+  position: absolute;
+  left: 3.5px;
+  top: 1.2px;
+  width: 3px;
+  height: 6px;
+  border: solid var(--bg);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+.tix-icon-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+.tix-icon-btn:hover,
+.tix-icon-btn:focus-visible {
+  color: var(--text);
+  background: var(--hover);
+}
+.tix-rows {
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+  overflow: hidden;
+}
+.tix-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 0 10px 0 12px;
+  border-radius: 9px;
+  transition: background 0.15s;
+}
+.tix-row:hover {
+  background: #ffffff06;
+}
+.tix-row.open {
+  background: #ffffff09;
+}
+.tix-row.fresh {
+  animation: bd-fresh 2.6s ease-out;
+}
+.tix-open {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.tix-chev {
+  flex: none;
+  color: #5f6570;
+  transition:
+    transform 0.2s var(--ease-standard),
+    color 0.16s;
+}
+.tix-open[aria-expanded="true"] .tix-chev {
+  transform: rotate(90deg);
+  color: var(--secondary);
+}
+.tix-open .bd-num {
+  min-width: 64px;
+}
+.tix-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.tix-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  font-size: 13px;
+  color: var(--secondary);
+}
+.tix-project .board-logo.small,
+.tix-sponsor .board-logo.small {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+.tix-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+/* Start and Retry show on the line under the pointer, always on touch. */
+.tix-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid #f2b54466;
+  border-radius: 14px;
+  background: none;
+  color: var(--amber);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    background 0.15s;
+}
+.tix-row:hover .tix-go,
+.tix-go:focus-visible {
+  opacity: 1;
+}
+.tix-go:hover {
+  background: #f2b5441a;
+}
+.tix-go:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (hover: none) {
+  .tix-go {
+    opacity: 1;
+  }
+}
+.tix-state {
+  font-size: 12.5px;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+.tix-state.working {
+  color: var(--amber);
+}
+.tix-state.stopped {
+  color: var(--red);
+}
+.tix-run {
+  color: inherit;
+}
+.tix-pr {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  color: var(--green);
+  transition: background 0.15s;
+}
+.tix-pr:hover {
+  background: var(--hover);
+}
+.tix-pr.merged {
+  color: #a99cf5;
+}
+.tix-pr.closed {
+  color: var(--muted);
+}
+.tix-sponsor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 150px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+.tix-sponsor > span:not(.board-logo) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tix-more {
+  flex: none;
+  color: var(--muted);
+}
+.tix-date {
+  width: 50px;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+/* The opened ticket: a card under its line, the ticket then its pull
+   request. */
+.tix-opened {
+  overflow: hidden;
+}
+.tix-card {
+  margin: 6px 0 16px 34px;
+  padding: 22px 26px 26px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.tix-card .pp {
+  padding: 0;
+}
+.tp {
+  display: grid;
+  gap: 26px;
+}
+.tp-brief {
+  display: grid;
+  gap: 12px;
+}
+.tp-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.tp-meta > span:first-child {
+  color: var(--secondary);
+}
+.tp-label {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--secondary);
+}
+.tp-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--secondary);
+  transition: color 0.16s;
+}
+.tp-out:hover {
+  color: var(--text);
+}
+.tp-lines {
+  display: grid;
+  gap: 10px;
+  padding-block: 4px;
+}
+.tp-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.tp-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+.tp-actions .tp-out {
+  margin-left: 0;
+}
+.tp-state {
+  font-size: 13.5px;
+  color: var(--secondary);
+}
+.tp-reason {
+  flex-basis: 100%;
+  margin: 0;
+  max-width: 72ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--secondary);
+}
+/* A ticket's Markdown, at the panel's reading size. */
+.md {
+  display: grid;
+  gap: 10px;
+  max-width: 76ch;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--secondary);
+}
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre {
+  margin: 0;
+}
+.md ul,
+.md ol {
+  padding-left: 20px;
+}
+.md li + li {
+  margin-top: 3px;
+}
+.md .md-h {
+  margin-top: 4px;
+  font-weight: 500;
+  color: var(--text);
+}
+.md blockquote {
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+.md pre {
+  padding: 12px 14px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: var(--bg);
+  font:
+    12.5px/1.55 var(--font-geist-mono),
+    monospace;
+}
+.md code {
+  font:
+    12.5px var(--font-geist-mono),
+    monospace;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--elevated);
+}
+.md hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.md a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sk-group {
+  width: 140px;
+  margin-left: 14px;
+}
+.tix-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+}
+.tix-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tix-btn-amber {
+  border: 0;
+  background: var(--amber);
+  color: #1a1408;
+}
+.tix-btn-amber:not(:disabled):hover {
+  background: #f5c35f;
+}
+.tix-btn-line {
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+}
+.tix-btn-line:not(:disabled):hover {
+  background: var(--hover);
+}
+.tix-btn kbd {
+  font:
+    11px var(--font-geist-mono),
+    monospace;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #0000001f;
+}
+.tix-btn-line kbd {
+  background: var(--hover);
+}
+
+/* New ticket: the browser's modal dialog, a page to write on. */
+.nt {
+  width: min(680px, calc(100vw - 32px));
+  max-width: none;
+  margin: 10vh auto auto;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-floating);
+}
+.nt[open] {
+  animation: nt-rise 0.26s var(--ease-enter);
+}
+.nt::backdrop {
+  background: #05060899;
+  animation: nt-fade 0.16s ease-out;
+}
+@keyframes nt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes nt-fade {
+  from {
+    opacity: 0;
+  }
+}
+.nt-card {
+  display: grid;
+}
+.nt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.nt-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--secondary);
+}
+.nt-crumb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nt-close {
+  margin-left: auto;
+}
+.nt-title,
+.nt-body {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+}
+.nt-title {
+  padding: 20px 18px 6px;
+  font:
+    500 22px/1.3 var(--font-display),
+    sans-serif;
+  letter-spacing: -0.02em;
+}
+.nt-body {
+  min-height: 170px;
+  padding: 8px 18px 18px;
+  resize: vertical;
+  font:
+    14px/1.6 var(--font-geist-sans),
+    sans-serif;
+  color: var(--secondary);
+}
+.nt-title::placeholder,
+.nt-body::placeholder {
+  color: #5f6570;
+}
+.nt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+.nt-foot .pp-error {
+  margin-right: auto;
+}
+@media (max-width: 760px) {
+  .tix-row {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding-block: 9px;
+  }
+  .tix-open {
+    flex-basis: 100%;
+  }
+  .tix-title {
+    white-space: normal;
+  }
+  .tix-meta {
+    margin-left: 24px;
+    gap: 12px;
+  }
+  .tix-sponsor {
+    width: auto;
+  }
+  .tix-sponsor > span:not(.board-logo) {
+    display: none;
+  }
+  .tix-card {
+    margin-left: 0;
+    padding: 18px 16px 20px;
+  }
+  .bd-search {
+    width: 100%;
+    margin-left: 0;
+  }
+  .ps-button h2 {
+    font-size: 22px;
+  }
 }
 
 /* ---------- Models: writer, reviewer, stats on hover or tap ---------- */
@@ -3935,74 +4269,9 @@ button.md-name {
   .dashboard {
     padding-top: 32px;
   }
-  .bd.with-rail {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
-  }
-  .bd-rail {
-    display: none;
-  }
-  .bd-picker {
-    display: block;
-  }
-  .bd-picker .board-logo {
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    font-size: 10px;
-  }
-  .with-rail .bd-head h2 {
-    display: none;
-  }
-  .bd-settings span {
-    display: none;
-  }
   .bd-search {
     margin-left: 0;
     width: 100%;
-  }
-  .bd-thead {
-    display: none;
-  }
-  .bd-row {
-    grid-template-columns: 26px minmax(0, 1fr) auto;
-    grid-template-areas: "c t w" "c s s" "c m m" "c p p";
-    padding: 12px 4px;
-    row-gap: 6px;
-  }
-  .bd-row > :nth-child(1) {
-    grid-area: c;
-    align-self: start;
-    margin-top: 3px;
-  }
-  .bd-row > :nth-child(2) {
-    grid-area: t;
-  }
-  .bd-row > :nth-child(3) {
-    grid-area: m;
-  }
-  .bd-row > :nth-child(4) {
-    grid-area: s;
-  }
-  .bd-row > :nth-child(5) {
-    grid-area: p;
-  }
-  .bd-row > :nth-child(6) {
-    grid-area: w;
-    align-self: start;
-  }
-  .bd-row > :nth-child(3):empty,
-  .bd-row > :nth-child(5):empty {
-    display: none;
-  }
-  .bd-title {
-    white-space: normal;
-  }
-  .bd-batch {
-    left: 16px;
-    right: 16px;
-    width: auto;
-    justify-content: space-between;
   }
 }
 
@@ -4071,10 +4340,6 @@ a.sd-row:hover {
     monospace;
 }
 @media (max-width: 760px) {
-  .dashboard-roles .dashboard-actions {
-    margin-left: 0;
-    width: 100%;
-  }
   .sd-row {
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 10px 4px;
@@ -4632,34 +4897,8 @@ a[data-loading]:not(.go)::after {
     background-position: -150% 0;
   }
 }
-.bd-skeleton .bd-head h2 {
-  color: var(--secondary);
-}
-.sk-text {
-  width: 160px;
-}
-.sk-filters {
-  width: 260px;
-  height: 34px;
-  border-radius: 9px;
-}
-.sk-search {
-  width: 220px;
-  height: 34px;
-  border-radius: 9px;
-}
 .sk-row {
   pointer-events: none;
-}
-.sk-box {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-}
-.sk-chip {
-  width: 96px;
-  height: 22px;
-  border-radius: 999px;
 }
 .sk-when {
   width: 48px;
@@ -7459,46 +7698,6 @@ body:has(.sb-dialog[open]) {
   box-shadow: none;
   cursor: default;
   filter: none;
-}
-
-/* The builder's opened row (pull-panel.tsx): what the agents did on the
-   left, the decisions on the right, the changes under both on demand. */
-.bd-open {
-  background: var(--surface);
-  border-bottom: 1px solid #1d2025;
-  overflow: hidden;
-}
-.bd-row.opened {
-  background: var(--surface);
-  border-bottom-color: var(--surface);
-}
-.bd-chev {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-}
-.bd-chev:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-.bd-chev svg {
-  transition: transform 0.18s ease;
-}
-.bd-chev[aria-expanded="true"] {
-  color: var(--text);
-}
-.bd-chev[aria-expanded="true"] svg {
-  transform: rotate(90deg);
-}
-.bd-ticket .board-logo.small {
-  flex: none;
 }
 .pp {
   display: grid;

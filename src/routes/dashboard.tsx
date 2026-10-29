@@ -57,6 +57,19 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
 
+/**
+ * The page's own choice of tab goes into the address, so the header's
+ * Tickets or Sponsoring lights up.
+ */
+function TabInAddress({ tab, chosen }: { tab: Tab; chosen?: Tab }) {
+  const navigate = Route.useNavigate();
+  useEffect(() => {
+    if (!chosen)
+      navigate({ search: (current) => ({ ...current, tab }), replace: true });
+  }, [tab, chosen, navigate]);
+  return null;
+}
+
 /** GitHub's install webhook usually lands within seconds. */
 const CONNECT_POLLS = 20;
 /** After an install: up to 30 s for the first projects to appear. */
@@ -95,8 +108,7 @@ function DashboardPage() {
     projectCount > startCount || (projectCount > 0 && polls >= 2);
   const installing =
     search.installation !== undefined && polls < INSTALL_POLLS && !installed;
-  const pending =
-    !requested && polls < CONNECT_POLLS ? connect.waiting : null;
+  const pending = !requested && polls < CONNECT_POLLS ? connect.waiting : null;
   // The pasted repository did not come: not picked on GitHub, or not the
   // visitor's to install. Polling goes on, in case it was only late.
   const missing =
@@ -169,12 +181,10 @@ function DashboardPage() {
         : isSponsor || !viewer?.githubLogin
           ? "sponsor"
           : "builder");
-  const both = (isBuilder && isSponsor) || (fresh && builder.status === "ok");
-  const choose = (next: Tab) =>
-    navigate({ search: (current) => ({ ...current, tab: next }) });
+  const welcome = fresh && !sponsor.guest && !search.tab;
 
   // A new account, signed in on purpose: the two ways in, not empty tabs.
-  if (fresh && !sponsor.guest && !search.tab)
+  if (welcome)
     return (
       <main id="main" className="container dashboard">
         <WelcomeView data={sponsor} />
@@ -183,29 +193,11 @@ function DashboardPage() {
 
   return (
     <main id="main" className="container dashboard">
-      {/* The role tabs only when the account is both; one role needs no title. */}
-      {both ? (
-        <div className="dashboard-roles" role="tablist">
-          {(["builder", "sponsor"] as const).map((role) => (
-            <button
-              type="button"
-              key={role}
-              role="tab"
-              aria-selected={tab === role}
-              className="dashboard-role"
-              onClick={() => choose(role)}
-            >
-              {role === "builder" ? "Builder" : "Sponsor"}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <>
-          <h1 className="sr-only">
-            {tab === "builder" ? "Builder" : "Sponsor"}
-          </h1>
-        </>
-      )}
+      {/* The header's Tickets and Sponsoring say where one is. */}
+      <h1 className="sr-only">
+        {tab === "builder" ? "Tickets" : "Sponsoring"}
+      </h1>
+      <TabInAddress tab={tab} chosen={search.tab} />
       {tab === "builder" && notice && (
         <ConnectNotice
           repository={connect.waiting}

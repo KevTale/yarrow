@@ -122,9 +122,15 @@ describe("reading a session into lines", () => {
       tool("a", 1, "read", { file_path: "a.ts" }),
       tool("b", 2, "read", { file_path: "b.ts" }),
       tool("c", 3, "grep", { pattern: "export" }),
-      tool("d", 4, "edit", { file_path: "a.ts", old_string: "x", new_string: "y" }),
+      tool("d", 4, "edit", {
+        file_path: "a.ts",
+        old_string: "x",
+        new_string: "y",
+      }),
     ].map((event) => activityFromEvent(event)!);
-    expect(groupActivity(lines).map((group) => [group.kind, group.count])).toEqual([
+    expect(
+      groupActivity(lines).map((group) => [group.kind, group.count]),
+    ).toEqual([
       ["read", 2],
       ["search", 1],
       ["edit", 1],
@@ -140,16 +146,43 @@ describe("the feed a person reads", () => {
   it("leaves out shell commands and the turn's closing message", () => {
     const lines = [
       tool("a", 1, "bash", { command: "git status" }),
-      tool("b", 2, "edit", { file_path: "a.ts", old_string: "x", new_string: "y" }),
-      { id: "c", type: "agent.message", processed_at: at(3), content: [{ type: "text", text: "Now the tests." }] },
+      tool("b", 2, "edit", {
+        file_path: "a.ts",
+        old_string: "x",
+        new_string: "y",
+      }),
+      {
+        id: "c",
+        type: "agent.message",
+        processed_at: at(3),
+        content: [{ type: "text", text: "Now the tests." }],
+      },
       tool("d", 4, "bash", { command: "pnpm test" }),
-      { id: "e", type: "agent.message", processed_at: at(5), content: [{ type: "text", text: "I fixed the export." }] },
+      {
+        id: "e",
+        type: "agent.message",
+        processed_at: at(5),
+        content: [{ type: "text", text: "I fixed the export." }],
+      },
       tool("f", 6, "bash", { command: "git add -A" }),
     ].map((event) => activityFromEvent(event as SessionEvent)!);
-    const review = { externalId: "r", at: at(7), actor: "yarrow" as const, kind: "phase" as const, detail: { phase: "reviewing" } };
-    expect(storyLines([...lines, review]).map((line) => line.externalId)).toEqual(["b", "c", "d", "r"]);
+    const review = {
+      externalId: "r",
+      at: at(7),
+      actor: "yarrow" as const,
+      kind: "phase" as const,
+      detail: { phase: "reviewing" },
+    };
+    expect(
+      storyLines([...lines, review]).map((line) => line.externalId),
+    ).toEqual(["b", "c", "d", "r"]);
     // While the agent works, its latest message is a thought, not a summary.
-    expect(storyLines(lines).map((line) => line.externalId)).toEqual(["b", "c", "d", "e"]);
+    expect(storyLines(lines).map((line) => line.externalId)).toEqual([
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
   });
 });
 
@@ -222,7 +255,10 @@ describe("a run's activity feed", async () => {
     expect(await syncRunActivity(db, sessions, runId, 0)).toBe(true);
     // A viewer right after: within the window, no read.
     expect(await syncRunActivity(db, sessions, runId, 60_000)).toBe(false);
-    expect(asked).toEqual([null, new Date(Date.parse(at(2)) - 1000).toISOString()]);
+    expect(asked).toEqual([
+      null,
+      new Date(Date.parse(at(2)) - 1000).toISOString(),
+    ]);
 
     const feed = await runActivityFor(db, runId, null);
     expect(feed!.lines.map((line) => [line.kind, line.detail])).toEqual([

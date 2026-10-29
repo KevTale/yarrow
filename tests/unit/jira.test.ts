@@ -75,6 +75,7 @@ function fakeJira() {
       ...issues.get(id)!,
       description: null,
       updated: "2026-10-08T09:00:00.000+0000",
+      created: "2026-10-06T14:00:00.000+0000",
       status: status(issues.get(id)!.status),
     },
   });
@@ -175,7 +176,11 @@ describe("Jira for builders", async () => {
   afterAll(() => t.pg.close());
   beforeEach(() => t.reset());
 
-  const marie = { userId: crypto.randomUUID(), githubLogin: "marie", name: null };
+  const marie = {
+    userId: crypto.randomUUID(),
+    githubLogin: "marie",
+    name: null,
+  };
   async function setup() {
     const accountId = await ensureAccount(db, marie);
     const projectId = await createProject(db, accountId, marie.userId, {
@@ -195,7 +200,10 @@ describe("Jira for builders", async () => {
       .where(eq(schema.projects.id, projectId));
     const jira = fakeJira();
     const ctx: TrackerContext = {
-      secrets: { encryptionKey: key, jira: { clientId: "c", clientSecret: "s" } },
+      secrets: {
+        encryptionKey: key,
+        jira: { clientId: "c", clientSecret: "s" },
+      },
       fetcher: jira.fetcher,
     };
     const connect = () =>
@@ -241,9 +249,9 @@ describe("Jira for builders", async () => {
       step: { projects: [{ connectionId }] },
     });
     // Back from Jira's authorization, started from this repository.
-    expect(
-      await settleJira(db, ctx, marie.userId, intent, projectId),
-    ).toEqual({ queued: { projectId, key: "APP-1" } });
+    expect(await settleJira(db, ctx, marie.userId, intent, projectId)).toEqual({
+      queued: { projectId, key: "APP-1" },
+    });
     expect(jira.issues.get("APP-1")!.labels).toEqual(["yarrow"]);
     const [board] = await raw.select().from(schema.trackerBoards);
     expect(board).toMatchObject({
@@ -270,12 +278,12 @@ describe("Jira for builders", async () => {
       "jira:APP · Acme app: 1 labeled",
     ]);
     const units = await raw.select().from(schema.workUnits);
-    expect(
-      units.map((row) => [row.externalId, row.authorized]).sort(),
-    ).toEqual([
-      ["APP-1", false],
-      ["APP-2", true],
-    ]);
+    expect(units.map((row) => [row.externalId, row.authorized]).sort()).toEqual(
+      [
+        ["APP-1", false],
+        ["APP-2", true],
+      ],
+    );
   });
 
   it("lists open Jira tickets and queues or unqueues them from the dashboard", async () => {
@@ -291,6 +299,7 @@ describe("Jira for builders", async () => {
         number: 1,
         title: "Export crashes",
         url: "https://acme.atlassian.net/browse/APP-1",
+        createdAt: "2026-10-06T14:00:00.000Z",
         updatedAt: "2026-10-08T09:00:00.000Z",
       },
       expect.objectContaining({ key: "APP-2", title: "Dark mode" }),
@@ -300,9 +309,7 @@ describe("Jira for builders", async () => {
     expect(jira.issues.get("APP-1")!.labels).toEqual([]);
     await labelTrackerTickets(db, ctx, project, ["APP-2"], true);
     const rows = await projectTickets(db, projectId);
-    expect(
-      rows.map((row) => [row.ref, row.title, row.status]).sort(),
-    ).toEqual([
+    expect(rows.map((row) => [row.ref, row.title, row.status]).sort()).toEqual([
       ["APP-1", "Export crashes", "none"],
       ["APP-2", "Dark mode", "queued"],
     ]);
@@ -331,7 +338,12 @@ describe("Jira for builders", async () => {
     const refusing = (async () =>
       new Response("{}", { status: 401 })) as typeof fetch;
     await expect(
-      jiraProjects(db, { ...ctx, fetcher: refusing }, marie.userId, connectionId),
+      jiraProjects(
+        db,
+        { ...ctx, fetcher: refusing },
+        marie.userId,
+        connectionId,
+      ),
     ).rejects.toBeInstanceOf(JiraAccessError);
   });
 
@@ -339,7 +351,10 @@ describe("Jira for builders", async () => {
     const { jira } = { jira: fakeJira() };
     const adapter = jiraAdapter(jira.fetcher);
     expect(
-      await adapter.describe({ accessToken: "t" }, { clientId: "", clientSecret: "" }),
+      await adapter.describe(
+        { accessToken: "t" },
+        { clientId: "", clientSecret: "" },
+      ),
     ).toMatchObject([{ externalId: "cloud-1", name: "acme.atlassian.net" }]);
     await adapter.setLabel!(
       { externalId: "cloud-1", accessToken: "t" },
@@ -388,7 +403,11 @@ describe("Jira for builders", async () => {
   it("keeps one Jira webhook per connection on its linked projects, refreshed before it expires", async () => {
     const { projectId, ctx, jira, connect } = await setup();
     const site = withWebhooks(jira.fetcher);
-    const live = { ...ctx, appUrl: "https://yarrow.run", fetcher: site.fetcher };
+    const live = {
+      ...ctx,
+      appUrl: "https://yarrow.run",
+      fetcher: site.fetcher,
+    };
     const connectionId = await connect();
     // No public address on this machine: nothing asked of Jira.
     await setJiraProjects(db, { ...ctx, fetcher: site.fetcher }, marie.userId, {
@@ -462,7 +481,11 @@ describe("Jira for builders", async () => {
   it("queues and unqueues a ticket labeled in Jira from its webhook", async () => {
     const { projectId, ctx, jira, connect } = await setup();
     const site = withWebhooks(jira.fetcher);
-    const live = { ...ctx, appUrl: "https://yarrow.run", fetcher: site.fetcher };
+    const live = {
+      ...ctx,
+      appUrl: "https://yarrow.run",
+      fetcher: site.fetcher,
+    };
     const connectionId = await connect();
     await setJiraProjects(db, live, marie.userId, {
       projectId,
@@ -602,7 +625,14 @@ describe("Jira for builders", async () => {
       ),
     ).rejects.toThrow("APP requires Team: create this ticket in Jira.");
     await expect(
-      createTrackerTicket(db, ctx, project, "OPS", { title: "x", body: "" }, true),
+      createTrackerTicket(
+        db,
+        ctx,
+        project,
+        "OPS",
+        { title: "x", body: "" },
+        true,
+      ),
     ).rejects.toThrow("OPS is not a linked Jira project.");
   });
 
@@ -678,7 +708,11 @@ describe("moving Jira tickets", async () => {
   afterAll(() => t.pg.close());
 
   it("proposes moves from the statuses, follows the builder's choice, and never moves a ticket back", async () => {
-    const owner = { userId: crypto.randomUUID(), githubLogin: "lea", name: null };
+    const owner = {
+      userId: crypto.randomUUID(),
+      githubLogin: "lea",
+      name: null,
+    };
     const accountId = await ensureAccount(db, owner);
     const projectId = await createProject(db, accountId, owner.userId, {
       repository: "lea/app",
@@ -695,7 +729,10 @@ describe("moving Jira tickets", async () => {
       .where(eq(schema.projects.id, projectId));
     const jira = fakeJira();
     const ctx: TrackerContext = {
-      secrets: { encryptionKey: key, jira: { clientId: "c", clientSecret: "s" } },
+      secrets: {
+        encryptionKey: key,
+        jira: { clientId: "c", clientSecret: "s" },
+      },
       fetcher: jira.fetcher,
     };
     await saveTrackerConnection(db, {
@@ -712,7 +749,9 @@ describe("moving Jira tickets", async () => {
     const [unit] = await raw.select().from(schema.workUnits);
 
     const settings = await jiraBoardSettings(db, ctx, owner.userId, board!.id);
-    expect(settings.statuses.map((status) => [status.name, status.category])).toEqual([
+    expect(
+      settings.statuses.map((status) => [status.name, status.category]),
+    ).toEqual([
       ["To Do", "todo"],
       ["In Progress", "progress"],
       ["Code review", "progress"],
@@ -798,7 +837,9 @@ describe("Jira links, branches and pull requests", () => {
     const ticket = { title: "APP-42 Fix the export", url: "", source: "jira" };
     expect(pullRequestTitle({ ticket })).toBe("APP-42 Fix the export");
     expect(
-      pullRequestTitle({ ticket: { ...ticket, title: "ENG-7 Dark mode", source: "linear" } }),
+      pullRequestTitle({
+        ticket: { ...ticket, title: "ENG-7 Dark mode", source: "linear" },
+      }),
     ).toBe("Dark mode");
   });
 });

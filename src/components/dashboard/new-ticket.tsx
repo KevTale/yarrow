@@ -1,8 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
-import { Github, X } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { ChevronRight, Github, Play, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { JiraIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
@@ -10,6 +8,10 @@ import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
 
 type Board = { tracker: string; key: string; site: string };
+
+/** The dialog only opens on a click, so the browser is there to ask. */
+const shortcut = () =>
+  /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘↵" : "Ctrl ↵";
 
 /** The destination last chosen for each project, on this browser only. */
 const remembered = (projectId: string) => {
@@ -28,23 +30,28 @@ const remember = (projectId: string, destination: string) => {
 };
 
 /**
- * A ticket written in Yarrow: a GitHub issue, or a ticket in one of the
- * project's linked Jira projects. Queue it sends it to the agents at once;
- * Add leaves it in To queue.
+ * A ticket written in Yarrow, in a dialog over the list: a GitHub issue, or
+ * a ticket in one of the project's linked Jira projects. Start sends it to
+ * the agents at once; Create leaves it in To do. Opened from In progress's
+ * "+", Start is the main action (⌘↵ or Ctrl ↵); from To do's, Create is.
  */
 export function NewTicket({
   projectId,
+  projectName,
   boards,
+  start,
   onCreated,
   onClose,
 }: {
   projectId: string;
+  projectName: string;
   boards: Board[];
-  onCreated: (key: string, queued: boolean) => void;
+  /** Opened from In progress: starting is what the builder came for. */
+  start: boolean;
+  onCreated: (key: string, started: boolean) => void;
   onClose: () => void;
 }) {
   const create = useServerFn(createTicketFn);
-  const reduced = useReducedMotion();
   const jira = boards.filter((board) => board.tracker === "jira");
   const destinations = ["github", ...jira.map((board) => board.key)];
   const [destination, setDestination] = useState(() => {
@@ -56,22 +63,33 @@ export function NewTicket({
   });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [pending, setPending] = useState<"queue" | "add" | null>(null);
+  const [pending, setPending] = useState<"start" | "create" | null>(null);
   const [error, setError] = useState("");
+  const dialog = useRef<HTMLDialogElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
-  useEffect(() => titleField.current?.focus(), []);
+  useEffect(() => {
+    // The browser's modal dialog: focus kept inside, Escape closes it.
+    dialog.current?.showModal();
+    titleField.current?.focus();
+  }, []);
 
-  async function submit(queue: boolean) {
+  async function submit(started: boolean) {
     if (!title.trim() || pending) return;
     setError("");
-    setPending(queue ? "queue" : "add");
+    setPending(started ? "start" : "create");
     try {
       const result = await create({
-        data: { projectId, destination, title: title.trim(), body, queue },
+        data: {
+          projectId,
+          destination,
+          title: title.trim(),
+          body,
+          queue: started,
+        },
       });
       if (result.ok) {
         remember(projectId, destination);
-        onCreated(result.key, queue);
+        onCreated(result.key, started);
       } else setError(result.error);
     } catch {
       setError("That did not go through. Try again.");
@@ -81,105 +99,130 @@ export function NewTicket({
   }
 
   const keys = (event: React.KeyboardEvent) => {
-    if (event.key === "Escape" && !pending) onClose();
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      void submit(true);
+      void submit(start);
     }
   };
+  const disabled = !title.trim() || pending !== null;
+  const hint = <kbd>{shortcut()}</kbd>;
+  const startButton = (
+    <button
+      key="start"
+      type="button"
+      className={`tix-btn ${start ? "tix-btn-amber" : "tix-btn-line"}`}
+      disabled={disabled}
+      onClick={() => void submit(true)}
+    >
+      {pending === "start" ? (
+        <Spinner />
+      ) : (
+        <Play size={11} fill="currentColor" aria-hidden="true" />
+      )}
+      Start
+      {start && hint}
+    </button>
+  );
+  const createButton = (
+    <button
+      key="create"
+      type="button"
+      className={`tix-btn ${start ? "tix-btn-line" : "tix-btn-amber"}`}
+      disabled={disabled}
+      onClick={() => void submit(false)}
+    >
+      {pending === "create" && <Spinner />}
+      Create
+      {!start && hint}
+    </button>
+  );
 
   return (
-    <motion.form
+    <dialog
+      ref={dialog}
       className="nt"
       aria-label="New ticket"
-      initial={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={
-        reduced
-          ? { duration: motionTokens.duration.instant }
-          : motionTokens.spring.smooth
-      }
-      onSubmit={(event) => {
+      onCancel={(event) => {
         event.preventDefault();
-        void submit(true);
+        if (!pending) onClose();
+      }}
+      // A click on the dim around the card closes it.
+      onClick={(event) => {
+        if (event.target === dialog.current && !pending) onClose();
       }}
       onKeyDown={keys}
     >
-      <div className="nt-head">
-        {jira.length > 0 ? (
-          <MorphSelect
-            label="Create in"
-            hideLabel
-            value={destination}
-            onValueChange={setDestination}
-            items={[
-              {
-                value: "github",
-                label: "GitHub",
-                icon: <Github size={14} />,
-              },
-              ...jira.map((board) => ({
-                value: board.key,
-                label: board.key,
-                icon: <JiraIcon size={14} />,
-                meta: board.site,
-              })),
-            ]}
-          />
-        ) : (
-          <span className="nt-where">
-            <Github size={14} /> GitHub
-          </span>
-        )}
-        <button
-          type="button"
-          className="bd-btn bd-btn-ghost nt-close"
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <X size={15} />
-        </button>
-      </div>
-      <input
-        ref={titleField}
-        className="nt-title"
-        aria-label="Title"
-        placeholder="Title"
-        value={title}
-        maxLength={TITLE_MAX}
-        onChange={(event) => setTitle(event.target.value)}
-      />
-      <textarea
-        className="nt-body"
-        aria-label="Description"
-        placeholder="Description"
-        rows={5}
-        value={body}
-        maxLength={BODY_MAX}
-        onChange={(event) => setBody(event.target.value)}
-      />
-      <div className="nt-foot">
-        {error && (
-          <span className="pp-error" role="alert">
-            {error}
-          </span>
-        )}
-        <button
-          type="button"
-          className="bd-btn bd-btn-line"
-          disabled={!title.trim() || pending !== null}
-          onClick={() => void submit(false)}
-        >
-          Add {pending === "add" && <Spinner />}
-        </button>
-        <button
-          type="submit"
-          className="bd-btn bd-btn-amber"
-          disabled={!title.trim() || pending !== null}
-        >
-          Queue it {pending === "queue" && <Spinner />}
-        </button>
-      </div>
-    </motion.form>
+      <form
+        className="nt-card"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit(start);
+        }}
+      >
+        <div className="nt-head">
+          {jira.length > 0 ? (
+            <MorphSelect
+              label="Create in"
+              hideLabel
+              value={destination}
+              onValueChange={setDestination}
+              items={[
+                {
+                  value: "github",
+                  label: "GitHub",
+                  icon: <Github size={14} />,
+                },
+                ...jira.map((board) => ({
+                  value: board.key,
+                  label: board.key,
+                  icon: <JiraIcon size={14} />,
+                  meta: board.site,
+                })),
+              ]}
+            />
+          ) : (
+            <span className="nt-where">
+              <Github size={14} /> GitHub
+            </span>
+          )}
+          <ChevronRight size={13} className="nt-sep" aria-hidden="true" />
+          <span className="nt-crumb">{projectName}</span>
+          <button
+            type="button"
+            className="tix-icon-btn nt-close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <input
+          ref={titleField}
+          className="nt-title"
+          aria-label="Title"
+          placeholder="Ticket title"
+          value={title}
+          maxLength={TITLE_MAX}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <textarea
+          className="nt-body"
+          aria-label="Description"
+          placeholder="Description, in Markdown"
+          rows={7}
+          value={body}
+          maxLength={BODY_MAX}
+          onChange={(event) => setBody(event.target.value)}
+        />
+        <div className="nt-foot">
+          {error && (
+            <span className="pp-error" role="alert">
+              {error}
+            </span>
+          )}
+          {start ? [createButton, startButton] : [startButton, createButton]}
+        </div>
+      </form>
+    </dialog>
   );
 }

@@ -7,6 +7,9 @@ export interface TrackerTicket {
   title: string;
   /** When the ticket last changed in the tracker (ISO), when it says. */
   updatedAt?: string;
+  /** When the ticket was written (ISO), and by whom, when the tracker says. */
+  createdAt?: string;
+  author?: string;
   body: string;
   url: string;
   labels: string[];

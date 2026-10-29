@@ -18,9 +18,7 @@ export type TrackerContext = {
   fetcher?: Fetch;
 };
 
-export type Connection = NonNullable<
-  Awaited<ReturnType<typeof getConnection>>
->;
+export type Connection = NonNullable<Awaited<ReturnType<typeof getConnection>>>;
 
 /** A connection's adapter, credentials and fresh token. */
 export async function trackerApi(

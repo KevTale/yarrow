@@ -77,7 +77,9 @@ describe("deleting an account", async () => {
     expect(await raw.select().from(schema.trackerConnections)).toHaveLength(0);
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(0);
     expect(await raw.select().from(schema.accountMembers)).toHaveLength(0);
-    expect(await raw.select().from(schema.sponsorProjectSelections)).toHaveLength(0);
+    expect(
+      await raw.select().from(schema.sponsorProjectSelections),
+    ).toHaveLength(0);
     const [card] = await raw.select().from(schema.sponsorProfiles);
     expect(card).toMatchObject({
       publicName: null,
@@ -89,7 +91,10 @@ describe("deleting an account", async () => {
     // The payment stays, for the accounts and the credit it still holds.
     expect(await raw.select().from(schema.contributions)).toHaveLength(1);
     // The repository can come back with a new install.
-    const next = await ensureAccount(db, { ...lea, userId: crypto.randomUUID() });
+    const next = await ensureAccount(db, {
+      ...lea,
+      userId: crypto.randomUUID(),
+    });
     await expect(
       createProject(db, next, lea.userId, {
         repository: "lea/app",
@@ -123,7 +128,10 @@ describe("deleting an account", async () => {
       .select()
       .from(schema.projects)
       .where(eq(schema.projects.id, projectId));
-    expect(project).toMatchObject({ repository: "team/app", suspendedAt: null });
+    expect(project).toMatchObject({
+      repository: "team/app",
+      suspendedAt: null,
+    });
     expect(await raw.select().from(schema.accountMembers)).toEqual([
       expect.objectContaining({ userId: sam }),
     ]);

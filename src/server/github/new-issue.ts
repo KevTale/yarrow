@@ -7,7 +7,8 @@ import type { AppCredentials, Fetch } from "./app";
 import { splitRepository } from "./delivery";
 import { reason, writeClient } from "./pull-actions";
 
-export type NewIssueResult = { ok: true; key: string } | { ok: false; error: string };
+export type NewIssueResult =
+  { ok: true; key: string } | { ok: false; error: string };
 
 /**
  * A ticket written on the dashboard, opened as an issue by the App (the one

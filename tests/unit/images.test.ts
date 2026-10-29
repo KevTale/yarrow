@@ -37,9 +37,9 @@ describe("uploaded logos", () => {
       storeImage(db, dataUrl("image/svg+xml", svg)),
     ).rejects.toBeInstanceOf(ImageError);
     const huge = Buffer.alloc(MAX_IMAGE_BYTES + 1, 0x89).toString("base64");
-    await expect(
-      storeImage(db, dataUrl("image/png", huge)),
-    ).rejects.toThrow("too large");
+    await expect(storeImage(db, dataUrl("image/png", huge))).rejects.toThrow(
+      "too large",
+    );
     await expect(storeImage(db, "https://example.com/a.png")).rejects.toThrow();
   });
 

@@ -53,6 +53,8 @@ export async function openTrackerTickets(
           ...ticketIdentity(tracker.name, ticket.externalId),
           title: bareTitle(ticket.title, ticket.externalId),
           url: ticket.url,
+          createdAt:
+            ticket.createdAt ?? ticket.updatedAt ?? new Date(0).toISOString(),
           updatedAt: ticket.updatedAt ?? new Date(0).toISOString(),
         });
     } catch (error) {
@@ -61,6 +63,51 @@ export async function openTrackerTickets(
     }
   }
   return tickets;
+}
+
+/**
+ * A tracker ticket as its opened row shows it, read live. Null when no
+ * linked project holds it or the tracker cannot be reached.
+ */
+export async function trackerTicketDetail(
+  db: Database,
+  ctx: TrackerContext,
+  projectId: string,
+  key: string,
+): Promise<{
+  body: string;
+  createdAt: string | null;
+  author: string | null;
+  labels: string[];
+  url: string;
+} | null> {
+  const boards = await boardsForProject(db, projectId);
+  const entry = boards.find(
+    ({ board, connection }) =>
+      connection.tracker === "jira" &&
+      board.externalBoardId === jiraProject(key),
+  );
+  if (!entry) return null;
+  try {
+    const tracker = await api(db, ctx, entry.connection);
+    const ticket = await tracker.adapter.getTicket(
+      tracker.scope,
+      tracker.credentials,
+      key,
+    );
+    return ticket
+      ? {
+          body: ticket.body,
+          createdAt: ticket.createdAt ?? null,
+          author: ticket.author ?? null,
+          labels: ticket.labels,
+          url: ticket.url,
+        }
+      : null;
+  } catch (error) {
+    console.warn(`ticket ${key}:`, (error as Error).message);
+    return null;
+  }
 }
 
 /**
@@ -305,8 +352,7 @@ export async function settleJira(
   intent: { site?: string; ticket?: string },
   projectId?: string,
 ): Promise<
-  | { queued: { projectId: string; key: string | null } }
-  | { step: JiraStep }
+  { queued: { projectId: string; key: string | null } } | { step: JiraStep }
 > {
   const site = intent.site ?? null;
   const ticket = intent.ticket ?? null;
@@ -456,7 +502,8 @@ export async function moveTrackerTicket(
   if (!row) return "no tracker board";
   const tracker = await api(db, ctx, row.connection);
   const { adapter, scope, credentials } = tracker;
-  if (!adapter.moveTo || !adapter.statuses) return "tracker cannot move tickets";
+  if (!adapter.moveTo || !adapter.statuses)
+    return "tracker cannot move tickets";
   const statuses = await adapter.statuses(
     scope,
     credentials,

@@ -14,6 +14,7 @@ export {
   setJiraMoves,
   setJiraProjects,
   settleJira,
+  trackerTicketDetail,
   type JiraStep,
 } from "./trackers/jira-flow";
 

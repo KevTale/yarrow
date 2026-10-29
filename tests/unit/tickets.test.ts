@@ -12,11 +12,7 @@ import { ensureAccount } from "../../src/db/accounts";
 import { requestGithubTask, projectsForUser } from "../../src/db/github-tasks";
 import { recordRunModels } from "../../src/db/runs";
 import * as schema from "../../src/db/schema";
-import {
-  projectTickets,
-  retryTicket,
-  reviewQueue,
-} from "../../src/db/tickets";
+import { projectTickets, retryTicket, reviewQueue } from "../../src/db/tickets";
 import { upsertTicket } from "../../src/db/workunits";
 import { runGithubTasks } from "../../src/server/github/tasks";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -341,6 +337,7 @@ describe("merging GitHub's open issues", () => {
       pullRequest: null,
       reason: null,
       models: [],
+      createdAt: "2026-10-07T10:00:00.000Z",
       updatedAt: "2026-10-07T10:00:00.000Z",
     };
     const rows = mergeTickets(
@@ -350,12 +347,14 @@ describe("merging GitHub's open issues", () => {
           ...ticketIdentity("github", "3"),
           title: "New title",
           url: "https://github.com/o/r/issues/3",
+          createdAt: "2026-10-05T08:00:00.000Z",
           updatedAt: "2026-10-07T09:00:00.000Z",
         },
         {
           ...ticketIdentity("github", "9"),
           title: "Untouched",
           url: "https://github.com/o/r/issues/9",
+          createdAt: "2026-10-06T08:00:00.000Z",
           updatedAt: "2026-10-07T11:00:00.000Z",
         },
       ],
@@ -365,6 +364,8 @@ describe("merging GitHub's open issues", () => {
       [3, "queued", "New title"],
     ]);
     expect(rows[1]!.url).toBe("https://github.com/o/r/issues/3");
+    // The tracker's date, not when Yarrow first saw the ticket.
+    expect(rows[1]!.createdAt).toBe("2026-10-05T08:00:00.000Z");
     expect(yarrow.title).toBe("Old title");
   });
 
@@ -373,7 +374,13 @@ describe("merging GitHub's open issues", () => {
       source: "github" | "jira",
       key: string,
       updatedAt: string,
-    ) => ({ ...ticketIdentity(source, key), title: key, url: "", updatedAt });
+    ) => ({
+      ...ticketIdentity(source, key),
+      title: key,
+      url: "",
+      createdAt: updatedAt,
+      updatedAt,
+    });
     const rows = mergeTickets(
       [],
       [

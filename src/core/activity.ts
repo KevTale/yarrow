@@ -95,7 +95,11 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
     const input = event.input ?? {};
     switch (event.name) {
       case "read":
-        return { ...base, kind: "read", detail: { path: relative(input.file_path ?? input.path) } };
+        return {
+          ...base,
+          kind: "read",
+          detail: { path: relative(input.file_path ?? input.path) },
+        };
       case "glob":
       case "grep":
         return {
@@ -123,7 +127,10 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
           },
         };
       case "bash": {
-        const command = clip(shortCommand(String(input.command ?? "").trim()), 300);
+        const command = clip(
+          shortCommand(String(input.command ?? "").trim()),
+          300,
+        );
         return {
           ...base,
           kind: testCommand.test(command) ? "test" : "command",
@@ -131,9 +138,17 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
         };
       }
       case "web_fetch":
-        return { ...base, kind: "web", detail: { url: clip(String(input.url ?? ""), 200) } };
+        return {
+          ...base,
+          kind: "web",
+          detail: { url: clip(String(input.url ?? ""), 200) },
+        };
       case "web_search":
-        return { ...base, kind: "web", detail: { text: clip(String(input.query ?? ""), 200) } };
+        return {
+          ...base,
+          kind: "web",
+          detail: { text: clip(String(input.query ?? ""), 200) },
+        };
       default:
         return null;
     }
@@ -142,7 +157,10 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
     const output = text(event);
     // "12 passed" (Vitest, Jest, pytest), "# pass 12" (node:test, TAP).
     const count = (word: string) =>
-      new RegExp(`(\\d+) (?:tests? )?${word}ed\\b|^\\s*[#ℹ]\\s*${word} (\\d+)`, "im")
+      new RegExp(
+        `(\\d+) (?:tests? )?${word}ed\\b|^\\s*[#ℹ]\\s*${word} (\\d+)`,
+        "im",
+      )
         .exec(output)
         ?.slice(1)
         .find(Boolean);
@@ -169,7 +187,9 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
     return {
       ...base,
       kind: "error",
-      detail: { text: clip(event.error?.message ?? "The session hit an error", 300) },
+      detail: {
+        text: clip(event.error?.message ?? "The session hit an error", 300),
+      },
     };
   return null;
 }
@@ -178,8 +198,17 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
 export function redactActivity(line: ActivityLine): ActivityLine {
   const { detail } = line;
   const kept: ActivityDetail = {};
-  for (const key of ["added", "removed", "lines", "ok", "passed", "failed", "phase"] as const)
-    if (detail[key] !== undefined) (kept as Record<string, unknown>)[key] = detail[key];
+  for (const key of [
+    "added",
+    "removed",
+    "lines",
+    "ok",
+    "passed",
+    "failed",
+    "phase",
+  ] as const)
+    if (detail[key] !== undefined)
+      (kept as Record<string, unknown>)[key] = detail[key];
   // Notes, review summaries and outcomes may quote the code or the ticket.
   if (line.kind === "note") return { ...line, detail: {} };
   return { ...line, detail: kept };

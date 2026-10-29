@@ -19,6 +19,27 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-14",
+    title: "Tickets, one list",
+    new: [
+      builders(
+        "Open a ticket on the dashboard to read it as written in GitHub or Jira, then start it, cancel it or review its pull request in place.",
+      ),
+      builders(
+        '"+" on To do or In progress writes a new ticket in a dialog; C opens it too.',
+      ),
+    ],
+    improved: [
+      builders(
+        "Tickets and Sponsoring are two links in the header; Changelog moved to the avatar menu.",
+      ),
+      builders(
+        "Every ticket in one list, grouped by stage: To review, In progress, To do, Stopped, Done. Each shows the day it was written.",
+      ),
+      builders("Switch projects or add one from the project's name."),
+    ],
+  },
+  {
     date: "2026-10-13",
     title: "Write tickets in Yarrow",
     new: [
