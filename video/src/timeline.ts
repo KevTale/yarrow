@@ -21,10 +21,11 @@ export const SCENE = {
 export const TOTAL = s(38);
 
 /**
- * Where the film starts in public/music.mp3: its groove, measured at
- * 7.89 s, lands on the first cut (7 s).
+ * Where the film starts in public/music.mp3. The track is arranged for
+ * the film (scripts/arrange.mjs): its groove already lands on the first
+ * cut (7 s), so it plays from its start.
  */
-export const MUSIC_OFFSET = s(0.89);
+export const MUSIC_OFFSET = 0;
 
 /**
  * Each voice line: its span in the one take (public/voice/take.mp3, spans
