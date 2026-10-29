@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import {
@@ -61,6 +61,8 @@ export async function connectionsForAccount(db: Database, accountId: string) {
       id: trackerConnections.id,
       tracker: trackerConnections.tracker,
       name: trackerConnections.name,
+      // Jira refused the webhook: the consent predates manage:jira-webhook.
+      webhookRefused: sql<boolean>`coalesce(${trackerConnections.webhookError} ~ '\((401|403)\)', false)`,
     })
     .from(trackerConnections)
     .where(eq(trackerConnections.accountId, accountId));

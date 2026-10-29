@@ -5,7 +5,10 @@ import { ensureAccount } from "../../src/db/accounts";
 import { createProject } from "../../src/db/projects";
 import * as schema from "../../src/db/schema";
 import { projectTickets } from "../../src/db/tickets";
-import { saveTrackerConnection } from "../../src/db/trackers";
+import {
+  connectionsForAccount,
+  saveTrackerConnection,
+} from "../../src/db/trackers";
 import { branchName } from "../../src/server/github/delivery";
 import { pullRequestTitle } from "../../src/runner/pull-request";
 import { encryptToken } from "../../src/server/trackers/crypto";
@@ -410,6 +413,14 @@ describe("Jira for builders", async () => {
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
     const [failed] = await raw.select().from(schema.trackerConnections);
     expect(failed!.webhookError).toContain("(403)");
+    // The settings page then offers Reconnect, and a new consent clears it.
+    const refused = async () =>
+      (await connectionsForAccount(db, failed!.accountId))[0]!.webhookRefused;
+    expect(await refused()).toBe(true);
+    expect(await ensureJiraWebhooks(db, live)).toEqual([
+      "acme.atlassian.net: registered",
+    ]);
+    expect(await refused()).toBe(false);
   });
 
   it("queues and unqueues a ticket labeled in Jira from its webhook", async () => {

@@ -8,6 +8,8 @@ import {
   type TrackerName,
 } from "./trackers/index";
 import type { TrackerTokens } from "./trackers/types";
+import { ensureJiraWebhook } from "./trackers/jira-webhooks";
+import { trackerContext } from "./jira.server";
 import { appEnv, NotConfiguredError } from "./env.server";
 
 export const STATE_COOKIE = "ac_tracker_state";
@@ -48,8 +50,8 @@ export async function storeTrackerTokens(
     input.tokens,
     credentials,
   );
-  for (const workspace of workspaces)
-    await saveTrackerConnection(db, {
+  for (const workspace of workspaces) {
+    const connectionId = await saveTrackerConnection(db, {
       accountId: project.accountId,
       tracker: input.tracker,
       externalId: workspace.externalId,
@@ -63,5 +65,9 @@ export async function storeTrackerTokens(
         : null,
       tokenExpiresAt: workspace.expiresAt ?? null,
     });
+    // A new consent may carry the webhook scope an older one lacked.
+    if (input.tracker === "jira")
+      await ensureJiraWebhook(db, trackerContext(), connectionId);
+  }
   return workspaces.length;
 }

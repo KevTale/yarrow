@@ -249,7 +249,12 @@ function JiraConnection({ data }: { data: Loaded }) {
         >
           {connected ? "Connected" : revoked ? "Disconnected" : "Not connected"}
         </span>
-        {connected ? (
+        {connected && connection!.webhookRefused ? (
+          // An older consent, without webhooks: a new one adds them.
+          <a className="bd-btn bd-btn-amber" href={connect}>
+            Reconnect
+          </a>
+        ) : connected ? (
           // Atlassian lists the apps each person allowed, and revokes them.
           <a
             className="bd-btn bd-btn-line"
