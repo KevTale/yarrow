@@ -42,6 +42,148 @@ function adfDocument(body: string) {
   };
 }
 
+type AdfNode = Record<string, unknown>;
+
+/** Inline Markdown: `code`, **strong**, _em_, [links](url), bare URLs. */
+function adfInline(text: string): AdfNode[] {
+  const nodes: AdfNode[] = [];
+  const pattern =
+    /(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\([^)\s]+\))|((?<!\w)_[^_]+_(?!\w))|((?<![\w*])\*[^*]+\*(?![\w*]))|(https?:\/\/[^\s)]+)/g;
+  let last = 0;
+  const plain = (value: string) => {
+    if (value) nodes.push({ type: "text", text: value });
+  };
+  for (const match of text.matchAll(pattern)) {
+    const [token] = match;
+    plain(text.slice(last, match.index));
+    last = match.index + token.length;
+    const marked = (value: string, mark: AdfNode) =>
+      value
+        ? nodes.push({ type: "text", text: value, marks: [mark] })
+        : undefined;
+    if (match[1]) marked(token.slice(1, -1), { type: "code" });
+    else if (match[2]) marked(token.slice(2, -2), { type: "strong" });
+    else if (match[3]) {
+      const [, label, href] = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(token)!;
+      marked(label!, { type: "link", attrs: { href } });
+    } else if (match[4] || match[5]) marked(token.slice(1, -1), { type: "em" });
+    else marked(token, { type: "link", attrs: { href: token } });
+  }
+  plain(text.slice(last));
+  return nodes;
+}
+
+const LIST_ITEM = /^\s*([-*+]|\d+[.)])\s+(.*)$/;
+const BLOCK_START = /^(```|#{1,6}\s|>\s?)/;
+
+/**
+ * Markdown → Atlassian Document Format, for what a builder writes in
+ * Yarrow: paragraphs, headings, lists, quotes, fenced code, inline marks.
+ */
+export function markdownToAdf(markdown: string) {
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const content: AdfNode[] = [];
+  const paragraph = (block: string[]): AdfNode => ({
+    type: "paragraph",
+    content: block.flatMap((line, index) => [
+      ...(index ? [{ type: "hardBreak" }] : []),
+      ...adfInline(line),
+    ]),
+  });
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+    const fence = /^```\s*([\w+-]*)/.exec(line);
+    if (fence) {
+      const code: string[] = [];
+      for (i++; i < lines.length && !lines[i]!.startsWith("```"); i++)
+        code.push(lines[i]!);
+      i++;
+      content.push({
+        type: "codeBlock",
+        ...(fence[1] ? { attrs: { language: fence[1] } } : {}),
+        content: code.length ? [{ type: "text", text: code.join("\n") }] : [],
+      });
+      continue;
+    }
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) {
+      content.push({
+        type: "heading",
+        attrs: { level: heading[1]!.length },
+        content: adfInline(heading[2]!),
+      });
+      i++;
+      continue;
+    }
+    if (/^>\s?/.test(line)) {
+      const quoted: string[] = [];
+      for (; i < lines.length && /^>\s?/.test(lines[i]!); i++)
+        quoted.push(lines[i]!.replace(/^>\s?/, ""));
+      content.push({
+        type: "blockquote",
+        content: [paragraph(quoted)],
+      });
+      continue;
+    }
+    if (LIST_ITEM.test(line)) {
+      const ordered = /^\s*\d/.test(line);
+      const items: AdfNode[] = [];
+      for (
+        ;
+        i < lines.length &&
+        LIST_ITEM.test(lines[i]!) &&
+        /^\s*\d/.test(lines[i]!) === ordered;
+        i++
+      )
+        items.push({
+          type: "listItem",
+          content: [paragraph([LIST_ITEM.exec(lines[i]!)![2]!])],
+        });
+      content.push({
+        type: ordered ? "orderedList" : "bulletList",
+        content: items,
+      });
+      continue;
+    }
+    const block: string[] = [];
+    for (
+      ;
+      i < lines.length &&
+      lines[i]!.trim() &&
+      !BLOCK_START.test(lines[i]!) &&
+      !LIST_ITEM.test(lines[i]!);
+      i++
+    )
+      block.push(lines[i]!);
+    content.push(paragraph(block));
+  }
+  return { type: "doc", version: 1, content };
+}
+
+/** Jira's own words for a refusal: its error messages and field errors. */
+async function jiraRefusal(response: Response, what: string): Promise<Error> {
+  const text = await response.text().catch(() => "");
+  try {
+    const body = JSON.parse(text) as {
+      errorMessages?: string[];
+      errors?: Record<string, string>;
+    };
+    const reasons = [
+      ...(body.errorMessages ?? []),
+      ...Object.values(body.errors ?? {}),
+    ];
+    if (reasons.length) return new Error(reasons.join(" "));
+  } catch {
+    // Not JSON: the status says enough.
+  }
+  return new Error(`${what} failed (${response.status})`);
+}
+
 interface JiraIssue {
   id: string;
   key: string;
@@ -331,6 +473,77 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         externalId,
         accessToken,
       );
+    },
+    async createTicket(
+      { externalId, accessToken },
+      _credentials,
+      projectKey,
+      { title, body },
+    ) {
+      const project = encodeURIComponent(projectKey);
+      type IssueType = { id: string; name: string; subtask?: boolean };
+      const page = await json<{
+        issueTypes?: IssueType[];
+        createMetaIssueType?: IssueType[];
+      }>(
+        await fetcher(
+          `${base(externalId)}/issue/createmeta/${project}/issuetypes?maxResults=100`,
+          { headers: headers(accessToken) },
+        ),
+        "Jira issue types",
+      );
+      const types = (page.issueTypes ?? page.createMetaIssueType ?? []).filter(
+        (type) => !type.subtask,
+      );
+      // A plain task when the project has one, as people file them.
+      const type =
+        ["task", "story", "bug"]
+          .map((name) => types.find((item) => item.name.toLowerCase() === name))
+          .find(Boolean) ?? types[0];
+      if (!type) throw new Error(`${projectKey} takes no new tickets.`);
+      type Field = {
+        fieldId: string;
+        name: string;
+        required: boolean;
+        hasDefaultValue?: boolean;
+      };
+      const meta = await json<{ fields?: Field[]; results?: Field[] }>(
+        await fetcher(
+          `${base(externalId)}/issue/createmeta/${project}/issuetypes/${type.id}?maxResults=200`,
+          { headers: headers(accessToken) },
+        ),
+        "Jira fields",
+      );
+      const fields = meta.fields ?? meta.results ?? [];
+      const filled = ["summary", "description", "project", "issuetype", "reporter"];
+      const missing = fields
+        .filter(
+          (field) =>
+            field.required &&
+            !field.hasDefaultValue &&
+            !filled.includes(field.fieldId),
+        )
+        .map((field) => field.name);
+      if (missing.length)
+        throw new Error(
+          `${projectKey} requires ${missing.join(", ")}: create this ticket in Jira.`,
+        );
+      const described =
+        body.trim() && fields.some((field) => field.fieldId === "description");
+      const response = await fetcher(`${base(externalId)}/issue`, {
+        method: "POST",
+        headers: headers(accessToken),
+        body: JSON.stringify({
+          fields: {
+            project: { key: projectKey },
+            issuetype: { id: type.id },
+            summary: title,
+            ...(described ? { description: markdownToAdf(body) } : {}),
+          },
+        }),
+      });
+      if (!response.ok) throw await jiraRefusal(response, "Jira new ticket");
+      return ((await response.json()) as { key: string }).key;
     },
     async comment({ externalId, accessToken }, _credentials, key, body) {
       await json(

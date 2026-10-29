@@ -112,6 +112,58 @@ export async function labelTrackerTickets(
 }
 
 /**
+ * A ticket written in Yarrow, created in a linked Jira project (as the
+ * person who connected Jira) and queued at once when asked. Yarrow's copy
+ * is kept either way, so the row shows before Jira's search has it.
+ */
+export async function createTrackerTicket(
+  db: Database,
+  ctx: TrackerContext,
+  project: { id: string; authorizationLabel: string },
+  projectKey: string,
+  ticket: { title: string; body: string },
+  queue: boolean,
+): Promise<string> {
+  const entry = (await boardsForProject(db, project.id)).find(
+    ({ board, connection }) =>
+      connection.tracker === "jira" && board.externalBoardId === projectKey,
+  );
+  if (!entry) throw new Error(`${projectKey} is not a linked Jira project.`);
+  const tracker = await api(db, ctx, entry.connection);
+  const key = await tracker.adapter.createTicket!(
+    tracker.scope,
+    tracker.credentials,
+    projectKey,
+    ticket,
+  );
+  if (queue)
+    await tracker.adapter.setLabel!(
+      tracker.scope,
+      tracker.credentials,
+      key,
+      project.authorizationLabel,
+      true,
+    );
+  const created = await tracker.adapter.getTicket(
+    tracker.scope,
+    tracker.credentials,
+    key,
+  );
+  await upsertTicket(db, {
+    projectId: project.id,
+    source: tracker.name,
+    boardId: entry.board.id,
+    externalId: key,
+    title: created?.title ?? `${key} ${ticket.title}`,
+    body: created?.body ?? ticket.body,
+    url: created?.url ?? "",
+    labeled: queue,
+    closed: false,
+  });
+  return key;
+}
+
+/**
  * Links a Jira project to a repository (a Yarrow project): its labeled
  * tickets are synced from then on, and Jira's webhook covers it too. A
  * pasted ticket is queued right away.

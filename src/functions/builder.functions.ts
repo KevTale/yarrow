@@ -3,6 +3,12 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { mention } from "@/core/corrections";
 import { logoSchema } from "@/core/forms";
+import {
+  BODY_MAX,
+  DESTINATION,
+  openedFromYarrow,
+  TITLE_MAX,
+} from "@/core/new-ticket";
 import { projectLogo } from "@/core/logos";
 import { TERMS_VERSION } from "@/core/terms";
 import type { OpenIssue, ReviewRow, TicketRow } from "@/core/tickets";
@@ -18,6 +24,7 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { openIssues } from "@/server/github/issues.server";
 import {
+  createTrackerTicket,
   jiraReady,
   labelTrackerTickets,
   openTrackerTickets,
@@ -289,6 +296,61 @@ export const unqueueTicketsFn = createServerFn({ method: "POST" })
   .validator(ticketsInput)
   .handler(async ({ data }) =>
     setQueued((await requireViewer()).userId, data, false),
+  );
+
+/**
+ * A ticket written on the dashboard: an issue opened by the App (through
+ * the brain), or a ticket in a linked Jira project. Queued at once when
+ * asked, like a ticket labeled where it lives.
+ */
+export const createTicketFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      projectId: z.uuid(),
+      destination: z.string().regex(DESTINATION),
+      title: z.string().trim().min(1).max(TITLE_MAX),
+      body: z.string().max(BODY_MAX),
+      queue: z.boolean(),
+    }),
+  )
+  .handler(
+    async ({ data }): Promise<{ ok: true; key: string } | { ok: false; error: string }> => {
+      const viewer = await requireViewer();
+      const body = openedFromYarrow(
+        data.body,
+        viewer.githubLogin ?? viewer.name ?? "a maintainer",
+      );
+      const project = await withDb((db) =>
+        requireProjectMember(db, viewer.userId, data.projectId),
+      );
+      if (data.destination === "github") {
+        const brain = appEnv().BRAIN;
+        if (!brain) return unavailable;
+        // The brain starts it at once when queued.
+        return brain.createIssue({
+          projectId: project.id,
+          title: data.title,
+          body,
+          queue: data.queue,
+        });
+      }
+      try {
+        const key = await withDb((db) =>
+          createTrackerTicket(
+            db,
+            trackerContext(),
+            project,
+            data.destination,
+            { title: data.title, body },
+            data.queue,
+          ),
+        );
+        if (data.queue) await kickBrain();
+        return { ok: true, key };
+      } catch (error) {
+        return { ok: false, error: (error as Error).message };
+      }
+    },
   );
 
 /** Retry an abstained ticket (the label is still on it). */

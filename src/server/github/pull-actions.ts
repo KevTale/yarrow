@@ -32,7 +32,7 @@ async function target(db: Database, workUnitId: string) {
   return row;
 }
 
-async function writeClient(
+export async function writeClient(
   credentials: AppCredentials,
   project: {
     githubInstallationId: string | null;
@@ -57,7 +57,7 @@ async function writeClient(
 }
 
 /** GitHub's own words for a refusal ("Pull Request is not mergeable"). */
-function reason(error: unknown): string {
+export function reason(error: unknown): string {
   if (error instanceof GitHubError) {
     const json = /\{.*\}$/s.exec(error.message)?.[0];
     try {

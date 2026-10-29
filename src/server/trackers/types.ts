@@ -104,6 +104,13 @@ export interface TrackerAdapter {
     statusId: string,
     backwards?: boolean,
   ): Promise<"moved" | "already" | "blocked">;
+  /** Creates a ticket written in Yarrow (Markdown body); returns its id (Jira). */
+  createTicket?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    boardId: string,
+    ticket: { title: string; body: string },
+  ): Promise<string>;
   /** Puts the label on a ticket, or takes it off (Jira). */
   setLabel?(
     connection: { externalId: string; accessToken: string },

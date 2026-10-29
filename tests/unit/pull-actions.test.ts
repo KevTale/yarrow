@@ -13,6 +13,8 @@ import {
   requestCorrection,
 } from "../../src/server/github/pull-actions";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
+import { createIssue } from "../../src/server/github/new-issue";
+import { openedFromYarrow } from "../../src/core/new-ticket";
 import { createTestDatabase } from "./helpers/pglite";
 
 const t = await createTestDatabase();
@@ -295,5 +297,75 @@ describe("the builder's decisions on a pull request", () => {
       }),
     ]);
     expect(await pullPanel(db, projectId, "99")).toBeNull();
+  });
+});
+
+describe("a ticket written on the dashboard", () => {
+  const issue = {
+    number: 12,
+    title: "Dark mode",
+    body: openedFromYarrow("Follow the system theme.", "marie"),
+    html_url: "https://github.com/marie/halyard/issues/12",
+  };
+
+  it("opens an issue through the App, labeled and queued when asked", async () => {
+    const { calls, fetcher } = github({
+      "POST /repos/marie/halyard/issues": issue,
+    });
+    expect(
+      await createIssue(
+        db,
+        credentials,
+        { projectId, title: "Dark mode", body: issue.body, queue: true },
+        fetcher,
+      ),
+    ).toEqual({ ok: true, key: "12" });
+    expect(calls.at(-1)!.body).toEqual({
+      title: "Dark mode",
+      body: "Follow the system theme.\n\n_Opened from Yarrow by **marie**_",
+      labels: ["yarrow"],
+    });
+    const [unit] = await raw
+      .select()
+      .from(schema.workUnits)
+      .where(eq(schema.workUnits.externalId, "12"));
+    expect(unit).toMatchObject({
+      source: "github",
+      title: "Dark mode",
+      authorized: true,
+      status: "queued",
+    });
+  });
+
+  it("adds it without the label, and says what GitHub refused", async () => {
+    const { calls, fetcher } = github({
+      "POST /repos/marie/halyard/issues": issue,
+    });
+    await createIssue(
+      db,
+      credentials,
+      { projectId, title: "Dark mode", body: "", queue: false },
+      fetcher,
+    );
+    expect(calls.at(-1)!.body).toMatchObject({ labels: [] });
+    const [unit] = await raw
+      .select()
+      .from(schema.workUnits)
+      .where(eq(schema.workUnits.externalId, "12"));
+    expect(unit!.authorized).toBe(false);
+    const refusing = github({
+      "POST /repos/marie/halyard/issues": Response.json(
+        { message: "Issues are disabled for this repo" },
+        { status: 410 },
+      ),
+    });
+    expect(
+      await createIssue(
+        db,
+        credentials,
+        { projectId, title: "x", body: "", queue: true },
+        refusing.fetcher,
+      ),
+    ).toEqual({ ok: false, error: "Issues are disabled for this repo" });
   });
 });

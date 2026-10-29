@@ -19,6 +19,23 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-13",
+    title: "Write tickets in Yarrow",
+    new: [
+      builders(
+        "New ticket on the dashboard: write it once, it opens in GitHub or in a linked Jira project, queued at once or left to queue.",
+      ),
+      builders(
+        "A yarrow label set in Jira itself queues the ticket in seconds.",
+      ),
+    ],
+    improved: [
+      builders(
+        "Tickets opened, renamed or closed in GitHub or Jira show on the dashboard in seconds.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-12",
     title: "One account, and a way in for sponsors",
     new: [

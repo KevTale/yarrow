@@ -51,6 +51,10 @@ import {
   type ActionResult,
   type PullRequestAction,
 } from "../src/server/github/pull-actions";
+import {
+  createIssue,
+  type NewIssueResult,
+} from "../src/server/github/new-issue";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -831,6 +835,27 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     if (!credentials)
       return Promise.resolve({ ok: false, error: "GitHub is not configured." });
     return withDb(this.env, (db) => pullRequestAction(db, credentials, input));
+  }
+
+  /** A ticket written on the dashboard: an issue, started now if queued. */
+  async createIssue(input: {
+    projectId: string;
+    title: string;
+    body: string;
+    queue: boolean;
+  }): Promise<NewIssueResult> {
+    const credentials = this.credentials();
+    if (!credentials) return { ok: false, error: "GitHub is not configured." };
+    const result = await withDb(this.env, (db) =>
+      createIssue(db, credentials, input),
+    );
+    if (result.ok && input.queue)
+      this.ctx.waitUntil(
+        tick(this.env, true).catch((error) =>
+          console.warn("new issue", describe(error)),
+        ),
+      );
+    return result;
   }
 
   /** A change asked from the dashboard: on the PR, queued, started now. */

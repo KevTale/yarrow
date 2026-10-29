@@ -13,13 +13,15 @@ import { branchName } from "../../src/server/github/delivery";
 import { pullRequestTitle } from "../../src/runner/pull-request";
 import { encryptToken } from "../../src/server/trackers/crypto";
 import { syncTrackers } from "../../src/server/trackers/index";
-import { jiraAdapter } from "../../src/server/trackers/jira";
+import { jiraAdapter, markdownToAdf } from "../../src/server/trackers/jira";
+import { openedFromYarrow } from "../../src/core/new-ticket";
 import {
   ensureJiraWebhooks,
   handleJiraDelivery,
   verifyJiraWebhook,
 } from "../../src/server/trackers/jira-webhooks";
 import {
+  createTrackerTicket,
   JiraAccessError,
   jiraBoardSettings,
   jiraProjects,
@@ -63,6 +65,9 @@ function fakeJira() {
     "40": ["20"],
   };
   const api = "https://api.atlassian.com/ex/jira/cloud-1/rest/api/3";
+  // Fields a project requires beyond the summary (none by default).
+  const required: string[] = [];
+  const created: unknown[] = [];
   const issue = (id: string) => ({
     id,
     key: id,
@@ -128,9 +133,40 @@ function fakeJira() {
       return new Response(null, { status: 204 });
     }
     if (match) return json(issue(match[1]!));
+    // New tickets: the project's issue types, their fields, the creation.
+    if (url.startsWith(`${api}/issue/createmeta/APP/issuetypes/`))
+      return json({
+        fields: [
+          { fieldId: "summary", name: "Summary", required: true },
+          { fieldId: "description", name: "Description", required: false },
+          ...required.map((name) => ({
+            fieldId: "customfield_1",
+            name,
+            required: true,
+            hasDefaultValue: false,
+          })),
+        ],
+      });
+    if (url.startsWith(`${api}/issue/createmeta/APP/issuetypes`))
+      return json({
+        issueTypes: [
+          { id: "1", name: "Epic" },
+          { id: "3", name: "Task" },
+          { id: "5", name: "Sub-task", subtask: true },
+        ],
+      });
+    if (url === `${api}/issue` && init.method === "POST") {
+      const { fields } = JSON.parse(String(init.body)) as {
+        fields: { summary: string; issuetype: { id: string } };
+      };
+      const key = `APP-${issues.size + 1}`;
+      created.push(JSON.parse(String(init.body)));
+      issues.set(key, { summary: fields.summary, labels: [], status: "10" });
+      return json({ id: "100", key }, 201);
+    }
     return json({ message: `unexpected ${url}` }, 404);
   }) as typeof fetch;
-  return { fetcher, issues };
+  return { fetcher, issues, required, created };
 }
 
 describe("Jira for builders", async () => {
@@ -504,6 +540,135 @@ describe("Jira for builders", async () => {
     ).toBe(false);
     expect(await verifyJiraWebhook("s", null, now)).toBe(false);
     expect(await verifyJiraWebhook("s", "Bearer nonsense", now)).toBe(false);
+  });
+  it("creates a ticket written in Yarrow in the linked Jira project, queued when asked", async () => {
+    const { projectId, ctx, jira, connect } = await setup();
+    const connectionId = await connect();
+    await setJiraProjects(db, ctx, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKeys: ["APP"],
+    });
+    const project = { id: projectId, authorizationLabel: "yarrow" };
+    const body = openedFromYarrow("Follow the **system** theme.", "marie");
+    expect(
+      await createTrackerTicket(
+        db,
+        ctx,
+        project,
+        "APP",
+        { title: "Dark mode everywhere", body },
+        true,
+      ),
+    ).toBe("APP-3");
+    // A plain task, the summary, the description in Jira's format.
+    expect(jira.created[0]).toEqual({
+      fields: {
+        project: { key: "APP" },
+        issuetype: { id: "3" },
+        summary: "Dark mode everywhere",
+        description: markdownToAdf(body),
+      },
+    });
+    expect(jira.issues.get("APP-3")!.labels).toEqual(["yarrow"]);
+    const queued = await projectTickets(db, projectId);
+    expect(queued.map((row) => [row.ref, row.status])).toEqual([
+      ["APP-3", "queued"],
+    ]);
+    // Added, not queued: in To queue, no label.
+    await createTrackerTicket(
+      db,
+      ctx,
+      project,
+      "APP",
+      { title: "Export as CSV", body: "" },
+      false,
+    );
+    expect(jira.issues.get("APP-4")!.labels).toEqual([]);
+    expect(jira.created[1]).toMatchObject({
+      fields: { summary: "Export as CSV" },
+    });
+    expect(jira.created[1]).not.toHaveProperty("fields.description");
+    // A project asking for fields Yarrow cannot fill says which.
+    jira.required.push("Team");
+    await expect(
+      createTrackerTicket(
+        db,
+        ctx,
+        project,
+        "APP",
+        { title: "x", body: "" },
+        true,
+      ),
+    ).rejects.toThrow("APP requires Team: create this ticket in Jira.");
+    await expect(
+      createTrackerTicket(db, ctx, project, "OPS", { title: "x", body: "" }, true),
+    ).rejects.toThrow("OPS is not a linked Jira project.");
+  });
+
+  it("writes Markdown in Jira's document format", () => {
+    expect(
+      markdownToAdf(
+        "# Goal\n\nUse `theme` with **care**, see [docs](https://x.dev).\nNext line\n\n- one\n- two\n\n1. first\n\n```ts\nconst a = 1;\n```\n\n> quoted\n\nsnake_case_name stays",
+      ).content,
+    ).toEqual([
+      {
+        type: "heading",
+        attrs: { level: 1 },
+        content: [{ type: "text", text: "Goal" }],
+      },
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Use " },
+          { type: "text", text: "theme", marks: [{ type: "code" }] },
+          { type: "text", text: " with " },
+          { type: "text", text: "care", marks: [{ type: "strong" }] },
+          { type: "text", text: ", see " },
+          {
+            type: "text",
+            text: "docs",
+            marks: [{ type: "link", attrs: { href: "https://x.dev" } }],
+          },
+          { type: "text", text: "." },
+          { type: "hardBreak" },
+          { type: "text", text: "Next line" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: ["one", "two"].map((text) => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+        })),
+      },
+      {
+        type: "orderedList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "first" }] },
+            ],
+          },
+        ],
+      },
+      {
+        type: "codeBlock",
+        attrs: { language: "ts" },
+        content: [{ type: "text", text: "const a = 1;" }],
+      },
+      {
+        type: "blockquote",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "quoted" }] },
+        ],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "snake_case_name stays" }],
+      },
+    ]);
   });
 });
 

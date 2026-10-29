@@ -44,6 +44,7 @@ import { timeAgo } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
+import { NewTicket } from "./new-ticket";
 import { ModelsCell } from "./models";
 import { PaidByCell } from "./paid-by";
 import { prefetchPullPanel, PullPanel } from "./pull-panel";
@@ -128,6 +129,8 @@ export function BuilderView({
   // The row opened under its chevron ("projectId:key"), one at a time.
   const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // The new ticket form, open above the table.
+  const [composing, setComposing] = useState(false);
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
   // The dashboard opens on To review while pull requests wait there.
@@ -163,6 +166,7 @@ export function BuilderView({
     setShownId(currentId);
     setSelected(new Set());
     setFilter(null);
+    setComposing(false);
   }
   useEffect(() => {
     if (!data.project) return;
@@ -636,7 +640,32 @@ export function BuilderView({
                         if (!next.trim()) setNarrowed(false);
                       }}
                     />
+                    <button
+                      type="button"
+                      className="bd-btn bd-btn-amber bd-new"
+                      aria-expanded={composing}
+                      onClick={() => setComposing(true)}
+                    >
+                      <Plus size={14} /> New ticket
+                    </button>
                   </div>
+                  {composing && (
+                    <NewTicket
+                      projectId={project.id}
+                      boards={project.boards}
+                      onClose={() => setComposing(false)}
+                      onCreated={(key, queued) => {
+                        setComposing(false);
+                        setQuery("");
+                        setNarrowed(false);
+                        // Where it now stands, lit like a pasted ticket.
+                        setFilter(queued ? "progress" : "todo");
+                        setFresh(key);
+                        issuesRead.delete(project.id);
+                        void pull(project.id);
+                      }}
+                    />
+                  )}
                   {live?.issues === null && (
                     <p className="bd-note">
                       GitHub did not answer: only the tickets already in Yarrow

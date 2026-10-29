@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { ActionResult, PullRequestAction } from "./github/pull-actions";
+import type { NewIssueResult } from "./github/new-issue";
 
 /**
  * The shop Worker's configuration. Public values come from wrangler.jsonc
@@ -51,6 +52,12 @@ export interface AppEnv {
       instruction: string;
       login: string;
     }): Promise<ActionResult>;
+    createIssue(input: {
+      projectId: string;
+      title: string;
+      body: string;
+      queue: boolean;
+    }): Promise<NewIssueResult>;
   };
 }
 

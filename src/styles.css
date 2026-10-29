@@ -3531,6 +3531,83 @@ a.bd-review-link:hover {
   margin-left: auto;
   width: min(260px, 100%);
 }
+/* New ticket: the button after the search, the form above the table,
+   the change composer's face. */
+.bd-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+}
+.bd-new[aria-expanded="true"] {
+  opacity: 0.45;
+}
+.nt {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+.nt:focus-within {
+  border-color: #f2b54480;
+}
+.nt-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nt-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--secondary);
+}
+.nt-close {
+  margin-left: auto;
+}
+.nt-title,
+.nt-body {
+  border: 0;
+  outline: none;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+}
+.nt-title {
+  font:
+    500 16px/1.4 var(--font-geist-sans),
+    sans-serif;
+}
+.nt-body {
+  resize: vertical;
+  min-height: 96px;
+  font:
+    14px/1.55 var(--font-geist-sans),
+    sans-serif;
+}
+.nt-title::placeholder,
+.nt-body::placeholder {
+  color: var(--muted);
+}
+.nt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nt-foot .pp-error {
+  margin-right: auto;
+}
+.nt-foot .bd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
 .bd-note {
   font-size: 13px;
   color: var(--muted);
