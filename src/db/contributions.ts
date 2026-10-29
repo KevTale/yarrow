@@ -1,5 +1,5 @@
 import { and, eq, isNull, like, lt, sql } from "drizzle-orm";
-import { fundingMinute } from "../core/daily-funding";
+import { fundingMinute, startsTomorrow } from "../core/daily-funding";
 import { settleBreakdown } from "../core/pricing";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -160,7 +160,6 @@ export async function fundDaily(
   const day = startOfUtcDay(now);
   const date = day.toISOString().slice(0, 10);
   const minute = Math.floor((now.getTime() - day.getTime()) / 60_000);
-  const key = (userId: string) => `daily:${userId}:${date}`;
   const fundings = await db
     .select()
     .from(dailyFundings)
@@ -171,38 +170,64 @@ export async function fundDaily(
       start: funding.windowStart,
       end: funding.windowEnd,
     });
-    if (minute < at) continue;
-    const done = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(contributions)
-        .values({
-          userId: funding.userId,
-          source: "direct",
-          paymentStatus: "settled",
-          directKey: key(funding.userId),
-          amountCents: funding.amountCents,
-          creditCents: funding.amountCents,
-          createdAt: now,
-        })
-        .onConflictDoNothing({ target: contributions.directKey })
-        .returning({ id: contributions.id });
-      if (!row) return false;
-      await tx.insert(ledgerEntries).values({
-        contributionId: row.id,
-        kind: "credit",
-        amountCents: funding.amountCents,
-        idempotencyKey: `${row.id}:credit`,
-      });
-      await recordEvent(tx, {
-        type: "contribution.settled",
-        userId: funding.userId,
-        payload: { source: "direct", creditCents: funding.amountCents },
-      });
-      return true;
-    });
-    if (done) credited.push(funding.userId);
+    if (minute < at || startsTomorrow(funding.createdAt, now, at)) continue;
+    if (await creditDay(db, funding, now)) credited.push(funding.userId);
   }
   return credited;
+}
+
+/**
+ * Today's credit at once, whatever the window: a sponsor added with "Add
+ * now". The day's key is the cron's, so the day is still credited once.
+ */
+export async function fundToday(
+  db: Database,
+  userId: string,
+  now = new Date(),
+): Promise<boolean> {
+  const [funding] = await db
+    .select()
+    .from(dailyFundings)
+    .where(
+      and(eq(dailyFundings.userId, userId), isNull(dailyFundings.pausedAt)),
+    );
+  return funding ? creditDay(db, funding, now) : false;
+}
+
+async function creditDay(
+  db: Database,
+  funding: { userId: string; amountCents: number },
+  now: Date,
+): Promise<boolean> {
+  const date = startOfUtcDay(now).toISOString().slice(0, 10);
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(contributions)
+      .values({
+        userId: funding.userId,
+        source: "direct",
+        paymentStatus: "settled",
+        directKey: `daily:${funding.userId}:${date}`,
+        amountCents: funding.amountCents,
+        creditCents: funding.amountCents,
+        createdAt: now,
+      })
+      .onConflictDoNothing({ target: contributions.directKey })
+      .returning({ id: contributions.id });
+    if (!row) return false;
+    await tx.insert(ledgerEntries).values({
+      contributionId: row.id,
+      kind: "credit",
+      amountCents: funding.amountCents,
+      idempotencyKey: `${row.id}:credit`,
+    });
+    await recordEvent(tx, {
+      type: "contribution.settled",
+      userId: funding.userId,
+      payload: { source: "direct", creditCents: funding.amountCents },
+    });
+    return true;
+  });
 }
 
 /**

@@ -181,19 +181,23 @@ describe("admin Worker", () => {
       website: "https://totem.game",
       amount: "12",
       logo: "",
+      start: "now",
     });
     expect(ok.status).toBe(303);
     expect(ok.headers.get("location")).toBe("/");
-    expect(brain.createDailyFunding).toHaveBeenCalledWith({
-      profile: {
-        publicName: "Totem",
-        tagline: null,
-        description: null,
-        websiteUrl: "https://totem.game",
-        logo: undefined,
+    expect(brain.createDailyFunding).toHaveBeenCalledWith(
+      {
+        profile: {
+          publicName: "Totem",
+          tagline: null,
+          description: null,
+          websiteUrl: "https://totem.game",
+          logo: undefined,
+        },
+        amountCents: 1200,
       },
-      amountCents: 1200,
-    });
+      "now",
+    );
     const bad = await post({ name: "T", amount: "0" });
     expect(bad.headers.get("location")).toMatch(/^\/\?error=/);
     expect(brain.createDailyFunding).toHaveBeenCalledTimes(1);
@@ -206,6 +210,7 @@ describe("admin Worker", () => {
     });
     expect(brain.createDailyFunding).toHaveBeenLastCalledWith(
       expect.objectContaining({ windowStart: 300, windowEnd: 570 }),
+      "scheduled",
     );
     const reversed = await post({
       name: "Totem",

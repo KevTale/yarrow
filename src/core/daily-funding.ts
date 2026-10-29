@@ -22,6 +22,22 @@ export function fundingMinute(
   return window.start + (hash % (window.end - window.start + 1));
 }
 
+/**
+ * How a new daily funding starts: credited today at once, or left to the
+ * cron, at its minute.
+ */
+export type FundingStart = "now" | "scheduled";
+
+/**
+ * A funding scheduled after today's minute went by starts tomorrow: a
+ * credit never lands outside its window. `at` is today's minute.
+ */
+export function startsTomorrow(createdAt: Date, now: Date, at: number) {
+  const day = (date: Date) => date.toISOString().slice(0, 10);
+  if (day(createdAt) !== day(now)) return false;
+  return createdAt.getUTCHours() * 60 + createdAt.getUTCMinutes() > at;
+}
+
 /** 450 → "07:30". */
 export function clock(minutes: number): string {
   const pad = (value: number) => String(value).padStart(2, "0");

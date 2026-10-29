@@ -84,7 +84,7 @@ function fundingRow(appUrl: string, row: DailyFundingRow) {
         <strong>${dollars(row.amountCents)} / day</strong>
         <span class="muted">${dollars(row.creditedCents)} credited · ${dollars(row.spentCents)} spent</span>
         <span class="muted">${clock(row.windowStart)}–${clock(row.windowEnd)} UTC</span>
-        <span class="${row.paused ? "muted" : row.creditedToday ? "ok" : "muted"}">${row.paused ? "Paused" : row.creditedToday ? "Credited today" : `Lands at ${clock(row.landsAt)} UTC`}</span>
+        <span class="${row.paused ? "muted" : row.creditedToday ? "ok" : "muted"}">${row.paused ? "Paused" : row.creditedToday ? "Credited today" : `Lands ${row.landsTomorrow ? "tomorrow " : ""}at ${clock(row.landsAt)} UTC`}</span>
       </div>
       <div class="actions">
         <button type="button" class="line" data-edit>Edit</button>
@@ -198,7 +198,10 @@ export function adminPage(input: {
     <li class="row new">
       <form method="post" action="/fundings">
         ${fields(appUrl)}
-        <div class="actions"><button>Add</button></div>
+        <div class="actions">
+          <button class="line" name="start" value="scheduled">Schedule</button>
+          <button name="start" value="now">Add now</button>
+        </div>
       </form>
     </li>
   </ul>

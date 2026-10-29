@@ -14,7 +14,7 @@ import {
   PAUSE_MINUTES,
 } from "../../src/db/pauses";
 import { sponsorBoard } from "../../src/db/boards";
-import { fundingMinute } from "../../src/core/daily-funding";
+import { fundingMinute, startsTomorrow } from "../../src/core/daily-funding";
 import { expireDailyCredit, fundDaily } from "../../src/db/contributions";
 import * as schema from "../../src/db/schema";
 import { createTestDatabase } from "./helpers/pglite";
@@ -55,6 +55,54 @@ describe("admin: daily fundings", () => {
     });
     const today = await sponsorBoard(db, "today");
     expect(today.map((r) => [r.name, r.paidCents])).toEqual([["Totem", 1500]]);
+  });
+
+  it("adds a sponsor now, whatever its window, or leaves it to the cron", async () => {
+    const late = { windowStart: 0, windowEnd: 0 };
+    const added = await createDailyFunding(
+      db,
+      { profile, amountCents: 700, ...late },
+      "now",
+    );
+    const scheduled = await createDailyFunding(
+      db,
+      {
+        profile: { ...profile, publicName: "Quill" },
+        amountCents: 300,
+        ...late,
+      },
+      "scheduled",
+    );
+    // Today's minute (midnight) went by before Quill was scheduled: tomorrow.
+    expect(await fundDaily(db)).toEqual([]);
+    const rows = await listDailyFundings(db);
+    expect(rows.find((r) => r.userId === added)).toMatchObject({
+      creditedToday: true,
+      landsTomorrow: false,
+    });
+    expect(rows.find((r) => r.userId === scheduled)).toMatchObject({
+      creditedToday: false,
+      landsTomorrow: true,
+      landsAt: 0,
+    });
+    expect((await fundDaily(db, tomorrow)).sort()).toEqual(
+      [added, scheduled].sort(),
+    );
+  });
+
+  it("lets a scheduled sponsor land today only if its minute is to come", () => {
+    const at = (time: string) => new Date(`2030-01-15T${time}:00Z`);
+    // Scheduled at 08:00 for a 07:42 draw: tomorrow; for 09:10, today.
+    expect(startsTomorrow(at("08:00"), at("08:05"), 7 * 60 + 42)).toBe(true);
+    expect(startsTomorrow(at("08:00"), at("09:10"), 9 * 60 + 10)).toBe(false);
+    // From the next day on, every draw counts.
+    expect(
+      startsTomorrow(
+        at("08:00"),
+        new Date("2030-01-16T07:42:00Z"),
+        7 * 60 + 42,
+      ),
+    ).toBe(false);
   });
 
   it("applies a new amount from the next day", async () => {

@@ -1,10 +1,14 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
-import { fundingMinute } from "../core/daily-funding";
+import {
+  fundingMinute,
+  startsTomorrow,
+  type FundingStart,
+} from "../core/daily-funding";
 import type { Provider } from "../core/failures";
 import { dailyFundingSchema, type DailyFundingInput } from "../core/forms";
 import { startOfUtcDay } from "./boards";
 import type { Database } from "./client";
-import { fundDaily } from "./contributions";
+import { fundDaily, fundToday } from "./contributions";
 import { recordEvent } from "./events";
 import { resolveLogo } from "./images";
 import { listPauses, type ProviderPause } from "./pauses";
@@ -29,8 +33,10 @@ export type DailyFundingRow = {
   /** UTC minutes between which the day's credit lands. */
   windowStart: number;
   windowEnd: number;
-  /** The minute today's credit lands, drawn in the window. */
+  /** The minute the next credit lands, drawn in the window. */
   landsAt: number;
+  /** Scheduled after today's minute went by: the first credit is tomorrow's. */
+  landsTomorrow: boolean;
   paused: boolean;
   /** What was put in, every day; unspent credit expires, so this is not a balance. */
   creditedCents: number;
@@ -58,6 +64,7 @@ export async function listDailyFundings(
       windowStart: dailyFundings.windowStart,
       windowEnd: dailyFundings.windowEnd,
       pausedAt: dailyFundings.pausedAt,
+      createdAt: dailyFundings.createdAt,
       creditedCents: sql<number>`(select coalesce(sum(${contributions.amountCents}), 0)::int from ${contributions} where ${direct})`,
       spentCents: sql<number>`(select coalesce(sum(${contributions.debitedCents}), 0)::int from ${contributions} where ${direct})`,
       creditedToday: sql<boolean>`exists (select 1 from ${contributions} where ${direct} and ${contributions.createdAt} >= ${startOfUtcDay(now).toISOString()}::timestamptz)`,
@@ -68,24 +75,37 @@ export async function listDailyFundings(
       eq(sponsorProfiles.userId, dailyFundings.userId),
     )
     .orderBy(desc(dailyFundings.createdAt));
-  const date = startOfUtcDay(now).toISOString().slice(0, 10);
-  return rows.map(({ pausedAt, ...row }) => ({
-    ...row,
-    landsAt: fundingMinute(row.userId, date, {
-      start: row.windowStart,
-      end: row.windowEnd,
-    }),
-    paused: pausedAt !== null,
-  }));
+  const today = startOfUtcDay(now);
+  const tomorrow = new Date(today.getTime() + 86_400_000);
+  const draw = (
+    userId: string,
+    day: Date,
+    window: { start: number; end: number },
+  ) => fundingMinute(userId, day.toISOString().slice(0, 10), window);
+  return rows.map(({ pausedAt, createdAt, ...row }) => {
+    const window = { start: row.windowStart, end: row.windowEnd };
+    const landsTomorrow =
+      !row.creditedToday &&
+      startsTomorrow(new Date(createdAt), now, draw(row.userId, today, window));
+    return {
+      ...row,
+      landsAt: draw(row.userId, landsTomorrow ? tomorrow : today, window),
+      landsTomorrow,
+      paused: pausedAt !== null,
+    };
+  });
 }
 
 /**
  * Creates the sponsor row (no account behind it: the userId is the row's
- * own) and its daily funding, credited today at once if its minute passed.
+ * own) and its daily funding. "now" credits today at once, whatever the
+ * window; "scheduled" leaves it to the cron, at today's minute if it is
+ * still to come, tomorrow's otherwise.
  */
 export async function createDailyFunding(
   db: Database,
   input: DailyFundingInput,
+  start: FundingStart = "now",
 ): Promise<string> {
   const { profile, amountCents, windowStart, windowEnd } =
     dailyFundingSchema.parse(input);
@@ -105,10 +125,10 @@ export async function createDailyFunding(
     await recordEvent(tx, {
       type: "admin.daily_funding_saved",
       userId,
-      payload: { amountCents, windowStart, windowEnd, created: true },
+      payload: { amountCents, windowStart, windowEnd, created: true, start },
     });
   });
-  await fundDaily(db);
+  if (start === "now") await fundToday(db, userId);
   return userId;
 }
 

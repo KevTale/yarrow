@@ -28,6 +28,7 @@ import {
   type StoredReview,
 } from "../src/core/review";
 import { eq, sql } from "drizzle-orm";
+import type { FundingStart } from "../src/core/daily-funding";
 import { connectDatabase, type Database } from "../src/db/client";
 import {
   computeSummary,
@@ -860,8 +861,8 @@ export class Admin extends WorkerEntrypoint<BrainEnv> {
   dailyFundings() {
     return withDb(this.env, (db) => listDailyFundings(db));
   }
-  createDailyFunding(input: DailyFundingInput) {
-    return withDb(this.env, (db) => createDailyFunding(db, input));
+  createDailyFunding(input: DailyFundingInput, start: FundingStart) {
+    return withDb(this.env, (db) => createDailyFunding(db, input, start));
   }
   updateDailyFunding(userId: string, input: DailyFundingInput) {
     return withDb(this.env, (db) => updateDailyFunding(db, userId, input));

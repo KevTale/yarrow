@@ -1,4 +1,4 @@
-import { parseClock } from "../src/core/daily-funding";
+import { parseClock, type FundingStart } from "../src/core/daily-funding";
 import { dailyFundingSchema, type DailyFundingInput } from "../src/core/forms";
 import { verifyAccessToken } from "./admin-access";
 import { adminPage } from "./admin-page";
@@ -128,11 +128,15 @@ export default {
       if (userId && toggle)
         await env.BRAIN.pauseDailyFunding(userId, toggle === "pause");
       else {
-        const funding = fundingFromForm(await request.formData());
+        const form = await request.formData();
+        const funding = fundingFromForm(form);
         if (!dailyFundingSchema.safeParse(funding).success)
           return home(INVALID);
+        // "Add now" credits today at once; "Schedule" leaves it to the cron.
+        const start: FundingStart =
+          form.get("start") === "now" ? "now" : "scheduled";
         if (userId) await env.BRAIN.updateDailyFunding(userId, funding);
-        else await env.BRAIN.createDailyFunding(funding);
+        else await env.BRAIN.createDailyFunding(funding, start);
       }
       return home();
     } catch (error) {
