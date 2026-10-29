@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Glow } from "../components/Ambience";
 import { LiveDot, ModelName } from "../components/kit";
 import { checks, issue, runSeconds } from "../story";
 import { c, clamp, ease, font } from "../theme";
@@ -147,11 +148,12 @@ export const Work: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
+      <Glow />
       {/* The run's card. */}
       <div
         style={{
           position: "absolute",
-          left: 110,
+          left: 150,
           top: 190,
           width: 900,
           height: 700,
@@ -163,6 +165,9 @@ export const Work: React.FC = () => {
           padding: 44,
           opacity: cardIn,
           translate: `${interpolate(cardIn, [0, 1], [-60, 0])}px 0`,
+          // Turned toward the steps, settling over the run.
+          transform: `perspective(2000px) rotateY(${interpolate(frame, [0, 220], [14, 6], clamp)}deg) rotateX(3deg)`,
+          transformOrigin: "right center",
           display: "flex",
           flexDirection: "column",
           gap: 26,

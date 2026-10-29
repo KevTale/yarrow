@@ -1,5 +1,6 @@
 import { Audio } from "@remotion/media";
 import { interpolate, Sequence, staticFile, useVideoConfig } from "remotion";
+import { Grain, Shot } from "./components/Ambience";
 import { Dashboard } from "./scenes/Dashboard";
 import { End } from "./scenes/End";
 import { Intro } from "./scenes/Intro";
@@ -63,7 +64,9 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.intro.duration}
         premountFor={fps}
       >
-        <Intro />
+        <Shot duration={SCENE.intro.duration} enters={false}>
+          <Intro />
+        </Shot>
       </Sequence>
       <Sequence
         name="Work"
@@ -71,7 +74,9 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.work.duration}
         premountFor={fps}
       >
-        <Work />
+        <Shot duration={SCENE.work.duration}>
+          <Work />
+        </Shot>
       </Sequence>
       <Sequence
         name="Dashboard"
@@ -79,7 +84,9 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.dashboard.duration}
         premountFor={fps}
       >
-        <Dashboard />
+        <Shot duration={SCENE.dashboard.duration}>
+          <Dashboard />
+        </Shot>
       </Sequence>
       <Sequence
         name="Pull request"
@@ -87,7 +94,9 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.github.duration}
         premountFor={fps}
       >
-        <PullRequest />
+        <Shot duration={SCENE.github.duration}>
+          <PullRequest />
+        </Shot>
       </Sequence>
       <Sequence
         name="Sponsors"
@@ -95,7 +104,9 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.sponsors.duration}
         premountFor={fps}
       >
-        <Sponsors />
+        <Shot duration={SCENE.sponsors.duration}>
+          <Sponsors />
+        </Shot>
       </Sequence>
       <Sequence
         name="End"
@@ -103,8 +114,12 @@ export const Launch: React.FC = () => {
         durationInFrames={SCENE.end.duration}
         premountFor={fps}
       >
-        <End />
+        <Shot duration={SCENE.end.duration} leaves={false}>
+          <End />
+        </Shot>
       </Sequence>
+
+      <Grain />
 
       <Audio
         src={staticFile("music.mp3")}
