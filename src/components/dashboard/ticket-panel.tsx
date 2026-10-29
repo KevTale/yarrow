@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Markdown } from "@/components/markdown";
 import { Rich } from "@/components/run-activity";
-import { longDate, shortDate } from "@/components/ui";
 import { workText, type TicketRow } from "@/core/tickets";
 import { getTicketFn } from "@/functions/builder.functions";
 import { PullPanel } from "./pull-panel";
@@ -48,9 +47,10 @@ const sourceName = {
 } as const;
 
 /**
- * A ticket's row, opened: what the ticket asks, as written in GitHub or
- * Jira, then its pull request (the review, the changes, merge) or what can
- * be done with it now (start, cancel, retry).
+ * A ticket's row, opened. With a pull request, the pull request alone (the
+ * review, the changes, merge): it says what the ticket asked. Before, what
+ * the ticket asks, as written in GitHub or Jira, and what can be done with
+ * it now (start, cancel, retry).
  */
 export function TicketPanel({
   projectId,
@@ -63,6 +63,23 @@ export function TicketPanel({
   /** The row moved (merged, a change asked). */
   onChanged: () => void;
   /** Start, cancel or retry; none in the cross-project review list. */
+  act?: TicketAct;
+}) {
+  if (row.pullRequest)
+    return (
+      <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
+    );
+  return <TicketBrief projectId={projectId} row={row} act={act} />;
+}
+
+/** The ticket as written in its tracker, read live, then what can be done. */
+function TicketBrief({
+  projectId,
+  row,
+  act,
+}: {
+  projectId: string;
+  row: TicketRow;
   act?: TicketAct;
 }) {
   const id = cacheKey(projectId, row.key);
@@ -80,16 +97,12 @@ export function TicketPanel({
     };
   }, [projectId, row.key]);
 
-  const created = detail?.createdAt ?? row.createdAt;
   const url = detail?.url || row.url;
   return (
     <div className="tp">
       <section className="tp-brief" aria-label={`${row.ref}, as written`}>
         <p className="tp-meta">
           {detail?.author && <span>{detail.author}</span>}
-          <time dateTime={created} title={longDate(created)}>
-            {shortDate(created)}
-          </time>
           {detail?.labels.map((label) => (
             <span key={label} className="tp-label">
               {label}
@@ -113,15 +126,7 @@ export function TicketPanel({
           <p className="tp-empty">No description</p>
         )}
       </section>
-      {row.pullRequest ? (
-        <PullPanel
-          projectId={projectId}
-          rowKey={row.key}
-          onChanged={onChanged}
-        />
-      ) : (
-        act && <TicketActions row={row} act={act} />
-      )}
+      {act && <TicketActions row={row} act={act} />}
     </div>
   );
 }

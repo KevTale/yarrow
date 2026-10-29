@@ -3746,7 +3746,9 @@ tbody tr:hover {
   color: var(--secondary);
 }
 .tix-open .bd-num {
-  min-width: 64px;
+  /* The source's mark (12px and its margin), then the number. */
+  min-width: calc(var(--ref-ch, 3) * 1ch + 18px);
+  white-space: nowrap;
 }
 .tix-title {
   flex: 1;

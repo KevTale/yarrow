@@ -595,7 +595,7 @@ export function BuilderView({
                     {error}
                   </p>
                 )}
-                <div className="tix-list" ref={list}>
+                <div className="tix-list" ref={list} style={refColumn(matches)}>
                   {stages.map((stage) => {
                     const shown = matches.filter(stage.test);
                     // Stopped only when a ticket is there; searching shows
@@ -949,7 +949,7 @@ function ReviewList({
   if (rows.length === 0)
     return <p className="bd-none muted">Nothing to review</p>;
   return (
-    <div className="tix-list" ref={list}>
+    <div className="tix-list" ref={list} style={refColumn(rows)}>
       <TicketGroup
         stage="review"
         label="To review"
@@ -1010,14 +1010,22 @@ function OpenRow({
 }
 
 /** "#42", or a Jira key with Jira's mark in front. */
+/** Titles line up after the longest ticket number shown, no further. */
+const refColumn = (rows: TicketRow[]) =>
+  ({
+    "--ref-ch": Math.max(3, ...rows.map((row) => row.ref.length)),
+  }) as React.CSSProperties;
+
 function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>
-      {row.source === "jira" && (
-        <span className="bd-source">
+      <span className="bd-source">
+        {row.source === "jira" ? (
           <JiraIcon size={12} />
-        </span>
-      )}
+        ) : (
+          <Github size={12} aria-hidden="true" />
+        )}
+      </span>
       {row.ref}
     </span>
   );
