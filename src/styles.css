@@ -3738,6 +3738,7 @@ tbody tr:hover {
     background 0.15s;
 }
 .tix-row:hover .tix-dots,
+.tix-item.open .tix-dots,
 .tix-dots:focus-visible,
 .tix-dots[aria-expanded="true"] {
   opacity: 1;
