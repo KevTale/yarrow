@@ -3950,24 +3950,25 @@ tbody tr:hover {
   font-size: 13.5px;
   color: var(--muted);
 }
-.tp-state {
-  margin: 0;
-  padding: 2px 2px 4px;
-  font-size: 13.5px;
-  color: var(--secondary);
+/* Why the agents stopped, at the head of the ticket, unboxed. */
+.pp-main .ra-stop {
+  padding: 0;
+  border: 0;
+  background: none;
 }
-.tp-reason {
-  margin: 0;
-  padding: 12px 14px;
-  border: 1px solid #ee7b6e40;
-  border-radius: 10px;
-  background: #ee7b6e12;
-  max-width: 72ch;
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--secondary);
+.ra-story {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.row-menu-error {
+  margin: 4px 9px;
+  font-size: 12.5px;
+  color: var(--red);
 }
 .tp-by {
+  justify-content: flex-end;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -3975,13 +3976,6 @@ tbody tr:hover {
   margin: 0;
   font-size: 12.5px;
   color: var(--muted);
-}
-.tp-label {
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  font-size: 12px;
-  color: var(--secondary);
 }
 /* A ticket's Markdown, at the panel's reading size. */
 .md {
@@ -8010,9 +8004,7 @@ body:has(.sb-dialog[open]) {
   color: var(--green);
 }
 .pp-btn.merge[aria-disabled="true"] {
-  border-color: #2a3d31;
-  background: #1c2a22;
-  color: #5d7d6b;
+  opacity: 0.45;
   cursor: default;
 }
 .pp-composer {
@@ -8076,74 +8068,77 @@ body:has(.sb-dialog[open]) {
   gap: 18px;
   align-content: start;
 }
+/* The decisions, small and in one line: the main one filled white, the
+   others outlined, colour only in their icons. */
 .pp-actions {
-  display: grid;
-  gap: 8px;
-}
-.pp-btn {
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 14px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pp-actions > .pp-error {
+  flex-basis: 100%;
+  text-align: right;
+}
+.pp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--bg);
+  border-radius: 8px;
+  background: none;
   color: var(--text);
   font:
-    500 13.5px var(--font-geist-sans),
+    500 13px var(--font-geist-sans),
     sans-serif;
+  white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
   transition:
     border-color 0.15s,
-    background 0.15s;
+    background 0.15s,
+    opacity 0.15s;
 }
 .pp-btn:hover {
-  border-color: var(--muted);
+  border-color: #3a3e46;
+  background: var(--hover);
 }
 .pp-btn svg {
+  flex: none;
   color: var(--secondary);
 }
-/* The one decision of the panel, tinted rather than filled. */
-.pp-btn.merge,
-.pp-btn.start {
-  justify-content: center;
-  border-color: #5ccb9559;
-  background: #5ccb951c;
-  color: var(--green);
-}
-.pp-btn.merge:hover {
-  border-color: #5ccb9599;
-  background: #5ccb952b;
-}
-.pp-btn.merge svg,
-.pp-btn.start svg {
-  color: currentColor;
-}
-.pp-btn.merge.confirm {
-  border-color: var(--green);
-  background: #5ccb953d;
-}
-.pp-btn.start {
-  border-color: #f2b54459;
-  background: #f2b5441c;
-  color: var(--amber);
-}
-.pp-btn.start:hover {
-  border-color: #f2b54499;
-  background: #f2b5442b;
-}
-.pp-btn.start:disabled {
+.pp-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.pp-btn.primary {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+}
+.pp-btn.primary:hover {
+  background: #ffffff;
+}
+.pp-btn.primary svg {
+  color: currentColor;
+}
+.pp-btn.merge svg {
+  color: #1f8a5a;
+}
+.pp-btn.merge.confirm {
+  background: var(--green);
+}
+.pp-btn.merge.confirm svg {
+  color: currentColor;
 }
 .pp-btn.pressed {
   background: var(--hover);
   border-color: #3a3e46;
 }
 .pp-count {
-  margin-left: auto;
   font:
     12px var(--font-geist-mono),
     monospace;
@@ -8155,16 +8150,15 @@ body:has(.sb-dialog[open]) {
   color: var(--red);
 }
 .pp-merged {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid #5ccb9550;
-  border-radius: 9px;
-  background: #5ccb9512;
-  color: var(--green);
-  font-size: 13.5px;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #a99cf51a;
+  color: #a99cf5;
+  font-size: 13px;
   font-weight: 500;
 }
 .rich-link {

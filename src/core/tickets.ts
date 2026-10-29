@@ -101,7 +101,10 @@ export interface TicketRow extends TicketIdentity {
   /** Waiting for the label to be added or removed on GitHub. */
   pending: boolean;
   pullRequest: { number: number; url: string } | null;
+  /** Why the agents stopped ("ticket_unclear"), when abstained. */
   reason: string | null;
+  /** The agents' own words then: what they found, their questions. */
+  summary: string | null;
   models: TicketModel[];
 }
 
@@ -177,6 +180,7 @@ export function mergeTickets(
       pending: false,
       pullRequest: null,
       reason: null,
+      summary: null,
       models: [],
     });
   }

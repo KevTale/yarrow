@@ -1,8 +1,7 @@
-import { Play, RotateCcw, X } from "lucide-react";
+import { Pencil, Play, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Markdown } from "@/components/markdown";
-import { Rich } from "@/components/run-activity";
+import { RunStory, StopReason } from "@/components/run-activity";
 import { workText, type TicketRow } from "@/core/tickets";
 import { getTicketFn } from "@/functions/builder.functions";
 import { PullPanel } from "./pull-panel";
@@ -93,15 +92,14 @@ function TicketBrief({
     // A ticket edited in GitHub or Jira comes back with a newer date.
   }, [projectId, row.key, row.updatedAt]);
 
-  const work = workText(row.status, row.models);
+  const working = workText(row.status, row.models) !== null;
   return (
     <div className="pp-grid">
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
-        {row.status === "abstained" && row.reason && (
-          <p className="tp-reason">
-            <Rich text={row.reason} />
-          </p>
+        {row.status === "abstained" && (
+          <StopReason reason={row.reason} summary={row.summary} />
         )}
+        {working && row.runId && <RunStory runId={row.runId} />}
         {detail === undefined ? (
           <div className="tp-lines" aria-busy="true" aria-label="Loading">
             <span className="sk" style={{ width: "88%" }} />
@@ -114,44 +112,31 @@ function TicketBrief({
         )}
       </section>
       <aside className="pp-aside">
-        <div className="pp-actions">
-          {act && <TicketActions row={row} act={act} />}
-          {work && <TextShimmer className="tp-state">{work}</TextShimmer>}
-        </div>
-        {detail && (detail.author || detail.labels.length > 0) && (
-          <p className="tp-by">
-            {detail.author && <span>by {detail.author}</span>}
-            {detail.labels.map((label) => (
-              <span key={label} className="tp-label">
-                {label}
-              </span>
-            ))}
-          </p>
-        )}
+        {act && <TicketActions row={row} act={act} />}
+        {detail?.author && <p className="tp-by">by {detail.author}</p>}
       </aside>
     </div>
   );
 }
 
-/** Start, Cancel while it waits its turn, Retry once stopped. */
+/** Start, Cancel while it waits its turn, Edit and Retry once stopped. */
 function TicketActions({ row, act }: { row: TicketRow; act: TicketAct }) {
   if (row.status === "none")
     return (
-      <button
-        type="button"
-        className="pp-btn start"
-        disabled={row.pending}
-        onClick={() => act("queue", [row.key])}
-      >
-        <Play size={13} fill="currentColor" aria-hidden="true" /> Start
-      </button>
+      <div className="pp-actions">
+        <button
+          type="button"
+          className="pp-btn primary"
+          disabled={row.pending}
+          onClick={() => act("queue", [row.key])}
+        >
+          <Play size={13} fill="currentColor" aria-hidden="true" /> Start
+        </button>
+      </div>
     );
   if (row.status === "queued")
     return (
-      <>
-        <p className="tp-state">
-          {row.pending ? "Starting" : "Waiting for its turn"}
-        </p>
+      <div className="pp-actions">
         <button
           type="button"
           className="pp-btn"
@@ -160,17 +145,24 @@ function TicketActions({ row, act }: { row: TicketRow; act: TicketAct }) {
         >
           <X size={15} aria-hidden="true" /> Cancel
         </button>
-      </>
+      </div>
     );
   if (row.status === "abstained")
     return (
-      <button
-        type="button"
-        className="pp-btn start"
-        onClick={() => act("retry", [row.key])}
-      >
-        <RotateCcw size={14} aria-hidden="true" /> Retry
-      </button>
+      <div className="pp-actions">
+        {row.url && (
+          <a className="pp-btn" href={row.url} target="_blank" rel="noopener">
+            <Pencil size={14} aria-hidden="true" /> Edit ticket
+          </a>
+        )}
+        <button
+          type="button"
+          className="pp-btn primary"
+          onClick={() => act("retry", [row.key])}
+        >
+          <RotateCcw size={14} aria-hidden="true" /> Retry
+        </button>
+      </div>
     );
   return null;
 }

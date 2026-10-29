@@ -1,29 +1,36 @@
-import { Link } from "@tanstack/react-router";
-import {
-  Activity,
-  Check,
-  Ellipsis,
-  GitPullRequest,
-  Link2,
-  Ticket,
-} from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Ellipsis, Eye, GitPullRequest, Ticket } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
+import { Spinner } from "@/components/navigation-feedback";
 import type { TicketRow } from "@/core/tickets";
+import { pullRequestActionFn } from "@/functions/builder.functions";
+import { isDraft } from "./pull-panel";
 
 /**
  * "…" in a ticket's gutter, under the pointer: where else the ticket lives
- * (its tracker, its pull request, its run) and the run's public link. The
- * menu is drawn over the page, since the groups clip what leaves them.
+ * (its tracker, its pull request), and what is done rarely, such as asking
+ * GitHub's reviewers to look (Merge does it first anyway). The menu is drawn
+ * over the page, since the groups clip what leaves them.
  */
-export function RowMenu({ row }: { row: TicketRow }) {
+export function RowMenu({
+  row,
+  projectId,
+  onChanged,
+}: {
+  row: TicketRow;
+  projectId: string;
+  onChanged: () => void;
+}) {
+  const act = useServerFn(pullRequestActionFn);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
   const reduced = useReducedMotion();
   const [at, setAt] = useState<
     { left: number; top: number } | { left: number; bottom: number } | null
   >(null);
-  const [copied, setCopied] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const open = at !== null;
@@ -70,16 +77,8 @@ export function RowMenu({ row }: { row: TicketRow }) {
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => {
-      setCopied(false);
-      setAt(null);
-    }, 900);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
   const toggle = () => {
+    setError("");
     if (open) return setAt(null);
     const box = button.current!.getBoundingClientRect();
     // Near the foot of the window, the menu opens upward.
@@ -89,7 +88,24 @@ export function RowMenu({ row }: { row: TicketRow }) {
         : { left: box.left, top: box.bottom + 4 },
     );
   };
-  const runId = row.runId;
+  // A pull request known to be ready already does not offer it.
+  const ready =
+    row.status === "pull_request" && isDraft(projectId, row.key) !== false;
+  async function markReady() {
+    setPending(true);
+    try {
+      const result = await act({
+        data: { projectId, key: row.key, action: "ready" },
+      });
+      if (!result.ok) return setError(result.error);
+      setAt(null);
+      onChanged();
+    } catch {
+      setError("That did not go through. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
   return (
     <>
       <button
@@ -150,40 +166,26 @@ export function RowMenu({ row }: { row: TicketRow }) {
                     Open pull request
                   </a>
                 )}
-                {runId && (
-                  <>
-                    <Link
-                      className="ps-item"
-                      role="menuitem"
-                      to="/runs/$runId"
-                      params={{ runId }}
-                      onClick={() => setAt(null)}
-                    >
-                      <Activity size={15} aria-hidden="true" />
-                      Open run
-                    </Link>
-                    <button
-                      type="button"
-                      className={`ps-item ${copied ? "copied" : ""}`}
-                      role="menuitem"
-                      onClick={() => {
-                        const link = `${window.location.origin}/runs/${runId}`;
-                        void navigator.clipboard
-                          .writeText(link)
-                          .then(() => setCopied(true))
-                          .catch(() => window.open(link, "_blank", "noopener"));
-                      }}
-                    >
-                      {copied ? (
-                        <Check size={15} aria-hidden="true" />
-                      ) : (
-                        <Link2 size={15} aria-hidden="true" />
-                      )}
-                      <span aria-live="polite">
-                        {copied ? "Link copied" : "Copy link to run"}
-                      </span>
-                    </button>
-                  </>
+                {ready && (
+                  <button
+                    type="button"
+                    className="ps-item"
+                    role="menuitem"
+                    disabled={pending}
+                    onClick={() => void markReady()}
+                  >
+                    {pending ? (
+                      <Spinner />
+                    ) : (
+                      <Eye size={15} aria-hidden="true" />
+                    )}
+                    Mark ready for review
+                  </button>
+                )}
+                {error && (
+                  <p className="row-menu-error" role="alert">
+                    {error}
+                  </p>
                 )}
               </motion.div>
             )}

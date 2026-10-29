@@ -199,10 +199,8 @@ export async function projectTickets(
       runId: run?.id ?? null,
       pending: settled && pending !== undefined,
       pullRequest: pull ? { number: pull.number, url: pull.url } : null,
-      reason:
-        status === "abstained"
-          ? (run?.abstentionReason ?? run?.summary ?? null)
-          : null,
+      reason: status === "abstained" ? (run?.abstentionReason ?? null) : null,
+      summary: status === "abstained" ? (run?.summary ?? null) : null,
       models: status === "none" || status === "queued" ? [] : ticketModels,
       createdAt: unit.createdAt.toISOString(),
       updatedAt: latest(
@@ -229,6 +227,7 @@ export async function projectTickets(
         pending: true,
         pullRequest: null,
         reason: null,
+        summary: null,
         models: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

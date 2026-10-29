@@ -32,7 +32,6 @@ import {
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
 import { JiraIcon } from "@/components/brand-icons";
-import { RunHover } from "@/components/run-activity";
 import { LogoPicker } from "@/components/logo-picker";
 import { longDate, shortDate } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
@@ -778,7 +777,7 @@ function TicketLine({
         className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
         onAnimationEnd={onFreshEnd}
       >
-        <RowMenu row={row} />
+        <RowMenu row={row} projectId={projectId} onChanged={onChanged} />
         <button
           type="button"
           className="tix-open"
@@ -862,19 +861,12 @@ function RowState({ row }: { row: TicketRow }) {
     );
   if (row.status === "abstained")
     return <span className="tix-state stopped">Abstained</span>;
-  // "Claude Opus is writing": the model at work, as on the landing.
+  // "Claude Opus is writing": the model at work, as on the landing; its
+  // activity is in the opened row.
   const work = workText(row.status, row.models);
-  if (!work) return null;
-  const text = <TextShimmer className="tix-state working">{work}</TextShimmer>;
-  return row.runId ? (
-    <RunHover runId={row.runId}>
-      <Link to="/runs/$runId" params={{ runId: row.runId }} className="tix-run">
-        {text}
-      </Link>
-    </RunHover>
-  ) : (
-    text
-  );
+  return work ? (
+    <TextShimmer className="tix-state working">{work}</TextShimmer>
+  ) : null;
 }
 
 /** The first sponsor of the ticket's runs, the others named on hover. */

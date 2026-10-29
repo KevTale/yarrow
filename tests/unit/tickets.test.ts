@@ -336,6 +336,7 @@ describe("merging GitHub's open issues", () => {
       pending: true,
       pullRequest: null,
       reason: null,
+      summary: null,
       models: [],
       createdAt: "2026-10-07T10:00:00.000Z",
       updatedAt: "2026-10-07T10:00:00.000Z",

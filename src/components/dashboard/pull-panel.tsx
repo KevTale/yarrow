@@ -9,7 +9,6 @@ import {
   FileDiff,
   GitCommitHorizontal,
   GitMerge,
-  GitPullRequest,
   ScanSearch,
   TriangleAlert,
 } from "lucide-react";
@@ -60,6 +59,11 @@ function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
 }
 
 /** Reads a row before it opens (hover, focus, To review on arrival). */
+/** A pull request still a draft, as last read; unknown until its row opens. */
+export function isDraft(projectId: string, key: string): boolean | undefined {
+  return panels.get(cacheKey(projectId, key))?.live?.draft;
+}
+
 export function prefetchPullPanel(projectId: string, key: string): void {
   if (panels.has(cacheKey(projectId, key))) return;
   void fetchPanel(projectId, key).catch(() => {});
@@ -67,8 +71,7 @@ export function prefetchPullPanel(projectId: string, key: string): void {
 
 /**
  * A ticket's row, opened: what the agents did and what to watch on the
- * left, the decisions on the right (merge, ready for review, the changes,
- * GitHub), who paid and what it cost; a change asked from here goes to
+ * left, the decisions on the right (the changes, merge), who paid and what it cost; a change asked from here goes to
  * the pull request. The changes open under it, on demand.
  */
 export function PullPanel({
@@ -211,7 +214,6 @@ export function PullPanel({
               rowKey={rowKey}
               open={open}
               busy={Boolean(busy)}
-              draft={live?.draft ?? false}
               merged={pullRequest.state === "merged" || live?.merged === true}
               changes={
                 live ? { add: live.additions, del: live.deletions } : null
@@ -496,7 +498,6 @@ function Decisions({
   rowKey,
   open,
   busy,
-  draft,
   merged,
   changes,
   showChanges,
@@ -508,7 +509,6 @@ function Decisions({
   open: boolean;
   /** A change at work: merging now would leave its commit out. */
   busy: boolean;
-  draft: boolean;
   merged: boolean;
   changes: { add: number; del: number } | null;
   showChanges: boolean;
@@ -516,7 +516,7 @@ function Decisions({
   onDone: () => void;
 }) {
   const act = useServerFn(pullRequestActionFn);
-  const [pending, setPending] = useState<"ready" | "merge" | null>(null);
+  const [pending, setPending] = useState<"merge" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
 
@@ -527,9 +527,9 @@ function Decisions({
     return () => clearTimeout(timer);
   }, [confirming]);
 
-  async function run(action: "ready" | "merge") {
-    if (pending || (action === "merge" && busy)) return;
-    if (action === "merge" && !confirming) return setConfirming(true);
+  async function run(action: "merge") {
+    if (pending || busy) return;
+    if (!confirming) return setConfirming(true);
     setConfirming(false);
     setError("");
     setPending(action);
@@ -546,53 +546,14 @@ function Decisions({
 
   return (
     <div className="pp-actions">
-      {merged ? (
-        <span className="pp-merged">
-          <GitMerge size={16} aria-hidden="true" /> Merged
-        </span>
-      ) : (
-        open && (
-          <>
-            <button
-              type="button"
-              className={`pp-btn merge ${confirming ? "confirm" : ""}`}
-              aria-busy={pending === "merge"}
-              aria-disabled={busy}
-              onClick={() => void run("merge")}
-            >
-              {pending === "merge" ? (
-                <Spinner />
-              ) : (
-                <GitMerge size={16} aria-hidden="true" />
-              )}
-              {confirming ? "Confirm merge" : "Merge"}
-            </button>
-            {draft && (
-              <button
-                type="button"
-                className="pp-btn"
-                aria-busy={pending === "ready"}
-                onClick={() => void run("ready")}
-              >
-                {pending === "ready" ? (
-                  <Spinner />
-                ) : (
-                  <GitPullRequest size={16} aria-hidden="true" />
-                )}
-                Ready for review
-              </button>
-            )}
-          </>
-        )
-      )}
       <button
         type="button"
         className={`pp-btn ${showChanges ? "pressed" : ""}`}
         aria-pressed={showChanges}
         onClick={onChanges}
       >
-        <FileDiff size={16} aria-hidden="true" />
-        {showChanges ? "Hide changes" : "Changes"}
+        <FileDiff size={15} aria-hidden="true" />
+        Changes
         {changes && (
           <span className="pp-count">
             <span className="add">+{changes.add}</span>{" "}
@@ -600,6 +561,28 @@ function Decisions({
           </span>
         )}
       </button>
+      {merged ? (
+        <span className="pp-merged">
+          <GitMerge size={15} aria-hidden="true" /> Merged
+        </span>
+      ) : (
+        open && (
+          <button
+            type="button"
+            className={`pp-btn primary merge ${confirming ? "confirm" : ""}`}
+            aria-busy={pending === "merge"}
+            aria-disabled={busy}
+            onClick={() => void run("merge")}
+          >
+            {pending === "merge" ? (
+              <Spinner />
+            ) : (
+              <GitMerge size={15} aria-hidden="true" />
+            )}
+            {confirming ? "Confirm merge" : "Merge"}
+          </button>
+        )
+      )}
       {error && (
         <p className="pp-error" role="alert">
           {error}

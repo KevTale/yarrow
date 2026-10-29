@@ -524,6 +524,33 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
   );
 }
 
+/**
+ * A run's feed inside an opened ticket, live while it works: the stages,
+ * then what the agent did, newest last.
+ */
+export function RunStory({ runId }: { runId: string }) {
+  const { activity, failed, running } = useRunActivity(runId);
+  if (!activity)
+    return failed ? (
+      <p className="muted">The activity could not be read.</p>
+    ) : (
+      <div className="tp-lines" aria-busy="true" aria-label="Loading">
+        <span className="sk" style={{ width: "70%" }} />
+        <span className="sk" style={{ width: "52%" }} />
+      </div>
+    );
+  return (
+    <section className="ra-story" aria-label="Activity">
+      <StageBar activity={activity} />
+      {activity.lines.length === 0 ? (
+        <p className="muted">{running ? "Starting" : "No activity"}</p>
+      ) : (
+        <ActivityList lines={storyLines(activity.lines)} live={running} />
+      )}
+    </section>
+  );
+}
+
 /** The run page's whole feed, live while the run works. */
 export function RunFeed({ runId }: { runId: string }) {
   const { activity, failed, running } = useRunActivity(runId);
