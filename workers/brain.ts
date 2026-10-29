@@ -55,6 +55,11 @@ import {
   createIssue,
   type NewIssueResult,
 } from "../src/server/github/new-issue";
+import {
+  answerIssue,
+  closePullRequest,
+  closeTicket,
+} from "../src/server/github/ticket-actions";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -856,6 +861,50 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
         ),
       );
     return result;
+  }
+
+  /** The agents' questions answered on a GitHub issue: queued again, now. */
+  async answerTicket(input: {
+    projectId: string;
+    key: string;
+    answer: string;
+    login: string;
+  }): Promise<ActionResult> {
+    const credentials = this.credentials();
+    if (!credentials) return { ok: false, error: "GitHub is not configured." };
+    const result = await withDb(this.env, (db) =>
+      answerIssue(db, credentials, input),
+    );
+    if (result.ok)
+      this.ctx.waitUntil(
+        tick(this.env, true).catch((error) =>
+          console.warn("answer", describe(error)),
+        ),
+      );
+    return result;
+  }
+
+  /**
+   * A ticket closed from the dashboard: the issue on GitHub (a Jira ticket
+   * is moved by the web Worker), its open pull request, Yarrow's copy.
+   */
+  closeTicket(input: {
+    projectId: string;
+    key: string;
+    source: "github" | "jira";
+  }): Promise<ActionResult> {
+    const credentials = this.credentials();
+    if (!credentials)
+      return Promise.resolve({ ok: false, error: "GitHub is not configured." });
+    return withDb(this.env, (db) => closeTicket(db, credentials, input));
+  }
+
+  /** A ticket's pull request closed from the dashboard; the ticket stays. */
+  closePullRequest(input: { workUnitId: string }): Promise<ActionResult> {
+    const credentials = this.credentials();
+    if (!credentials)
+      return Promise.resolve({ ok: false, error: "GitHub is not configured." });
+    return withDb(this.env, (db) => closePullRequest(db, credentials, input));
   }
 
   /** A change asked from the dashboard: on the PR, queued, started now. */

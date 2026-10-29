@@ -28,6 +28,12 @@ export const changelog: ChangelogEntry[] = [
       builders(
         '"+" on To do or In progress writes a new ticket in a dialog; C opens it too.',
       ),
+      builders(
+        "When the agents stop with questions, answer them under the ticket: the answer is written on the ticket and it starts again.",
+      ),
+      builders(
+        'Close a ticket, or only its pull request, from the "…" of its row.',
+      ),
     ],
     improved: [
       builders(
@@ -37,6 +43,10 @@ export const changelog: ChangelogEntry[] = [
         "Every ticket in one list, grouped by stage: To review, In progress, To do, Stopped, Done. Each shows the day it was written.",
       ),
       builders("Switch projects or add one from the project's name."),
+      builders(
+        "Done shows the last two weeks; older tickets are one click away.",
+      ),
+      builders("The agents read a Jira ticket's comments, as on GitHub."),
     ],
   },
   {

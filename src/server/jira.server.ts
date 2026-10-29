@@ -3,6 +3,8 @@ import type { TrackerContext } from "./trackers/jira-flow";
 import { trackerSecretsFromEnv } from "./trackers/index";
 
 export {
+  answerTrackerTicket,
+  closeTrackerTicket,
   createTrackerTicket,
   jiraProjects,
   labelTrackerTickets,

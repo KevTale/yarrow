@@ -195,6 +195,9 @@ interface JiraIssue {
     updated?: string;
     created?: string;
     reporter?: { displayName?: string } | null;
+    comment?: {
+      comments?: { author?: { displayName?: string }; body: unknown }[];
+    };
     statusCategory?: { key: string };
     status?: { statusCategory?: { key: string } };
   };
@@ -483,15 +486,22 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
     },
     async getTicket({ externalId, accessToken }, _credentials, key) {
       const response = await fetcher(
-        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status,updated,created,reporter`,
+        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=summary,description,labels,status,updated,created,reporter,comment`,
         { headers: headers(accessToken) },
       );
       if (response.status === 404) return null;
-      return toTicket(
-        await json<JiraIssue>(response, "Jira issue"),
-        externalId,
-        accessToken,
-      );
+      const issue = await json<JiraIssue>(response, "Jira issue");
+      const discussion = (issue.fields.comment?.comments ?? [])
+        .slice(-20)
+        .map(
+          (comment) =>
+            `${comment.author?.displayName ?? "Someone"}: ${adfToText(comment.body).trim()}`,
+        )
+        .join("\n\n");
+      return {
+        ...(await toTicket(issue, externalId, accessToken)),
+        ...(discussion ? { discussion } : {}),
+      };
     },
     async createTicket(
       { externalId, accessToken },

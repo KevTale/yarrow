@@ -91,6 +91,9 @@ const stages: {
   { key: "done", label: "Done", test: done },
 ];
 
+/** Done keeps two weeks in view; older tickets wait behind "Show older". */
+const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
+
 /** Groups folded on this browser; Done starts folded, it only grows. */
 const FOLDED_KEY = "yarrow:folded-groups";
 const defaultFolded: Stage[] = ["done"];
@@ -190,6 +193,8 @@ export function BuilderView({
   const [error, setError] = useState("");
   // The new ticket dialog, and whether it came from In progress.
   const [composing, setComposing] = useState<{ start: boolean } | null>(null);
+  // Done past two weeks, shown on demand.
+  const [older, setOlder] = useState(false);
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
   // The dashboard opens on To review while pull requests wait there.
@@ -618,7 +623,14 @@ export function BuilderView({
                             : undefined
                         }
                       >
-                        {shown.map((row) => {
+                        {(stage.key === "done" && !q && !older
+                          ? shown.filter(
+                              (row) =>
+                                Date.parse(row.updatedAt) >
+                                Date.now() - RECENT_MS,
+                            )
+                          : shown
+                        ).map((row) => {
                           const id = `${project.id}:${row.key}`;
                           return (
                             <TicketLine
@@ -634,6 +646,19 @@ export function BuilderView({
                             />
                           );
                         })}
+                        {stage.key === "done" && !q && (
+                          <OlderToggle
+                            count={
+                              shown.filter(
+                                (row) =>
+                                  Date.parse(row.updatedAt) <=
+                                  Date.now() - RECENT_MS,
+                              ).length
+                            }
+                            shown={older}
+                            onToggle={() => setOlder((value) => !value)}
+                          />
+                        )}
                       </TicketGroup>
                     );
                   })}
@@ -662,6 +687,26 @@ export function BuilderView({
         />
       )}
     </div>
+  );
+}
+
+/** The foot of Done: the tickets closed more than two weeks ago. */
+function OlderToggle({
+  count,
+  shown,
+  onToggle,
+}: {
+  count: number;
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  if (count === 0) return null;
+  return (
+    <li className="tix-older">
+      <button type="button" aria-expanded={shown} onClick={onToggle}>
+        {shown ? "Hide older" : `Show older (${count})`}
+      </button>
+    </li>
   );
 }
 
@@ -781,7 +826,7 @@ function TicketLine({
         className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
         onAnimationEnd={onFreshEnd}
       >
-        <RowMenu row={row} />
+        <RowMenu row={row} projectId={projectId} onChanged={onChanged} />
         <button
           type="button"
           className="tix-open"

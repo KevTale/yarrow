@@ -21,6 +21,7 @@ import {
   verifyJiraWebhook,
 } from "../../src/server/trackers/jira-webhooks";
 import {
+  closeTrackerTicket,
   createTrackerTicket,
   JiraAccessError,
   jiraBoardSettings,
@@ -807,6 +808,14 @@ describe("moving Jira tickets", async () => {
       "APP-1 moved",
     );
     expect(jira.issues.get("APP-1")!.status).toBe("20");
+
+    // Closed from the dashboard: to Done when the workflow allows it.
+    await closeTrackerTicket(db, ctx, projectId, "APP-1");
+    expect(jira.issues.get("APP-1")!.status).toBe("40");
+    await expect(
+      closeTrackerTicket(db, ctx, projectId, "APP-2"),
+    ).rejects.toThrow("no way to close APP-2");
+    expect(jira.issues.get("APP-2")!.status).toBe("10");
   });
 });
 

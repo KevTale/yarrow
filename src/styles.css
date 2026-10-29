@@ -3994,6 +3994,41 @@ tbody tr:hover {
   font-size: 12.5px;
   color: var(--red);
 }
+/* Closing, asked twice: red once armed. */
+.row-menu .ps-item.danger:hover,
+.row-menu .ps-item.danger:focus-visible,
+.row-menu .ps-item.danger:hover svg {
+  color: var(--red);
+}
+.row-menu .ps-item.danger.armed {
+  background: var(--red);
+  color: #1d0d0a;
+}
+.row-menu .ps-item.danger.armed svg {
+  color: currentColor;
+}
+.row-menu .ps-item[aria-disabled="true"] {
+  cursor: default;
+}
+/* Done's foot: what closed more than two weeks ago, on demand. */
+.tix-older button {
+  min-height: 36px;
+  padding: 0 10px 0 36px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.tix-older button:hover,
+.tix-older button:focus-visible {
+  color: var(--text);
+}
+/* The answer to the agents, under their questions. */
+.tp-answer {
+  margin-bottom: 6px;
+}
 .tp-by {
   justify-content: flex-end;
   display: flex;

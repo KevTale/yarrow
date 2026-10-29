@@ -110,6 +110,67 @@ export async function trackerTicketDetail(
   }
 }
 
+/** The linked Jira project holding a ticket, with its connection. */
+async function jiraEntry(db: Database, projectId: string, key: string) {
+  const boards = await boardsForProject(db, projectId);
+  const entry = boards.find(
+    ({ board, connection }) =>
+      connection.tracker === "jira" &&
+      board.externalBoardId === jiraProject(key),
+  );
+  if (!entry) throw new Error(`${key} is not in a linked Jira project`);
+  return entry;
+}
+
+/**
+ * The agents' questions answered from the dashboard: a comment on the Jira
+ * ticket (as the person who connected Jira), which the agents read next.
+ */
+export async function answerTrackerTicket(
+  db: Database,
+  ctx: TrackerContext,
+  projectId: string,
+  key: string,
+  text: string,
+): Promise<void> {
+  const entry = await jiraEntry(db, projectId, key);
+  const tracker = await api(db, ctx, entry.connection);
+  await tracker.adapter.comment(tracker.scope, tracker.credentials, key, text);
+}
+
+/**
+ * Closes a Jira ticket from the dashboard: moved to the first status of
+ * the "done" category its workflow can reach. Says so when none can be.
+ */
+export async function closeTrackerTicket(
+  db: Database,
+  ctx: TrackerContext,
+  projectId: string,
+  key: string,
+): Promise<void> {
+  const entry = await jiraEntry(db, projectId, key);
+  const tracker = await api(db, ctx, entry.connection);
+  const { statuses, moveTo } = tracker.adapter;
+  if (!statuses || !moveTo) throw new Error(`${key} cannot be closed here`);
+  const done = (
+    await statuses(
+      tracker.scope,
+      tracker.credentials,
+      entry.board.externalBoardId,
+    )
+  ).filter((status) => status.category === "done");
+  for (const status of done) {
+    const moved = await moveTo(
+      tracker.scope,
+      tracker.credentials,
+      key,
+      status.id,
+    );
+    if (moved !== "blocked") return;
+  }
+  throw new Error(`Jira's workflow has no way to close ${key} from its status`);
+}
+
 /**
  * Queues (on) or unqueues (off) tracker tickets from the dashboard: the
  * label goes on or off the ticket in Jira, and Yarrow's copy follows at

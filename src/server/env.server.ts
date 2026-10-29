@@ -58,6 +58,18 @@ export interface AppEnv {
       body: string;
       queue: boolean;
     }): Promise<NewIssueResult>;
+    answerTicket(input: {
+      projectId: string;
+      key: string;
+      answer: string;
+      login: string;
+    }): Promise<ActionResult>;
+    closeTicket(input: {
+      projectId: string;
+      key: string;
+      source: "github" | "jira";
+    }): Promise<ActionResult>;
+    closePullRequest(input: { workUnitId: string }): Promise<ActionResult>;
   };
 }
 

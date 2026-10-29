@@ -24,6 +24,8 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { openIssues, readIssue } from "@/server/github/issues.server";
 import {
+  answerTrackerTicket,
+  closeTrackerTicket,
   createTrackerTicket,
   jiraReady,
   labelTrackerTickets,
@@ -254,6 +256,90 @@ export const requestChangeFn = createServerFn({ method: "POST" })
       instruction: data.instruction,
       login: viewer.githubLogin ?? viewer.name ?? "A maintainer",
     });
+  });
+
+type Outcome = { ok: true } | { ok: false; error: string };
+const githubKey = (key: string) => /^\d+$/.test(key);
+
+/**
+ * The agents stopped and asked: the builder's answer goes on the ticket as
+ * a comment (by the App on GitHub, through the brain; as the person who
+ * connected Jira on Jira), then the ticket is queued again.
+ */
+export const answerTicketFn = createServerFn({ method: "POST" })
+  .validator(ticketRef.extend({ answer: z.string().trim().min(1).max(4000) }))
+  .handler(async ({ data }): Promise<Outcome> => {
+    const viewer = await requireViewer();
+    const login = viewer.githubLogin ?? viewer.name ?? "A maintainer";
+    const project = await withDb((db) =>
+      requireProjectMember(db, viewer.userId, data.projectId),
+    );
+    if (githubKey(data.key)) {
+      const brain = appEnv().BRAIN;
+      if (!brain) return unavailable;
+      return brain.answerTicket({
+        projectId: project.id,
+        key: data.key,
+        answer: data.answer,
+        login,
+      });
+    }
+    try {
+      const retried = await withDb(async (db) => {
+        await answerTrackerTicket(
+          db,
+          trackerContext(),
+          project.id,
+          data.key,
+          `${login} answered from Yarrow:\n\n${data.answer}`,
+        );
+        return retryTicket(db, project.id, data.key);
+      });
+      if (!retried)
+        return {
+          ok: false,
+          error: "This ticket is not waiting for an answer.",
+        };
+      await kickBrain();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: (error as Error).message };
+    }
+  });
+
+/**
+ * Closes a ticket where it lives (a GitHub issue as not planned, a Jira
+ * ticket moved to done) and its open pull request; it leaves the list.
+ */
+export const closeTicketFn = createServerFn({ method: "POST" })
+  .validator(ticketRef)
+  .handler(async ({ data }): Promise<Outcome> => {
+    const viewer = await requireViewer();
+    const project = await withDb((db) =>
+      requireProjectMember(db, viewer.userId, data.projectId),
+    );
+    const brain = appEnv().BRAIN;
+    if (!brain) return unavailable;
+    const source = githubKey(data.key) ? "github" : "jira";
+    if (source === "jira")
+      try {
+        await withDb((db) =>
+          closeTrackerTicket(db, trackerContext(), project.id, data.key),
+        );
+      } catch (error) {
+        return { ok: false, error: (error as Error).message };
+      }
+    return brain.closeTicket({ projectId: project.id, key: data.key, source });
+  });
+
+/** Closes a ticket's pull request alone; the ticket stays open. */
+export const closePullRequestFn = createServerFn({ method: "POST" })
+  .validator(ticketRef)
+  .handler(async ({ data }): Promise<Outcome> => {
+    const { panel } = await memberPanel(data.projectId, data.key);
+    const brain = appEnv().BRAIN;
+    if (!panel?.pullRequest || !brain) return unavailable;
+    return brain.closePullRequest({ workUnitId: panel.workUnitId });
   });
 
 /** What maintainers comment on a Yarrow pull request to ask for a change. */

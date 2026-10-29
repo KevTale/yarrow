@@ -174,7 +174,7 @@ export class RunPipeline {
     });
   }
 
-  /** Reads the live ticket: GitHub issue with recent comments, or tracker ticket. */
+  /** Reads the live ticket with its recent comments: a GitHub issue or a tracker ticket. */
   private async freshTicket(
     context: RunContext,
     readToken: string,
@@ -234,7 +234,12 @@ export class RunPipeline {
         if (ticket)
           return {
             title: ticket.title,
-            body: ticket.body,
+            body: [
+              ticket.body,
+              ticket.discussion && `Discussion:\n${ticket.discussion}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
             url: ticket.url,
             source: name,
           };

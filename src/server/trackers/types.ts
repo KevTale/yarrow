@@ -9,6 +9,8 @@ export interface TrackerTicket {
   updatedAt?: string;
   /** When the ticket was written (ISO), and by whom, when the tracker says. */
   createdAt?: string;
+  /** Its comments, oldest first, as the agents read them (Jira). */
+  discussion?: string;
   author?: string;
   body: string;
   url: string;

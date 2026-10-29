@@ -1,8 +1,11 @@
+import { useServerFn } from "@tanstack/react-start";
+import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "@/components/markdown";
+import { Spinner } from "@/components/navigation-feedback";
 import { RunStory, StopReason } from "@/components/run-activity";
 import { workText, type TicketRow } from "@/core/tickets";
-import { getTicketFn } from "@/functions/builder.functions";
+import { answerTicketFn, getTicketFn } from "@/functions/builder.functions";
 import { PullPanel } from "./pull-panel";
 
 type Detail = Awaited<ReturnType<typeof getTicketFn>>;
@@ -56,7 +59,7 @@ export function TicketPanel({
     return (
       <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
     );
-  return <TicketBrief projectId={projectId} row={row} />;
+  return <TicketBrief projectId={projectId} row={row} onChanged={onChanged} />;
 }
 
 /**
@@ -66,9 +69,11 @@ export function TicketPanel({
 function TicketBrief({
   projectId,
   row,
+  onChanged,
 }: {
   projectId: string;
   row: TicketRow;
+  onChanged: () => void;
 }) {
   const id = cacheKey(projectId, row.key);
   const [detail, setDetail] = useState<Detail | undefined>(() =>
@@ -91,7 +96,10 @@ function TicketBrief({
     <div className="pp-grid">
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
         {row.status === "abstained" && (
-          <StopReason reason={row.reason} summary={row.summary} />
+          <>
+            <StopReason reason={row.reason} summary={row.summary} />
+            <Answer projectId={projectId} row={row} onAnswered={onChanged} />
+          </>
         )}
         {working && row.runId && <RunStory runId={row.runId} />}
         {detail === undefined ? (
@@ -109,5 +117,85 @@ function TicketBrief({
         {detail?.author && <p className="tp-by">by {detail.author}</p>}
       </aside>
     </div>
+  );
+}
+
+/**
+ * The agents stopped and asked: the builder answers here. The answer is
+ * written on the ticket, where the agents read it, and the ticket starts
+ * again.
+ */
+function Answer({
+  projectId,
+  row,
+  onAnswered,
+}: {
+  projectId: string;
+  row: TicketRow;
+  onAnswered: () => void;
+}) {
+  const send = useServerFn(answerTicketFn);
+  const [text, setText] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    const answer = text.trim();
+    if (!answer || pending) return;
+    setError("");
+    setPending(true);
+    try {
+      const result = await send({
+        data: { projectId, key: row.key, answer },
+      });
+      if (result.ok) {
+        setText("");
+        onAnswered();
+      } else setError(result.error);
+    } catch {
+      setError("That did not go through. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form
+      className="pp-composer tp-answer"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <textarea
+        aria-label={`Answer the agents on ${row.ref}`}
+        placeholder="Answer…"
+        rows={3}
+        value={text}
+        maxLength={4000}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            void submit();
+          }
+        }}
+      />
+      <div className="pp-composer-foot">
+        {error && (
+          <span className="pp-error" role="alert">
+            {error}
+          </span>
+        )}
+        <button
+          type="submit"
+          className="pp-send"
+          aria-disabled={!text.trim() || pending}
+        >
+          Answer and retry{" "}
+          {pending ? <Spinner /> : <RotateCcw size={14} strokeWidth={2.2} />}
+        </button>
+      </div>
+    </form>
   );
 }
