@@ -9,6 +9,7 @@ import {
   unlinkGithubRepositories,
 } from "../../db/projects";
 import { projects, pullRequests } from "../../db/schema";
+import { signalIssues } from "../../db/tickets";
 import { queueCorrection, upsertTicket } from "../../db/workunits";
 import { mentionPattern, PROD_APP_SLUG } from "../../core/corrections";
 
@@ -176,6 +177,7 @@ export async function handleGitHubEvent(
       ),
       closed: payload.issue.state === "closed",
     });
+    await signalIssues(db, project.id);
     return result.queued ? "issue queued" : "issue updated";
   }
 

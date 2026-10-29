@@ -134,6 +134,13 @@
       "when": 1791877654554,
       "tag": "0018_jira_webhooks",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791884938858,
+      "tag": "0019_issues_signal",
+      "breakpoints": true
     }
   ]
 }

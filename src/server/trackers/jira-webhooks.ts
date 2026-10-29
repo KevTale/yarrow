@@ -8,6 +8,7 @@ import {
   saveWebhook,
   ticketKnown,
 } from "../../db/trackers";
+import { signalIssues } from "../../db/tickets";
 import { upsertTicket } from "../../db/workunits";
 import { safeEqual } from "../github/app";
 import { trackerApi, type Connection, type TrackerContext } from "./context";
@@ -282,6 +283,8 @@ export async function handleJiraDelivery(
         board.externalBoardId === jiraProject(key) && !project.suspendedAt,
     );
     if (boards.length === 0) continue;
+    // Created, renamed or closed: the dashboards' open tickets read again.
+    for (const { project } of boards) await signalIssues(db, project.id);
     const tracker = await trackerApi(db, ctx, connection);
     const ticket = await tracker.adapter.getTicket(
       tracker.scope,

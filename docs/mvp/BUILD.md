@@ -160,6 +160,8 @@ Decided 2026-10-07 (mockup: claude.ai/artifact/GnHLGnxDoGuDdikpUk3T8i). One page
 
 Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase Realtime (Broadcast from Database, `drizzle/0007_realtime.sql`); pages refetch through their own server functions, so no data travels on a channel and the access rules stay the server's. Channels: `boards` (public: landing boards, a settled payment, a profile change, a merge), `project:<id>` (private to the project's members: tickets, runs, label tasks, PRs), `sponsor:<user>` (private to that sponsor: their payments and the runs they fund). Private channels are checked by a policy on `realtime.messages`. Polling stays as a slow safety net. Rows that move slide to their new place, new rows fade in, changed values flash.
 
+- **Open tickets** (decided 2026-10-13): the repository's issues and the Jira tickets nobody queued are read live, never stored, so no row changes when one is opened, renamed or closed there, and the dashboard re-read them at most once a minute (up to two minutes late). GitHub's `issues` webhook and Jira's webhook now send an `issues` signal on `project:<id>` (`yarrow_private.notify_issues`, `drizzle/0019_issues_signal.sql`), and the dashboard reads the open tickets again at once, then once more five seconds later, since Jira's search shows a change a few seconds after its webhook. The minute's read stays as the safety net.
+
 ## Money
 
 - **Sponsor packs:** $10 / $25 / $100, plus a **custom amount** in whole dollars between $10 and $1,000. The minimum avoids fixed Stripe fees eating small payments. The maximum limits fraud and chargeback exposure in v1.

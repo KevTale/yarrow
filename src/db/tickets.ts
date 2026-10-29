@@ -294,3 +294,14 @@ export async function retryTicket(
   });
   return true;
 }
+
+/**
+ * GitHub or Jira says an open ticket changed (opened, renamed, closed): the
+ * project's dashboards read the open tickets again now (0019_issues_signal).
+ */
+export async function signalIssues(
+  db: Database,
+  projectId: string,
+): Promise<void> {
+  await db.execute(sql`select yarrow_private.notify_issues(${projectId}::uuid)`);
+}

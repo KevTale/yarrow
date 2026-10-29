@@ -36,12 +36,19 @@ function browserClient(config: NonNullable<LiveConfig>) {
 }
 
 /**
- * Calls `onChange` shortly after any signal on these channels. `spread`
- * adds a random delay so a crowd of viewers does not refetch at once.
+ * A signal: "changed" when Yarrow's rows moved, "issues" when GitHub or
+ * Jira says an open ticket changed (see drizzle/0019_issues_signal.sql).
+ */
+export type LiveSignal = { event: "changed" | "issues"; topic: string };
+
+/**
+ * Calls `onChange` shortly after any signal on these channels, with the
+ * signals gathered meanwhile. `spread` adds a random delay so a crowd of
+ * viewers does not refetch at once.
  */
 export function useLive(
   topics: (string | null)[],
-  onChange: () => void,
+  onChange: (signals: LiveSignal[]) => void,
   spread = 0,
 ) {
   const config = useContext(LiveContext);
@@ -56,10 +63,16 @@ export function useLive(
     const supabase = browserClient(config);
     const names = key.split(",");
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const fire = () => {
+    let signals: LiveSignal[] = [];
+    const fire = (signal: LiveSignal) => {
+      signals.push(signal);
       clearTimeout(timer);
       timer = setTimeout(
-        () => callback.current(),
+        () => {
+          const gathered = signals;
+          signals = [];
+          callback.current(gathered);
+        },
         300 + Math.random() * spread,
       );
     };
@@ -75,7 +88,12 @@ export function useLive(
       channels = names.map((name) =>
         supabase
           .channel(name, { config: { private: name !== "boards" } })
-          .on("broadcast", { event: "changed" }, fire)
+          .on("broadcast", { event: "changed" }, () =>
+            fire({ event: "changed", topic: name }),
+          )
+          .on("broadcast", { event: "issues" }, () =>
+            fire({ event: "issues", topic: name }),
+          )
           .subscribe(),
       );
     })();

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../../src/db/schema";
+import { signalIssues } from "../../src/db/tickets";
 import { createTestDatabase } from "./helpers/pglite";
 
 const t = await createTestDatabase();
@@ -13,9 +14,9 @@ const userId = crypto.randomUUID();
 beforeAll(async () => {
   await t.pg.exec(`
     CREATE SCHEMA realtime;
-    CREATE TABLE realtime.log (topic text, private boolean);
+    CREATE TABLE realtime.log (topic text, private boolean, event text);
     CREATE FUNCTION realtime.send(payload jsonb, event text, topic text, private boolean DEFAULT true)
-    RETURNS void LANGUAGE sql AS $$ INSERT INTO realtime.log VALUES (topic, private) $$;
+    RETURNS void LANGUAGE sql AS $$ INSERT INTO realtime.log VALUES (topic, private, event) $$;
   `);
 });
 beforeEach(async () => {
@@ -130,6 +131,16 @@ describe("realtime signals", () => {
       `project:${projectId}`,
       `sponsor:${userId}`,
       "boards (public)",
+    ]);
+  });
+
+  it("tells the project's members when GitHub or Jira says an open ticket changed", async () => {
+    await signalIssues(t.db, projectId);
+    const rows = await raw.execute<{ topic: string; event: string }>(
+      sql`SELECT topic, event FROM realtime.log`,
+    );
+    expect(rows.rows).toEqual([
+      { topic: `project:${projectId}`, event: "issues" },
     ]);
   });
 });

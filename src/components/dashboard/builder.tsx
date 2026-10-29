@@ -249,7 +249,19 @@ export function BuilderView({
   const topics = reviewing
     ? meta.projects.map((item) => `project:${item.id}`)
     : [currentId ? `project:${currentId}` : null];
-  useLive(topics, () => void pull());
+  useLive(topics, (signals) => {
+    const stale = signals
+      .filter((signal) => signal.event === "issues")
+      .map((signal) => signal.topic.replace(/^project:/, ""));
+    for (const id of stale) issuesRead.delete(id);
+    void pull();
+    // Jira's search shows a change a few seconds after its webhook: again.
+    if (stale.includes(currentId ?? ""))
+      setTimeout(() => {
+        for (const id of stale) issuesRead.delete(id);
+        void pull();
+      }, 5_000);
+  });
   useEffect(() => {
     if (meta.projects.length === 0) return;
     const timer = setTimeout(() => void pull(), busy ? 15_000 : 60_000);
