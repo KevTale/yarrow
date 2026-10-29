@@ -147,6 +147,16 @@ export const Launch: React.FC = () => {
         volume={0.6}
       />
       <Sfx
+        from={BEAT.mergeClick}
+        src="https://remotion.media/mouse-click.wav"
+        volume={0.6}
+      />
+      <Sfx
+        from={BEAT.merged}
+        src="https://remotion.media/ding.wav"
+        volume={0.22}
+      />
+      <Sfx
         from={BEAT.githubClick}
         src="https://remotion.media/mouse-click.wav"
         volume={0.6}

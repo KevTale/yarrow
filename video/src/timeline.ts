@@ -46,6 +46,8 @@ export const BEAT = {
   goClick: s(5.33),
   approved: SCENE.work.from + 186,
   chevronClick: SCENE.dashboard.from + 28,
-  githubClick: SCENE.dashboard.from + 196,
+  mergeClick: SCENE.dashboard.from + 134,
+  merged: SCENE.dashboard.from + 148,
+  githubClick: SCENE.dashboard.from + 192,
   climb: SCENE.sponsors.from + 60,
 };

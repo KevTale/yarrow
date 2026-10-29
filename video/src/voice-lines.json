@@ -4,7 +4,7 @@
   "lines": [
     {
       "id": "intro",
-      "text": "[curious, a little playful] Got an issue you never get to? [confident] Paste it into Yarrow."
+      "text": "[curious, a little playful] That feature you keep putting off? [confident] Paste it into Yarrow. [warm] It's free."
     },
     { "id": "build", "text": "[upbeat] Claude Opus builds it." },
     { "id": "review", "text": "GPT Astra reviews it." },

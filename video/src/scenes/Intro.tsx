@@ -90,7 +90,7 @@ export const Intro: React.FC = () => {
           transformOrigin: `960px ${FIELD.top + FIELD.height / 2}px`,
         }}
       >
-        {/* The header: logo centered, Sign in on the right, a hairline. */}
+        {/* The header: logo centered, a hairline. */}
         <div
           style={{
             position: "absolute",
@@ -104,17 +104,6 @@ export const Intro: React.FC = () => {
             src={staticFile("yarrow-logo-on-dark.svg")}
             style={{ position: "absolute", left: 853, top: 22, height: 48 }}
           />
-          <span
-            style={{
-              position: "absolute",
-              right: 48,
-              top: 33,
-              fontSize: 21,
-              color: c.muted,
-            }}
-          >
-            Sign in
-          </span>
         </div>
         {logoIn < 1 && (
           <Mark

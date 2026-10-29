@@ -13,15 +13,16 @@ import { c, clamp, ease, font } from "../theme";
 import { Check } from "./Work";
 
 /** The scene's beats (local frames). */
-const CHEVRON = 28;
+export const CHEVRON = 28;
 const HOVER_MERGE = 116;
-const LEAVE_MERGE = 152;
-const GITHUB = 196;
+export const MERGE_CLICK = 134;
+const MERGED = MERGE_CLICK + 14;
+export const GITHUB = 192;
 
 /** The opened row's places on the frame. */
 const ROW = { top: 250, height: 88 };
 const CHEVRON_AT = { x: 152, y: ROW.top + ROW.height / 2 };
-const ASIDE = { left: 1330, width: 470 };
+const ASIDE = { left: 1270, width: 470 };
 const MERGE_AT = { x: ASIDE.left + ASIDE.width / 2 + 40, y: 420 };
 const GITHUB_AT = { x: ASIDE.left + 120, y: 546 };
 
@@ -47,6 +48,35 @@ const Icon: React.FC<{
     ))}
   </svg>
 );
+/** The app's spinner: a ring with one bright quarter, turning. */
+const Spinner: React.FC<{ color: string }> = ({ color }) => {
+  const frame = useCurrentFrame();
+  return (
+    <svg
+      width={26}
+      height={26}
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ flex: "none", rotate: `${frame * 24}deg` }}
+    >
+      <circle
+        cx={12}
+        cy={12}
+        r={9}
+        stroke={color}
+        strokeOpacity={0.25}
+        strokeWidth={3}
+      />
+      <path
+        d="M12 3a9 9 0 0 1 9 9"
+        stroke={color}
+        strokeWidth={3}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+};
+
 const merge = [
   "M6 21V9a9 9 0 0 0 9 9",
   "M18 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
@@ -62,8 +92,8 @@ const fileDiff = [
 
 /**
  * The builder's dashboard: the ticket's row opens on the pull request,
- * summed up, reviewed and one click from merged; then the pointer goes to
- * GitHub.
+ * summed up and reviewed; one click merges it, then the pointer goes to
+ * GitHub. The header stays put while the page leans in.
  */
 export const Dashboard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -82,11 +112,18 @@ export const Dashboard: React.FC = () => {
     interpolate(frame, [at, at + 10], [0, 1], clamp);
   const onMerge = interpolate(
     frame,
-    [HOVER_MERGE, HOVER_MERGE + 8, LEAVE_MERGE, LEAVE_MERGE + 8],
+    [HOVER_MERGE, HOVER_MERGE + 8, MERGE_CLICK, MERGE_CLICK + 4],
     [0, 1, 1, 0],
     clamp,
   );
   const pulse = onMerge * (0.5 + 0.5 * Math.sin((frame - HOVER_MERGE) / 5));
+  const merging = frame >= MERGE_CLICK && frame < MERGED;
+  const merged = frame >= MERGED;
+  const mergedIn = spring({
+    frame: frame - MERGED,
+    fps,
+    config: { damping: 12, stiffness: 180 },
+  });
   const onGithub = interpolate(frame, [GITHUB - 16, GITHUB - 8], [0, 1], clamp);
   // The camera leans toward the decisions while the voice names them.
   const lean = interpolate(frame, [80, 130], [0, 1], {
@@ -98,13 +135,7 @@ export const Dashboard: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
-      <AbsoluteFill
-        style={{
-          scale: `${interpolate(lean, [0, 1], [1, 1.07])}`,
-          transformOrigin: "900px 640px",
-          opacity: enter,
-        }}
-      >
+      <AbsoluteFill style={{ opacity: enter, zIndex: 1 }}>
         {/* The app's header. */}
         <div
           style={{
@@ -112,6 +143,7 @@ export const Dashboard: React.FC = () => {
             inset: "0 0 auto 0",
             height: 84,
             borderBottom: `1px solid ${c.line}`,
+            background: c.bg,
           }}
         >
           <Img
@@ -130,7 +162,14 @@ export const Dashboard: React.FC = () => {
             }}
           />
         </div>
-
+      </AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          scale: `${interpolate(lean, [0, 1], [1, 1.06])}`,
+          transformOrigin: "960px 600px",
+          opacity: enter,
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -210,11 +249,13 @@ export const Dashboard: React.FC = () => {
               style={{
                 width: 9,
                 height: 9,
+                boxSizing: "border-box",
                 borderRadius: "50%",
-                background: c.green,
+                border: `1.5px solid ${c.green}`,
+                background: merged ? c.green : "transparent",
               }}
             />
-            PR #{issue.pr} open
+            PR #{issue.pr} {merged ? "merged" : "open"}
           </span>
           <span
             style={{
@@ -257,7 +298,7 @@ export const Dashboard: React.FC = () => {
               position: "absolute",
               left: 84,
               top: 30,
-              width: 1000,
+              width: 960,
               display: "grid",
               gap: 40,
             }}
@@ -401,16 +442,29 @@ export const Dashboard: React.FC = () => {
                 justifyContent: "center",
                 gap: 12,
                 height: 66,
+                boxSizing: "border-box",
                 borderRadius: 14,
-                background: c.green,
-                color: "#0c1a13",
+                border: merged ? "1px solid #5ccb9550" : "none",
+                background: merged ? "#5ccb9512" : c.green,
+                color: merged ? c.green : "#0c1a13",
                 fontSize: 25,
-                fontWeight: 600,
-                scale: `${1 + 0.03 * onMerge}`,
+                fontWeight: merged ? 500 : 600,
+                scale: merged
+                  ? `${interpolate(mergedIn, [0, 1], [0.94, 1])}`
+                  : `${1 + 0.03 * onMerge - (merging ? 0.02 : 0)}`,
                 boxShadow: `0 0 0 ${4 + 6 * pulse}px rgba(92, 203, 149, ${0.18 * onMerge}), 0 12px 40px rgba(92, 203, 149, ${0.3 * onMerge})`,
               }}
             >
-              <Icon d={merge} size={26} color="#0c1a13" /> Merge
+              {merging ? (
+                <Spinner color="#0c1a13" />
+              ) : (
+                <Icon
+                  d={merge}
+                  size={26}
+                  color={merged ? c.green : "#0c1a13"}
+                />
+              )}
+              {merged ? "Merged" : "Merge"}
             </div>
             <div
               style={{
@@ -515,10 +569,10 @@ export const Dashboard: React.FC = () => {
             { f: 24, x: CHEVRON_AT.x, y: CHEVRON_AT.y },
             { f: 80, x: CHEVRON_AT.x + 20, y: CHEVRON_AT.y + 40 },
             { f: HOVER_MERGE, x: MERGE_AT.x, y: MERGE_AT.y },
-            { f: LEAVE_MERGE, x: MERGE_AT.x + 10, y: MERGE_AT.y + 6 },
+            { f: MERGED + 6, x: MERGE_AT.x + 6, y: MERGE_AT.y + 4 },
             { f: GITHUB - 14, x: GITHUB_AT.x, y: GITHUB_AT.y },
           ]}
-          clicks={[CHEVRON, GITHUB]}
+          clicks={[CHEVRON, MERGE_CLICK, GITHUB]}
         />
       </AbsoluteFill>
     </AbsoluteFill>
