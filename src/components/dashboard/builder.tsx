@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Settings,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -812,6 +813,15 @@ function TicketLine({
                 <Play size={10} fill="currentColor" aria-hidden="true" /> Start
               </button>
             )}
+            {act && row.status === "queued" && !row.pending && (
+              <button
+                type="button"
+                className="tix-go quiet"
+                onClick={() => act("unqueue", [row.key])}
+              >
+                <X size={12} aria-hidden="true" /> Cancel
+              </button>
+            )}
             {act && row.status === "abstained" && (
               <button
                 type="button"
@@ -841,12 +851,7 @@ function TicketLine({
         </span>
       </div>
       <OpenRow open={open}>
-        <TicketPanel
-          projectId={projectId}
-          row={row}
-          onChanged={onChanged}
-          act={act}
-        />
+        <TicketPanel projectId={projectId} row={row} onChanged={onChanged} />
       </OpenRow>
     </li>
   );
@@ -940,7 +945,7 @@ function MergeGo({
         ) : (
           <GitMerge size={12} aria-hidden="true" />
         )}
-        {step === "confirm" ? "Confirm merge" : "Merge"}
+        {step === "confirm" ? "Confirm merge?" : "Merge"}
       </button>
     </>
   );

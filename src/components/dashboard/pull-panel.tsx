@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   FileText,
   GitCommitHorizontal,
+  Info,
   ScanSearch,
   TriangleAlert,
   X,
@@ -252,22 +253,12 @@ export function PullPanel({
         </div>
 
         <aside className="pp-aside">
-          {pullRequest && (
-            <ChangedFiles
-              projectId={projectId}
-              rowKey={rowKey}
-              size={size}
-              url={pullRequest.url}
-              focus={focus}
-              onOpen={(path) =>
-                setFocus((shown) => (shown === path ? null : path))
-              }
-            />
-          )}
-
-          {panel.paidBy.length > 0 && (
+          {panel.paidBy.length > 0 ? (
             <div className="pp-paid">
-              <span className="pp-label">Paid by</span>
+              <div className="pp-paid-head">
+                <span className="pp-label">Paid by</span>
+                {panel.models.length > 0 && <CostInfo panel={panel} />}
+              </div>
               {panel.paidBy.map((sponsor, i) => (
                 <SponsorLink key={i} sponsor={sponsor} className="pp-sponsor">
                   <Logo
@@ -287,29 +278,21 @@ export function PullPanel({
                 </SponsorLink>
               ))}
             </div>
+          ) : (
+            panel.models.length > 0 && <Costs panel={panel} />
           )}
-          {panel.models.length > 0 && (
-            <dl className="pp-facts">
-              {panel.models.map((model) => (
-                <div key={model.role}>
-                  <dt>{model.name}</dt>
-                  <dd>
-                    {model.seconds !== null &&
-                      `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
-                    {model.costExact ? "" : "≈ "}
-                    {money(model.costCents)}
-                  </dd>
-                </div>
-              ))}
-              <div className="pp-total">
-                <dt>Total</dt>
-                <dd>
-                  {panel.totalSeconds !== null &&
-                    `${formatSeconds(panel.totalSeconds)} · `}
-                  {money(panel.totalCents)}
-                </dd>
-              </div>
-            </dl>
+
+          {pullRequest && (
+            <ChangedFiles
+              projectId={projectId}
+              rowKey={rowKey}
+              size={size}
+              url={pullRequest.url}
+              focus={focus}
+              onOpen={(path) =>
+                setFocus((shown) => (shown === path ? null : path))
+              }
+            />
           )}
         </aside>
       </div>
@@ -327,6 +310,47 @@ export function PullPanel({
         />
       )}
     </div>
+  );
+}
+
+/** Who wrote and who reviewed, their time and cost, then the total. */
+function Costs({ panel }: { panel: Panel }) {
+  return (
+    <dl className="pp-facts">
+      {panel.models.map((model) => (
+        <div key={model.role}>
+          <dt>{model.name}</dt>
+          <dd>
+            {model.seconds !== null &&
+              `${model.secondsExact ? "" : "≈ "}${formatSeconds(model.seconds)} · `}
+            {model.costExact ? "" : "≈ "}
+            {money(model.costCents)}
+          </dd>
+        </div>
+      ))}
+      <div className="pp-total">
+        <dt>Total</dt>
+        <dd>
+          {panel.totalSeconds !== null &&
+            `${formatSeconds(panel.totalSeconds)} · `}
+          {money(panel.totalCents)}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+/** "i" in the Paid by card: the costs show on hover, focus or tap. */
+function CostInfo({ panel }: { panel: Panel }) {
+  return (
+    <span className="pp-info">
+      <button type="button" className="pp-info-btn" aria-label="Costs">
+        <Info size={14} aria-hidden="true" />
+      </button>
+      <span className="pp-info-card" role="tooltip">
+        <Costs panel={panel} />
+      </span>
+    </span>
   );
 }
 

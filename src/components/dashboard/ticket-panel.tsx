@@ -1,4 +1,3 @@
-import { Pencil, Play, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import { RunStory, StopReason } from "@/components/run-activity";
@@ -39,42 +38,37 @@ export function prefetchTicket(projectId: string, key: string): void {
 
 /**
  * A ticket's row, opened. With a pull request, the pull request alone (the
- * review, the changes, merge): it says what the ticket asked. Before, what
- * the ticket asks, as written in GitHub or Jira, and what can be done with
- * it now (start, cancel, retry).
+ * review, the changes): it says what the ticket asked. Before, what the
+ * ticket asks, as written in GitHub or Jira. Start, Cancel, Retry and Merge
+ * stay on the row's line.
  */
 export function TicketPanel({
   projectId,
   row,
   onChanged,
-  act,
 }: {
   projectId: string;
   row: TicketRow;
   /** The row moved (merged, a change asked). */
   onChanged: () => void;
-  /** Start, cancel or retry; none in the cross-project review list. */
-  act?: TicketAct;
 }) {
   if (row.pullRequest)
     return (
       <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
     );
-  return <TicketBrief projectId={projectId} row={row} act={act} />;
+  return <TicketBrief projectId={projectId} row={row} />;
 }
 
 /**
  * The ticket as written in its tracker, read live and again whenever the
- * tracker says it changed; on the right, what can be done with it now.
+ * tracker says it changed; why the agents stopped, or their work live.
  */
 function TicketBrief({
   projectId,
   row,
-  act,
 }: {
   projectId: string;
   row: TicketRow;
-  act?: TicketAct;
 }) {
   const id = cacheKey(projectId, row.key);
   const [detail, setDetail] = useState<Detail | undefined>(() =>
@@ -112,57 +106,8 @@ function TicketBrief({
         )}
       </section>
       <aside className="pp-aside">
-        {act && <TicketActions row={row} act={act} />}
         {detail?.author && <p className="tp-by">by {detail.author}</p>}
       </aside>
     </div>
   );
-}
-
-/** Start, Cancel while it waits its turn, Edit and Retry once stopped. */
-function TicketActions({ row, act }: { row: TicketRow; act: TicketAct }) {
-  if (row.status === "none")
-    return (
-      <div className="pp-actions">
-        <button
-          type="button"
-          className="pp-btn primary"
-          disabled={row.pending}
-          onClick={() => act("queue", [row.key])}
-        >
-          <Play size={13} fill="currentColor" aria-hidden="true" /> Start
-        </button>
-      </div>
-    );
-  if (row.status === "queued")
-    return (
-      <div className="pp-actions">
-        <button
-          type="button"
-          className="pp-btn"
-          disabled={row.pending}
-          onClick={() => act("unqueue", [row.key])}
-        >
-          <X size={15} aria-hidden="true" /> Cancel
-        </button>
-      </div>
-    );
-  if (row.status === "abstained")
-    return (
-      <div className="pp-actions">
-        {row.url && (
-          <a className="pp-btn" href={row.url} target="_blank" rel="noopener">
-            <Pencil size={14} aria-hidden="true" /> Edit ticket
-          </a>
-        )}
-        <button
-          type="button"
-          className="pp-btn primary"
-          onClick={() => act("retry", [row.key])}
-        >
-          <RotateCcw size={14} aria-hidden="true" /> Retry
-        </button>
-      </div>
-    );
-  return null;
 }
