@@ -596,6 +596,7 @@ export function BuilderView({
                   </p>
                 )}
                 <div className="tix-list" ref={list} style={refColumn(matches)}>
+                  <Columns />
                   {stages.map((stage) => {
                     const shown = matches.filter(stage.test);
                     // Stopped only when a ticket is there; searching shows
@@ -799,26 +800,28 @@ function TicketLine({
           <span className="tix-title">{row.title}</span>
         </button>
         <span className="tix-meta">
-          {act && row.status === "none" && (
-            <button
-              type="button"
-              className="tix-go"
-              disabled={row.pending}
-              onClick={() => act("queue", [row.key])}
-            >
-              <Play size={10} fill="currentColor" aria-hidden="true" /> Start
-            </button>
-          )}
-          {act && row.status === "abstained" && (
-            <button
-              type="button"
-              className="tix-go"
-              onClick={() => act("retry", [row.key])}
-            >
-              <RotateCcw size={12} aria-hidden="true" /> Retry
-            </button>
-          )}
-          <RowState row={row} />
+          <span className="tix-cell">
+            <RowState row={row} />
+            {act && row.status === "none" && (
+              <button
+                type="button"
+                className="tix-go"
+                disabled={row.pending}
+                onClick={() => act("queue", [row.key])}
+              >
+                <Play size={10} fill="currentColor" aria-hidden="true" /> Start
+              </button>
+            )}
+            {act && row.status === "abstained" && (
+              <button
+                type="button"
+                className="tix-go"
+                onClick={() => act("retry", [row.key])}
+              >
+                <RotateCcw size={12} aria-hidden="true" /> Retry
+              </button>
+            )}
+          </span>
           <Sponsor row={row} />
           <time
             className="tix-date"
@@ -950,6 +953,7 @@ function ReviewList({
     return <p className="bd-none muted">Nothing to review</p>;
   return (
     <div className="tix-list" ref={list} style={refColumn(rows)}>
+      <Columns />
       <TicketGroup
         stage="review"
         label="To review"
@@ -1009,13 +1013,24 @@ function OpenRow({
   );
 }
 
-/** "#42", or a Jira key with Jira's mark in front. */
+/** What the columns on the right of every row are, said once on top. */
+function Columns() {
+  return (
+    <div className="tix-columns" aria-hidden="true">
+      <span className="tix-cell">Pull request</span>
+      <span className="tix-sponsor">Paid by</span>
+      <span className="tix-date">Created</span>
+    </div>
+  );
+}
+
 /** Titles line up after the longest ticket number shown, no further. */
 const refColumn = (rows: TicketRow[]) =>
   ({
     "--ref-ch": Math.max(3, ...rows.map((row) => row.ref.length)),
   }) as React.CSSProperties;
 
+/** "#42" or a Jira key, with its source's mark in front. */
 function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>

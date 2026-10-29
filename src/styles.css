@@ -3779,6 +3779,34 @@ tbody tr:hover {
   gap: 16px;
   flex: none;
 }
+/* The pull request or the ticket's state, at a set width so the columns
+   line up under their names. */
+.tix-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 170px;
+  min-width: 0;
+  overflow: hidden;
+}
+.tix-cell .tix-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The columns' names, once above the groups, on the rows' grid. */
+.tix-columns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 0 10px 0 36px;
+  margin-bottom: -4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.tix-columns .tix-sponsor {
+  color: inherit;
+  font-size: inherit;
+}
 /* Start and Retry show on the line under the pointer, always on touch. */
 .tix-go {
   display: inline-flex;
@@ -4174,6 +4202,12 @@ tbody tr:hover {
   margin-right: auto;
 }
 @media (max-width: 760px) {
+  .tix-columns {
+    display: none;
+  }
+  .tix-cell {
+    width: auto;
+  }
   .tix-row {
     flex-wrap: wrap;
     gap: 6px 12px;
