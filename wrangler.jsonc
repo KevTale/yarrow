@@ -21,6 +21,10 @@
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable__m1NrrN9toP3yF---p7KGQ_PhxCVlGL",
     "GITHUB_APP_SLUG": "yarrow-run-dev",
   },
+  // Screenshots and videos of runs, written by the brain (simulated here).
+  "r2_buckets": [
+    { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-local" },
+  ],
   "env": {
     // dev.yarrow.run, deployed on every push to main.
     "dev": {
@@ -41,6 +45,9 @@
         "SUPABASE_PUBLISHABLE_KEY": "sb_publishable__m1NrrN9toP3yF---p7KGQ_PhxCVlGL",
         "GITHUB_APP_SLUG": "yarrow-run-dev",
       },
+      "r2_buckets": [
+        { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },
+      ],
     },
     // yarrow.run, deployed on every push to the prod branch, on the
     // yarrow-prod Supabase project.
@@ -61,6 +68,9 @@
         "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_mWv10GKOPrn_pW6sWQdGMw_Z92XUBJy",
         "GITHUB_APP_SLUG": "yarrow-run",
       },
+      "r2_buckets": [
+        { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" },
+      ],
     },
   },
 }

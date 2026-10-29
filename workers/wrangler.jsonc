@@ -24,9 +24,10 @@
     "OPENAI_REVIEW_EFFORT": "high",
     "DISPATCH": "on",
   },
-  // Enable R2 in the Cloudflare dashboard, create the bucket, then uncomment
-  // here and in each environment:
-  // "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" }],
+  // Screenshots and videos of runs (simulated on this machine).
+  "r2_buckets": [
+    { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-local" },
+  ],
   "observability": { "enabled": true },
   // Bindings and vars are not inherited: each environment repeats them.
   "env": {
@@ -52,6 +53,9 @@
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
       },
+      "r2_buckets": [
+        { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },
+      ],
     },
     // Paired with yarrow.run, deployed on every push to the prod branch.
     "production": {
@@ -75,6 +79,9 @@
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
       },
+      "r2_buckets": [
+        { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" },
+      ],
     },
   },
 }

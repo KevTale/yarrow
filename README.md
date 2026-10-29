@@ -96,7 +96,7 @@ pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # ce
    - *Authorization* > *OAuth 2.0 (3LO)* > *Callback URL* : `<APP_URL>/integrations/jira/callback` ;
    - *Distribution* > *Sharing*, pour que n'importe quel site Jira puisse se connecter (nom de l'éditeur, politique de confidentialité `<APP_URL>/privacy`) ;
    - *Settings* : Client ID et Secret, posés dans les deux Workers par `scripts/set-secrets.ps1 -Target <env> -Jira`.
-7. **R2 :** activer R2, créer le bucket `yarrow-evidence`, décommenter le binding dans `workers/wrangler.jsonc` et l'ajouter à `wrangler.jsonc`.
+7. **R2 :** activer R2 dans le tableau de bord Cloudflare, puis créer les buckets `yarrow-evidence-dev` et `yarrow-evidence` (fait le 2026-10-15). Les deux Workers les lient sous `EVIDENCE` ; en local, R2 est simulé.
 8. **Secrets :** chaque secret avec `wrangler secret put` (voir [Environnements](#environnements)), puis un push sur la branche de l'environnement.
 
 La liste complète des secrets est dans [`.dev.vars.example`](.dev.vars.example) et [`workers/.dev.vars.example`](workers/.dev.vars.example). Pour couper la distribution des runs sans rien redéployer : `DISPATCH=off` sur le cerveau.
