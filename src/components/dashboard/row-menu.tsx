@@ -1,32 +1,16 @@
-import { useServerFn } from "@tanstack/react-start";
-import { Ellipsis, Eye, GitPullRequest, Ticket } from "lucide-react";
+import { Ellipsis, GitPullRequest, Ticket } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
-import { Spinner } from "@/components/navigation-feedback";
 import type { TicketRow } from "@/core/tickets";
-import { pullRequestActionFn } from "@/functions/builder.functions";
-import { isDraft } from "./pull-panel";
 
 /**
- * "…" in a ticket's gutter, under the pointer: where else the ticket lives
- * (its tracker, its pull request), and what is done rarely, such as asking
- * GitHub's reviewers to look (Merge does it first anyway). The menu is drawn
- * over the page, since the groups clip what leaves them.
+ * "…" in a ticket's gutter, under the pointer and while the row is open:
+ * where else the ticket lives (its tracker, its pull request). The menu is
+ * drawn over the page, since the groups clip what leaves them.
  */
-export function RowMenu({
-  row,
-  projectId,
-  onChanged,
-}: {
-  row: TicketRow;
-  projectId: string;
-  onChanged: () => void;
-}) {
-  const act = useServerFn(pullRequestActionFn);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+export function RowMenu({ row }: { row: TicketRow }) {
   const reduced = useReducedMotion();
   const [at, setAt] = useState<
     { left: number; top: number } | { left: number; bottom: number } | null
@@ -78,7 +62,6 @@ export function RowMenu({
   }, [open]);
 
   const toggle = () => {
-    setError("");
     if (open) return setAt(null);
     const box = button.current!.getBoundingClientRect();
     // Near the foot of the window, the menu opens upward.
@@ -88,24 +71,6 @@ export function RowMenu({
         : { left: box.left, top: box.bottom + 4 },
     );
   };
-  // A pull request known to be ready already does not offer it.
-  const ready =
-    row.status === "pull_request" && isDraft(projectId, row.key) !== false;
-  async function markReady() {
-    setPending(true);
-    try {
-      const result = await act({
-        data: { projectId, key: row.key, action: "ready" },
-      });
-      if (!result.ok) return setError(result.error);
-      setAt(null);
-      onChanged();
-    } catch {
-      setError("That did not go through. Try again.");
-    } finally {
-      setPending(false);
-    }
-  }
   return (
     <>
       <button
@@ -165,27 +130,6 @@ export function RowMenu({
                     <GitPullRequest size={15} aria-hidden="true" />
                     Open pull request
                   </a>
-                )}
-                {ready && (
-                  <button
-                    type="button"
-                    className="ps-item"
-                    role="menuitem"
-                    disabled={pending}
-                    onClick={() => void markReady()}
-                  >
-                    {pending ? (
-                      <Spinner />
-                    ) : (
-                      <Eye size={15} aria-hidden="true" />
-                    )}
-                    Mark ready for review
-                  </button>
-                )}
-                {error && (
-                  <p className="row-menu-error" role="alert">
-                    {error}
-                  </p>
                 )}
               </motion.div>
             )}

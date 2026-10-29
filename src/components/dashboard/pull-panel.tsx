@@ -6,20 +6,21 @@ import {
   CircleCheck,
   CircleDashed,
   Eye,
-  FileDiff,
+  ChevronsUpDown,
+  FileText,
   GitCommitHorizontal,
-  GitMerge,
   ScanSearch,
   TriangleAlert,
+  X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
   getPullPanelFn,
-  pullRequestActionFn,
   requestChangeFn,
 } from "@/functions/builder.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
@@ -44,6 +45,50 @@ const inflight = new Map<string, Promise<Panel | null>>();
 
 const cacheKey = (projectId: string, key: string) => `${projectId}:${key}`;
 
+const filesInflight = new Map<string, Promise<Files | null>>();
+
+/** The pull request's files, once per size: a new commit reads them again. */
+function loadFiles(
+  projectId: string,
+  key: string,
+  size: string,
+): Promise<Files | null> {
+  const id = cacheKey(projectId, key);
+  const kept = changes.get(id);
+  if (kept && kept.size === size) return Promise.resolve(kept.files);
+  const pending = filesInflight.get(id);
+  if (pending) return pending;
+  const request = getPullFilesFn({ data: { projectId, key } })
+    .then((files) => {
+      if (files) changes.set(id, { size, files });
+      return files;
+    })
+    .finally(() => filesInflight.delete(id));
+  filesInflight.set(id, request);
+  return request;
+}
+
+function usePullFiles(
+  projectId: string,
+  key: string,
+  size: string,
+): Files | null | undefined {
+  const kept = changes.get(cacheKey(projectId, key));
+  const [files, setFiles] = useState<Files | null | undefined>(
+    kept && kept.size === size ? kept.files : undefined,
+  );
+  useEffect(() => {
+    let live = true;
+    loadFiles(projectId, key, size)
+      .then((next) => live && setFiles(next))
+      .catch(() => live && setFiles(null));
+    return () => {
+      live = false;
+    };
+  }, [projectId, key, size]);
+  return files;
+}
+
 function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
   const id = cacheKey(projectId, key);
   const pending = inflight.get(id);
@@ -59,11 +104,6 @@ function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
 }
 
 /** Reads a row before it opens (hover, focus, To review on arrival). */
-/** A pull request still a draft, as last read; unknown until its row opens. */
-export function isDraft(projectId: string, key: string): boolean | undefined {
-  return panels.get(cacheKey(projectId, key))?.live?.draft;
-}
-
 export function prefetchPullPanel(projectId: string, key: string): void {
   if (panels.has(cacheKey(projectId, key))) return;
   void fetchPanel(projectId, key).catch(() => {});
@@ -88,7 +128,8 @@ export function PullPanel({
   const [panel, setPanel] = useState<Panel | null | undefined>(() =>
     panels.get(id),
   );
-  const [showChanges, setShowChanges] = useState(false);
+  // The file whose changes show under the panel, picked in the sidebar.
+  const [focus, setFocus] = useState<string | null>(null);
 
   const refresh = useCallback(
     () =>
@@ -122,6 +163,9 @@ export function PullPanel({
 
   const { live, pullRequest } = panel;
   const open = pullRequest?.state === "open" && live?.open !== false;
+  const size = live
+    ? `${live.additions}:${live.deletions}:${live.changedFiles}`
+    : "";
   return (
     <div className="pp">
       <div className="pp-grid">
@@ -209,21 +253,15 @@ export function PullPanel({
 
         <aside className="pp-aside">
           {pullRequest && (
-            <Decisions
+            <ChangedFiles
               projectId={projectId}
               rowKey={rowKey}
-              open={open}
-              busy={Boolean(busy)}
-              merged={pullRequest.state === "merged" || live?.merged === true}
-              changes={
-                live ? { add: live.additions, del: live.deletions } : null
+              size={size}
+              url={pullRequest.url}
+              focus={focus}
+              onOpen={(path) =>
+                setFocus((shown) => (shown === path ? null : path))
               }
-              showChanges={showChanges}
-              onChanges={() => setShowChanges((shown) => !shown)}
-              onDone={() => {
-                void refresh();
-                onChanged();
-              }}
             />
           )}
 
@@ -276,16 +314,16 @@ export function PullPanel({
         </aside>
       </div>
 
-      {showChanges && (
+      {focus && (
         <Changes
+          // Each file picked opens alone, scrolled to.
+          key={focus}
           projectId={projectId}
           rowKey={rowKey}
           url={pullRequest?.url}
-          size={
-            live
-              ? `${live.additions}:${live.deletions}:${live.changedFiles}`
-              : ""
-          }
+          size={size}
+          focus={focus}
+          onClose={() => setFocus(null)}
         />
       )}
     </div>
@@ -492,106 +530,6 @@ function ChangesAsked({
   );
 }
 
-/** Merge, Ready for review, the changes and GitHub: the builder's decisions. */
-function Decisions({
-  projectId,
-  rowKey,
-  open,
-  busy,
-  merged,
-  changes,
-  showChanges,
-  onChanges,
-  onDone,
-}: {
-  projectId: string;
-  rowKey: string;
-  open: boolean;
-  /** A change at work: merging now would leave its commit out. */
-  busy: boolean;
-  merged: boolean;
-  changes: { add: number; del: number } | null;
-  showChanges: boolean;
-  onChanges: () => void;
-  onDone: () => void;
-}) {
-  const act = useServerFn(pullRequestActionFn);
-  const [pending, setPending] = useState<"merge" | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState("");
-
-  // Merging asks twice: the second click within a few seconds merges.
-  useEffect(() => {
-    if (!confirming) return;
-    const timer = setTimeout(() => setConfirming(false), 4_000);
-    return () => clearTimeout(timer);
-  }, [confirming]);
-
-  async function run(action: "merge") {
-    if (pending || busy) return;
-    if (!confirming) return setConfirming(true);
-    setConfirming(false);
-    setError("");
-    setPending(action);
-    try {
-      const result = await act({ data: { projectId, key: rowKey, action } });
-      if (result.ok) onDone();
-      else setError(result.error);
-    } catch {
-      setError("That did not go through. Try again.");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  return (
-    <div className="pp-actions">
-      <button
-        type="button"
-        className={`pp-btn ${showChanges ? "pressed" : ""}`}
-        aria-pressed={showChanges}
-        onClick={onChanges}
-      >
-        <FileDiff size={15} aria-hidden="true" />
-        Changes
-        {changes && (
-          <span className="pp-count">
-            <span className="add">+{changes.add}</span>{" "}
-            <span className="del">−{changes.del}</span>
-          </span>
-        )}
-      </button>
-      {merged ? (
-        <span className="pp-merged">
-          <GitMerge size={15} aria-hidden="true" /> Merged
-        </span>
-      ) : (
-        open && (
-          <button
-            type="button"
-            className={`pp-btn primary merge ${confirming ? "confirm" : ""}`}
-            aria-busy={pending === "merge"}
-            aria-disabled={busy}
-            onClick={() => void run("merge")}
-          >
-            {pending === "merge" ? (
-              <Spinner />
-            ) : (
-              <GitMerge size={15} aria-hidden="true" />
-            )}
-            {confirming ? "Confirm merge" : "Merge"}
-          </button>
-        )
-      )}
-      {error && (
-        <p className="pp-error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /** Ask for another change: written on the PR, then taken by Claude. */
 function Composer({
   projectId,
@@ -678,47 +616,161 @@ function Composer({
   );
 }
 
-/** The pull request's files, each folding, read from GitHub when opened. */
+/**
+ * The files a pull request changed, in the sidebar the way a builder reads
+ * them: the code, its tests, its documentation, what tools generated, the
+ * assets. The code opens first; picking a file shows its changes below.
+ */
+function ChangedFiles({
+  projectId,
+  rowKey,
+  size,
+  url,
+  focus,
+  onOpen,
+}: {
+  projectId: string;
+  rowKey: string;
+  size: string;
+  url: string;
+  focus: string | null;
+  onOpen: (path: string) => void;
+}) {
+  const files = usePullFiles(projectId, rowKey, size);
+  const [unfolded, setUnfolded] = useState<Set<string>>(
+    () => new Set(["implementation"]),
+  );
+  const [whole, setWhole] = useState<Set<string>>(() => new Set());
+  if (files === undefined)
+    return (
+      <div className="pf" aria-busy="true" aria-label="Loading the changes">
+        {["46%", "78%", "70%", "62%", "74%"].map((width, i) => (
+          <span key={i} className="sk" style={{ width }} />
+        ))}
+      </div>
+    );
+  if (files === null)
+    return (
+      <p className="pf pf-none">
+        <a href={`${url}/files`} target="_blank" rel="noopener">
+          See the changes on GitHub
+        </a>
+      </p>
+    );
+  const groups = groupFiles(files);
+  const flip = (set: Set<string>, value: string) => {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  };
+  return (
+    <section className="pf" aria-label="Files changed">
+      <p className="pf-head">
+        {files.length} {files.length === 1 ? "file" : "files"} changed
+      </p>
+      {groups.map((group) => {
+        const open = unfolded.has(group.kind);
+        const shown = whole.has(group.kind)
+          ? group.files
+          : group.files.slice(0, 6);
+        const more = group.files.length - shown.length;
+        return (
+          <div key={group.kind} className="pf-group">
+            <button
+              type="button"
+              className="pf-ghead"
+              aria-expanded={open}
+              onClick={() => setUnfolded((set) => flip(set, group.kind))}
+            >
+              <b>{group.label}</b>
+              <span className="pf-n">{group.files.length}</span>
+              <ChevronRight
+                size={13}
+                className={`pf-chev ${open ? "open" : ""}`}
+                aria-hidden="true"
+              />
+              <span className="pp-count">
+                <span className="add">+{group.additions}</span>
+                {group.deletions > 0 && (
+                  <>
+                    {" "}
+                    <span className="del">−{group.deletions}</span>
+                  </>
+                )}
+              </span>
+            </button>
+            {open && (
+              <ul className="pf-files">
+                {shown.map((file) => {
+                  const slash = file.path.lastIndexOf("/");
+                  return (
+                    <li key={file.path}>
+                      <button
+                        type="button"
+                        className="pf-file"
+                        aria-pressed={focus === file.path}
+                        title={file.path}
+                        onClick={() => onOpen(file.path)}
+                      >
+                        <FileText size={13} aria-hidden="true" />
+                        <b>{file.path.slice(slash + 1)}</b>
+                        {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+                {more > 0 && (
+                  <li>
+                    <button
+                      type="button"
+                      className="pf-file pf-more"
+                      onClick={() => setWhole((set) => flip(set, group.kind))}
+                    >
+                      <ChevronsUpDown size={13} aria-hidden="true" />
+                      {more} more {more === 1 ? "file" : "files"}
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+/**
+ * The changes, under the panel: every file, the one picked in the sidebar
+ * open and scrolled to, the others folded.
+ */
 function Changes({
   projectId,
   rowKey,
   url,
   size,
+  focus,
+  onClose,
 }: {
   projectId: string;
   rowKey: string;
   url?: string;
   /** Lines and files changed: a different size is a new commit. */
   size: string;
+  focus: string;
+  onClose: () => void;
 }) {
-  const load = useServerFn(getPullFilesFn);
-  const id = cacheKey(projectId, rowKey);
-  const kept = changes.get(id);
-  const [files, setFiles] = useState<Files | null | undefined>(
-    kept && kept.size === size ? kept.files : undefined,
-  );
-  // Long changes open on their first file only.
-  const [folded, setFolded] = useState<Set<string>>(() =>
-    kept ? foldLong(kept.files) : new Set(),
-  );
-
+  const files = usePullFiles(projectId, rowKey, size);
+  const [opened, setOpened] = useState<Set<string>>(() => new Set([focus]));
+  const root = useRef<HTMLDivElement>(null);
+  const ready = files !== undefined;
   useEffect(() => {
-    const cached = changes.get(id);
-    if (cached && cached.size === size) return;
-    let live = true;
-    load({ data: { projectId, key: rowKey } })
-      .then((result) => {
-        if (!live) return;
-        setFiles(result);
-        if (!result) return;
-        changes.set(id, { size, files: result });
-        setFolded(foldLong(result));
-      })
-      .catch(() => live && setFiles(null));
-    return () => {
-      live = false;
-    };
-  }, [load, id, projectId, rowKey, size]);
+    if (!ready) return;
+    root.current
+      ?.querySelector(`[data-path="${CSS.escape(focus)}"]`)
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [ready, focus]);
 
   if (files === undefined) return <FilesSkeleton />;
   if (files === null)
@@ -734,18 +786,29 @@ function Changes({
     );
 
   return (
-    <div className="pp-files">
+    <div className="pp-files" ref={root}>
+      <div className="pp-files-head">
+        <span>Changes</span>
+        <button
+          type="button"
+          className="tix-icon-btn"
+          aria-label="Hide changes"
+          onClick={onClose}
+        >
+          <X size={15} />
+        </button>
+      </div>
       {files.map((file) => {
-        const isFolded = folded.has(file.path);
+        const isOpen = opened.has(file.path);
         const slash = file.path.lastIndexOf("/");
         return (
-          <div key={file.path} className="pp-file">
+          <div key={file.path} className="pp-file" data-path={file.path}>
             <button
               type="button"
               className="pp-file-head"
-              aria-expanded={!isFolded}
+              aria-expanded={isOpen}
               onClick={() =>
-                setFolded((current) => {
+                setOpened((current) => {
                   const next = new Set(current);
                   if (next.has(file.path)) next.delete(file.path);
                   else next.add(file.path);
@@ -753,10 +816,10 @@ function Changes({
                 })
               }
             >
-              {isFolded ? (
-                <ChevronRight size={15} aria-hidden="true" />
-              ) : (
+              {isOpen ? (
                 <ChevronDown size={15} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={15} aria-hidden="true" />
               )}
               <span className="pp-path">
                 {file.path.slice(0, slash + 1)}
@@ -767,7 +830,7 @@ function Changes({
                 <span className="del">−{file.deletions}</span>
               </span>
             </button>
-            {!isFolded &&
+            {isOpen &&
               (file.lines ? (
                 <div className="pp-diff" role="table" aria-label={file.path}>
                   {file.lines.map((line, i) =>
@@ -809,14 +872,6 @@ function Changes({
   );
 }
 
-/** Past 400 lines, only the first file opens. */
-function foldLong(files: Files): Set<string> {
-  const lines = files.reduce((sum, file) => sum + (file.lines?.length ?? 0), 0);
-  return lines > 400
-    ? new Set(files.slice(1).map((file) => file.path))
-    : new Set();
-}
-
 /** The opened row's shape while it loads. */
 function PanelSkeleton() {
   return (
@@ -841,9 +896,6 @@ function PanelSkeleton() {
           <span className="sk sk-composer" />
         </div>
         <div className="pp-aside">
-          <span className="sk sk-button" />
-          <span className="sk sk-button" />
-          <span className="sk sk-button" />
           <span className="sk sk-card" />
         </div>
       </div>

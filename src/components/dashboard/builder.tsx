@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronDown,
   ChevronRight,
+  GitMerge,
   Github,
   Play,
   Plus,
@@ -25,12 +26,14 @@ import {
 } from "@/core/tickets";
 import {
   getBuilderFn,
+  pullRequestActionFn,
   queueTicketsFn,
   retryTicketFn,
   setProjectLogoFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
 import { Logo } from "@/components/boards";
+import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
 import { LogoPicker } from "@/components/logo-picker";
 import { longDate, shortDate } from "@/components/ui";
@@ -777,7 +780,7 @@ function TicketLine({
         className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
         onAnimationEnd={onFreshEnd}
       >
-        <RowMenu row={row} projectId={projectId} onChanged={onChanged} />
+        <RowMenu row={row} />
         <button
           type="button"
           className="tix-open"
@@ -818,6 +821,14 @@ function TicketLine({
                 <RotateCcw size={12} aria-hidden="true" /> Retry
               </button>
             )}
+            {row.status === "pull_request" &&
+              !workText(row.status, row.models) && (
+                <MergeGo
+                  row={row}
+                  projectId={projectId}
+                  onChanged={onChanged}
+                />
+              )}
           </span>
           <Sponsor row={row} />
           <time
@@ -867,6 +878,72 @@ function RowState({ row }: { row: TicketRow }) {
   return work ? (
     <TextShimmer className="tix-state working">{work}</TextShimmer>
   ) : null;
+}
+
+/**
+ * Merge, on the line under the pointer like Start and Retry: a second click
+ * within a few seconds merges (ready first when it is a draft). Hidden while
+ * a change asked is at work, since its commit would be left out.
+ */
+function MergeGo({
+  row,
+  projectId,
+  onChanged,
+}: {
+  row: TicketRow;
+  projectId: string;
+  onChanged: () => void;
+}) {
+  const merge = useServerFn(pullRequestActionFn);
+  const [step, setStep] = useState<"idle" | "confirm" | "merging">("idle");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (step !== "confirm") return;
+    const timer = setTimeout(() => setStep("idle"), 4_000);
+    return () => clearTimeout(timer);
+  }, [step]);
+
+  async function click() {
+    if (step === "merging") return;
+    if (step === "idle") {
+      setError("");
+      return setStep("confirm");
+    }
+    setStep("merging");
+    try {
+      const result = await merge({
+        data: { projectId, key: row.key, action: "merge" },
+      });
+      if (result.ok) onChanged();
+      else setError(result.error);
+    } catch {
+      setError("That did not go through. Try again.");
+    } finally {
+      setStep("idle");
+    }
+  }
+  return (
+    <>
+      {error && (
+        <span className="tix-state stopped" title={error}>
+          Not merged
+        </span>
+      )}
+      <button
+        type="button"
+        className={`tix-go merge ${step !== "idle" ? "armed" : ""}`}
+        aria-busy={step === "merging"}
+        onClick={() => void click()}
+      >
+        {step === "merging" ? (
+          <Spinner />
+        ) : (
+          <GitMerge size={12} aria-hidden="true" />
+        )}
+        {step === "confirm" ? "Confirm merge" : "Merge"}
+      </button>
+    </>
+  );
 }
 
 /** The first sponsor of the ticket's runs, the others named on hover. */

@@ -3868,9 +3868,21 @@ tbody tr:hover {
 .tix-go:focus-visible {
   opacity: 1;
 }
-/* Opened, the row's own actions are below. */
-.tix-item.open .tix-go {
+/* Opened, Start and Retry are below; Merge stays on the line. */
+.tix-item.open .tix-go:not(.merge) {
   display: none;
+}
+.tix-item.open .tix-go.merge,
+.tix-go.armed {
+  opacity: 1;
+}
+.tix-go.merge {
+  border-color: #5ccb9566;
+  color: var(--green);
+}
+.tix-go.merge:hover,
+.tix-go.merge.armed {
+  background: #5ccb951f;
 }
 .tix-go:hover {
   background: #f2b5441a;
@@ -8003,10 +8015,6 @@ body:has(.sb-dialog[open]) {
 .pp-done svg.ok {
   color: var(--green);
 }
-.pp-btn.merge[aria-disabled="true"] {
-  opacity: 0.45;
-  cursor: default;
-}
 .pp-composer {
   display: grid;
   gap: 8px;
@@ -8125,15 +8133,6 @@ body:has(.sb-dialog[open]) {
 .pp-btn.primary svg {
   color: currentColor;
 }
-.pp-btn.merge svg {
-  color: #1f8a5a;
-}
-.pp-btn.merge.confirm {
-  background: var(--green);
-}
-.pp-btn.merge.confirm svg {
-  color: currentColor;
-}
 .pp-btn.pressed {
   background: var(--hover);
   border-color: #3a3e46;
@@ -8149,15 +8148,105 @@ body:has(.sb-dialog[open]) {
 .pp-count .del {
   color: var(--red);
 }
-.pp-merged {
-  display: inline-flex;
+/* The files changed, in the sidebar: grouped, the code open first. */
+.pf {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+.pf .sk {
+  height: 12px;
+  margin: 6px 0;
+}
+.pf-none {
+  margin: 0;
+  font-size: 13px;
+}
+.pf-head {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.pf-ghead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.pf-ghead b {
+  font-weight: 500;
+}
+.pf-n {
+  color: var(--muted);
+}
+.pf-chev {
+  color: var(--muted);
+  transition: transform 0.2s var(--ease-standard);
+}
+.pf-chev.open {
+  transform: rotate(90deg);
+}
+.pf-ghead .pp-count {
+  margin-left: auto;
+}
+.pf-files {
+  display: grid;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.pf-file {
+  display: flex;
   align-items: center;
   gap: 7px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: #a99cf51a;
-  color: #a99cf5;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pf-file:hover,
+.pf-file[aria-pressed="true"] {
+  background: var(--hover);
+}
+.pf-file svg {
+  flex: none;
+  color: var(--muted);
+}
+.pf-file b {
+  flex: none;
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.pf-file span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+.pf-file.pf-more {
+  color: var(--muted);
+}
+.pp-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 13px;
   font-weight: 500;
 }
