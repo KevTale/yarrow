@@ -1,9 +1,7 @@
 import {
   AbsoluteFill,
-  Img,
   interpolate,
   spring,
-  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
@@ -20,11 +18,13 @@ const MERGED = MERGE_CLICK + 14;
 export const GITHUB = 192;
 
 /** The opened row's places on the frame. */
-const ROW = { top: 250, height: 88 };
-const CHEVRON_AT = { x: 152, y: ROW.top + ROW.height / 2 };
-const ASIDE = { left: 1270, width: 470 };
-const MERGE_AT = { x: ASIDE.left + ASIDE.width / 2 + 40, y: 420 };
-const GITHUB_AT = { x: ASIDE.left + 120, y: 546 };
+/** The page's side margins: wide, so the leaning camera never reaches them. */
+const SIDE = 200;
+const ROW = { top: 210, height: 88 };
+const CHEVRON_AT = { x: SIDE + 32, y: ROW.top + ROW.height / 2 };
+const ASIDE = { left: 1250, width: 410 };
+const MERGE_AT = { x: ASIDE.left + ASIDE.width / 2 + 40, y: ROW.top + 170 };
+const GITHUB_AT = { x: ASIDE.left + 120, y: ROW.top + 296 };
 
 const Icon: React.FC<{
   d: string[];
@@ -93,7 +93,7 @@ const fileDiff = [
 /**
  * The builder's dashboard: the ticket's row opens on the pull request,
  * summed up and reviewed; one click merges it, then the pointer goes to
- * GitHub. The header stays put while the page leans in.
+ * GitHub. No app header: the page alone, leaning in.
  */
 export const Dashboard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -135,34 +135,6 @@ export const Dashboard: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
-      <AbsoluteFill style={{ opacity: enter, zIndex: 1 }}>
-        {/* The app's header. */}
-        <div
-          style={{
-            position: "absolute",
-            inset: "0 0 auto 0",
-            height: 84,
-            borderBottom: `1px solid ${c.line}`,
-            background: c.bg,
-          }}
-        >
-          <Img
-            src={staticFile("yarrow-logo-on-dark.svg")}
-            style={{ position: "absolute", left: 60, top: 24, height: 38 }}
-          />
-          <span
-            style={{
-              position: "absolute",
-              right: 60,
-              top: 22,
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #3a3e46, #22252b)",
-            }}
-          />
-        </div>
-      </AbsoluteFill>
       <AbsoluteFill
         style={{
           scale: `${interpolate(lean, [0, 1], [1, 1.06])}`,
@@ -173,8 +145,8 @@ export const Dashboard: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: 120,
-            top: 120,
+            left: SIDE,
+            top: 80,
             fontFamily: font.display,
             fontWeight: 500,
             fontSize: 44,
@@ -188,11 +160,11 @@ export const Dashboard: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: 120,
-            right: 120,
-            top: 204,
+            left: SIDE,
+            right: SIDE,
+            top: 164,
             display: "grid",
-            gridTemplateColumns: "64px 1fr 300px 300px 120px",
+            gridTemplateColumns: "64px 1fr 260px 280px 100px",
             fontSize: 19,
             color: c.muted,
             paddingBottom: 12,
@@ -208,12 +180,12 @@ export const Dashboard: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: 120,
-            right: 120,
+            left: SIDE,
+            right: SIDE,
             top: ROW.top,
             height: ROW.height,
             display: "grid",
-            gridTemplateColumns: "64px 1fr 300px 300px 120px",
+            gridTemplateColumns: "64px 1fr 260px 280px 100px",
             alignItems: "center",
             fontSize: 25,
             background: open > 0 ? c.surface : "transparent",
@@ -284,8 +256,8 @@ export const Dashboard: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            left: 120,
-            right: 120,
+            left: SIDE,
+            right: SIDE,
             top: ROW.top + ROW.height,
             height: 640,
             background: c.surface,
@@ -298,7 +270,7 @@ export const Dashboard: React.FC = () => {
               position: "absolute",
               left: 84,
               top: 30,
-              width: 960,
+              width: 880,
               display: "grid",
               gap: 40,
             }}
@@ -427,7 +399,7 @@ export const Dashboard: React.FC = () => {
           <aside
             style={{
               position: "absolute",
-              left: ASIDE.left - 120,
+              left: ASIDE.left - SIDE,
               top: 30,
               width: ASIDE.width,
               display: "grid",

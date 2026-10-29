@@ -28,7 +28,9 @@ export const Spoken: React.FC<{
   trim?: boolean;
   style?: React.CSSProperties;
   wordStyle?: (word: string, index: number) => React.CSSProperties | undefined;
-}> = ({ line, sceneFrom, words, trim, style, wordStyle }) => {
+  /** Draws a word as something else, a logo say; the word's timing holds. */
+  render?: (word: string, index: number) => React.ReactNode | undefined;
+}> = ({ line, sceneFrom, words, trim, style, wordStyle, render }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const [from, to] = words ?? [0, wordsOf(line).length];
@@ -57,7 +59,7 @@ export const Spoken: React.FC<{
                 ...wordStyle?.(word, i),
               }}
             >
-              {shown}
+              {render?.(word, i) ?? shown}
             </span>
           );
         })}

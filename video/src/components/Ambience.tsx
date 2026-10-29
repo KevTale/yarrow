@@ -26,29 +26,6 @@ export const Glow: React.FC<{ strength?: number }> = ({ strength = 1 }) => {
   );
 };
 
-/** Film grain over the whole frame, a new pattern every third frame. */
-export const Grain: React.FC = () => {
-  const frame = useCurrentFrame();
-  const seed = Math.floor(frame / 3);
-  return (
-    <AbsoluteFill style={{ opacity: 0.04, pointerEvents: "none" }}>
-      <svg width="100%" height="100%">
-        <filter id={`grain-${seed}`}>
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency={0.85}
-            numOctaves={2}
-            seed={seed}
-            stitchTiles="stitch"
-          />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter={`url(#grain-${seed})`} />
-      </svg>
-    </AbsoluteFill>
-  );
-};
-
 /**
  * A scene's way in and out: it comes into focus from a blur and leaves into
  * one, so a cut on the beat reads as one motion through the frame.

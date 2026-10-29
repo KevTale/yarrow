@@ -138,8 +138,9 @@ const Backlog: React.FC = () => {
 
 /**
  * The question, written as it is asked beside the backlog it names: what
- * if your backlog built itself, for free. Then the landing, its headline the line being said: on "Paste
- * a ticket" a pointer pastes one and asks for a pull request.
+ * if your backlog built itself, for free. Then the landing, its headline
+ * the line being said, the name drawn as the logo: on "Paste a ticket" a
+ * pointer pastes one and asks for a pull request.
  */
 export const Intro: React.FC = () => {
   const frame = useCurrentFrame();
@@ -150,7 +151,6 @@ export const Intro: React.FC = () => {
     ...clamp,
     easing: ease.inOut,
   });
-  const pageIn = interpolate(frame, [PAGE_IN, PAGE_IN + 10], [0, 1], clamp);
 
   // The field: its focus, the pasted link, the hover and the press.
   const focus = interpolate(
@@ -249,7 +249,20 @@ export const Intro: React.FC = () => {
             letterSpacing: "-0.02em",
           }}
         >
-          <Spoken line="intro" sceneFrom={0} words={[8, 13]} trim />
+          <Spoken
+            line="intro"
+            sceneFrom={0}
+            words={[8, 13]}
+            render={(word) =>
+              word.startsWith("Yarrow") ? (
+                // The logo for the name, its baseline on the line's.
+                <Img
+                  src={staticFile("yarrow-logo-on-dark.svg")}
+                  style={{ height: "1.05em", verticalAlign: "-0.25em" }}
+                />
+              ) : undefined
+            }
+          />
         </div>
         {/* The ship field: the link, then the button. */}
         <div
@@ -377,22 +390,6 @@ export const Intro: React.FC = () => {
           clicks={[PASTE_CLICK, GO_CLICK]}
         />
       </AbsoluteFill>
-      {/* The header: logo centered, a hairline; it stays put as the page leans in. */}
-      <div
-        style={{
-          position: "absolute",
-          inset: "0 0 auto 0",
-          height: 92,
-          borderBottom: `1px solid ${c.line}`,
-          background: c.bg,
-          opacity: pageIn,
-        }}
-      >
-        <Img
-          src={staticFile("yarrow-logo-on-dark.svg")}
-          style={{ position: "absolute", left: 853, top: 22, height: 48 }}
-        />
-      </div>
     </AbsoluteFill>
   );
 };

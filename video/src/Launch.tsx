@@ -1,6 +1,6 @@
 import { Audio } from "@remotion/media";
 import { interpolate, Sequence, staticFile, useVideoConfig } from "remotion";
-import { Grain, Shot } from "./components/Ambience";
+import { Shot } from "./components/Ambience";
 import { Dashboard } from "./scenes/Dashboard";
 import { End } from "./scenes/End";
 import { Intro } from "./scenes/Intro";
@@ -24,6 +24,9 @@ const speaking = lines.map((id) => {
   return { from: VOICE_AT[id], to: VOICE_AT[id] + (to - from) };
 });
 
+/** The voice, a little forward: about 11 dB over the music under it. */
+const VOICE_GAIN = 1.25;
+
 /** The music: full between lines, lower under the voice, with short ramps. */
 const musicVolume = (frame: number) => {
   const under = Math.max(
@@ -34,7 +37,7 @@ const musicVolume = (frame: number) => {
       }),
     ),
   );
-  return interpolate(under, [0, 1], [0.75, 0.3]);
+  return interpolate(under, [0, 1], [0.45, 0.14]);
 };
 
 const Sfx: React.FC<{ from: number; src: string; volume: number }> = ({
@@ -119,8 +122,6 @@ export const Launch: React.FC = () => {
         </Shot>
       </Sequence>
 
-      <Grain />
-
       <Audio
         src={staticFile("music.mp3")}
         trimBefore={MUSIC_OFFSET}
@@ -137,6 +138,7 @@ export const Launch: React.FC = () => {
             src={staticFile("voice/take.mp3")}
             trimBefore={span(id).from}
             trimAfter={span(id).to}
+            volume={VOICE_GAIN}
           />
         </Sequence>
       ))}
