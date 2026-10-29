@@ -16,9 +16,10 @@ export {
   type JiraStep,
 } from "./trackers/jira-flow";
 
-/** The web Worker's tracker secrets, for the functions above. */
+/** The web Worker's tracker secrets and address, for the functions above. */
 export function trackerContext(): TrackerContext {
-  return { secrets: trackerSecretsFromEnv(appEnv()) };
+  const env = appEnv();
+  return { secrets: trackerSecretsFromEnv(env), appUrl: env.APP_URL };
 }
 
 /** Jira can be connected on this deployment (its OAuth app is set). */

@@ -146,6 +146,12 @@ export const trackerConnections = pgTable(
     encryptedAccessToken: text("encrypted_access_token").notNull(),
     encryptedRefreshToken: text("encrypted_refresh_token"),
     tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    // Jira's webhook for the connection's linked projects: its id, the JQL it
+    // listens to, when Jira drops it unless refreshed, and the last failure.
+    webhookId: text("webhook_id"),
+    webhookFilter: text("webhook_filter"),
+    webhookExpiresAt: timestamp("webhook_expires_at", { withTimezone: true }),
+    webhookError: text("webhook_error"),
     createdAt: createdAt(),
   },
   (t) => [

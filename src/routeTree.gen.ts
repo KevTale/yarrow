@@ -34,6 +34,7 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projec
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
 import { Route as ApiWebhooksGithubRouteImport } from './routes/api/webhooks/github'
+import { Route as ApiWebhooksJiraRouteImport } from './routes/api/webhooks/jira'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integrations/$tracker.callback'
 import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integrations/$tracker.connect'
@@ -164,6 +165,11 @@ const ApiWebhooksGithubRoute = ApiWebhooksGithubRouteImport.update({
   path: '/api/webhooks/github',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksJiraRoute = ApiWebhooksJiraRouteImport.update({
+  id: '/api/webhooks/jira',
+  path: '/api/webhooks/jira',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
   id: '/api/webhooks/stripe',
   path: '/api/webhooks/stripe',
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/runs/$runId': typeof RunsRunIdRoute
   '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/runs/$runId': typeof RunsRunIdRoute
   '/account': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/runs/$runId': typeof RunsRunIdRoute
   '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
+  '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/runs/$runId'
     | '/account/'
     | '/api/webhooks/github'
+    | '/api/webhooks/jira'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/runs/$runId'
     | '/account'
     | '/api/webhooks/github'
+    | '/api/webhooks/jira'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
@@ -361,6 +372,7 @@ export interface FileRouteTypes {
     | '/runs/$runId'
     | '/account/'
     | '/api/webhooks/github'
+    | '/api/webhooks/jira'
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
@@ -392,6 +404,7 @@ export interface RootRouteChildren {
   RunsRunIdRoute: typeof RunsRunIdRoute
   AccountIndexRoute: typeof AccountIndexRoute
   ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
+  ApiWebhooksJiraRoute: typeof ApiWebhooksJiraRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
   IntegrationsTrackerConnectRoute: typeof IntegrationsTrackerConnectRoute
@@ -574,6 +587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWebhooksGithubRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/jira': {
+      id: '/api/webhooks/jira'
+      path: '/api/webhooks/jira'
+      fullPath: '/api/webhooks/jira'
+      preLoaderRoute: typeof ApiWebhooksJiraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/stripe': {
       id: '/api/webhooks/stripe'
       path: '/api/webhooks/stripe'
@@ -624,6 +644,7 @@ const rootRouteChildren: RootRouteChildren = {
   RunsRunIdRoute: RunsRunIdRoute,
   AccountIndexRoute: AccountIndexRoute,
   ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,
+  ApiWebhooksJiraRoute: ApiWebhooksJiraRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,
   IntegrationsTrackerConnectRoute: IntegrationsTrackerConnectRoute,

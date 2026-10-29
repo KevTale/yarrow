@@ -127,6 +127,13 @@
       "when": 1791798818035,
       "tag": "0017_daily_funding_window",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791877654554,
+      "tag": "0018_jira_webhooks",
+      "breakpoints": true
     }
   ]
 }

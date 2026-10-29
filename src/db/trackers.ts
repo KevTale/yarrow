@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
 import {
@@ -238,4 +238,77 @@ export async function jiraBoardFor(
       ),
     );
   return rows.find((row) => !site || row.site === site) ?? null;
+}
+
+/** A connection's boards with their projects, for its Jira webhook. */
+export async function boardsOfConnection(db: Database, connectionId: string) {
+  return db
+    .select({
+      board: trackerBoards,
+      project: {
+        id: projects.id,
+        authorizationLabel: projects.authorizationLabel,
+        suspendedAt: projects.suspendedAt,
+      },
+    })
+    .from(trackerBoards)
+    .innerJoin(projects, eq(projects.id, trackerBoards.projectId))
+    .where(eq(trackerBoards.connectionId, connectionId));
+}
+
+export async function jiraConnections(db: Database) {
+  return db
+    .select()
+    .from(trackerConnections)
+    .where(eq(trackerConnections.tracker, "jira"));
+}
+
+/** The Jira connections whose webhooks a delivery matched. */
+export async function connectionsByWebhook(db: Database, webhookIds: string[]) {
+  if (webhookIds.length === 0) return [];
+  return db
+    .select()
+    .from(trackerConnections)
+    .where(
+      and(
+        eq(trackerConnections.tracker, "jira"),
+        inArray(trackerConnections.webhookId, webhookIds),
+      ),
+    );
+}
+
+export async function saveWebhook(
+  db: Database,
+  connectionId: string,
+  webhook: {
+    webhookId?: string | null;
+    webhookFilter?: string | null;
+    webhookExpiresAt?: Date | null;
+    webhookError: string | null;
+  },
+): Promise<void> {
+  await db
+    .update(trackerConnections)
+    .set(webhook)
+    .where(eq(trackerConnections.id, connectionId));
+}
+
+/** Whether Yarrow already holds this ticket (queued once, at work, done). */
+export async function ticketKnown(
+  db: Database,
+  projectId: string,
+  source: Tracker,
+  externalId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: workUnits.id })
+    .from(workUnits)
+    .where(
+      and(
+        eq(workUnits.projectId, projectId),
+        eq(workUnits.source, source),
+        eq(workUnits.externalId, externalId),
+      ),
+    );
+  return Boolean(row);
 }

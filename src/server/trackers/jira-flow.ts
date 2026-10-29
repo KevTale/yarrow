@@ -20,45 +20,16 @@ import {
   type TicketMoves,
   type TrackerStatus,
 } from "../../core/tracker-moves";
-import {
-  accessTokenFor,
-  trackerAdapter,
-  type TrackerName,
-  type TrackerSecrets,
-} from "./index";
-import type { Fetch } from "./types";
+import { trackerApi as api, type TrackerContext } from "./context";
+import { ensureJiraWebhook } from "./jira-webhooks";
+
+export type { TrackerContext } from "./context";
 
 /**
  * Jira for builders: the open tickets of a linked Jira project, the label
  * put on or taken off from the dashboard, and the link between a Jira
  * project and the repository that holds its code.
  */
-
-/** The deployment's tracker secrets (and a fetch, for tests). */
-export type TrackerContext = { secrets: TrackerSecrets; fetcher?: Fetch };
-
-type Connection = NonNullable<Awaited<ReturnType<typeof getConnection>>>;
-
-async function api(db: Database, ctx: TrackerContext, connection: Connection) {
-  const name = connection.tracker as TrackerName;
-  const credentials = ctx.secrets[name];
-  if (!credentials || !ctx.secrets.encryptionKey)
-    throw new Error(`${name} is not configured on this deployment`);
-  return {
-    name,
-    credentials,
-    adapter: trackerAdapter(name, ctx.fetcher),
-    scope: {
-      externalId: connection.externalId,
-      accessToken: await accessTokenFor(
-        db,
-        connection,
-        ctx.secrets,
-        ctx.fetcher,
-      ),
-    },
-  };
-}
 
 /** Open tickets of the project's linked boards. Null without any board. */
 export async function openTrackerTickets(
@@ -142,7 +113,8 @@ export async function labelTrackerTickets(
 
 /**
  * Links a Jira project to a repository (a Yarrow project): its labeled
- * tickets are synced from then on. A pasted ticket is queued right away.
+ * tickets are synced from then on, and Jira's webhook covers it too. A
+ * pasted ticket is queued right away.
  */
 export async function linkJiraProject(
   db: Database,
@@ -154,6 +126,8 @@ export async function linkJiraProject(
     jiraKey: string;
     ticket?: string | null;
   },
+  /** False when the caller updates the webhook once for several links. */
+  listen = true,
 ): Promise<{ projectId: string; key: string | null }> {
   const project = await requireProjectMember(db, userId, input.projectId);
   const connection = await getConnection(db, input.connectionId);
@@ -175,6 +149,7 @@ export async function linkJiraProject(
     externalBoardId: board.id,
     name: board.name,
   });
+  if (listen) await ensureJiraWebhook(db, ctx, connection.id);
   if (input.ticket)
     await labelTrackerTickets(db, ctx, project, [input.ticket], true);
   return { projectId: project.id, key: input.ticket ?? null };
@@ -193,6 +168,7 @@ export async function setJiraProjects(
 ): Promise<void> {
   const project = await requireProjectMember(db, userId, input.projectId);
   const kept = new Set<string>();
+  const touched = new Set<string>();
   for (const { board, connection } of await boardsForProject(db, project.id)) {
     if (connection.tracker !== "jira") continue;
     if (
@@ -200,15 +176,25 @@ export async function setJiraProjects(
       input.jiraKeys.includes(board.externalBoardId)
     )
       kept.add(board.externalBoardId);
-    else await removeBoard(db, project.id, board.id);
+    else {
+      await removeBoard(db, project.id, board.id);
+      touched.add(connection.id);
+    }
   }
   for (const jiraKey of input.jiraKeys)
-    if (!kept.has(jiraKey))
-      await linkJiraProject(db, ctx, userId, {
-        projectId: project.id,
-        connectionId: input.connectionId,
-        jiraKey,
-      });
+    if (!kept.has(jiraKey)) {
+      await linkJiraProject(
+        db,
+        ctx,
+        userId,
+        { projectId: project.id, connectionId: input.connectionId, jiraKey },
+        false,
+      );
+      touched.add(input.connectionId);
+    }
+  // Each webhook follows its connection's projects, once for all changes.
+  for (const connectionId of touched)
+    await ensureJiraWebhook(db, ctx, connectionId);
 }
 
 /** Atlassian refused the token: the person removed Yarrow's access. */

@@ -12,6 +12,11 @@ import { encryptToken } from "../../src/server/trackers/crypto";
 import { syncTrackers } from "../../src/server/trackers/index";
 import { jiraAdapter } from "../../src/server/trackers/jira";
 import {
+  ensureJiraWebhooks,
+  handleJiraDelivery,
+  verifyJiraWebhook,
+} from "../../src/server/trackers/jira-webhooks";
+import {
   JiraAccessError,
   jiraBoardSettings,
   jiraProjects,
@@ -305,6 +310,189 @@ describe("Jira for builders", async () => {
       true,
     );
     expect(jira.issues.get("APP-1")!.labels).toEqual(["yarrow"]);
+  });
+
+  /** Jira's webhook API on top of the fake site. */
+  function withWebhooks(base: typeof fetch, refuse = false) {
+    const hooks = new Map<number, { url: string; jqlFilter: string }>();
+    const calls: string[] = [];
+    let next = 1000;
+    const fetcher = (async (url: string, init: RequestInit = {}) => {
+      const hook = /\/rest\/api\/3\/webhook(\/refresh)?(\?.*)?$/.exec(url);
+      if (!hook) return base(url, init);
+      const method = init.method ?? "GET";
+      calls.push(`${method}${hook[1] ?? ""}`);
+      if (refuse)
+        return new Response('{"errorMessages":["scope"]}', { status: 403 });
+      const body = init.body ? JSON.parse(String(init.body)) : {};
+      if (method === "POST") {
+        const id = next++;
+        hooks.set(id, { url: body.url, jqlFilter: body.webhooks[0].jqlFilter });
+        return Response.json({
+          webhookRegistrationResult: [{ createdWebhookId: id }],
+        });
+      }
+      if (method === "DELETE") {
+        for (const id of body.webhookIds) hooks.delete(id);
+        return new Response(null, { status: 202 });
+      }
+      if (hook[1])
+        return Response.json({ expirationDate: Date.parse("2026-12-01") });
+      return Response.json({
+        isLast: true,
+        values: [...hooks].map(([id, value]) => ({ id, ...value })),
+      });
+    }) as typeof fetch;
+    return { fetcher, hooks, calls };
+  }
+
+  it("keeps one Jira webhook per connection on its linked projects, refreshed before it expires", async () => {
+    const { projectId, ctx, jira, connect } = await setup();
+    const site = withWebhooks(jira.fetcher);
+    const live = { ...ctx, appUrl: "https://yarrow.run", fetcher: site.fetcher };
+    const connectionId = await connect();
+    // No public address on this machine: nothing asked of Jira.
+    await setJiraProjects(db, { ...ctx, fetcher: site.fetcher }, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKeys: ["APP"],
+    });
+    expect(site.calls).toEqual([]);
+    expect(await ensureJiraWebhooks(db, live)).toEqual([
+      "acme.atlassian.net: registered",
+    ]);
+    expect([...site.hooks.values()]).toEqual([
+      {
+        url: "https://yarrow.run/api/webhooks/jira",
+        jqlFilter: 'project in ("APP")',
+      },
+    ]);
+    const [registered] = await raw.select().from(schema.trackerConnections);
+    expect(registered).toMatchObject({
+      webhookId: "1000",
+      webhookFilter: 'project in ("APP")',
+      webhookError: null,
+    });
+    const now = Date.now();
+    const day = 86_400_000;
+    expect(await ensureJiraWebhooks(db, live, now + 5 * day)).toEqual([
+      "acme.atlassian.net: up to date",
+    ]);
+    // Less than 20 days left: refreshed, the same webhook.
+    expect(await ensureJiraWebhooks(db, live, now + 11 * day)).toEqual([
+      "acme.atlassian.net: refreshed",
+    ]);
+    const [refreshed] = await raw.select().from(schema.trackerConnections);
+    expect(refreshed!.webhookExpiresAt).toEqual(new Date("2026-12-01"));
+    // Gone on Jira's side (expired, deleted): registered again.
+    site.hooks.clear();
+    expect(
+      await ensureJiraWebhooks(db, live, Date.parse("2026-11-20")),
+    ).toEqual(["acme.atlassian.net: registered"]);
+    // No linked project left: the webhook goes.
+    await setJiraProjects(db, live, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKeys: [],
+    });
+    expect(site.hooks.size).toBe(0);
+    const [removed] = await raw.select().from(schema.trackerConnections);
+    expect(removed).toMatchObject({ webhookId: null, webhookFilter: null });
+    // A connection made before Yarrow asked for webhooks: linking still
+    // works, the refusal is kept and the sync covers it.
+    const refusing = withWebhooks(jira.fetcher, true);
+    await setJiraProjects(
+      db,
+      { ...live, fetcher: refusing.fetcher },
+      marie.userId,
+      { projectId, connectionId, jiraKeys: ["APP"] },
+    );
+    expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
+    const [failed] = await raw.select().from(schema.trackerConnections);
+    expect(failed!.webhookError).toContain("(403)");
+  });
+
+  it("queues and unqueues a ticket labeled in Jira from its webhook", async () => {
+    const { projectId, ctx, jira, connect } = await setup();
+    const site = withWebhooks(jira.fetcher);
+    const live = { ...ctx, appUrl: "https://yarrow.run", fetcher: site.fetcher };
+    const connectionId = await connect();
+    await setJiraProjects(db, live, marie.userId, {
+      projectId,
+      connectionId,
+      jiraKeys: ["APP"],
+    });
+    const delivery = (key: string) => ({
+      webhookEvent: "jira:issue_updated",
+      issue: { key },
+      matchedWebhookIds: [1000],
+    });
+    // APP-2 carries the label in Jira: queued at once.
+    expect(await handleJiraDelivery(db, live, delivery("APP-2"))).toEqual({
+      queued: true,
+      log: ["APP-2 labeled"],
+    });
+    // APP-1 has no label and Yarrow never held it: nothing stored.
+    expect(await handleJiraDelivery(db, live, delivery("APP-1"))).toEqual({
+      queued: false,
+      log: [],
+    });
+    // The label taken off in Jira: out of the queue.
+    jira.issues.get("APP-2")!.labels.length = 0;
+    expect(await handleJiraDelivery(db, live, delivery("APP-2"))).toEqual({
+      queued: false,
+      log: ["APP-2 unlabeled"],
+    });
+    expect(
+      (await projectTickets(db, projectId)).map((row) => [row.ref, row.status]),
+    ).toEqual([["APP-2", "none"]]);
+    // Another app's webhook, or one Yarrow no longer holds: ignored.
+    expect(
+      await handleJiraDelivery(db, live, {
+        ...delivery("APP-2"),
+        matchedWebhookIds: [7],
+      }),
+    ).toEqual({ queued: false, log: [] });
+  });
+
+  it("accepts only deliveries signed with the app's secret", async () => {
+    const encode = (bytes: Uint8Array) =>
+      btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    const text = (value: object) =>
+      encode(new TextEncoder().encode(JSON.stringify(value)));
+    const sign = async (secret: string, claims: object) => {
+      const head = text({ alg: "HS256", typ: "JWT" });
+      const body = text(claims);
+      const hmac = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const signature = await crypto.subtle.sign(
+        "HMAC",
+        hmac,
+        new TextEncoder().encode(`${head}.${body}`),
+      );
+      return `Bearer ${head}.${body}.${encode(new Uint8Array(signature))}`;
+    };
+    const now = Date.now();
+    const exp = Math.floor(now / 1000) + 300;
+    expect(await verifyJiraWebhook("s", await sign("s", { exp }), now)).toBe(
+      true,
+    );
+    expect(
+      await verifyJiraWebhook("s", await sign("other", { exp }), now),
+    ).toBe(false);
+    expect(
+      await verifyJiraWebhook("s", await sign("s", { exp: exp - 3600 }), now),
+    ).toBe(false);
+    expect(await verifyJiraWebhook("s", null, now)).toBe(false);
+    expect(await verifyJiraWebhook("s", "Bearer nonsense", now)).toBe(false);
   });
 });
 

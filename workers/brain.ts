@@ -61,6 +61,7 @@ import {
   syncTrackers,
   trackerSecretsFromEnv,
 } from "../src/server/trackers/index";
+import { ensureJiraWebhooks } from "../src/server/trackers/jira-webhooks";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
 import { AgentsClient, defaultReviewerRates } from "../src/runner/openai";
 import {
@@ -895,8 +896,8 @@ export default {
   ) {
     ctx.waitUntil(
       (async () => {
-        const fiveMinutes =
-          new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0;
+        const minute = new Date(controller.scheduledTime).getUTCMinutes();
+        const fiveMinutes = minute % 5 === 0;
         // Yesterday's unspent daily credit out, today's in as its minute
         // comes, before the pass that can spend it.
         if (env.DATABASE_URL) {
@@ -918,6 +919,17 @@ export default {
             "tracker sync",
             await withDb(env, (db) =>
               syncTrackers(db, trackerSecretsFromEnv(env)),
+            ).catch((error) => [describe(error)]),
+          );
+        // Once an hour: Jira's webhooks follow their projects and stay alive.
+        if (minute === 30 && env.DATABASE_URL)
+          console.log(
+            "jira webhooks",
+            await withDb(env, (db) =>
+              ensureJiraWebhooks(db, {
+                secrets: trackerSecretsFromEnv(env),
+                appUrl: env.APP_URL,
+              }),
             ).catch((error) => [describe(error)]),
           );
       })(),

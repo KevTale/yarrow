@@ -153,7 +153,9 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
       url.search = new URLSearchParams({
         audience: "api.atlassian.com",
         client_id: credentials.clientId,
-        scope: "read:jira-work write:jira-work offline_access",
+        // manage:jira-webhook: a label set in Jira reaches Yarrow in seconds.
+        scope:
+          "read:jira-work write:jira-work manage:jira-webhook offline_access",
         redirect_uri: redirectUri,
         state,
         response_type: "code",
