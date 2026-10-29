@@ -1,5 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Play, RotateCcw } from "lucide-react";
+import {
+  Activity,
+  Play,
+  RotateCcw,
+  Ticket as TicketIcon,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Markdown } from "@/components/markdown";
@@ -39,13 +45,6 @@ export function prefetchTicket(projectId: string, key: string): void {
   void fetchTicket(projectId, key).catch(() => {});
 }
 
-const sourceName = {
-  github: "GitHub",
-  jira: "Jira",
-  linear: "Linear",
-  trello: "Trello",
-} as const;
-
 /**
  * A ticket's row, opened. With a pull request, the pull request alone (the
  * review, the changes, merge): it says what the ticket asked. Before, what
@@ -77,7 +76,10 @@ export function TicketPanel({
   return <TicketBrief projectId={projectId} row={row} act={act} />;
 }
 
-/** The ticket as written in its tracker, read live, then what can be done. */
+/**
+ * The ticket as written in its tracker, read live and again whenever the
+ * tracker says it changed; on the right, what can be done with it now.
+ */
 function TicketBrief({
   projectId,
   row,
@@ -100,26 +102,19 @@ function TicketBrief({
     return () => {
       live = false;
     };
-  }, [projectId, row.key]);
+    // A ticket edited in GitHub or Jira comes back with a newer date.
+  }, [projectId, row.key, row.updatedAt]);
 
   const url = detail?.url || row.url;
+  const work = workText(row.status, row.models);
   return (
-    <div className="tp">
-      <section className="tp-brief" aria-label={`${row.ref}, as written`}>
-        <p className="tp-meta">
-          {detail?.author && <span>{detail.author}</span>}
-          {detail?.labels.map((label) => (
-            <span key={label} className="tp-label">
-              {label}
-            </span>
-          ))}
-          {url && (
-            <a className="tp-out" href={url} target="_blank" rel="noopener">
-              Open on {sourceName[row.source]}
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          )}
-        </p>
+    <div className="pp-grid">
+      <section className="pp-main" aria-label={`${row.ref}, as written`}>
+        {row.status === "abstained" && row.reason && (
+          <p className="tp-reason">
+            <Rich text={row.reason} />
+          </p>
+        )}
         {detail === undefined ? (
           <div className="tp-lines" aria-busy="true" aria-label="Loading">
             <span className="sk" style={{ width: "88%" }} />
@@ -131,70 +126,87 @@ function TicketBrief({
           <p className="tp-empty">No description</p>
         )}
       </section>
-      {act && <TicketActions row={row} act={act} />}
+      <aside className="pp-aside">
+        <div className="pp-actions">
+          {act && <TicketActions row={row} act={act} />}
+          {work && <TextShimmer className="tp-state">{work}</TextShimmer>}
+          <div className="pp-links">
+            {url && (
+              <a
+                className="pp-github"
+                href={url}
+                target="_blank"
+                rel="noopener"
+              >
+                <TicketIcon size={14} aria-hidden="true" />
+                Ticket
+              </a>
+            )}
+            {work && row.runId && (
+              <Link
+                to="/runs/$runId"
+                params={{ runId: row.runId }}
+                className="pp-github"
+              >
+                <Activity size={14} aria-hidden="true" />
+                Run
+              </Link>
+            )}
+          </div>
+        </div>
+        {detail && (detail.author || detail.labels.length > 0) && (
+          <p className="tp-by">
+            {detail.author && <span>by {detail.author}</span>}
+            {detail.labels.map((label) => (
+              <span key={label} className="tp-label">
+                {label}
+              </span>
+            ))}
+          </p>
+        )}
+      </aside>
     </div>
   );
 }
 
-/** A ticket without a pull request yet: what the builder can do now. */
+/** Start, Cancel while it waits its turn, Retry once stopped. */
 function TicketActions({ row, act }: { row: TicketRow; act: TicketAct }) {
   if (row.status === "none")
     return (
-      <div className="tp-actions">
-        <button
-          type="button"
-          className="tix-btn tix-btn-amber"
-          disabled={row.pending}
-          onClick={() => act("queue", [row.key])}
-        >
-          <Play size={12} fill="currentColor" aria-hidden="true" /> Start
-        </button>
-      </div>
+      <button
+        type="button"
+        className="pp-btn start"
+        disabled={row.pending}
+        onClick={() => act("queue", [row.key])}
+      >
+        <Play size={13} fill="currentColor" aria-hidden="true" /> Start
+      </button>
     );
   if (row.status === "queued")
     return (
-      <div className="tp-actions">
-        <span className="tp-state">Waiting for its turn</span>
+      <>
+        <p className="tp-state">
+          {row.pending ? "Starting" : "Waiting for its turn"}
+        </p>
         <button
           type="button"
-          className="tix-btn tix-btn-line"
+          className="pp-btn"
           disabled={row.pending}
           onClick={() => act("unqueue", [row.key])}
         >
-          Cancel
+          <X size={15} aria-hidden="true" /> Cancel
         </button>
-      </div>
+      </>
     );
   if (row.status === "abstained")
     return (
-      <div className="tp-actions stopped">
-        {row.reason && (
-          <p className="tp-reason">
-            <Rich text={row.reason} />
-          </p>
-        )}
-        <button
-          type="button"
-          className="tix-btn tix-btn-amber"
-          onClick={() => act("retry", [row.key])}
-        >
-          <RotateCcw size={13} aria-hidden="true" /> Retry
-        </button>
-      </div>
+      <button
+        type="button"
+        className="pp-btn start"
+        onClick={() => act("retry", [row.key])}
+      >
+        <RotateCcw size={14} aria-hidden="true" /> Retry
+      </button>
     );
-  const work = workText(row.status, row.models);
-  return work ? (
-    <div className="tp-actions">
-      <TextShimmer className="tp-state">{work}</TextShimmer>
-      {row.runId && (
-        <Link
-          to="/runs/$runId"
-          params={{ runId: row.runId }}
-          className="tp-out"
-        >
-          Follow the run <ArrowUpRight size={14} aria-hidden="true" />
-        </Link>
-      )}
-    </div>
-  ) : null;
+  return null;
 }

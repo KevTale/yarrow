@@ -1,7 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowUp,
-  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronRight,
@@ -619,8 +618,7 @@ function Decisions({
       <div className="pp-links">
         <a className="pp-github" href={url} target="_blank" rel="noopener">
           <GitPullRequest size={14} aria-hidden="true" />
-          Pull request
-          <ArrowUpRight size={13} aria-hidden="true" />
+          PR
         </a>
         {ticketUrl && (
           <a
@@ -631,7 +629,6 @@ function Decisions({
           >
             <Ticket size={14} aria-hidden="true" />
             Ticket
-            <ArrowUpRight size={13} aria-hidden="true" />
           </a>
         )}
         {runId && <Share runId={runId} />}

@@ -3883,45 +3883,8 @@ tbody tr:hover {
 .tix-card .pp {
   padding: 0;
 }
-.tp {
-  display: grid;
-  gap: 26px;
-}
-.tp-brief {
-  display: grid;
-  gap: 12px;
-}
-.tp-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-.tp-meta > span:first-child {
-  color: var(--secondary);
-}
-.tp-label {
-  padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  font-size: 12px;
-  color: var(--secondary);
-}
-.tp-out {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--secondary);
-  transition: color 0.16s;
-}
-.tp-out:hover {
-  color: var(--text);
-}
+/* A ticket before its pull request: the ticket on the left, what can be
+   done on the right, as in the pull request's panel. */
 .tp-lines {
   display: grid;
   gap: 10px;
@@ -3932,27 +3895,37 @@ tbody tr:hover {
   font-size: 13.5px;
   color: var(--muted);
 }
-.tp-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-subtle);
-}
-.tp-actions .tp-out {
-  margin-left: 0;
-}
 .tp-state {
+  margin: 0;
+  padding: 2px 2px 4px;
   font-size: 13.5px;
   color: var(--secondary);
 }
 .tp-reason {
-  flex-basis: 100%;
   margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #ee7b6e40;
+  border-radius: 10px;
+  background: #ee7b6e12;
   max-width: 72ch;
   font-size: 13.5px;
   line-height: 1.6;
+  color: var(--secondary);
+}
+.tp-by {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.tp-label {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
   color: var(--secondary);
 }
 /* A ticket's Markdown, at the panel's reading size. */
@@ -8077,18 +8050,38 @@ body:has(.sb-dialog[open]) {
 .pp-btn svg {
   color: var(--secondary);
 }
-.pp-btn.merge {
+/* The one decision of the panel, tinted rather than filled. */
+.pp-btn.merge,
+.pp-btn.start {
   justify-content: center;
-  border-color: var(--green);
-  background: var(--green);
-  color: #0c1a13;
+  border-color: #5ccb9559;
+  background: #5ccb951c;
+  color: var(--green);
 }
-.pp-btn.merge svg {
+.pp-btn.merge:hover {
+  border-color: #5ccb9599;
+  background: #5ccb952b;
+}
+.pp-btn.merge svg,
+.pp-btn.start svg {
   color: currentColor;
 }
 .pp-btn.merge.confirm {
-  background: transparent;
-  color: var(--green);
+  border-color: var(--green);
+  background: #5ccb953d;
+}
+.pp-btn.start {
+  border-color: #f2b54459;
+  background: #f2b5441c;
+  color: var(--amber);
+}
+.pp-btn.start:hover {
+  border-color: #f2b54499;
+  background: #f2b5442b;
+}
+.pp-btn.start:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .pp-btn.pressed {
   background: var(--hover);
@@ -8130,14 +8123,40 @@ body:has(.sb-dialog[open]) {
 .pp-github:hover {
   color: var(--text);
 }
+/* Where else the ticket lives: one bar of equal cells under the actions. */
 .pp-links {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 16px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
 }
-.pp-links .pp-share {
-  margin-left: auto;
+.pp-links > .pp-github {
+  justify-content: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  font-size: 12.5px;
+  color: var(--secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.pp-links > .pp-github:first-child {
+  border-left: 0;
+}
+.pp-links > .pp-github:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.pp-links > .pp-share.copied {
+  color: var(--green);
 }
 .pp-share {
   border: 0;
