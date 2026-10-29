@@ -90,6 +90,19 @@ function fakeProviders() {
       );
     if (url.endsWith("/reviews")) return json({}, 200);
     // Anthropic Managed Agents
+    if (url.endsWith("/v1/environments/env_1") && init.method === "GET")
+      return json({
+        id: "env_1",
+        config: {
+          type: "cloud",
+          networking: {
+            type: "limited",
+            allow_package_managers: true,
+            allowed_hosts: ["cdn.playwright.dev", "api.stripe.com"],
+          },
+        },
+      });
+    if (url.endsWith("/v1/environments/env_1")) return json({ id: "env_1" });
     if (url === "https://api.anthropic.com/v1/sessions")
       return json({ id: "sesn_1", status: "running" });
     if (url.endsWith("/v1/sessions/sesn_1"))
@@ -251,6 +264,26 @@ describe("run pipeline", async () => {
       workBranch: expect.stringMatching(/^yarrow\/export-crashes-/),
     });
     expect(run.ticket.body).toContain("@marie: Happens on Safari too.");
+
+    // An environment made before a host was added gets it, and keeps its own.
+    const opened = calls.find(
+      (call) =>
+        call.method === "POST" && call.url.endsWith("/v1/environments/env_1"),
+    )!;
+    expect(opened.body).toMatchObject({
+      config: {
+        type: "cloud",
+        networking: {
+          type: "limited",
+          allow_package_managers: true,
+          allowed_hosts: expect.arrayContaining([
+            "api.stripe.com",
+            "binaries.prisma.sh",
+            "nodejs.org",
+          ]),
+        },
+      },
+    });
 
     const sessionId = await runner.startImplementation(run);
     const created = calls.find(

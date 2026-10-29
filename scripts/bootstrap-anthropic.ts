@@ -8,7 +8,7 @@
  * new agent, and the brain uses whichever ID you configure.
  */
 import { existsSync } from "node:fs";
-import { ManagedAgentsClient } from "../src/runner/anthropic";
+import { ManagedAgentsClient, SANDBOX_HOSTS } from "../src/runner/anthropic";
 import { IMPLEMENTER_SYSTEM } from "../src/runner/prompts";
 
 // A key already in the shell wins (set-secrets.ps1 passes the target's key).
@@ -28,11 +28,7 @@ const agent = await client.createAgent({
 });
 const environment = await client.createEnvironment({
   name: "yarrow-default",
-  allowedHosts: [
-    "cdn.playwright.dev",
-    "playwright.download.prss.microsoft.com",
-    "playwright.azureedge.net",
-  ],
+  allowedHosts: SANDBOX_HOSTS,
 });
 console.log(`ANTHROPIC_AGENT_ID=${agent.id}`);
 console.log(`ANTHROPIC_ENVIRONMENT_ID=${environment.id}`);

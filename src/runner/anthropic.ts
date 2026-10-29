@@ -50,6 +50,49 @@ export function listCostCents(session: ManagedSession): number {
   return 0;
 }
 
+/**
+ * Hosts every implementer sandbox may reach besides the package registries:
+ * what projects download while they install, build and start (measured on 16
+ * public projects, 2026-10-15). A project's own third parties stay out:
+ * the agent fakes them.
+ */
+export const SANDBOX_HOSTS = [
+  // Browsers, for Playwright and Puppeteer (older releases come from Google).
+  "cdn.playwright.dev",
+  "playwright.download.prss.microsoft.com",
+  "playwright.azureedge.net",
+  "storage.googleapis.com",
+  // Runtimes newer than the sandbox's own: Node, Yarn, Go, Ruby, and the
+  // builds published as GitHub releases.
+  "nodejs.org",
+  "repo.yarnpkg.com",
+  "go.dev",
+  "dl.google.com",
+  "proxy.golang.org",
+  "sum.golang.org",
+  "cache.ruby-lang.org",
+  "github.com",
+  "objects.githubusercontent.com",
+  "release-assets.githubusercontent.com",
+  "raw.githubusercontent.com",
+  // Prisma's engines, and Google Fonts that Next.js builds fetch.
+  "binaries.prisma.sh",
+  "fonts.googleapis.com",
+  "fonts.gstatic.com",
+];
+
+interface Environment {
+  id: string;
+  config: {
+    type: string;
+    networking?: {
+      type: string;
+      allow_package_managers?: boolean;
+      allowed_hosts?: string[];
+    };
+  };
+}
+
 export class ManagedAgentsClient {
   constructor(
     private readonly apiKey: string,
@@ -114,6 +157,33 @@ export class ManagedAgentsClient {
         },
       },
     });
+  }
+
+  /**
+   * Adds the hosts an environment lacks, keeping the ones it has (a
+   * project's secret hosts). New sessions get them; running ones keep theirs.
+   * True when the environment changed.
+   */
+  async ensureHosts(environmentId: string, hosts: string[]): Promise<boolean> {
+    const environment = await this.call<Environment>(
+      "GET",
+      `/environments/${environmentId}`,
+    );
+    const networking = environment.config.networking;
+    if (networking?.type !== "limited") return false;
+    const current = networking.allowed_hosts ?? [];
+    const missing = hosts.filter((host) => !current.includes(host));
+    if (missing.length === 0) return false;
+    await this.call("POST", `/environments/${environmentId}`, {
+      config: {
+        type: environment.config.type,
+        networking: {
+          ...networking,
+          allowed_hosts: [...current, ...missing],
+        },
+      },
+    });
+    return true;
   }
 
   createVault(displayName: string): Promise<{ id: string }> {

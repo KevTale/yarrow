@@ -38,7 +38,11 @@ import { syncRunActivity } from "../db/activity";
 import { agentRuns } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { MoveEvent } from "../core/tracker-moves";
-import { listCostCents, type ManagedAgentsClient } from "./anthropic";
+import {
+  listCostCents,
+  SANDBOX_HOSTS,
+  type ManagedAgentsClient,
+} from "./anthropic";
 import {
   usageCostCents,
   usageTokens,
@@ -71,12 +75,8 @@ import {
   pullRequestTitle,
 } from "./pull-request";
 
-/** Hosts the implementer sandbox may reach besides package registries. */
-const PLAYWRIGHT_HOSTS = [
-  "cdn.playwright.dev",
-  "playwright.download.prss.microsoft.com",
-  "playwright.azureedge.net",
-];
+/** Environments whose hosts this isolate already brought up to date. */
+const hostsChecked = new Set<string>();
 
 /** Where evidence files (screenshots, video) are stored. R2 in production. */
 export interface EvidenceStore {
@@ -253,12 +253,12 @@ export class RunPipeline {
   /** The project's sandbox environment, created when secrets need allowed hosts. */
   private async environmentFor(context: RunContext): Promise<string> {
     if (context.secrets.length === 0 && !context.runConfig?.startCommand)
-      return this.deps.defaultEnvironmentId;
+      return this.withHosts(this.deps.defaultEnvironmentId);
     if (context.runConfig?.anthropicEnvironmentId)
-      return context.runConfig.anthropicEnvironmentId;
+      return this.withHosts(context.runConfig.anthropicEnvironmentId);
     const hosts = [
       ...new Set([
-        ...PLAYWRIGHT_HOSTS,
+        ...SANDBOX_HOSTS,
         ...context.secrets.map((secret) => secret.allowedHost),
       ]),
     ];
@@ -270,6 +270,21 @@ export class RunPipeline {
       environmentId: environment.id,
     });
     return environment.id;
+  }
+
+  /**
+   * Environments created before a host joined SANDBOX_HOSTS get it on their
+   * next run. A failure only warns: the run starts with the hosts it had.
+   */
+  private async withHosts(environmentId: string): Promise<string> {
+    if (hostsChecked.has(environmentId)) return environmentId;
+    try {
+      await this.deps.anthropic.ensureHosts(environmentId, SANDBOX_HOSTS);
+      hostsChecked.add(environmentId);
+    } catch (error) {
+      console.warn("environment hosts:", (error as Error).message);
+    }
+    return environmentId;
   }
 
   async prepare(runId: string): Promise<PreparedRun> {
