@@ -773,7 +773,7 @@ function TicketLine({
     if (row.pullRequest) prefetchPullPanel(projectId, row.key);
   };
   return (
-    <li className="tix-item">
+    <li className={`tix-item ${open ? "open" : ""}`}>
       <div
         data-flip={`${projectId}:${row.key}`}
         data-flip-value={row.status}
@@ -866,7 +866,9 @@ function RowState({ row }: { row: TicketRow }) {
     const work = workText(row.status, row.models);
     return (
       <>
-        {work && <TextShimmer className="tix-state working">{work}</TextShimmer>}
+        {work && (
+          <TextShimmer className="tix-state working">{work}</TextShimmer>
+        )}
         {row.runId ? <RunHover runId={row.runId}>{pill}</RunHover> : pill}
       </>
     );
@@ -905,7 +907,9 @@ function Sponsor({ row }: { row: TicketRow }) {
     <span className="tix-sponsor" title={`Paid by ${names.join(", ")}`}>
       <Logo name={first.name} url={first.logoUrl} size="small" />
       <span>{names[0]}</span>
-      {names.length > 1 && <span className="tix-more">+{names.length - 1}</span>}
+      {names.length > 1 && (
+        <span className="tix-more">+{names.length - 1}</span>
+      )}
     </span>
   );
 }
