@@ -486,6 +486,11 @@ describe("pull request card", () => {
   });
   it("keeps only the site's host", () => {
     expect(shortSite("https://www.acme.com/pricing")).toBe("acme.com");
+    expect(shortSite("https://x.com/xKevinTale")).toBe("x.com/xKevinTale");
+    expect(shortSite("https://www.linkedin.com/in/kevin/?trk=a")).toBe(
+      "linkedin.com/in/kevin",
+    );
+    expect(shortSite("https://x.com/")).toBe("x.com");
     expect(shortSite("not a url")).toBeNull();
   });
 });

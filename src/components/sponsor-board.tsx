@@ -406,16 +406,6 @@ function sample(rows: SponsorRow[]): PrCardSponsor | null {
     : null;
 }
 
-/** "https://www.acme.com/" → "acme.com". */
-function host(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
 /** What the sponsor's money did, zeros included. Anonymous rows get no clicks. */
 function Stats({
   clicks,
@@ -475,7 +465,7 @@ function RowBody({
           {description}
         </span>
         <span className="sb-line">
-          <span className="sb-site">{host(website)}</span>
+          <span className="sb-site">{shortSite(website)}</span>
           {stats}
         </span>
       </span>

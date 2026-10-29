@@ -36,11 +36,33 @@ function clip(text: string, max: number): string {
   return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
 }
 
-/** "https://www.acme.com/pricing" → "acme.com". */
+/** Sites where a sponsor is a profile: the host alone does not say who. */
+const PROFILE_HOSTS = new Set([
+  "x.com",
+  "twitter.com",
+  "github.com",
+  "linkedin.com",
+  "instagram.com",
+  "threads.net",
+  "bsky.app",
+  "youtube.com",
+  "tiktok.com",
+  "facebook.com",
+  "medium.com",
+  "producthunt.com",
+]);
+
+/**
+ * "https://www.acme.com/pricing" → "acme.com", but a profile keeps its
+ * path: "https://x.com/xKevinTale" → "x.com/xKevinTale".
+ */
 export function shortSite(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
-    return new URL(url).hostname.replace(/^www\./, "");
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^(www|m|mobile)\./, "");
+    const path = parsed.pathname.replace(/\/+$/, "");
+    return PROFILE_HOSTS.has(host) && path ? `${host}${path}` : host;
   } catch {
     return null;
   }

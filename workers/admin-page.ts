@@ -1,5 +1,6 @@
 import { clock, DEFAULT_WINDOW } from "../src/core/daily-funding";
 import { providerName } from "../src/core/failures";
+import { shortSite } from "../src/core/pr-card";
 import type {
   ComputeSummary,
   DailyFundingRow,
@@ -23,15 +24,6 @@ const dollars = (cents: number) =>
     minimumFractionDigits: cents % 100 ? 2 : 0,
     maximumFractionDigits: 2,
   })}`;
-
-const domain = (url: string | null) => {
-  if (!url) return "";
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 
 function logo(appUrl: string, row: Pick<DailyFundingRow, "logoUrl" | "name">) {
   const initial = escape((row.name ?? "?").trim().charAt(0).toUpperCase());
@@ -78,7 +70,7 @@ function fundingRow(appUrl: string, row: DailyFundingRow) {
       <div class="who">
         <strong>${escape(row.name)}</strong>
         <span class="muted">${escape(row.description)}</span>
-        <span class="muted">${escape(domain(row.websiteUrl))}</span>
+        <span class="muted">${escape(shortSite(row.websiteUrl) ?? row.websiteUrl)}</span>
       </div>
       <div class="numbers">
         <strong>${dollars(row.amountCents)} / day</strong>

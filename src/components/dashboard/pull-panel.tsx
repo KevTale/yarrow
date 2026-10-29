@@ -32,17 +32,10 @@ import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
 import { timeAgo } from "@/components/ui";
 import { SponsorLink } from "./paid-by";
+import { shortSite } from "@/core/pr-card";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
 type Files = NonNullable<Awaited<ReturnType<typeof getPullFilesFn>>>;
-
-const domain = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 
 /**
  * What a row showed last, kept for this page's life: it opens at once with
@@ -252,7 +245,7 @@ export function PullPanel({
                     {sponsor.description && <span>{sponsor.description}</span>}
                     {sponsor.websiteUrl && (
                       <span className="pp-site">
-                        {domain(sponsor.websiteUrl)}
+                        {shortSite(sponsor.websiteUrl) ?? sponsor.websiteUrl}
                       </span>
                     )}
                   </span>

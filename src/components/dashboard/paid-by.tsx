@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PaidBy } from "@/core/tickets";
 import { Logo } from "@/components/boards";
-
-const domain = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
+import { shortSite } from "@/core/pr-card";
 
 /** The sponsor's website, through /out/ so the click counts. */
 export const sponsorHref = (sponsor: PaidBy) =>
@@ -117,7 +110,9 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
                 <b>{sponsor.name ?? "Anonymous sponsor"}</b>
                 {sponsor.description && <span>{sponsor.description}</span>}
                 {sponsor.websiteUrl && (
-                  <span className="pb-site">{domain(sponsor.websiteUrl)}</span>
+                  <span className="pb-site">
+                    {shortSite(sponsor.websiteUrl) ?? sponsor.websiteUrl}
+                  </span>
                 )}
               </span>
             </SponsorLink>
