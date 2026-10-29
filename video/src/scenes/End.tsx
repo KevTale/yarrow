@@ -34,7 +34,7 @@ export const End: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        background: `radial-gradient(900px 520px at 50% 46%, #f2b5440f, transparent 70%), ${c.bg}`,
+        background: c.bg,
         fontFamily: font.sans,
         color: c.text,
         alignItems: "center",
