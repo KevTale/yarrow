@@ -8,8 +8,8 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Cursor } from "../components/kit";
-import { Spoken } from "../components/Spoken";
-import { issue } from "../story";
+import { Spoken, wordAt } from "../components/Spoken";
+import { backlog, issue } from "../story";
 import { c, clamp, ease, font } from "../theme";
 
 /** The field, on the 1920×1080 frame, under the spoken headline. */
@@ -24,9 +24,117 @@ const PASTED = 124;
 const HOVER = 160;
 const GO_CLICK = 186;
 
+/** The backlog's card, right of the question. */
+const CARD = { left: 1010, width: 790, row: 80 };
+
 /**
- * The question, written as it is asked: what if your backlog built itself,
- * for free. Then the landing, its headline the line being said: on "Paste
+ * The backlog the question names: its tickets come in waiting, then on
+ * "built itself" each turns into an open pull request, a wave down the list.
+ */
+const Backlog: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const built = wordAt("intro", 4);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: CARD.left,
+        top: 540 - (60 + CARD.row * backlog.length) / 2,
+        width: CARD.width,
+        borderRadius: 22,
+        border: `1px solid ${c.line}`,
+        background: c.surface,
+        overflow: "hidden",
+        boxShadow: "0 30px 80px rgba(0, 0, 0, 0.45)",
+      }}
+    >
+      <div
+        style={{
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 30px",
+          fontFamily: font.mono,
+          fontSize: 19,
+          color: c.muted,
+          borderBottom: `1px solid ${c.line}`,
+        }}
+      >
+        {issue.repo} · backlog
+      </div>
+      {backlog.map((ticket, i) => {
+        const rowIn = spring({
+          frame: frame - 2 - i * 3,
+          fps,
+          config: { damping: 200 },
+          durationInFrames: 16,
+        });
+        const at = built + i * 6;
+        const done = spring({
+          frame: frame - at,
+          fps,
+          config: { damping: 14, stiffness: 200 },
+        });
+        const flash = interpolate(
+          frame,
+          [at, at + 4, at + 20],
+          [0, 1, 0],
+          clamp,
+        );
+        return (
+          <div
+            key={ticket.number}
+            style={{
+              height: CARD.row,
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              padding: "0 30px",
+              fontSize: 25,
+              borderTop: i ? `1px solid ${c.lineSoft}` : "none",
+              background: `rgba(92, 203, 149, ${0.08 * flash})`,
+              opacity: rowIn,
+              translate: `0 ${(1 - rowIn) * 16}px`,
+            }}
+          >
+            <span
+              style={{ fontFamily: font.mono, fontSize: 20, color: c.muted }}
+            >
+              #{ticket.number}
+            </span>
+            <span style={{ flex: 1, fontWeight: 500 }}>{ticket.title}</span>
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: 21,
+                color: frame >= at ? c.green : c.muted,
+                scale: `${frame >= at ? interpolate(done, [0, 1], [0.85, 1]) : 1}`,
+              }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  boxSizing: "border-box",
+                  borderRadius: "50%",
+                  border: `1.5px solid ${frame >= at ? c.green : c.muted}`,
+                }}
+              />
+              {frame >= at ? "PR open" : "Todo"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
+ * The question, written as it is asked beside the backlog it names: what
+ * if your backlog built itself, for free. Then the landing, its headline the line being said: on "Paste
  * a ticket" a pointer pastes one and asks for a pull request.
  */
 export const Intro: React.FC = () => {
@@ -84,28 +192,36 @@ export const Intro: React.FC = () => {
     >
       {frame < QUESTION_OUT + 10 && (
         <AbsoluteFill
-          style={{
-            justifyContent: "center",
-            alignItems: "center",
-            textAlign: "center",
-            fontFamily: font.display,
-            fontWeight: 500,
-            fontSize: 124,
-            lineHeight: 1.08,
-            letterSpacing: "-0.02em",
-            opacity: 1 - out,
-            translate: `0 ${-60 * out}px`,
-          }}
+          style={{ opacity: 1 - out, translate: `0 ${-60 * out}px` }}
         >
-          <Spoken line="intro" sceneFrom={0} words={[0, 4]} />
-          <Spoken line="intro" sceneFrom={0} words={[4, 6]} />
-          <Spoken
-            line="intro"
-            sceneFrom={0}
-            words={[6, 8]}
-            trim
-            style={{ color: c.amber, marginTop: 24 }}
-          />
+          <div
+            style={{
+              position: "absolute",
+              left: 120,
+              top: 0,
+              bottom: 0,
+              width: 860,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              fontFamily: font.display,
+              fontWeight: 500,
+              fontSize: 92,
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            <Spoken line="intro" sceneFrom={0} words={[0, 4]} />
+            <Spoken line="intro" sceneFrom={0} words={[4, 6]} />
+            <Spoken
+              line="intro"
+              sceneFrom={0}
+              words={[6, 8]}
+              trim
+              style={{ color: c.amber, marginTop: 22 }}
+            />
+          </div>
+          <Backlog />
         </AbsoluteFill>
       )}
       <AbsoluteFill

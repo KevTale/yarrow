@@ -66,6 +66,16 @@ export const board = [
   },
 ] as const;
 
+/** The backlog the film opens on: tickets waiting, #42 among them. */
+export const backlog = [
+  { number: 38, title: "Export notes to Markdown" },
+  { number: 41, title: "Keyboard shortcuts panel" },
+  { number: 42, title: "Dark mode toggle in settings" },
+  { number: 45, title: "Fix sync on slow networks" },
+  { number: 47, title: "Search across tags" },
+  { number: 52, title: "Offline drafts" },
+];
+
 /** Quillfern's new payment, in cents. */
 export const topUpCents = 2500;
 
