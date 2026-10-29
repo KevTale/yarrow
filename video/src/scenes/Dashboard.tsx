@@ -14,8 +14,8 @@ import { Check } from "./Work";
 
 /** The scene's beats (local frames). */
 export const CHEVRON = 28;
-const HOVER_MERGE = 116;
-export const MERGE_CLICK = 134;
+const HOVER_MERGE = 122;
+export const MERGE_CLICK = 140;
 const MERGED = MERGE_CLICK + 14;
 export const GITHUB = 192;
 

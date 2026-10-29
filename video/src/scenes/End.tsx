@@ -6,20 +6,30 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Mark } from "../components/Mark";
+import { Spoken, wordAt } from "../components/Spoken";
 import { c, clamp, font } from "../theme";
+import { SCENE } from "../timeline";
 
-/** The mark blooms again over the address, the promise under it. */
+/**
+ * The mark blooms again over the address; the address comes on "Yarrow",
+ * the promise word by word as it is said.
+ */
 export const End: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const url = spring({
-    frame: frame - 14,
+    frame: frame - (wordAt("end", 0) - SCENE.end.from) + 2,
     fps,
     config: { damping: 200 },
     durationInFrames: 24,
   });
-  const line = interpolate(frame, [30, 46], [0, 1], clamp);
-  const free = interpolate(frame, [42, 58], [0, 1], clamp);
+  const lastWord = wordAt("end", 6) - SCENE.end.from;
+  const free = interpolate(
+    frame,
+    [lastWord + 14, lastWord + 28],
+    [0, 1],
+    clamp,
+  );
 
   return (
     <AbsoluteFill
@@ -49,12 +59,13 @@ export const End: React.FC = () => {
         <div
           style={{
             marginTop: 18,
-            fontSize: 40,
+            fontFamily: font.display,
+            fontWeight: 500,
+            fontSize: 56,
             color: c.secondary,
-            opacity: line,
           }}
         >
-          Free pull requests from frontier AI
+          <Spoken line="end" sceneFrom={SCENE.end.from} words={[1, 7]} trim />
         </div>
         <div
           style={{ marginTop: 44, fontSize: 26, color: c.muted, opacity: free }}

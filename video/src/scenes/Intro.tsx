@@ -7,40 +7,38 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Cursor, Rise } from "../components/kit";
-import { Mark } from "../components/Mark";
+import { Cursor } from "../components/kit";
+import { Spoken } from "../components/Spoken";
 import { issue } from "../story";
 import { c, clamp, ease, font } from "../theme";
 
-/** Where the mark lands: its place in the header's logo. */
-const HEADER = { x: 878, y: 46, size: 49.4 };
-/** The field, on the 1920×1080 frame. */
-const FIELD = { left: 380, top: 560, width: 1160, height: 104 };
+/** The field, on the 1920×1080 frame: centered, nothing above it. */
+const FIELD = { left: 380, top: 488, width: 1160, height: 104 };
 const BUTTON = { x: 1388, y: FIELD.top + FIELD.height / 2 };
 
 /** The scene's beats (local frames). */
-const PASTE_CLICK = 86;
-const PASTED = 90;
-const GO_CLICK = 160;
+const QUESTION_OUT = 100;
+const PAGE_IN = 104;
+const PASTE_CLICK = 120;
+const PASTED = 124;
+const HOVER = 160;
+const GO_CLICK = 186;
 
 /**
- * The landing, reduced to its promise and its field: the mark blooms and
- * takes its place in the header, the promise rises, then a pointer pastes
- * an issue and asks for a pull request.
+ * The question, written as it is asked: what if your backlog built itself,
+ * for free. Then the landing, reduced to its field: on "Paste a ticket" a
+ * pointer pastes one and asks for a pull request.
  */
 export const Intro: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // The mark: blooms large at the center, then flies to the header.
-  const fly = interpolate(frame, [22, 42], [0, 1], {
+  // The question leaves upward as the page comes in.
+  const out = interpolate(frame, [QUESTION_OUT, QUESTION_OUT + 10], [0, 1], {
     ...clamp,
     easing: ease.inOut,
   });
-  const markSize = interpolate(fly, [0, 1], [240, HEADER.size]);
-  const markX = interpolate(fly, [0, 1], [960, HEADER.x]);
-  const markY = interpolate(fly, [0, 1], [520, HEADER.y]);
-  const logoIn = interpolate(frame, [40, 48], [0, 1], clamp);
+  const pageIn = interpolate(frame, [PAGE_IN, PAGE_IN + 10], [0, 1], clamp);
 
   // The field: its focus, the pasted link, the hover and the press.
   const focus = interpolate(
@@ -58,7 +56,7 @@ export const Intro: React.FC = () => {
   );
   const caret =
     frame >= PASTE_CLICK && frame < GO_CLICK && Math.floor(frame / 8) % 2 === 0;
-  const hover = interpolate(frame, [128, 136], [0, 1], clamp);
+  const hover = interpolate(frame, [HOVER, HOVER + 8], [0, 1], clamp);
   const press = interpolate(
     frame,
     [GO_CLICK - 3, GO_CLICK, GO_CLICK + 6],
@@ -69,12 +67,12 @@ export const Intro: React.FC = () => {
   const spin = (frame - GO_CLICK) * 14;
 
   // The camera leans in toward the field once it is there.
-  const zoom = interpolate(frame, [56, 180], [1, 1.12], {
+  const zoom = interpolate(frame, [PAGE_IN, 210], [1, 1.1], {
     ...clamp,
     easing: ease.inOut,
   });
   const fieldIn = spring({
-    frame: frame - 50,
+    frame: frame - PAGE_IN,
     fps,
     config: { damping: 200 },
     durationInFrames: 24,
@@ -84,6 +82,32 @@ export const Intro: React.FC = () => {
     <AbsoluteFill
       style={{ background: c.bg, fontFamily: font.sans, color: c.text }}
     >
+      {frame < QUESTION_OUT + 10 && (
+        <AbsoluteFill
+          style={{
+            justifyContent: "center",
+            alignItems: "center",
+            textAlign: "center",
+            fontFamily: font.display,
+            fontWeight: 500,
+            fontSize: 124,
+            lineHeight: 1.08,
+            letterSpacing: "-0.02em",
+            opacity: 1 - out,
+            translate: `0 ${-60 * out}px`,
+          }}
+        >
+          <Spoken line="intro" sceneFrom={0} words={[0, 4]} />
+          <Spoken line="intro" sceneFrom={0} words={[4, 6]} />
+          <Spoken
+            line="intro"
+            sceneFrom={0}
+            words={[6, 8]}
+            trim
+            style={{ color: c.amber, marginTop: 24 }}
+          />
+        </AbsoluteFill>
+      )}
       <AbsoluteFill
         style={{
           scale: `${zoom}`,
@@ -97,7 +121,7 @@ export const Intro: React.FC = () => {
             inset: "0 0 auto 0",
             height: 92,
             borderBottom: `1px solid ${c.line}`,
-            opacity: logoIn,
+            opacity: pageIn,
           }}
         >
           <Img
@@ -105,37 +129,6 @@ export const Intro: React.FC = () => {
             style={{ position: "absolute", left: 853, top: 22, height: 48 }}
           />
         </div>
-        {logoIn < 1 && (
-          <Mark
-            size={markSize}
-            style={{
-              position: "absolute",
-              left: markX - markSize / 2,
-              top: markY - markSize * 0.479,
-            }}
-          />
-        )}
-
-        <div
-          style={{
-            position: "absolute",
-            top: 330,
-            width: "100%",
-            textAlign: "center",
-            fontFamily: font.display,
-            fontWeight: 500,
-            fontSize: 108,
-            lineHeight: 1,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          <Rise
-            text="Free pull requests from frontier AI"
-            at={30}
-            stagger={4}
-          />
-        </div>
-
         {/* The ship field: the link, then the button. */}
         <div
           style={{
@@ -254,10 +247,10 @@ export const Intro: React.FC = () => {
 
         <Cursor
           path={[
-            { f: 60, x: 1500, y: 960 },
-            { f: 84, x: 760, y: FIELD.top + 56 },
-            { f: 104, x: 760, y: FIELD.top + 56 },
-            { f: 130, x: BUTTON.x, y: BUTTON.y + 8 },
+            { f: PAGE_IN, x: 1500, y: 960 },
+            { f: PASTE_CLICK - 4, x: 760, y: FIELD.top + 56 },
+            { f: PASTE_CLICK + 14, x: 760, y: FIELD.top + 56 },
+            { f: HOVER + 2, x: BUTTON.x, y: BUTTON.y + 8 },
           ]}
           clicks={[PASTE_CLICK, GO_CLICK]}
         />

@@ -6,13 +6,15 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Logo, Tile } from "../components/kit";
+import { Spoken } from "../components/Spoken";
 import { board, prCostCents, sponsor, topUpCents } from "../story";
 import { c, clamp, ease, font } from "../theme";
+import { SCENE } from "../timeline";
 
 const ROW = 124;
 /** The payment lands, then the row climbs on the music's lift (local frames). */
-const PAY = 52;
-const CLIMB = 60;
+const PAY = 66;
+const CLIMB = 74;
 
 const dollars = (cents: number) =>
   `$${Math.round(cents / 100).toLocaleString("en-US")}`;
@@ -34,12 +36,6 @@ export const Sponsors: React.FC = () => {
     fps,
     config: { damping: 16, stiffness: 120 },
   });
-  const titleIn = spring({
-    frame,
-    fps,
-    config: { damping: 200 },
-    durationInFrames: 18,
-  });
 
   // Before the climb: Mossgrove, Orbitkit, Quillfern, anonymous. After: Quillfern first.
   const slot = (index: number) => {
@@ -58,8 +54,6 @@ export const Sponsors: React.FC = () => {
           top: 110,
           width: "100%",
           textAlign: "center",
-          opacity: titleIn,
-          translate: `0 ${(1 - titleIn) * 20}px`,
         }}
       >
         <div
@@ -70,10 +64,18 @@ export const Sponsors: React.FC = () => {
             letterSpacing: "-0.02em",
           }}
         >
-          Why is it free?
+          <Spoken
+            line="sponsors"
+            sceneFrom={SCENE.sponsors.from}
+            words={[0, 4]}
+          />
         </div>
         <div style={{ marginTop: 18, fontSize: 38, color: c.gold }}>
-          Sponsors fund the compute and show up on every PR.
+          <Spoken
+            line="sponsors"
+            sceneFrom={SCENE.sponsors.from}
+            words={[4, 14]}
+          />
         </div>
       </div>
 
@@ -91,7 +93,7 @@ export const Sponsors: React.FC = () => {
           const cents = row.cents + (isSponsor ? topUpCents * paid : 0);
           const prs = Math.floor(cents / prCostCents);
           const rowIn = spring({
-            frame: frame - 8 - i * 4,
+            frame: frame - 28 - i * 4,
             fps,
             config: { damping: 200 },
             durationInFrames: 18,
@@ -188,10 +190,10 @@ export const Sponsors: React.FC = () => {
                     <span
                       style={{
                         position: "absolute",
-                        right: 0,
-                        bottom: "100%",
+                        right: "calc(100% + 18px)",
+                        top: 0,
                         fontSize: 28,
-                        lineHeight: 1,
+                        lineHeight: "46px",
                         whiteSpace: "nowrap",
                         color: c.amber,
                         opacity: interpolate(
@@ -200,7 +202,7 @@ export const Sponsors: React.FC = () => {
                           [0, 1, 1, 0],
                           clamp,
                         ),
-                        translate: `0 ${interpolate(frame, [PAY - 4, PAY + 10], [14, 0], { ...clamp, easing: ease.enter })}px`,
+                        translate: `${interpolate(frame, [PAY - 4, PAY + 10], [-14, 0], { ...clamp, easing: ease.enter })}px 0`,
                       }}
                     >
                       +{dollars(topUpCents)}

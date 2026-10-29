@@ -81,7 +81,16 @@ if (process.argv[2] === "samples") {
       else if (text[i] === "]") inTag = false;
       else if (!inTag && /\S/.test(text[i])) spoken.push(i);
     }
-    spans[line.id] = { start: starts[spoken[0]], end: ends[spoken.at(-1)] };
+    // Its words, each with the time its first letter starts.
+    const words = [];
+    for (const [k, i] of spoken.entries())
+      if (k === 0 || spoken[k - 1] !== i - 1) words.push([text[i], starts[i]]);
+      else words.at(-1)[0] += text[i];
+    spans[line.id] = {
+      start: starts[spoken[0]],
+      end: ends[spoken.at(-1)],
+      words,
+    };
   }
   writeSpans(cut(spans));
 }
@@ -95,7 +104,8 @@ function writeSpans(spans) {
  * Where each line really starts and stops in the take: the longest silence
  * near each rough boundary (10 ms windows under -45 dB). A line plays from
  * just before its first sound to a short tail into the silence, so no cut
- * ever catches the next word.
+ * ever catches the next word. A word that follows a pause starts on the
+ * sound's onset, not on its late timestamp.
  */
 function cut(rough) {
   const wav = "out/voice.wav";
@@ -135,5 +145,16 @@ function cut(rough) {
     spans[ids[n + 1]] = { start: seconds(best.at + best.length - 5) };
   }
   spans[ids.at(-1)].end = seconds(Math.min(quiet.length, last + 20));
+  for (const id of ids)
+    spans[id].words = rough[id].words.map(([word, start]) => {
+      const at = Math.round(start * 100);
+      let onset = at;
+      for (let i = at + 10; i >= Math.max(1, at - 30); i--)
+        if (quiet[i - 1] && !quiet[i]) {
+          onset = i;
+          break;
+        }
+      return [word, seconds(onset)];
+    });
   return spans;
 }
