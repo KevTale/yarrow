@@ -247,11 +247,13 @@ async function check(
       headers: { range: "bytes=0-1023" },
     });
     await response.body?.cancel();
+    const served = response.headers.get("content-range");
     checks.push({
       ok:
         response.status === 206 &&
-        response.headers.get("content-type") === "video/webm",
-      what: `A clip served in ranges (${response.status})`,
+        response.headers.get("content-type") === "video/webm" &&
+        /^bytes 0-1023\/\d+$/.test(served ?? ""),
+      what: `A clip served in ranges (${response.status}, ${served})`,
     });
   }
   return checks;
