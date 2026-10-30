@@ -29,6 +29,7 @@ const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 390, height: 844 };
 const ACTIONS = [
   "point",
+  "circle",
   "hover",
   "click",
   "fill",
@@ -107,8 +108,8 @@ function check(plan) {
     const at = "chapters[" + i + "]";
     if (!chapter.title || chapter.title.length > 40)
       problems.push(at + ".title: 1 to 40 characters");
-    if (!chapter.say || chapter.say.length > 400)
-      problems.push(at + ".say: 1 to 400 characters");
+    if (!chapter.say || chapter.say.length > 600)
+      problems.push(at + ".say: 1 to 600 characters");
     if (!["app", "ticket", "terminal"].includes(chapter.tab))
       problems.push(at + ".tab: app, ticket or terminal");
     if (chapter.tab === "app") {
@@ -126,6 +127,7 @@ function check(plan) {
           );
         const needs = [
           "point",
+          "circle",
           "hover",
           "click",
           "fill",
@@ -395,6 +397,22 @@ function overlay(options) {
     unring() {
       get("__yarrow_ring").style.opacity = "0";
     },
+    // Along points, at the frame rate: a loop drawn by hand.
+    path(points, ms) {
+      const cursor = get("__yarrow_cursor");
+      if (!cursor || !points.length) return;
+      cursor.style.transitionDuration = "0ms";
+      const started = performance.now();
+      const frame = (now) => {
+        const at = Math.min(1, (now - started) / ms);
+        const [x, y] = points[Math.round(at * (points.length - 1))];
+        window.__yarrowAt = [x, y];
+        cursor.style.left = x + "px";
+        cursor.style.top = y + "px";
+        if (at < 1) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    },
     tap(x, y) {
       const ripple = get("__yarrow_ripple");
       ripple.style.transition = "none";
@@ -440,6 +458,33 @@ async function moveTo(page, x, y, ms) {
   await page.waitForTimeout(ms);
 }
 
+/**
+ * The pointer's loop around a box, as people circle what they talk about
+ * on a shared screen: an ellipse a little wider than the box, clockwise
+ * from its upper left, a turn and a bit, not quite round.
+ */
+function loop(box, every = 16) {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const rx = Math.min(Math.max(box.width / 2 + 18, 30), 340);
+  const ry = Math.min(Math.max(box.height / 2 + 14, 22), 220);
+  const ms = Math.round(Math.min(1700, 800 + (rx + ry) * 2));
+  const steps = Math.max(30, Math.round(ms / every));
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    const angle = -2.6 + eased * 1.2 * 2 * Math.PI;
+    // A hand's loop: a little uneven, and wider as it closes.
+    const r = 1 + 0.05 * Math.sin(angle * 3 + 0.7) + 0.07 * eased;
+    points.push([
+      Math.round(cx + rx * r * Math.cos(angle)),
+      Math.round(cy + ry * r * Math.sin(angle)),
+    ]);
+  }
+  return { points, ms };
+}
+
 async function settle(page) {
   await page.waitForLoadState("networkidle", { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(400);
@@ -481,16 +526,26 @@ async function act(page, base, action, marks, clock) {
   if (kind === "scroll") return page.waitForTimeout(600);
   const box = await locator.boundingBox();
   if (!box) throw new Error("not on screen");
-  const x = box.x + Math.min(box.width * 0.6, box.width - 6);
-  const y = box.y + Math.min(box.height * 0.65, box.height - 4);
-  await moveTo(page, x, y, 750);
-  const at = clock();
   const shown = {
     x: Math.round(box.x),
     y: Math.round(box.y),
     width: Math.round(box.width),
     height: Math.round(box.height),
   };
+  if (kind === "circle") {
+    const { points, ms } = loop(box);
+    await moveTo(page, points[0][0], points[0][1], 700);
+    marks.push({ atMs: clock(), kind: "point", box: shown });
+    await page.evaluate(([p, d]) => window.__yarrow?.path(p, d), [points, ms]);
+    await page.waitForTimeout(ms + 300);
+    [cursor.x, cursor.y] = points.at(-1);
+    await page.mouse.move(cursor.x, cursor.y);
+    return;
+  }
+  const x = box.x + Math.min(box.width * 0.6, box.width - 6);
+  const y = box.y + Math.min(box.height * 0.65, box.height - 4);
+  await moveTo(page, x, y, 750);
+  const at = clock();
   if (kind === "point" || kind === "hover") {
     marks.push({ atMs: at, kind: "point", box: shown });
     await page.evaluate((b) => window.__yarrow?.ring(b), shown);
@@ -798,6 +853,11 @@ const DOCK_APPS = ["browser", "terminal"];
 const DOCK = { icon: 54, gap: 14, pad: 10, bottom: 10 };
 // Chromium's toolbar, from the window's top left: the address, the reload button.
 const TOOLBAR = { y: 63, reload: 98 };
+// Chromium's tabs, from the window's corner: where the first starts, how
+// wide each is (two fit at full width), the strip's middle.
+const TABS = { left: 44, width: 230, y: 20 };
+// The app as it was, then as it is now: the tabs' order.
+const TWINS = ["before", "after"];
 // What the desktop needs, by command, and the packages that bring it.
 const DESKTOP_TOOLS = {
   Xvfb: "xvfb",
@@ -1698,6 +1758,19 @@ class Desktop {
       await this.glide(seen.x, seen.y, 120);
   }
 
+  /** The real pointer's loop around a box of the page. */
+  async circle(page, box) {
+    const corner = await this.screenOf(page, box.x, box.y);
+    const { points, ms } = loop({ ...box, x: corner.x, y: corner.y });
+    await this.glide(points[0][0], points[0][1], 700);
+    for (const [x, y] of points) {
+      this.x("xdotool", ["mousemove", String(x), String(y)]);
+      await sleep(ms / points.length);
+    }
+    const [x, y] = points.at(-1);
+    this.pointer = { x, y };
+  }
+
   /** The app in front, by its icon in the dock: the film shows the switch. */
   async show(app, clock, marks) {
     if (this.front === app && this.activeId() === this.ids[app]) return;
@@ -1770,46 +1843,25 @@ class Desktop {
   }
 
   async recordApp(plan, chapter, index, state) {
-    const app = plan.apps[chapter.app || "after"];
-    const before = chapter.app === "before" || chapter.before === true;
+    const which = chapter.app || "after";
+    const app = plan.apps[which];
+    const before = which === "before" || chapter.before === true;
     const target = estimateMs(chapter.say);
     const problems = [];
     const marks = [];
-    // Off the film: a new window on the chapter's page, as a first visit
-    // sees it; it opens over the last one, which then closes.
-    const context = await this.browser.newContext({
-      viewport: null,
-      colorScheme: "light",
-      bypassCSP: true,
-      ...(app.storage ? { storageState: app.storage } : {}),
-    });
-    await context.addInitScript(overlay, { real: true });
-    const page = await context.newPage();
-    const id = await this.opened(
-      (w) => !/yarrowterm|yarrowdesktop/i.test(w.wmClass),
-      15000,
-    );
-    if (!id) throw new Error("the browser window did not open");
-    this.place(id, WINDOWS.browser);
     const url = join(app.url, chapter.path);
-    await page.goto(url, { waitUntil: "load", timeout: 45000 });
-    await page
-      .waitForLoadState("networkidle", { timeout: 6000 })
-      .catch(() => {});
-    await page.evaluate(() => document.fonts.ready).catch(() => {});
-    const last = this.page;
-    this.page = page;
-    this.ids.browser = id;
-    if (last)
-      await last
-        .context()
-        .close()
-        .catch(() => {});
-    await this.focusPage(page);
-    // A terminal used on film stays in front: the dock brings the browser up.
-    if (this.front === "terminal" && this.typed) this.raise(this.ids.terminal);
-    else this.front = "browser";
-    await sleep(500);
+    // The other app's tab, untouched on this chapter's page: a click on it
+    // goes from one to the other on the film. Otherwise a new window.
+    const tabs = this.tabs;
+    const switching = Boolean(
+      tabs &&
+      tabs.active !== which &&
+      tabs.fresh[which] &&
+      tabs.urls[which] === url,
+    );
+    const page = switching
+      ? tabs.pages[which]
+      : await this.openWindow(plan, index, which, url);
 
     const film = new Take();
     const clock = () => film.clock();
@@ -1832,6 +1884,9 @@ class Desktop {
           String(error?.message).split("\n")[0],
       );
     await this.show("browser", clock, marks);
+    if (switching) await this.switchTab(which, clock, marks);
+    this.tabs.active = which;
+    this.tabs.fresh[which] = false;
     const actions = chapter.actions || [];
     const lead = Math.max(700, clock());
     if (clock() < lead) await sleep(lead - clock());
@@ -1858,6 +1913,128 @@ class Desktop {
       problems,
       chapter: { url: bare(url), urls, page: title || null, before, marks },
     };
+  }
+
+  /**
+   * Off the film: a new window on the chapter's page, as a first visit sees
+   * it, over the last one, which then closes. With the app as it was in the
+   * plan, the window holds both, as a developer keeps main and their branch
+   * open side by side: the app as it was in the first tab, as it is now in
+   * the second, the other one on the next chapter's page when it shows it.
+   */
+  async openWindow(plan, index, which, url) {
+    const other = which === "before" ? "after" : "before";
+    let twins = Boolean(
+      plan.apps.before?.url &&
+      plan.apps.after?.url &&
+      plan.chapters.some(
+        (chapter) => chapter.tab === "app" && chapter.app === "before",
+      ),
+    );
+    // One sign-in serves both: a cookie of localhost is every port's.
+    const storage =
+      plan.apps[which].storage || (twins && plan.apps[other].storage);
+    const context = await this.browser.newContext({
+      viewport: null,
+      colorScheme: "light",
+      bypassCSP: true,
+      ...(storage ? { storageState: storage } : {}),
+    });
+    await context.addInitScript(overlay, { real: true });
+    const browserWindow = (w) => !/yarrowterm|yarrowdesktop/i.test(w.wmClass);
+    const first = await context.newPage();
+    const id = await this.opened(browserWindow, 15000);
+    if (!id) throw new Error("the browser window did not open");
+    this.place(id, WINDOWS.browser);
+    const pages = { [twins ? "before" : which]: first };
+    if (twins) {
+      const second = await context.newPage();
+      // A second window instead of a tab: one app a window, as before.
+      const apart = await this.opened(browserWindow, 800);
+      if (apart) {
+        log("a new page opened a window, not a tab: one app a window");
+        await second.close().catch(() => {});
+        twins = false;
+        pages[which] = first;
+        delete pages[other];
+      } else pages.after = second;
+    }
+    const next = plan.chapters
+      .slice(index + 1)
+      .find((chapter) => chapter.tab === "app" && chapter.device !== "phone");
+    const urls = { [which]: url };
+    if (twins)
+      urls[other] = join(
+        plan.apps[other].url,
+        next && (next.app || "after") === other ? next.path : undefined,
+      );
+    await Promise.all(
+      Object.entries(pages).map(async ([name, page]) => {
+        await page.goto(urls[name], { waitUntil: "load", timeout: 45000 });
+        await page
+          .waitForLoadState("networkidle", { timeout: 6000 })
+          .catch(() => {});
+        await page.evaluate(() => document.fonts.ready).catch(() => {});
+      }),
+    );
+    const page = pages[which];
+    await page.bringToFront();
+    await this.tabs?.context.close().catch(() => {});
+    this.tabs = {
+      context,
+      pages,
+      urls,
+      active: which,
+      fresh: { before: true, after: true },
+    };
+    this.ids.browser = id;
+    // Each tab's page takes the keyboard from its address bar, the
+    // chapter's last, in front.
+    for (const name of Object.keys(pages).filter((name) => name !== which)) {
+      await pages[name].bringToFront();
+      await this.focusPage(pages[name]);
+    }
+    await page.bringToFront();
+    await this.focusPage(page);
+    // A terminal used on film stays in front: the dock brings the browser up.
+    if (this.front === "terminal" && this.typed) this.raise(this.ids.terminal);
+    else this.front = "browser";
+    await sleep(500);
+    return page;
+  }
+
+  /** The other app's tab, clicked on the film. */
+  async switchTab(which, clock, marks) {
+    const page = this.tabs.pages[which];
+    const frame = await page.evaluate(() => ({
+      x: window.screenX,
+      y: window.screenY,
+    }));
+    const left = frame.x + TABS.left + TABS.width * TWINS.indexOf(which);
+    // Its title's side, away from its close button.
+    const spot = { x: left + TABS.width * 0.35, y: frame.y + TABS.y };
+    await this.glide(spot.x, spot.y, 800);
+    await sleep(150);
+    marks.push({
+      atMs: clock(),
+      kind: "click",
+      box: { x: left, y: spot.y - 14, width: TABS.width, height: 28 },
+    });
+    await this.click();
+    const shown = await until(
+      () =>
+        page
+          .evaluate(() => document.visibilityState === "visible")
+          .catch(() => false),
+      1500,
+      60,
+    );
+    if (!shown) {
+      log("the tab click missed: Playwright switched");
+      await page.bringToFront();
+    }
+    // Down off the strip, its tab's preview with it.
+    await this.glide(spot.x + 220, spot.y + 320, 650);
   }
 
   async settle(page) {
@@ -1896,16 +2073,21 @@ class Desktop {
     await locator.scrollIntoViewIfNeeded();
     const box = await locator.boundingBox();
     if (!box) throw new Error("not on screen");
-    const x = box.x + Math.min(box.width * 0.6, box.width - 6);
-    const y = box.y + Math.min(box.height * 0.65, box.height - 4);
-    await this.glideTo(page, x, y);
-    const at = clock();
     const shown = {
       x: Math.round(box.x),
       y: Math.round(box.y),
       width: Math.round(box.width),
       height: Math.round(box.height),
     };
+    if (kind === "circle") {
+      marks.push({ atMs: clock(), kind: "point", box: shown });
+      await this.circle(page, box);
+      return sleep(300);
+    }
+    const x = box.x + Math.min(box.width * 0.6, box.width - 6);
+    const y = box.y + Math.min(box.height * 0.65, box.height - 4);
+    await this.glideTo(page, x, y);
+    const at = clock();
     if (kind === "point" || kind === "hover") {
       marks.push({ atMs: at, kind: "point", box: shown });
       await page.evaluate((b) => window.__yarrow?.ring(b), shown);

@@ -22,6 +22,7 @@ import {
   posterChapter,
   presentationSchema,
   urlAt,
+  wordsSaid,
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
@@ -367,6 +368,7 @@ function Player({
   };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
+  const said = cue ? wordsSaid(cue, time.spoken) : 0;
   const total = lengths.reduce((sum, ms) => sum + ms, 0);
   const played =
     lengths.slice(0, index).reduce((sum, ms) => sum + ms, 0) +
@@ -384,6 +386,12 @@ function Player({
   const loads = started
     ? (framed?.urls.filter((step) => step.atMs <= at).length ?? 0)
     : 0;
+  // Right after the app as it was, "After" for a moment: the switch is seen.
+  const stage = framed?.before
+    ? "Before"
+    : started && chapters[index - 1]?.before && elapsed < 2800
+      ? "After"
+      : null;
 
   return (
     <div className="pv">
@@ -420,7 +428,9 @@ function Player({
                 ) : (
                   <span className="pv-name">Terminal</span>
                 )}
-                {framed?.before && <em>Before</em>}
+                {stage && (
+                  <em className={stage === "After" ? "after" : ""}>{stage}</em>
+                )}
               </div>
             )}
             <div className="pv-glass">
@@ -428,7 +438,14 @@ function Player({
               {!started && poster && <img src={poster} alt="" />}
             </div>
           </div>
-          {desktop && framed?.before && <em className="pv-before">Before</em>}
+          {desktop && (
+            <em
+              className={`pv-before ${stage ? "on" : ""} ${stage === "Before" ? "" : "after"}`}
+              aria-hidden={!stage}
+            >
+              {stage ?? "After"}
+            </em>
+          )}
           <audio ref={audio} preload="auto" />
           <button
             type="button"
@@ -453,7 +470,20 @@ function Player({
           )}
           <div className="pv-overlay">
             <p className="pv-caption" aria-live="polite">
-              {captions && started && cue?.text && <span>{cue.text}</span>}
+              {captions &&
+                started &&
+                cue?.text &&
+                (cue.words.length ? (
+                  // Word by word as the voice says them; the line keeps its place.
+                  cue.words.map((word, i) => (
+                    <span key={i} className={`w ${i < said ? "said" : ""}`}>
+                      {word.text}
+                      {i < cue.words.length - 1 ? " " : ""}
+                    </span>
+                  ))
+                ) : (
+                  <span>{cue.text}</span>
+                ))}
             </p>
             {timeline && (
               <div className="pv-controls">

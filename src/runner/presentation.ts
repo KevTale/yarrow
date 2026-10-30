@@ -91,10 +91,9 @@ function newest(files: SessionFile[], name: string): SessionFile | undefined {
 }
 
 /**
- * Copies the recorded presentation to the evidence store and voices it:
- * each chapter's words, the last one followed by the credits. Without a
- * voice (none configured, or it failed), the subtitles carry it alone.
- * Null when the session recorded none.
+ * Copies the recorded presentation to the evidence store and voices each
+ * chapter's words. Without a voice (none configured, or it failed), the
+ * subtitles carry it alone. Null when the session recorded none.
  */
 export async function publishPresentation(
   deps: {
@@ -105,8 +104,6 @@ export async function publishPresentation(
   input: {
     runId: string;
     sessionId: string;
-    /** Spoken after the last chapter's words: who wrote and reviewed it. */
-    closing: string;
     language?: string;
   },
 ): Promise<StoredArtifact | null> {
@@ -132,11 +129,7 @@ export async function publishPresentation(
     const clip = newest(files, chapter.clip);
     return clip ? [{ chapter, clip }] : [];
   });
-  const lines = recordedChapters.map(({ chapter }, index) =>
-    index === recordedChapters.length - 1
-      ? `${chapter.say} ${input.closing}`
-      : chapter.say,
-  );
+  const lines = recordedChapters.map(({ chapter }) => chapter.say);
   const chapters: PresentationChapter[] = [];
   for (const [index, { chapter, clip }] of recordedChapters.entries()) {
     const videoKey = await store(

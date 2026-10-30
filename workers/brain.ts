@@ -462,7 +462,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       // presentation that fails never holds the pull request back.
       const presentation = await step.do("present", () =>
         withDb(env, (db) =>
-          pipeline(env, db).presentation(run, implementerId, stored),
+          pipeline(env, db).presentation(run, implementerId),
         ).catch((error: Error) => {
           console.warn("presentation:", error.message);
           return null;

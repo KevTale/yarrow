@@ -1,7 +1,6 @@
 import { pullRequestFooter } from "../core/attribution";
 import { PROD_APP_SLUG } from "../core/corrections";
 import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
-import { closingCredits } from "../core/presentation";
 import {
   blockingComments,
   type Review,
@@ -715,7 +714,6 @@ export class RunPipeline {
   async presentation(
     run: PreparedRun,
     implementerSessionId: string,
-    review: StoredReview | null,
   ): Promise<StoredArtifact | null> {
     if (!this.deps.evidence) return null;
     return publishPresentation(
@@ -727,13 +725,6 @@ export class RunPipeline {
       {
         runId: run.runId,
         sessionId: implementerSessionId,
-        closing: closingCredits({
-          roles: this.deps.roles,
-          review: review && {
-            approved: !this.needsFix(review),
-            rounds: review.rounds,
-          },
-        }),
       },
     );
   }

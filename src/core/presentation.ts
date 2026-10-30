@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { modelDisplayName, type PipelineRoles } from "./pipeline";
 
 /**
  * The presentation of a pull request: the agent's screen, recorded in the
@@ -15,11 +14,17 @@ export function estimateSpeechMs(text: string): number {
   return Math.round((words / WORDS_PER_SECOND) * 1000) + 600;
 }
 
-/** One subtitle: at most two short lines. */
+/** One subtitle: at most two short lines, each word shown as it is said. */
 export const cueSchema = z.object({
   startMs: z.number().int().nonnegative(),
   endMs: z.number().int().nonnegative(),
   text: z.string(),
+  /** When each word starts; none without a voice: the cue shows whole. */
+  words: z
+    .array(
+      z.object({ startMs: z.number().int().nonnegative(), text: z.string() }),
+    )
+    .default([]),
 });
 export type Cue = z.infer<typeof cueSchema>;
 
@@ -230,6 +235,10 @@ export function cuesFromAlignment(alignment: Alignment): Cue[] {
     startMs: Math.round(cue[0]!.start * 1000),
     endMs: Math.round(cue.at(-1)!.end * 1000),
     text: cue.map((w) => w.text).join(" "),
+    words: cue.map((w) => ({
+      startMs: Math.round(w.start * 1000),
+      text: w.text,
+    })),
   }));
 }
 
@@ -245,7 +254,7 @@ export function estimatedCues(text: string, durationMs: number): Cue[] {
   let at = 0;
   return cues.map((cue) => {
     const length = Math.round((cue.length / total) * durationMs);
-    const result = { startMs: at, endMs: at + length, text: cue };
+    const result = { startMs: at, endMs: at + length, text: cue, words: [] };
     at += length;
     return result;
   });
@@ -258,20 +267,8 @@ export function cueAt(cues: Cue[], ms: number): Cue | null {
   return shown;
 }
 
-/**
- * Who did the work, spoken at the end: the agent's own closing says what
- * was checked and what was not. Never "ready to merge": the owner decides.
- */
-export function closingCredits(input: {
-  roles: PipelineRoles;
-  review: { approved: boolean; rounds: number } | null;
-}): string {
-  const implementer = modelDisplayName(input.roles.implementer);
-  const reviewer = modelDisplayName(input.roles.reviewer);
-  if (!input.review) return `Written by ${implementer}.`;
-  if (!input.review.approved)
-    return `Written by ${implementer} and reviewed by ${reviewer}, whose remaining concerns are in the review.`;
-  return input.review.rounds > 1
-    ? `Written by ${implementer} and reviewed by ${reviewer}, who approved it after one fix round.`
-    : `Written by ${implementer} and reviewed by ${reviewer}, who approved it.`;
+/** How many of the cue's words are said at `ms`: all of a cue without word times. */
+export function wordsSaid(cue: Cue, ms: number): number {
+  if (cue.words.length === 0) return Infinity;
+  return cue.words.filter((word) => word.startMs <= ms).length;
 }

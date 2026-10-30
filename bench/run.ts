@@ -235,10 +235,6 @@ async function check(
       ok: Boolean(timeline.voice) && chapters.every((chapter) => chapter.audio),
       what: `Voiced${timeline.voice ? ` by ${timeline.voice.provider}` : ": no"}`,
     },
-    {
-      ok: /Written by .+\./.test(chapters.at(-1)?.say ?? ""),
-      what: "Ends on who wrote and reviewed it",
-    },
   );
   for (const tab of scenario.expect.shows ?? [])
     checks.push({

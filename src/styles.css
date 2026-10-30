@@ -7923,7 +7923,21 @@ body:has(.sb-dialog[open]) {
   font-style: normal;
   font-weight: 500;
   pointer-events: none;
+  opacity: 0;
   transform: translateX(-50%);
+  transition:
+    opacity 0.45s ease-out,
+    color 0.3s,
+    background 0.3s,
+    box-shadow 0.3s;
+}
+.pv-before.on {
+  opacity: 1;
+}
+.pv-before.after {
+  background: rgba(9, 24, 17, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(92, 203, 149, 0.35);
+  color: var(--green);
 }
 .pv-chrome {
   position: relative;
@@ -8023,6 +8037,10 @@ body:has(.sb-dialog[open]) {
   font-style: normal;
   font-weight: 500;
 }
+.pv-chrome em.after {
+  background: rgba(92, 203, 149, 0.2);
+  color: var(--green);
+}
 .pv-glass {
   position: relative;
   aspect-ratio: var(--ratio);
@@ -8104,6 +8122,25 @@ body:has(.sb-dialog[open]) {
   background: rgba(8, 8, 9, 0.78);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+/* One word each, its space after it: they join into one box as they come. */
+.pv-caption .w {
+  padding-right: 0;
+  padding-left: 0;
+  border-radius: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.pv-caption .w.said {
+  opacity: 1;
+}
+.pv-caption .w:first-child {
+  padding-left: 0.45em;
+  border-radius: 4px 0 0 4px;
+}
+.pv-caption .w:last-child {
+  padding-right: 0.45em;
+  border-radius: 0 4px 4px 0;
 }
 /* Resting, under the window: the controls are gone. */
 .pv-view.idle .pv-caption {

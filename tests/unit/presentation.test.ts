@@ -1,15 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { defaultPipelineRoles } from "../../src/core/pipeline";
 import {
   chapterMs,
-  closingCredits,
   cueAt,
   cuesFromAlignment,
   estimatedCues,
   estimateSpeechMs,
   posterChapter,
   urlAt,
+  wordsSaid,
 } from "../../src/core/presentation";
 import { ManagedAgentsClient } from "../../src/runner/anthropic";
 import { publishPresentation } from "../../src/runner/presentation";
@@ -41,6 +40,23 @@ describe("subtitles", () => {
     // "Tasks" starts after "[warm] " (7 characters).
     expect(cues[0]!.startMs).toBe(350);
     expect(cues[1]!.startMs).toBeGreaterThan(cues[0]!.endMs);
+  });
+
+  it("show each word as it is said, like a video's captions", () => {
+    const [cue] = cuesFromAlignment(alignment("[relaxed] So I click Doing..."));
+    expect(cue!.words).toEqual([
+      { startMs: 500, text: "So" },
+      { startMs: 650, text: "I" },
+      { startMs: 750, text: "click" },
+      { startMs: 1050, text: "Doing..." },
+    ]);
+    expect(wordsSaid(cue!, 0)).toBe(0);
+    expect(wordsSaid(cue!, 760)).toBe(3);
+    expect(wordsSaid(cue!, 5000)).toBe(4);
+    // Without a voice the words have no times: the cue shows whole.
+    const [estimated] = estimatedCues("So I click Doing.", 2000);
+    expect(estimated!.words).toEqual([]);
+    expect(wordsSaid(estimated!, 0)).toBe(Infinity);
   });
 
   it("break a long sentence before two lines' worth", () => {
@@ -96,8 +112,18 @@ describe("subtitles", () => {
       4000,
     );
     expect(cues).toEqual([
-      { startMs: 0, endMs: 2138, text: "Two of the three criteria hold." },
-      { startMs: 2138, endMs: 4000, text: "The speed was not measured." },
+      {
+        startMs: 0,
+        endMs: 2138,
+        text: "Two of the three criteria hold.",
+        words: [],
+      },
+      {
+        startMs: 2138,
+        endMs: 4000,
+        text: "The speed was not measured.",
+        words: [],
+      },
     ]);
     // The last one started stays: nothing flickers between two.
     expect(cueAt(cues, 2137)?.text).toBe("Two of the three criteria hold.");
@@ -184,26 +210,6 @@ describe("the window", () => {
   });
 });
 
-describe("credits", () => {
-  const roles = defaultPipelineRoles;
-  it("name who wrote and reviewed it, never ready to merge", () => {
-    expect(
-      closingCredits({ roles, review: { approved: true, rounds: 1 } }),
-    ).toBe(
-      "Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
-    );
-    expect(
-      closingCredits({ roles, review: { approved: true, rounds: 2 } }),
-    ).toContain("after one fix round");
-    expect(
-      closingCredits({ roles, review: { approved: false, rounds: 2 } }),
-    ).toContain("remaining concerns are in the review");
-    expect(closingCredits({ roles, review: null })).toBe(
-      "Written by Claude Opus 5.5.",
-    );
-  });
-});
-
 describe("ElevenLabs", () => {
   it("speaks with timestamps and returns subtitles", async () => {
     const calls: { url: string; init: RequestInit }[] = [];
@@ -228,7 +234,7 @@ describe("ElevenLabs", () => {
       text,
       language: "en",
       before: "Here it is now.",
-      after: "Written by Claude Opus 5.5.",
+      after: "And that's it.",
     });
     expect(calls[0]!.url).toBe(
       "https://api.elevenlabs.io/v1/text-to-speech/ZoiZ8fuDWInAcwPXaVeq/with-timestamps?output_format=mp3_44100_128",
@@ -239,13 +245,16 @@ describe("ElevenLabs", () => {
       text,
       model_id: "eleven_v4",
       previous_text: "Here it is now.",
-      next_text: "Written by Claude Opus 5.5.",
+      next_text: "And that's it.",
     });
     expect([...speech.audio]).toEqual([73, 68, 51, 4]);
     expect(speech.contentType).toBe("audio/mpeg");
     // The last character ends at 1.15 s; the breath after it.
     expect(speech.durationMs).toBe(1400);
-    expect(speech.cues).toEqual([{ startMs: 0, endMs: 1150, text }]);
+    expect(speech.cues).toMatchObject([{ startMs: 0, endMs: 1150, text }]);
+    expect(speech.cues[0]!.words.map((word) => word.startMs)).toEqual([
+      0, 200, 400, 600, 900,
+    ]);
   });
 
   it("says why it failed", async () => {
@@ -359,7 +368,6 @@ describe("publishing a presentation", () => {
       {
         runId: "00000000-0000-4000-8000-000000000001",
         sessionId: "sesn_1",
-        closing: "Written by Claude Opus 5.5.",
       },
     );
     expect(artifact).toMatchObject({
@@ -372,15 +380,12 @@ describe("publishing a presentation", () => {
     );
     expect(timeline.voice).toBeNull();
     expect(timeline.chapters).toHaveLength(1);
-    // The one chapter left is the last: the credits are said there.
+    // Its own words, nothing added: no credits at the end.
     expect(timeline.chapters[0]).toMatchObject({
-      say: "It holds. Written by Claude Opus 5.5.",
+      say: "It holds.",
       audio: null,
       urls: [{ atMs: 812, url: "localhost:3000/?status=doing" }],
-      cues: [
-        { startMs: 0, text: "It holds." },
-        { text: "Written by Claude Opus 5.5." },
-      ],
+      cues: [{ startMs: 0, text: "It holds." }],
     });
   });
 
@@ -428,7 +433,7 @@ describe("publishing a presentation", () => {
         },
         voice: null,
       },
-      { runId: "r", sessionId: "s", closing: "" },
+      { runId: "r", sessionId: "s" },
     );
     const timeline = JSON.parse(
       new TextDecoder().decode(objects.get(artifact!.key)),
@@ -450,7 +455,7 @@ describe("publishing a presentation", () => {
           evidence: { put: async () => undefined },
           voice: null,
         },
-        { runId: "r", sessionId: "s", closing: "" },
+        { runId: "r", sessionId: "s" },
       ),
     ).toBeNull();
   });

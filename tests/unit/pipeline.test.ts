@@ -322,7 +322,7 @@ describe("run pipeline", async () => {
             audio: new Uint8Array([73, 68, 51]),
             contentType: "audio/mpeg",
             durationMs: 2600,
-            cues: [{ startMs: 0, endMs: 2400, text }],
+            cues: [{ startMs: 0, endMs: 2400, text, words: [] }],
           };
         },
       },
@@ -458,9 +458,8 @@ describe("run pipeline", async () => {
       reviewer: defaultPipelineRoles.reviewer,
       rounds: 1,
     };
-    // The recording is voiced after the review: who wrote and reviewed it
-    // closes it.
-    const presentation = await runner.presentation(run, sessionId, final);
+    // The recording is voiced after the review, in the agent's words alone.
+    const presentation = await runner.presentation(run, sessionId);
     expect(presentation).toMatchObject({
       kind: "presentation",
       label: "Empty exports",
@@ -472,7 +471,7 @@ describe("run pipeline", async () => {
     });
     expect(spoken).toEqual([
       "Exporting an empty list crashed.",
-      "It now gives a file with only the header row. Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+      "It now gives a file with only the header row.",
     ]);
     // Each line is voiced knowing the ones around it.
     expect(around).toEqual([
