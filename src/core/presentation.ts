@@ -106,27 +106,60 @@ export interface Alignment {
 }
 
 const CUE_CHARS = 84;
+const SENTENCE_END = /[.!?]["')]?$/;
+const PAUSE = /[,;:]["')]?$|^[—–]$/;
 
-/** Words grouped into subtitles that end at a sentence when they can. */
-function group<T extends { text: string }>(words: T[]): T[][] {
-  const cues: T[][] = [];
-  let current: T[] = [];
-  let length = 0;
-  for (const word of words) {
-    if (current.length && length + 1 + word.text.length > CUE_CHARS) {
-      cues.push(current);
-      current = [];
-      length = 0;
-    }
-    current.push(word);
-    length += (length ? 1 : 0) + word.text.length;
-    if (/[.!?]["')]?$/.test(word.text) && length > 24) {
-      cues.push(current);
-      current = [];
-      length = 0;
+const textLength = (words: { text: string }[]) =>
+  words.reduce((sum, word, i) => sum + word.text.length + (i ? 1 : 0), 0);
+
+/**
+ * A sentence too long for one subtitle, in parts of about equal length,
+ * cut where the voice pauses when it can.
+ */
+function split<T extends { text: string }>(words: T[]): T[][] {
+  const total = textLength(words);
+  if (total <= CUE_CHARS || words.length < 2) return [words];
+  const target = total / Math.ceil(total / CUE_CHARS);
+  let cut = 1;
+  let best = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const left = textLength(words.slice(0, i));
+    if (left > CUE_CHARS) break;
+    const score =
+      Math.abs(left - target) -
+      (PAUSE.test(words[i - 1]!.text) ? CUE_CHARS / 3 : 0);
+    if (score < best) {
+      best = score;
+      cut = i;
     }
   }
-  if (current.length) cues.push(current);
+  return [words.slice(0, cut), ...split(words.slice(cut))];
+}
+
+/** Words grouped into subtitles: a sentence each, a short one joining the one before. */
+function group<T extends { text: string }>(words: T[]): T[][] {
+  const sentences: T[][] = [];
+  let current: T[] = [];
+  for (const word of words) {
+    current.push(word);
+    if (SENTENCE_END.test(word.text)) {
+      sentences.push(current);
+      current = [];
+    }
+  }
+  if (current.length) sentences.push(current);
+  const cues: T[][] = [];
+  for (const sentence of sentences) {
+    const last = cues.at(-1);
+    if (
+      last &&
+      textLength(sentence) < 24 &&
+      SENTENCE_END.test(last.at(-1)!.text) &&
+      textLength(last) + 1 + textLength(sentence) <= CUE_CHARS
+    )
+      last.push(...sentence);
+    else cues.push(...split(sentence));
+  }
   return cues;
 }
 

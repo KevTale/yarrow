@@ -50,6 +50,31 @@ describe("subtitles", () => {
     expect(cues.map((cue) => cue.text).join(" ")).toBe(text);
   });
 
+  it("cut where the voice pauses, never leaving a word behind", () => {
+    // From the first live presentation (2026-10-21).
+    const cues = cuesFromAlignment(
+      alignment(
+        "This pull request makes the Save button on the Settings page green, so saving stands out. Every other button keeps the purple brand colour. In the browser, Save renders in the exact green asked for, while Add and Sign in stay purple. Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+      ),
+    );
+    expect(cues.map((cue) => cue.text)).toEqual([
+      "This pull request makes the Save button on the Settings page green,",
+      "so saving stands out.",
+      "Every other button keeps the purple brand colour.",
+      "In the browser, Save renders in the exact green asked for,",
+      "while Add and Sign in stay purple.",
+      "Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+    ]);
+  });
+
+  it("join a short sentence to the one before", () => {
+    expect(
+      estimatedCues("Two of the three criteria hold. That's all.", 3000).map(
+        (cue) => cue.text,
+      ),
+    ).toEqual(["Two of the three criteria hold. That's all."]);
+  });
+
   it("are spread over the chapter without a voice", () => {
     const cues = estimatedCues(
       "Two of the three criteria hold. The speed was not measured.",
@@ -278,7 +303,10 @@ describe("publishing a presentation", () => {
     expect(timeline.chapters[0]).toMatchObject({
       say: "It holds. Written by Claude Opus 5.5.",
       audio: null,
-      cues: [{ startMs: 0, text: "It holds. Written by Claude Opus 5.5." }],
+      cues: [
+        { startMs: 0, text: "It holds." },
+        { text: "Written by Claude Opus 5.5." },
+      ],
     });
   });
 

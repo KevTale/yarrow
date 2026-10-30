@@ -150,7 +150,9 @@ function Player({
     clock.current.since = performance.now();
     playMedia();
     let frame = 0;
+    let done = false;
     const tick = () => {
+      if (done) return;
       const at = now();
       const voiceLine = audio.current;
       // A voice line refused or broken stops counting: the clock goes on.
@@ -165,6 +167,7 @@ function Player({
         spoken: speaking ? voiceLine!.currentTime * 1000 : at,
       });
       if (at >= length && !speaking) {
+        done = true;
         if (index + 1 < chapters.length) setIndex(index + 1);
         else {
           setPlaying(false);
@@ -172,10 +175,17 @@ function Player({
         }
         return;
       }
+      cancelAnimationFrame(frame);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    // Frames stop in a hidden tab while the voice goes on: the chapters too.
+    const timer = setInterval(tick, 250);
+    return () => {
+      done = true;
+      cancelAnimationFrame(frame);
+      clearInterval(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, chapter, take, length]);
 
