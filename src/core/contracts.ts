@@ -49,10 +49,11 @@ const storedReviewSchema = reviewSchema.extend({
   rounds: z.number().int().min(1).max(2),
 });
 const artifactSchema = z.object({
-  kind: z.enum(["screenshot", "video"]),
+  kind: z.enum(["screenshot", "video", "presentation"]),
   key: z.string().min(1),
   label: z.string().min(1).max(200),
   contentType: z.string().min(1),
+  poster: z.string().min(1).optional(),
 });
 
 /**

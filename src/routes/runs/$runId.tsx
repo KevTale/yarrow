@@ -15,6 +15,7 @@ import { bareTitle, ticketIdentity } from "@/core/tickets";
 import { getRunFn } from "@/functions/public.functions";
 import { JiraIcon } from "@/components/brand-icons";
 import { BackArrow } from "@/components/back-arrow";
+import { Presentation } from "@/components/presentation";
 import { Rich, RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
 
@@ -177,20 +178,27 @@ function RunPage() {
           {run.artifacts.length > 0 && (
             <section className="rp-panel">
               <h2>Evidence</h2>
-              <div className="rp-media">
-                {run.artifacts.map((artifact) => (
-                  <figure key={artifact.key}>
-                    {artifact.kind === "video" ? (
-                      <video src={`/evidence/${artifact.key}`} controls />
-                    ) : (
-                      <img
-                        src={`/evidence/${artifact.key}`}
-                        alt={artifact.label}
-                      />
-                    )}
-                    <figcaption>{artifact.label}</figcaption>
-                  </figure>
+              {run.artifacts
+                .filter((artifact) => artifact.kind === "presentation")
+                .map((artifact) => (
+                  <Presentation key={artifact.key} artifact={artifact} />
                 ))}
+              <div className="rp-media">
+                {run.artifacts
+                  .filter((artifact) => artifact.kind !== "presentation")
+                  .map((artifact) => (
+                    <figure key={artifact.key}>
+                      {artifact.kind === "video" ? (
+                        <video src={`/evidence/${artifact.key}`} controls />
+                      ) : (
+                        <img
+                          src={`/evidence/${artifact.key}`}
+                          alt={artifact.label}
+                        />
+                      )}
+                      <figcaption>{artifact.label}</figcaption>
+                    </figure>
+                  ))}
               </div>
             </section>
           )}

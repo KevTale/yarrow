@@ -1,6 +1,7 @@
 import { pullRequestFooter } from "../core/attribution";
 import { PROD_APP_SLUG } from "../core/corrections";
 import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
+import { closingCredits } from "../core/presentation";
 import {
   blockingComments,
   type Review,
@@ -72,6 +73,9 @@ import {
   toFileChanges,
   type ImplementationResult,
 } from "./prompts";
+import { publishPresentation, RECORDER_MOUNT } from "./presentation";
+import { RECORDER_SOURCE } from "./recorder/source";
+import type { VoiceProvider } from "./voice/index";
 import {
   commitMessage,
   correctionComment,
@@ -83,6 +87,9 @@ import {
 
 /** Environments whose hosts this isolate already brought up to date. */
 const hostsChecked = new Set<string>();
+
+/** The recorder, uploaded once per isolate and mounted in every session. */
+let recorderFile: Promise<string> | null = null;
 
 /** Where evidence files (screenshots, video) are stored. R2 in production. */
 export interface EvidenceStore {
@@ -100,6 +107,8 @@ export interface PipelineDeps {
   github: AppCredentials;
   trackers: TrackerSecrets;
   evidence?: EvidenceStore;
+  /** Voices the presentations; subtitles only without one. */
+  voice?: VoiceProvider | null;
   appUrl: string;
   roles: PipelineRoles;
   anthropicAgentId: string;
@@ -363,25 +372,57 @@ export class RunPipeline {
     };
   }
 
+  /** The recorder's file id; null when it cannot be uploaded (no presentation). */
+  private async recorder(): Promise<string | null> {
+    recorderFile ??= this.deps.anthropic
+      .uploadFile(
+        "present.mjs",
+        new TextEncoder().encode(RECORDER_SOURCE),
+        "text/javascript",
+      )
+      .then((file) => file.id);
+    return recorderFile.catch((error: Error) => {
+      console.warn("recorder upload:", error.message);
+      recorderFile = null;
+      return null;
+    });
+  }
+
   async startImplementation(run: PreparedRun): Promise<string> {
-    const session = await this.deps.anthropic.createSession({
-      agentId: this.deps.anthropicAgentId,
-      environmentId: run.environmentId,
-      title: `${run.kind}: ${run.ticket.title}`,
-      repository: {
-        url: `https://github.com/${run.repository}`,
-        token: await this.token(run, "read"),
-        branch: run.checkoutBranch,
-      },
-      vaultIds: run.vaultIds,
-      message: implementationTask({
-        kind: run.kind,
-        ticket: run.ticket,
-        instruction: run.instruction,
-        pullRequestSummary: run.pullRequestSummary,
-        runConfig: run.runConfig,
-        recipe: run.recipe,
-      }),
+    const token = await this.token(run, "read");
+    const create = async () => {
+      const recorder = await this.recorder();
+      return this.deps.anthropic.createSession({
+        agentId: this.deps.anthropicAgentId,
+        environmentId: run.environmentId,
+        title: `${run.kind}: ${run.ticket.title}`,
+        repository: {
+          url: `https://github.com/${run.repository}`,
+          token,
+          branch: run.checkoutBranch,
+        },
+        vaultIds: run.vaultIds,
+        files: recorder
+          ? [{ fileId: recorder, mountPath: RECORDER_MOUNT }]
+          : [],
+        message: implementationTask({
+          kind: run.kind,
+          ticket: run.ticket,
+          instruction: run.instruction,
+          pullRequestSummary: run.pullRequestSummary,
+          baseBranch: run.baseBranch,
+          runConfig: run.runConfig,
+          recipe: run.recipe,
+          presentation: recorder !== null,
+        }),
+      });
+    };
+    // A recorder file gone from the workspace fails the create: once more
+    // with a fresh upload.
+    const session = await create().catch((error: Error) => {
+      if (!recorderFile || !/file/i.test(error.message)) throw error;
+      recorderFile = null;
+      return create();
     });
     // Kept for the activity feed (corrections reuse the run row's latest).
     await this.deps.db
@@ -663,6 +704,36 @@ export class RunPipeline {
   }
 
   /**
+   * The implementer's recorded presentation, voiced and stored, with who
+   * wrote and reviewed it said at the end. Null when it recorded none.
+   */
+  async presentation(
+    run: PreparedRun,
+    implementerSessionId: string,
+    review: StoredReview | null,
+  ): Promise<StoredArtifact | null> {
+    if (!this.deps.evidence) return null;
+    return publishPresentation(
+      {
+        anthropic: this.deps.anthropic,
+        evidence: this.deps.evidence,
+        voice: this.deps.voice ?? null,
+      },
+      {
+        runId: run.runId,
+        sessionId: implementerSessionId,
+        closing: closingCredits({
+          roles: this.deps.roles,
+          review: review && {
+            approved: !this.needsFix(review),
+            rounds: review.rounds,
+          },
+        }),
+      },
+    );
+  }
+
+  /**
    * Commits the change, opens (or updates) the draft PR, publishes the final
    * review and notifies the ticket. Returns what the ledger records.
    */
@@ -671,6 +742,7 @@ export class RunPipeline {
     implementerSessionId: string,
     snapshot: ImplementationSnapshot,
     review: StoredReview | null,
+    presentation: StoredArtifact | null = null,
   ): Promise<{
     url: string;
     number: number;
@@ -683,24 +755,36 @@ export class RunPipeline {
     const client = new GitHubClient(writeToken, this.deps.fetcher);
     const repository = splitRepository(run.repository);
     const sponsors = await runSponsors(this.deps.db, run.runId);
-    const artifacts = await this.storeEvidence(
+    const screenshots = await this.storeEvidence(
       run,
       implementerSessionId,
       snapshot,
     );
+    const artifacts = presentation
+      ? [presentation, ...screenshots]
+      : screenshots;
     // A public project's screenshots show in the description; a private
-    // one's stay in Yarrow, for its builders (decided 2026-10-16).
+    // one's stay in Yarrow, for its builders (decided 2026-10-16). The
+    // presentation plays on the run's page: its still links there.
     const shown = run.visibility === "public";
     const evidenceLinks = shown
-      ? artifacts.map((artifact) => ({
-          kind: artifact.kind,
+      ? screenshots.map((artifact) => ({
+          kind: artifact.kind as "screenshot" | "video",
           label: artifact.label,
           url: `${this.deps.appUrl}/evidence/${artifact.key}`,
         }))
       : [];
     const evidenceInYarrow = shown
       ? null
-      : { count: artifacts.length, url: this.runUrl(run.runId) };
+      : { count: screenshots.length, url: this.runUrl(run.runId) };
+    const presented = presentation && {
+      title: presentation.label,
+      url: this.runUrl(run.runId),
+      poster:
+        shown && presentation.poster
+          ? `${this.deps.appUrl}/evidence/${presentation.poster}`
+          : null,
+    };
     await commitChanges(client, repository, {
       baseBranch: run.baseBranch,
       branch: run.workBranch,
@@ -754,6 +838,7 @@ export class RunPipeline {
             review,
             evidence: evidenceLinks,
             evidenceInYarrow,
+            presentation: presented,
           }),
         );
         if (body)
@@ -774,6 +859,7 @@ export class RunPipeline {
           review,
           evidence: evidenceLinks,
           evidenceInYarrow,
+          presentation: presented,
           roles: this.deps.roles,
           sponsors,
           runUrl: this.runUrl(run.runId),

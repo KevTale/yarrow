@@ -7856,6 +7856,256 @@ body:has(.sb-dialog[open]) {
   line-height: 1.65;
   color: var(--secondary);
 }
+/* The agent's screen: its tabs, the address, the recording; then the
+   chapters and what it says. */
+.pv {
+  min-width: 0;
+  max-width: 860px;
+  margin: 4px 0 6px;
+}
+.pv-screen {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0f1013;
+}
+.pv-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 6px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+.pv-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  min-width: 0;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s ease-out,
+    color 0.2s ease-out;
+}
+.pv-tab > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pv-tab.on {
+  background: var(--elevated);
+  color: var(--text);
+}
+.pv-tab svg {
+  flex-shrink: 0;
+}
+.pv-site {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #f6f6f4;
+  color: #1d1f23;
+  font-size: 9px;
+  font-weight: 600;
+}
+.pv-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 14px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  white-space: nowrap;
+}
+.pv-url span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pv-url em {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(242, 181, 68, 0.14);
+  color: var(--amber);
+  font:
+    500 11.5px var(--font-geist-sans),
+    sans-serif;
+  font-style: normal;
+}
+.pv-view {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: #0a0b0d;
+}
+/* Out of the flow: a clip's own size never widens the column. */
+.pv-view video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pv-start {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: #0a0b0d;
+  cursor: pointer;
+}
+.pv-start img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.72;
+  transition: opacity 0.2s ease-out;
+}
+.pv-start:hover img {
+  opacity: 0.86;
+}
+.pv-big {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.pv-big svg {
+  margin-left: 3px;
+}
+.pv-player {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 14px;
+}
+.pv-round {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--secondary);
+  cursor: pointer;
+}
+.pv-round.solid {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+.pv-round[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.pv-chapters {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+.pv-chapter {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.pv-chapter i {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+.pv-chapter b {
+  display: block;
+  height: 100%;
+  background: var(--secondary);
+}
+.pv-chapter.now {
+  color: var(--text);
+}
+.pv-chapter.now b {
+  background: var(--amber);
+}
+.pv-chapter span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pv-chapter:hover {
+  color: var(--secondary);
+}
+.pv-say {
+  min-height: 54px;
+  margin: 16px 0 0;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.42;
+  letter-spacing: -0.015em;
+}
+@media (max-width: 760px) {
+  .pv-tabs {
+    height: 36px;
+    padding: 0 4px;
+  }
+  .pv-tab {
+    height: 28px;
+    padding: 0 9px;
+  }
+  .pv-tab:not(.on) > span:last-child {
+    display: none;
+  }
+  .pv-player {
+    gap: 10px;
+  }
+  .pv-chapter span {
+    display: none;
+  }
+  .pv-chapter i {
+    margin-top: 15px;
+  }
+  .pv-say {
+    margin-top: 14px;
+    font-size: 17px;
+  }
+}
+
 /* The implementer's screenshots, under the summary; full size on a click. */
 .pp-shots {
   display: grid;

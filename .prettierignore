@@ -11,3 +11,4 @@ playwright-report
 .claude/skills
 skills-lock.json
 video/out
+src/runner/recorder/source.ts

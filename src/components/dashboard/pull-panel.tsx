@@ -26,6 +26,7 @@ import {
 } from "@/functions/builder.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Logo } from "@/components/boards";
+import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
 import { timeAgo } from "@/components/ui";
@@ -117,14 +118,19 @@ function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
   return request;
 }
 
-/** The screenshots start loading with the panel, not once it shows. */
+/** The screenshots, and the presentation's still and timeline, start loading with the panel, not once it shows. */
 const warmed = new Set<string>();
 function warmScreens(screens: Panel["screens"]): void {
-  for (const screen of screens)
-    if (screen.kind === "screenshot" && !warmed.has(screen.key)) {
-      warmed.add(screen.key);
+  for (const screen of screens) {
+    if (warmed.has(screen.key)) continue;
+    warmed.add(screen.key);
+    if (screen.kind === "screenshot")
       new Image().src = `/evidence/${screen.key}`;
+    if (screen.kind === "presentation") {
+      void loadPresentation(screen.key);
+      if (screen.poster) new Image().src = `/evidence/${screen.poster}`;
     }
+  }
 }
 
 /**
@@ -195,10 +201,14 @@ export function PullPanel({
   const size = live
     ? `${live.additions}:${live.deletions}:${live.changedFiles}`
     : "";
+  const presentation = panel.screens.find(
+    (screen) => screen.kind === "presentation",
+  );
   return (
     <div className="pp">
       <div className="pp-grid">
         <div className="pp-main">
+          {presentation && <Presentation artifact={presentation} />}
           {panel.implementation && (
             <Implementation
               implementation={panel.implementation}
@@ -427,7 +437,11 @@ function Implementation({
       <p className="pp-text">
         <Rich text={implementation.summary} />
       </p>
-      {screens.length > 0 && <Screens screens={screens} />}
+      {screens.some((screen) => screen.kind !== "presentation") && (
+        <Screens
+          screens={screens.filter((screen) => screen.kind !== "presentation")}
+        />
+      )}
       <ul className="pp-list">
         {implementation.verification.map((line) => (
           <li key={`v${line}`}>
@@ -512,10 +526,7 @@ function Screens({ screens }: { screens: Panel["screens"] }) {
                 aria-label={`${screen.label}, full size`}
                 onClick={() => setOpen(images.indexOf(screen))}
               >
-                <img
-                  src={`/evidence/${screen.key}`}
-                  alt={screen.label}
-                />
+                <img src={`/evidence/${screen.key}`} alt={screen.label} />
               </button>
             )}
             <span>{screen.label}</span>

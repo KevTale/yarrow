@@ -78,6 +78,7 @@ import {
   type EvidenceStore,
   type ImplementationSnapshot,
 } from "../src/runner/pipeline";
+import { voiceProvider } from "../src/runner/voice/index";
 import { sendOutOfCreditAlert } from "./alerts";
 
 export interface BrainEnv {
@@ -112,6 +113,11 @@ export interface BrainEnv {
   RESEND_API_KEY?: string;
   /** Linked from the alert. */
   ADMIN_URL?: string;
+  /** Who voices the presentations (src/runner/voice): "elevenlabs" when absent. */
+  VOICE_PROVIDER?: string;
+  ELEVENLABS_API_KEY?: string;
+  ELEVENLABS_VOICE_ID?: string;
+  ELEVENLABS_MODEL?: string;
 }
 
 async function withDb<T>(
@@ -152,6 +158,7 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
     },
     trackers: trackerSecretsFromEnv(env),
     evidence: env.EVIDENCE as unknown as EvidenceStore | undefined,
+    voice: voiceProvider(env),
     appUrl: env.APP_URL,
     roles: defaultPipelineRoles,
     anthropicAgentId: env.ANTHROPIC_AGENT_ID!,
@@ -451,12 +458,28 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
 
       await phase("delivering");
       paths = snapshot.paths;
+      // Its own step: a delivery retried does not voice it twice. A
+      // presentation that fails never holds the pull request back.
+      const presentation = await step.do("present", () =>
+        withDb(env, (db) =>
+          pipeline(env, db).presentation(run, implementerId, stored),
+        ).catch((error: Error) => {
+          console.warn("presentation:", error.message);
+          return null;
+        }),
+      );
       const delivered = await step.do(
         "deliver",
         { retries: { limit: 2, delay: "30 seconds", backoff: "exponential" } },
         () =>
           withDb(env, (db) =>
-            pipeline(env, db).deliver(run, implementerId, snapshot, stored),
+            pipeline(env, db).deliver(
+              run,
+              implementerId,
+              snapshot,
+              stored,
+              presentation,
+            ),
           ).catch((error: Error) => {
             // A refusal from GitHub stays a refusal: retrying only spends
             // the invocation's subrequests, and then the stop has none left.

@@ -160,44 +160,100 @@ async function check(
       what: `Touches ${prefix} (${files.join(", ")})`,
     });
 
+  // Every pull request is presented: the poster in a public description,
+  // the timeline read from the run's page, as the player reads it.
   const images = [...body.matchAll(/!\[([^\]]*)\]\((https:[^)\s]+)\)/g)];
-  const counted = body.match(/\[(\d+) screenshots?\]\(([^)]+)\), in Yarrow/);
-  const isPrivate = repo.endsWith("-private");
-  if (scenario.expect.screenshots === "some") {
-    if (isPrivate) {
-      checks.push(
-        { ok: images.length === 0, what: "No image in a private description" },
-        {
-          ok: Boolean(counted),
-          what: `Counts them, in Yarrow: ${counted?.[1] ?? "no"}`,
-        },
-      );
-    } else {
-      checks.push({
-        ok: images.length > 0 && images.length <= 4,
-        what: `${images.length} screenshot(s) in the description`,
-      });
-      for (const [index, [, label, url]] of images.entries()) {
-        const response = await fetch(url!);
-        const type = response.headers.get("content-type") ?? "";
-        const ok = response.ok && type.startsWith("image/");
-        if (ok)
-          writeFileSync(
-            join(folder, `${index + 1}.png`),
-            new Uint8Array(await response.arrayBuffer()),
-          );
-        checks.push({
-          ok,
-          what: `Image "${label}" served (${response.status} ${type})`,
-        });
-      }
-    }
-  }
-  if (scenario.expect.screenshots === "none")
+  const runUrl = body.match(/https:\/\/[^\s)/]+\/runs\/[0-9a-f-]{36}/)?.[0];
+  checks.push({
+    ok: body.includes("## Presentation") && Boolean(runUrl),
+    what: "Presents it, linked to the run in Yarrow",
+  });
+  if (repo.endsWith("-private")) {
     checks.push({
-      ok: images.length === 0 && !counted,
-      what: "No screenshot, as the change shows nothing",
+      ok: images.length === 0,
+      what: "No image in a private description",
     });
+    return checks;
+  }
+  const poster = images.find(([, , url]) => url?.endsWith("-poster.jpg"));
+  if (poster) {
+    const response = await fetch(poster[2]!);
+    const ok =
+      response.ok && response.headers.get("content-type") === "image/jpeg";
+    if (ok)
+      writeFileSync(
+        join(folder, "poster.jpg"),
+        new Uint8Array(await response.arrayBuffer()),
+      );
+    checks.push({ ok, what: `Poster served (${response.status})` });
+  } else checks.push({ ok: false, what: "A poster in the description" });
+  if (!runUrl) return checks;
+  const origin = new URL(runUrl).origin;
+  const runId = runUrl.split("/").pop()!;
+  const page = await (await fetch(runUrl)).text();
+  const file = page.match(/[0-9a-f]{8}-presentation\.json/)?.[0];
+  const timeline = file
+    ? ((await (
+        await fetch(`${origin}/evidence/runs/${runId}/${file}`)
+      ).json()) as {
+        voice: { provider: string } | null;
+        chapters: {
+          title: string;
+          tab: string;
+          say: string;
+          video: { key: string } | null;
+          audio: { key: string } | null;
+        }[];
+      })
+    : null;
+  if (!timeline) {
+    checks.push({ ok: false, what: "The timeline, from the run's page" });
+    return checks;
+  }
+  writeFileSync(
+    join(folder, "presentation.json"),
+    JSON.stringify(timeline, null, 2),
+  );
+  const { chapters } = timeline;
+  checks.push(
+    {
+      ok: chapters.length >= 2,
+      what: `${chapters.length} chapters: ${chapters.map((chapter) => `${chapter.title} (${chapter.tab})`).join(", ")}`,
+    },
+    {
+      ok: chapters.every((chapter) => chapter.video),
+      what: "Every chapter filmed",
+    },
+    {
+      ok: Boolean(timeline.voice) && chapters.every((chapter) => chapter.audio),
+      what: `Voiced${timeline.voice ? ` by ${timeline.voice.provider}` : ": no"}`,
+    },
+    {
+      ok: /Written by .+\./.test(chapters.at(-1)?.say ?? ""),
+      what: "Ends on who wrote and reviewed it",
+    },
+  );
+  for (const tab of scenario.expect.shows ?? [])
+    checks.push({
+      ok: chapters.some(
+        (chapter) => chapter.tab === tab && !chapter.title.match(/before/i),
+      ),
+      what: `Shows it in the ${tab}`,
+    });
+  // The player reads clips in ranges.
+  const clip = chapters.find((chapter) => chapter.video)?.video;
+  if (clip) {
+    const response = await fetch(`${origin}/evidence/${clip.key}`, {
+      headers: { range: "bytes=0-1023" },
+    });
+    await response.body?.cancel();
+    checks.push({
+      ok:
+        response.status === 206 &&
+        response.headers.get("content-type") === "video/webm",
+      what: `A clip served in ranges (${response.status})`,
+    });
+  }
   return checks;
 }
 

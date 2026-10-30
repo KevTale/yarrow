@@ -1,0 +1,308 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { defaultPipelineRoles } from "../../src/core/pipeline";
+import {
+  chapterMs,
+  closingCredits,
+  cueAt,
+  cuesFromAlignment,
+  estimatedCues,
+  estimateSpeechMs,
+} from "../../src/core/presentation";
+import { ManagedAgentsClient } from "../../src/runner/anthropic";
+import { publishPresentation } from "../../src/runner/presentation";
+import { RECORDER_SOURCE } from "../../src/runner/recorder/source";
+import { ElevenLabsVoice } from "../../src/runner/voice/elevenlabs";
+import { voiceProvider } from "../../src/runner/voice/index";
+
+/** Character times as ElevenLabs reports them: here 50 ms a character. */
+function alignment(text: string) {
+  const characters = [...text];
+  return {
+    characters,
+    starts: characters.map((_, i) => i * 0.05),
+    ends: characters.map((_, i) => (i + 1) * 0.05),
+  };
+}
+
+describe("subtitles", () => {
+  it("follow the voice, a sentence at a time, without delivery tags", () => {
+    const cues = cuesFromAlignment(
+      alignment(
+        "[warm] Tasks now has an Export CSV button. One click, and the file downloads.",
+      ),
+    );
+    expect(cues.map((cue) => cue.text)).toEqual([
+      "Tasks now has an Export CSV button.",
+      "One click, and the file downloads.",
+    ]);
+    // "Tasks" starts after "[warm] " (7 characters).
+    expect(cues[0]!.startMs).toBe(350);
+    expect(cues[1]!.startMs).toBeGreaterThan(cues[0]!.endMs);
+  });
+
+  it("break a long sentence before two lines' worth", () => {
+    const text =
+      "The export keeps the filters the manager picked, the assignee and the status, and the done date of every finished task in its own column";
+    const cues = cuesFromAlignment(alignment(text));
+    expect(cues.length).toBe(2);
+    for (const cue of cues) expect(cue.text.length).toBeLessThanOrEqual(84);
+    expect(cues.map((cue) => cue.text).join(" ")).toBe(text);
+  });
+
+  it("are spread over the chapter without a voice", () => {
+    const cues = estimatedCues(
+      "Two of the three criteria hold. The speed was not measured.",
+      4000,
+    );
+    expect(cues).toEqual([
+      { startMs: 0, endMs: 2138, text: "Two of the three criteria hold." },
+      { startMs: 2138, endMs: 4000, text: "The speed was not measured." },
+    ]);
+    // The last one started stays: nothing flickers between two.
+    expect(cueAt(cues, 2137)?.text).toBe("Two of the three criteria hold.");
+    expect(cueAt(cues, 9000)?.text).toBe("The speed was not measured.");
+    expect(cueAt([], 10)).toBeNull();
+  });
+});
+
+describe("chapter length", () => {
+  const base = {
+    title: "Export",
+    tab: "app" as const,
+    url: null,
+    page: null,
+    before: false,
+    say: "One click, and the file downloads.",
+    cues: [],
+    marks: [],
+  };
+  it("is the longer of the clip and the voice", () => {
+    const video = {
+      key: "k",
+      startMs: 0,
+      durationMs: 5000,
+      width: 1280,
+      height: 800,
+    };
+    expect(chapterMs({ ...base, video, audio: null })).toBe(5000);
+    expect(
+      chapterMs({ ...base, video, audio: { key: "a", durationMs: 6200 } }),
+    ).toBe(6200);
+    expect(chapterMs({ ...base, video: null, audio: null })).toBe(
+      estimateSpeechMs(base.say),
+    );
+  });
+});
+
+describe("credits", () => {
+  const roles = defaultPipelineRoles;
+  it("name who wrote and reviewed it, never ready to merge", () => {
+    expect(
+      closingCredits({ roles, review: { approved: true, rounds: 1 } }),
+    ).toBe(
+      "Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+    );
+    expect(
+      closingCredits({ roles, review: { approved: true, rounds: 2 } }),
+    ).toContain("after one fix round");
+    expect(
+      closingCredits({ roles, review: { approved: false, rounds: 2 } }),
+    ).toContain("remaining concerns are in the review");
+    expect(closingCredits({ roles, review: null })).toBe(
+      "Written by Claude Opus 5.5.",
+    );
+  });
+});
+
+describe("ElevenLabs", () => {
+  it("speaks with timestamps and returns subtitles", async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const text = "The two new tests pass.";
+    const fetcher = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      const times = alignment(text);
+      // Shape from the convert-with-timestamps reference.
+      return new Response(
+        JSON.stringify({
+          audio_base64: Buffer.from([73, 68, 51, 4]).toString("base64"),
+          alignment: {
+            characters: times.characters,
+            character_start_times_seconds: times.starts,
+            character_end_times_seconds: times.ends,
+          },
+        }),
+      );
+    }) as typeof fetch;
+    const voice = new ElevenLabsVoice({ apiKey: "xi_test" }, fetcher);
+    const speech = await voice.speak({ text, language: "en" });
+    expect(calls[0]!.url).toBe(
+      "https://api.elevenlabs.io/v1/text-to-speech/iP95p4xoKVk53GoZ742B/with-timestamps?output_format=mp3_44100_128",
+    );
+    expect(calls[0]!.init.headers).toMatchObject({ "xi-api-key": "xi_test" });
+    expect(JSON.parse(String(calls[0]!.init.body))).toMatchObject({
+      text,
+      model_id: "eleven_v4",
+    });
+    expect([...speech.audio]).toEqual([73, 68, 51, 4]);
+    expect(speech.contentType).toBe("audio/mpeg");
+    // The last character ends at 1.15 s; the breath after it.
+    expect(speech.durationMs).toBe(1400);
+    expect(speech.cues).toEqual([{ startMs: 0, endMs: 1150, text }]);
+  });
+
+  it("says why it failed", async () => {
+    const fetcher = (async () =>
+      new Response('{"detail":"quota_exceeded"}', {
+        status: 401,
+      })) as unknown as typeof fetch;
+    await expect(
+      new ElevenLabsVoice({ apiKey: "xi" }, fetcher).speak({
+        text: "Hi.",
+        language: "en",
+      }),
+    ).rejects.toThrow(
+      'ElevenLabs speech failed (401): {"detail":"quota_exceeded"}',
+    );
+  });
+
+  it("is picked by the settings, or none: subtitles only", () => {
+    expect(voiceProvider({})).toBeNull();
+    expect(
+      voiceProvider({ ELEVENLABS_API_KEY: "xi", VOICE_PROVIDER: "off" }),
+    ).toBeNull();
+    expect(
+      voiceProvider({ ELEVENLABS_API_KEY: "xi", VOICE_PROVIDER: "nobody" }),
+    ).toBeNull();
+    const voice = voiceProvider({
+      ELEVENLABS_API_KEY: "xi",
+      ELEVENLABS_VOICE_ID: "v1",
+      ELEVENLABS_MODEL: "eleven_v4_turbo",
+    });
+    expect(voice).toMatchObject({
+      id: "elevenlabs",
+      voice: "v1",
+      model: "eleven_v4_turbo",
+    });
+  });
+});
+
+describe("publishing a presentation", () => {
+  const recorded = {
+    version: 1,
+    title: "Done date",
+    ticket: {
+      source: "jira",
+      title: "Add a done date",
+      url: "https://x/APP-4",
+    },
+    poster: null,
+    chapters: [
+      {
+        title: "Checked",
+        tab: "ticket",
+        say: "It holds.",
+        clip: "presentation/a-01-checked.webm",
+        startMs: 50,
+        durationMs: 2000,
+        width: 1280,
+        height: 800,
+      },
+      {
+        title: "Lost",
+        tab: "terminal",
+        url: "npm test",
+        say: "Never recorded.",
+        clip: "presentation/a-02-lost.webm",
+        startMs: 50,
+        durationMs: 2000,
+        width: 1280,
+        height: 800,
+      },
+    ],
+  };
+  const outputs: Record<string, Uint8Array> = {
+    "presentation.json": new TextEncoder().encode(JSON.stringify(recorded)),
+    "a-01-checked.webm": new Uint8Array([1]),
+  };
+  const fetcher = (async (url: string) => {
+    if (url.includes("/v1/files?scope_id="))
+      return new Response(
+        JSON.stringify({
+          data: Object.keys(outputs).map((name) => ({
+            id: `file_${name}`,
+            filename: name,
+          })),
+        }),
+      );
+    const id = url.match(/\/files\/file_(.+)\/content$/)?.[1];
+    return new Response(outputs[id!] as BodyInit);
+  }) as typeof fetch;
+
+  it("goes on with subtitles when the voice fails, and drops clips it lacks", async () => {
+    const objects = new Map<string, Uint8Array>();
+    const artifact = await publishPresentation(
+      {
+        anthropic: new ManagedAgentsClient("sk", fetcher),
+        evidence: {
+          put: async (key, data) => {
+            objects.set(key, data);
+          },
+        },
+        voice: {
+          id: "down",
+          voice: "v",
+          model: null,
+          speak: async () => {
+            throw new Error("quota");
+          },
+        },
+      },
+      {
+        runId: "00000000-0000-4000-8000-000000000001",
+        sessionId: "sesn_1",
+        closing: "Written by Claude Opus 5.5.",
+      },
+    );
+    expect(artifact).toMatchObject({
+      kind: "presentation",
+      label: "Done date",
+    });
+    expect(artifact!.poster).toBeUndefined();
+    const timeline = JSON.parse(
+      new TextDecoder().decode(objects.get(artifact!.key)),
+    );
+    expect(timeline.voice).toBeNull();
+    expect(timeline.chapters).toHaveLength(1);
+    // The one chapter left is the last: the credits are said there.
+    expect(timeline.chapters[0]).toMatchObject({
+      say: "It holds. Written by Claude Opus 5.5.",
+      audio: null,
+      cues: [{ startMs: 0, text: "It holds. Written by Claude Opus 5.5." }],
+    });
+  });
+
+  it("is none when the session recorded none", async () => {
+    const empty = (async () =>
+      new Response(JSON.stringify({ data: [] }))) as unknown as typeof fetch;
+    expect(
+      await publishPresentation(
+        {
+          anthropic: new ManagedAgentsClient("sk", empty),
+          evidence: { put: async () => undefined },
+          voice: null,
+        },
+        { runId: "r", sessionId: "s", closing: "" },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("the recorder", () => {
+  it("is carried as written (pnpm recorder:embed after an edit)", () => {
+    const source = readFileSync("src/runner/recorder/present.mjs", "utf8")
+      .split("\r\n")
+      .join("\n");
+    expect(RECORDER_SOURCE).toBe(source);
+  });
+});

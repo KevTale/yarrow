@@ -11,8 +11,8 @@ export interface Scenario {
   expect: {
     /** A draft pull request, or an abstention with questions. */
     outcome: "pull_request" | "abstained";
-    /** Screenshots of the changed screens, or none (an API, internals). */
-    screenshots?: "some" | "none";
+    /** The presentation's screens: the app shown working, a command run. */
+    shows?: ("app" | "terminal")[];
     /** Files the change must touch, by path prefix. */
     touches?: string[];
   };
@@ -20,14 +20,13 @@ export interface Scenario {
 
 export const scenarios: Scenario[] = [
   {
-    name: "screenshots",
-    about:
-      "A visible change: screenshots of the changed screen, the recipe kept.",
+    name: "visible",
+    about: "A visible change: presented working in the app, the recipe kept.",
     title: "Make the Save button on Settings green",
     body: "On the Settings page, the Save button is purple like every other button. Make that one green (#1d7a4c) so saving stands out. Leave the other buttons as they are.",
     expect: {
       outcome: "pull_request",
-      screenshots: "some",
+      shows: ["app"],
       touches: ["public/", "src/"],
     },
   },
@@ -38,18 +37,18 @@ export const scenarios: Scenario[] = [
     body: 'In the task list, a task that is done but had a due date in the past shows "Overdue · <date>" in red. A done task is not late: show its date plainly.',
     expect: {
       outcome: "pull_request",
-      screenshots: "some",
+      shows: ["app"],
       touches: ["src/"],
     },
   },
   {
     name: "api",
-    about: "An API change: a real request as proof, no screenshot.",
+    about: "An API change: a real request run in the terminal as proof.",
     title: "Return each task's due date from /api/tasks",
     body: "GET /api/tasks leaves out the due date. Add it as `dueOn`, an ISO date (YYYY-MM-DD), or null when the task has none.",
     expect: {
       outcome: "pull_request",
-      screenshots: "none",
+      shows: ["terminal"],
       touches: ["src/"],
     },
   },

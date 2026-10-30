@@ -31,4 +31,9 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // The recorder runs in Node, and part of it in the recorded page.
+    files: ["src/runner/recorder/*.mjs"],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+  },
 ]);

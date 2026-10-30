@@ -220,6 +220,8 @@ export class ManagedAgentsClient {
     title: string;
     repository: { url: string; token: string; branch: string };
     vaultIds?: string[];
+    /** Uploaded files, read-only under /mnt/session/uploads/<mountPath>. */
+    files?: { fileId: string; mountPath: string }[];
     message: string;
   }): Promise<ManagedSession> {
     return this.call("POST", "/sessions", {
@@ -234,6 +236,11 @@ export class ManagedAgentsClient {
           authorization_token: input.repository.token,
           checkout: { type: "branch", name: input.repository.branch },
         },
+        ...(input.files ?? []).map((file) => ({
+          type: "file",
+          file_id: file.fileId,
+          mount_path: file.mountPath,
+        })),
       ],
       ...(input.vaultIds?.length ? { vault_ids: input.vaultIds } : {}),
       initial_events: [
@@ -304,6 +311,36 @@ export class ManagedAgentsClient {
       `/files?scope_id=${encodeURIComponent(sessionId)}&limit=1000`,
     );
     return page.data;
+  }
+
+  /** A file for sessions to mount (Files API). */
+  async uploadFile(
+    name: string,
+    data: Uint8Array,
+    contentType: string,
+  ): Promise<{ id: string }> {
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([data as Uint8Array<ArrayBuffer>], { type: contentType }),
+      name,
+    );
+    const response = await this.fetcher(`${API}/files`, {
+      method: "POST",
+      headers: {
+        "x-api-key": this.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": BETA,
+      },
+      body: form,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `Anthropic file upload failed (${response.status}): ${detail.slice(0, 400)}`,
+      );
+    }
+    return (await response.json()) as { id: string };
   }
 
   async download(fileId: string): Promise<Uint8Array> {

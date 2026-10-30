@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { appRecipeSchema, type AppRecipe } from "../core/contracts";
 import { reviewSchema, type Review } from "../core/review";
+import { RECORDER_PATH } from "./presentation";
 import type { FileChange } from "../server/github/delivery";
 
 /** Where the implementer writes its outputs (persisted by Managed Agents). */
@@ -53,14 +54,49 @@ export const RESULT_STYLE = `How to write result.json: the owner reads it in Yar
  * projects (2026-10-15): the agent ran all 16, signed in on 13.
  */
 export const EVIDENCE_GUIDE = `Evidence (these rules replace any earlier rule about screenshots and video):
-- Decide what proves the change. A change people can see in a UI: screenshots of the changed screens. A change to an API or a command: one real request or run and its output, as a verification line. Anything else (refactors, internals, tests, docs, config): no evidence beyond the checks you run.
 - The code change comes first. Get the app running only once the change is done and checked, and spend at most about 15 minutes on it. If it still does not run, stop trying, keep your change, and say in one not_verified line what blocked it.
 - Running the app: use the recipe below when there is one. Otherwise find how in the project (README, CONTRIBUTING, package scripts, .env.example, devcontainer, docker-compose). Docker does not run here: the sandbox has PostgreSQL 16 and Redis 7 binaries to start yourself (MySQL through apt), and Chromium for Playwright under /opt/pw-browsers. Newer runtimes can be downloaded (nodejs.org, go.dev, GitHub releases).
 - Build and serve the app as in production when it builds with placeholder settings; use the dev server only when it does not. Placeholder values for required settings are fine; real credentials are never needed.
 - Data and sign-in: use the project's own seed and demo user when it has them. Otherwise insert what the screen needs straight into the local database, and sign in by creating the user there and minting a session with the app's own local secret. Never sign up through the UI, never call a real third-party service: fake what the screen needs with a local stub.
-- Screenshots: Playwright, 1280x800, PNG, at most four, each showing the change in a realistic state, signed in when the screen needs it. Save them under ${OUTPUTS}/evidence/ with plain, distinct names (settings-dark-mode.png). Look at each image before keeping it: drop any that shows an error, a login page, a loading skeleton or a dev overlay. A part of the screen you had to fake, or that stayed empty, gets one not_verified line. No video for now.
-- List each kept file in artifacts: {"file": "evidence/<name>", "label": "what it shows, in a few words", "kind": "screenshot"}.
 - When the app ran, write the recipe in result.json so the next run starts it without searching: "recipe": {"mode": "build" | "dev", "steps": ["shell commands from a fresh checkout to the app answering, in order, long-running ones in the background"], "url": "http://localhost:<port>/<page>", "sign_in": "how a signed-in session is obtained, or null", "notes": ["what tripped you, one line each"]}. Correct it when it no longer worked. Leave it out when you did not run the app. No secret values in it.`;
+
+/**
+ * Every pull request is presented: the agent's screen, recorded chapter by
+ * chapter with its words, voiced by the brain after the review (decided
+ * 2026-10-21, docs/mvp/BUILD.md "Evidence").
+ */
+export function presentationGuide(baseBranch: string): string {
+  return `Presentation: every pull request gets one, instead of screenshots. It is your screen, recorded, with your words over it, like a colleague presenting their pull request in a few minutes: the owner sees it work instead of reading the code. You write a plan; the recorder plays it in a real browser and records it. Yarrow voices your words after the review, in English, and adds who wrote and reviewed it.
+- Chapters, in this order:
+  1. The ask (tab "ticket"): what the pull request is about, in a sentence or two.
+  2. Before (tab "app" with "app": "before", or tab "terminal"), when there is something to see: the bug happening, the screen as it was. Leave it out for something new.
+  3. One chapter per thing the ticket asks (its Done-when criteria, or what it asks when it lists none), showing it work: in the app (tab "app"), or run for real (tab "terminal": the API call with curl, the command, the test that proves it). A risky change also shows what must still be refused or fail.
+  4. Checked (tab "ticket", "checked": true): what holds and, plainly, what you could not verify.
+  Two or three chapters for a small change, up to ten for a large one. When the app does not run: terminal and ticket chapters only. Never fake a screen.
+- Words ("say"): spoken English, one to three short sentences a chapter, about what is on screen and why it matters. First person is fine. No file names, code or markdown. Never "ready to merge": the owner decides.
+- Write the plan to /tmp/presentation.json:
+{"title": "the pull request in a few words",
+ "ticket": {"source": "github", "number": 12, "title": "...", "url": "...", "summary": "the ask, in one or two sentences", "criteria": [{"text": "one criterion, a few words", "verified": true}]},
+ "apps": {"after": {"url": "http://localhost:3000", "storage": "/tmp/after-state.json"}, "before": {"url": "http://localhost:3001"}},
+ "chapters": [
+  {"title": "The ask", "tab": "ticket", "say": "..."},
+  {"title": "Before", "tab": "app", "app": "before", "path": "/tasks", "say": "...", "actions": [{"do": "point", "target": "text=No tasks"}]},
+  {"title": "Export", "tab": "app", "path": "/tasks", "say": "...", "actions": [{"do": "point", "target": "role=button[name='Export CSV']"}, {"do": "click", "target": "role=button[name='Export CSV']"}]},
+  {"title": "The API", "tab": "terminal", "command": "curl -s localhost:3000/api/tasks.csv | head -5", "highlight": "a few words of the output to circle", "say": "..."},
+  {"title": "Checked", "tab": "ticket", "checked": true, "say": "..."}]}
+- Chapter titles: one to three words. Actions, spread over the words: point (circles an element while you talk about it), click, fill {"target", "text"}, select {"target", "value"}, press {"key"}, hover, scroll {"y"} or {"target"}, goto {"path"}, wait {"ms"}. Targets are Playwright selectors: prefer role= and text=. A phone layout: "device": "phone" on the chapter. A signed-in app: sign in once with Playwright, save context.storageState({path}) and give that path as "storage".
+- Before: git worktree add /tmp/before HEAD (for a correction: git fetch --depth=1 origin ${baseBranch}, then git worktree add /tmp/before FETCH_HEAD), started on another port with the same data; link node_modules when the lockfile did not change. Skip it when it would take more than about five minutes.
+- Terminal: the command runs for real just before its chapter is recorded, from /workspace/repo or "cwd", for at most four minutes. For a long run you already did, give its "output" instead, copied exactly.
+- Record: node ${RECORDER_PATH} /tmp/presentation.json (add --check to check the plan only). It finds or installs Playwright, Chromium and ffmpeg itself. Each "problem:" line it prints is an action that failed: fix the plan or the app and run it again. Then look at the poster it saved (${OUTPUTS}/presentation/*-poster.jpg): it must show the change, not an error, a login page or a dev overlay.
+- Record it again after a fix round or a correction when what it shows changed. A correction's presentation shows the whole pull request as it stands; its first chapter says what this correction changed.
+- Spend at most about 20 minutes on the presentation beyond running the app. If the recorder cannot run at all, say why in one not_verified line. Nothing goes in artifacts for it: Yarrow finds it.`;
+}
+
+/** Without the recorder (its upload failed): screenshots, as before. */
+const SCREENSHOT_GUIDE = `Screenshots:
+- Decide what proves the change. A change people can see in a UI: screenshots of the changed screens. A change to an API or a command: one real request or run and its output, as a verification line. Anything else (refactors, internals, tests, docs, config): no evidence beyond the checks you run.
+- Screenshots: Playwright, 1280x800, PNG, at most four, each showing the change in a realistic state, signed in when the screen needs it. Save them under ${OUTPUTS}/evidence/ with plain, distinct names (settings-dark-mode.png). Look at each image before keeping it: drop any that shows an error, a login page, a loading skeleton or a dev overlay. A part of the screen you had to fake, or that stayed empty, gets one not_verified line. No video.
+- List each kept file in artifacts: {"file": "evidence/<name>", "label": "what it shows, in a few words", "kind": "screenshot"}.`;
 
 export const IMPLEMENTER_SYSTEM = `You are the implementer of Yarrow: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
 
@@ -88,6 +124,10 @@ export interface TaskContext {
   instruction?: string | null;
   /** A correction: what the pull request does before it. */
   pullRequestSummary?: string | null;
+  /** The branch the pull request goes into: a correction's "before". */
+  baseBranch?: string;
+  /** The recorder is mounted: the change is presented, not screenshotted. */
+  presentation?: boolean;
   runConfig?: {
     setupCommand: string | null;
     seedCommand: string | null;
@@ -172,6 +212,8 @@ Apply this correction on top of the existing change.`
 ${ticket}
 
 ${EVIDENCE_GUIDE}
+
+${context.presentation ? presentationGuide(context.baseBranch ?? "main") : SCREENSHOT_GUIDE}
 
 ${runConfigText(context.runConfig, context.recipe)}
 
@@ -315,7 +357,10 @@ export type ImplementationResult = z.infer<typeof implementationResultSchema>;
 function parseRecipe(raw: unknown): AppRecipe | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const { sign_in, ...rest } = raw as Record<string, unknown>;
-  const parsed = appRecipeSchema.safeParse({ ...rest, signIn: sign_in ?? null });
+  const parsed = appRecipeSchema.safeParse({
+    ...rest,
+    signIn: sign_in ?? null,
+  });
   return parsed.success ? parsed.data : undefined;
 }
 

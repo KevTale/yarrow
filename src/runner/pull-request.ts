@@ -43,6 +43,8 @@ export interface PullRequestInput {
   evidence: { label: string; url: string; kind: "screenshot" | "video" }[];
   /** A private project's evidence: counted, and seen in Yarrow by its builders. */
   evidenceInYarrow?: { count: number; url: string } | null;
+  /** Played on the run's page; a public project's still shows here. */
+  presentation?: { title: string; url: string; poster: string | null } | null;
   roles: PipelineRoles;
   sponsors: RunSponsor[];
   runUrl: string;
@@ -85,6 +87,15 @@ export function pullRequestBlock(
       : `Ticket: ${input.ticket.url}`,
   );
   sections.push(`## What changed\n\n${input.summary || "See the diff."}`);
+  const presentation = input.presentation;
+  if (presentation)
+    sections.push(
+      `## Presentation\n\n${
+        presentation.poster
+          ? `[![${presentation.title.replace(/[[\]]/g, "")}](${presentation.poster})](${presentation.url})\n\n`
+          : ""
+      }[Watch it in Yarrow](${presentation.url})`,
+    );
   if (input.evidence.length > 0)
     sections.push(
       `## Screenshots\n\n${input.evidence

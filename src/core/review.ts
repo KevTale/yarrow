@@ -26,11 +26,14 @@ export interface StoredReview extends Review {
 }
 
 export interface StoredArtifact {
-  kind: "screenshot" | "video";
+  /** A presentation's key is its timeline (src/core/presentation.ts). */
+  kind: "screenshot" | "video" | "presentation";
   /** R2 object key. */
   key: string;
   label: string;
   contentType: string;
+  /** A presentation's still, shown before it plays and in the PR. */
+  poster?: string;
 }
 
 export function blockingComments(review: Review): ReviewComment[] {

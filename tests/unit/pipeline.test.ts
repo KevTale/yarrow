@@ -58,10 +58,58 @@ function fakeProviders() {
       ],
     }),
     "export.png": new Uint8Array([137, 80, 78, 71]),
+    // What the recorder writes (src/runner/recorder/present.mjs).
+    "presentation/presentation.json": encode({
+      version: 1,
+      title: "Empty exports",
+      ticket: {
+        source: "github",
+        title: "Export crashes",
+        url: "https://github.com/marie/halyard/issues/5",
+      },
+      poster: "presentation/k1-poster.jpg",
+      chapters: [
+        {
+          title: "The ask",
+          tab: "ticket",
+          url: "https://github.com/marie/halyard/issues/5",
+          say: "Exporting an empty list crashed.",
+          clip: "presentation/k1-01-the-ask.webm",
+          startMs: 90,
+          durationMs: 3400,
+          width: 1280,
+          height: 800,
+          marks: [],
+        },
+        {
+          title: "Export",
+          tab: "app",
+          url: "localhost:3000/exports",
+          page: "Halyard",
+          say: "It now gives a file with only the header row.",
+          clip: "presentation/k1-02-export.webm",
+          startMs: 480,
+          durationMs: 4200,
+          width: 1280,
+          height: 800,
+          marks: [
+            {
+              atMs: 1200,
+              kind: "click",
+              box: { x: 900, y: 100, width: 100, height: 36 },
+            },
+          ],
+        },
+      ],
+    }),
+    "presentation/k1-01-the-ask.webm": new Uint8Array([26, 69, 223, 163]),
+    "presentation/k1-02-export.webm": new Uint8Array([26, 69, 223, 163]),
+    "presentation/k1-poster.jpg": new Uint8Array([255, 216, 255]),
   };
   const fetcher = (async (input: string, init: RequestInit = {}) => {
     const url = String(input);
-    const body = init.body ? JSON.parse(String(init.body)) : undefined;
+    const body =
+      typeof init.body === "string" ? JSON.parse(init.body) : init.body;
     calls.push({ method: init.method ?? "GET", url, body });
     const json = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status });
@@ -110,6 +158,8 @@ function fakeProviders() {
         },
       });
     if (url.endsWith("/v1/environments/env_1")) return json({ id: "env_1" });
+    if (url === "https://api.anthropic.com/v1/files" && init.method === "POST")
+      return json({ id: "file_recorder" });
     if (url === "https://api.anthropic.com/v1/sessions")
       return json({ id: "sesn_1", status: "running" });
     if (url.endsWith("/v1/sessions/sesn_1"))
@@ -246,13 +296,34 @@ describe("run pipeline", async () => {
 
     const { calls, fetcher } = fakeProviders();
     const stored: string[] = [];
+    const objects = new Map<string, Uint8Array>();
+    const spoken: string[] = [];
     const runner = new RunPipeline({
       db,
       anthropic: new ManagedAgentsClient("sk-ant", fetcher),
       openai: new AgentsClient("sk-openai", fetcher),
       github: { appId: "1", privateKey: pem },
       trackers: {},
-      evidence: { put: async (key) => stored.push(key) },
+      evidence: {
+        put: async (key, data) => {
+          stored.push(key);
+          objects.set(key, data);
+        },
+      },
+      voice: {
+        id: "test",
+        voice: "chris",
+        model: null,
+        speak: async ({ text }) => {
+          spoken.push(text);
+          return {
+            audio: new Uint8Array([73, 68, 51]),
+            contentType: "audio/mpeg",
+            durationMs: 2600,
+            cues: [{ startMs: 0, endMs: 2400, text }],
+          };
+        },
+      },
       appUrl: "https://yarrow.run",
       roles: defaultPipelineRoles,
       anthropicAgentId: "agent_1",
@@ -306,6 +377,12 @@ describe("run pipeline", async () => {
           authorization_token: "ghs_x",
           checkout: { type: "branch", name: "main" },
         },
+        // The recorder, uploaded by the brain, read-only in the sandbox.
+        {
+          type: "file",
+          file_id: "file_recorder",
+          mount_path: "/yarrow/present.mjs",
+        },
       ],
     });
     // The sandbox token is read-only and scoped to one repository; only
@@ -326,6 +403,10 @@ describe("run pipeline", async () => {
     // The task carries the evidence rules; no recipe yet for this project.
     const task = JSON.stringify(created.body);
     expect(task).toContain("Evidence (these rules replace");
+    expect(task).toContain("Presentation: every pull request gets one");
+    expect(task).toContain(
+      "node /mnt/session/uploads/yarrow/present.mjs /tmp/presentation.json",
+    );
     expect(task).toContain("No recipe yet for running this app");
 
     const snapshot = await runner.readImplementation(sessionId, projectId);
@@ -368,20 +449,74 @@ describe("run pipeline", async () => {
     const review = await runner.readReview(reviewerId);
     expect(runner.needsFix(review)).toBe(false);
 
-    const delivered = await runner.deliver(run, sessionId, snapshot, {
+    const final = {
       ...review,
       reviewer: defaultPipelineRoles.reviewer,
       rounds: 1,
+    };
+    // The recording is voiced after the review: who wrote and reviewed it
+    // closes it.
+    const presentation = await runner.presentation(run, sessionId, final);
+    expect(presentation).toMatchObject({
+      kind: "presentation",
+      label: "Empty exports",
+      contentType: "application/json",
+      key: expect.stringMatching(
+        /^runs\/[0-9a-f-]+\/[0-9a-f]{8}-presentation\.json$/,
+      ),
+      poster: expect.stringMatching(/[0-9a-f]{8}-k1-poster\.jpg$/),
     });
+    expect(spoken).toEqual([
+      "Exporting an empty list crashed.",
+      "It now gives a file with only the header row. Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+    ]);
+    const timeline = JSON.parse(
+      new TextDecoder().decode(objects.get(presentation!.key)),
+    );
+    expect(timeline).toMatchObject({
+      version: 1,
+      voice: { provider: "test", voice: "chris", model: null },
+      chapters: [
+        {
+          title: "The ask",
+          tab: "ticket",
+          video: { startMs: 90, durationMs: 3400 },
+          audio: { durationMs: 2600 },
+        },
+        {
+          title: "Export",
+          page: "Halyard",
+          marks: [{ atMs: 1200, kind: "click" }],
+        },
+      ],
+    });
+    expect(timeline.chapters[1].video.key).toMatch(/k1-02-export\.webm$/);
+
+    const delivered = await runner.deliver(
+      run,
+      sessionId,
+      snapshot,
+      final,
+      presentation,
+    );
     expect(delivered).toMatchObject({
       url: "https://github.com/marie/halyard/pull/9",
       number: 9,
     });
-    expect(stored).toHaveLength(1);
+    // Two clips, two voice lines, the still and the timeline; the screenshot.
+    expect(stored).toHaveLength(7);
+    expect(delivered.artifacts.map((artifact) => artifact.kind)).toEqual([
+      "presentation",
+      "screenshot",
+    ]);
     const pull = calls.find((call) => call.url.endsWith("/pulls"))!;
     const body = (pull.body as { body: string; draft: boolean }).body;
     expect((pull.body as { draft: boolean }).draft).toBe(true);
     expect(body).toContain("Closes #5");
+    // A public project's still links to the run, where it plays.
+    expect(body).toMatch(
+      /## Presentation\n\n\[!\[Empty exports\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-k1-poster\.jpg\)\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)\n\n\[Watch it in Yarrow\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)/,
+    );
     expect(body).toContain("pnpm test → 42 passed");
     // A public project's screenshots show in the description.
     expect(body).toMatch(
