@@ -67,6 +67,19 @@ describe("subtitles", () => {
     ]);
   });
 
+  it("keep a beat inside its sentence", () => {
+    expect(
+      estimatedCues(
+        "So I click Doing... and only the two tasks in progress are left. Each one tells you how many tasks it holds... eight, four, two and two, and the total.",
+        6000,
+      ).map((cue) => cue.text),
+    ).toEqual([
+      "So I click Doing... and only the two tasks in progress are left.",
+      "Each one tells you how many tasks it holds...",
+      "eight, four, two and two, and the total.",
+    ]);
+  });
+
   it("join a short sentence to the one before", () => {
     expect(
       estimatedCues("Two of the three criteria hold. That's all.", 3000).map(

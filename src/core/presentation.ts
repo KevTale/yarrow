@@ -106,8 +106,9 @@ export interface Alignment {
 }
 
 const CUE_CHARS = 84;
-const SENTENCE_END = /[.!?]["')]?$/;
-const PAUSE = /[,;:]["')]?$|^[—–]$/;
+// An ellipsis is a beat inside the sentence, not its end.
+const SENTENCE_END = /(?<!\.\.)[.!?]["')]?$/;
+const PAUSE = /[,;:…]["')]?$|\.\.\.$|^[—–]$/;
 
 const textLength = (words: { text: string }[]) =>
   words.reduce((sum, word, i) => sum + word.text.length + (i ? 1 : 0), 0);
