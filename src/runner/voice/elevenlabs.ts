@@ -3,8 +3,12 @@ import type { Fetch, Speech, VoiceProvider } from "./index";
 
 const API = "https://api.elevenlabs.io/v1";
 
-/** Chris: warm and plain, the promo film's voice. */
-export const DEFAULT_ELEVENLABS_VOICE = "iP95p4xoKVk53GoZ742B";
+/**
+ * Mark, "Natural Conversations" in the voice library, its most used
+ * conversational voice: a colleague talking, not a narrator (2026-10-21;
+ * Chris, the promo film's, read as a voice-over).
+ */
+export const DEFAULT_ELEVENLABS_VOICE = "UgBBYS2sOqTuMpoF3BR0";
 /** Multilingual; eleven_v4_turbo answers faster, for live talk. */
 export const DEFAULT_ELEVENLABS_MODEL = "eleven_v4";
 
@@ -37,7 +41,12 @@ export class ElevenLabsVoice implements VoiceProvider {
     this.model = config.model || DEFAULT_ELEVENLABS_MODEL;
   }
 
-  async speak(input: { text: string; language: string }): Promise<Speech> {
+  async speak(input: {
+    text: string;
+    language: string;
+    before?: string;
+    after?: string;
+  }): Promise<Speech> {
     const response = await this.fetcher(
       `${API}/text-to-speech/${this.voice}/with-timestamps?output_format=mp3_44100_128`,
       {
@@ -51,8 +60,12 @@ export class ElevenLabsVoice implements VoiceProvider {
         body: JSON.stringify({
           text: input.text,
           model_id: this.model,
+          // One talk, not separate lines: the tone carries across chapters.
+          previous_text: input.before || undefined,
+          next_text: input.after || undefined,
+          // Below the default 0.5: livelier, as people talk.
           voice_settings: {
-            stability: 0.5,
+            stability: 0.4,
             similarity_boost: 0.8,
             use_speaker_boost: true,
           },

@@ -73,7 +73,7 @@ export function presentationGuide(baseBranch: string): string {
   3. One chapter per thing the ticket asks (its Done-when criteria, or what it asks when it lists none), showing it work: in the app (tab "app"), or run for real (tab "terminal": the API call with curl, the command, the test that proves it). A risky change also shows what must still be refused or fail.
   4. Checked (tab "ticket", "checked": true): what holds and, plainly, what you could not verify.
   Two or three chapters for a small change, up to ten for a large one. When the app does not run: terminal and ticket chapters only. Never fake a screen.
-- Words ("say"): spoken English, one to three short sentences a chapter, about what is on screen and why it matters. First person is fine. No file names, code or markdown. Never "ready to merge": the owner decides.
+- Words ("say"): talk the way you would show it to a teammate on a call, not like a narrator or an announcement: first person, contractions, everyday words, short sentences of different lengths, "so", "here", "you can see" where they fit. One to three sentences a chapter, about what is on screen and why it matters. Not "This pull request makes the Save button green, so saving stands out." but "So the ask: make Save green, so it actually stands out." No file names, code or markdown. Never "ready to merge": the owner decides.
 - Write the plan to /tmp/presentation.json:
 {"title": "the pull request in a few words",
  "ticket": {"source": "github", "number": 12, "title": "...", "url": "...", "summary": "the ask, in one or two sentences", "criteria": [{"text": "one criterion, a few words", "verified": true}]},

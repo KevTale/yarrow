@@ -160,14 +160,22 @@ describe("ElevenLabs", () => {
       );
     }) as typeof fetch;
     const voice = new ElevenLabsVoice({ apiKey: "xi_test" }, fetcher);
-    const speech = await voice.speak({ text, language: "en" });
+    const speech = await voice.speak({
+      text,
+      language: "en",
+      before: "Here it is now.",
+      after: "Written by Claude Opus 5.5.",
+    });
     expect(calls[0]!.url).toBe(
-      "https://api.elevenlabs.io/v1/text-to-speech/iP95p4xoKVk53GoZ742B/with-timestamps?output_format=mp3_44100_128",
+      "https://api.elevenlabs.io/v1/text-to-speech/UgBBYS2sOqTuMpoF3BR0/with-timestamps?output_format=mp3_44100_128",
     );
     expect(calls[0]!.init.headers).toMatchObject({ "xi-api-key": "xi_test" });
+    // The lines around it keep one tone across the chapters.
     expect(JSON.parse(String(calls[0]!.init.body))).toMatchObject({
       text,
       model_id: "eleven_v4",
+      previous_text: "Here it is now.",
+      next_text: "Written by Claude Opus 5.5.",
     });
     expect([...speech.audio]).toEqual([73, 68, 51, 4]);
     expect(speech.contentType).toBe("audio/mpeg");

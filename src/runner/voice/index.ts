@@ -20,7 +20,13 @@ export interface VoiceProvider {
   readonly id: string;
   readonly voice: string;
   readonly model: string | null;
-  speak(input: { text: string; language: string }): Promise<Speech>;
+  /** `before` and `after` are the lines around it: it runs on from them. */
+  speak(input: {
+    text: string;
+    language: string;
+    before?: string;
+    after?: string;
+  }): Promise<Speech>;
 }
 
 export interface VoiceSettings {

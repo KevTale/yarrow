@@ -298,6 +298,7 @@ describe("run pipeline", async () => {
     const stored: string[] = [];
     const objects = new Map<string, Uint8Array>();
     const spoken: string[] = [];
+    const around: (string | undefined)[][] = [];
     const runner = new RunPipeline({
       db,
       anthropic: new ManagedAgentsClient("sk-ant", fetcher),
@@ -314,8 +315,9 @@ describe("run pipeline", async () => {
         id: "test",
         voice: "chris",
         model: null,
-        speak: async ({ text }) => {
+        speak: async ({ text, before, after }) => {
           spoken.push(text);
+          around.push([before, after]);
           return {
             audio: new Uint8Array([73, 68, 51]),
             contentType: "audio/mpeg",
@@ -469,6 +471,11 @@ describe("run pipeline", async () => {
     expect(spoken).toEqual([
       "Exporting an empty list crashed.",
       "It now gives a file with only the header row. Written by Claude Opus 5.5 and reviewed by GPT Astra, who approved it.",
+    ]);
+    // Each line is voiced knowing the ones around it.
+    expect(around).toEqual([
+      ["", spoken[1]],
+      ["Exporting an empty list crashed.", undefined],
     ]);
     const timeline = JSON.parse(
       new TextDecoder().decode(objects.get(presentation!.key)),

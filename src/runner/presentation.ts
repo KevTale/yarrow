@@ -127,6 +127,11 @@ export async function publishPresentation(
     const clip = newest(files, chapter.clip);
     return clip ? [{ chapter, clip }] : [];
   });
+  const lines = recordedChapters.map(({ chapter }, index) =>
+    index === recordedChapters.length - 1
+      ? `${chapter.say} ${input.closing}`
+      : chapter.say,
+  );
   const chapters: PresentationChapter[] = [];
   for (const [index, { chapter, clip }] of recordedChapters.entries()) {
     const videoKey = await store(
@@ -134,13 +139,17 @@ export async function publishPresentation(
       await deps.anthropic.download(clip.id),
       "video/webm",
     );
-    const last = index === recordedChapters.length - 1;
-    const say = last ? `${chapter.say} ${input.closing}` : chapter.say;
+    const say = lines[index]!;
     let audio: PresentationChapter["audio"] = null;
     let cues: PresentationChapter["cues"] = [];
     if (voice) {
       try {
-        const speech = await voice.speak({ text: say, language });
+        const speech = await voice.speak({
+          text: say,
+          language,
+          before: lines.slice(0, index).join(" ").slice(-1000),
+          after: lines[index + 1],
+        });
         audio = {
           key: await store(
             `${String(index + 1).padStart(2, "0")}.mp3`,

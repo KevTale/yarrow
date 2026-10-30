@@ -31,6 +31,17 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "filter",
+    about: "A UI feature: used in the app on screen, the list changing.",
+    title: "Filter the task list by status",
+    body: "The task list shows every task at once. Add filters above it: All, To do, Doing and Done, each with its count. Picking one shows only those tasks, and the choice stays in the address so a reload keeps it. All stays the default.",
+    expect: {
+      outcome: "pull_request",
+      shows: ["app"],
+      touches: ["src/"],
+    },
+  },
+  {
     name: "bugfix",
     about: "A visible bug: fixed, tested, shown.",
     title: "Done tasks show as overdue",
