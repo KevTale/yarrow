@@ -14,6 +14,8 @@ export default defineConfig([
     "test-results/**",
     // Vendored agent skills (npx skills add): not our code.
     ".claude/skills/**",
+    // The bench's app: its own project, pushed to the bench repositories.
+    "bench/app/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

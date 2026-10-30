@@ -26,7 +26,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "bootstrap:anthropic": "tsx scripts/bootstrap-anthropic.ts",
-    "brand:assets": "tsx scripts/brand-assets.ts"
+    "brand:assets": "tsx scripts/brand-assets.ts",
+    "bench": "tsx bench/run.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

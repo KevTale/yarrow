@@ -13,3 +13,6 @@ test-results/
 dist/
 .tanstack/
 .claude/settings.local.json
+
+# The bench's reports (pnpm bench)
+bench/reports/
