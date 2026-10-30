@@ -19,7 +19,8 @@ const OUTPUTS = process.env.YARROW_OUTPUTS || "/mnt/session/outputs";
 const DIR = path.join(OUTPUTS, "presentation");
 // As estimateSpeechMs in src/core/presentation.ts.
 const WORDS_PER_SECOND = 2.6;
-const DESKTOP = { width: 1280, height: 800 };
+// The player shows it in a browser window on a 16:10 stage.
+const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 390, height: 844 };
 const ACTIONS = [
   "point",
@@ -74,6 +75,8 @@ const slug = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 32) || "chapter";
+
+const bare = (address) => String(address).replace(/^https?:\/\//, "");
 
 const escape = (text) =>
   String(text ?? "")
@@ -490,84 +493,41 @@ function htmlPage(body, style) {
   );
 }
 
-const CIRCLE =
-  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
-const CHECKED =
-  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
-const DASHED =
-  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0"/><path d="M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7"/><path d="M21.82 10.1a9.93 9.93 0 0 1 0 3.8"/><path d="M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69"/><path d="M13.9 21.82a9.94 9.94 0 0 1-3.8 0"/><path d="M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7"/><path d="M2.18 13.9a9.93 9.93 0 0 1 0-3.8"/><path d="M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/></svg>';
+const GITHUB =
+  '<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>';
 
+/** The ticket as a title card: where it comes from and its title, nothing to read along. */
 function ticketPage(ticket) {
-  const criteria = (ticket.criteria || []).slice(0, 8);
   const sources = {
     github: "GitHub",
     jira: "Jira",
     linear: "Linear",
     trello: "Trello",
   };
-  const source = sources[String(ticket.source).toLowerCase()] || ticket.source;
-  const reference = [source, ticket.number ? "#" + ticket.number : null]
-    .filter(Boolean)
-    .join(" ");
+  const key = String(ticket.source || "").toLowerCase();
+  const number = ticket.number ? String(ticket.number) : "";
   return htmlPage(
     '<main><p class="by">' +
-      escape(reference) +
+      (key === "github" ? GITHUB : "") +
+      "<span>" +
+      escape(sources[key] || ticket.source || "Ticket") +
+      "</span>" +
+      (number
+        ? "<b>" + escape(/^\d+$/.test(number) ? "#" + number : number) + "</b>"
+        : "") +
       "</p><h1>" +
       escape(ticket.title) +
-      "</h1>" +
-      (ticket.summary
-        ? '<p class="sum">' +
-          escape(String(ticket.summary).slice(0, 420)) +
-          "</p>"
-        : "") +
-      (criteria.length
-        ? "<h2>Done when</h2><ul>" +
-          criteria
-            .map(
-              (item, i) =>
-                '<li id="c' +
-                i +
-                '" data-ok="' +
-                (item.verified === false ? "no" : "yes") +
-                '"><i>' +
-                CIRCLE +
-                "</i><span>" +
-                escape(item.text) +
-                "</span></li>",
-            )
-            .join("") +
-          "</ul>"
-        : "") +
-      "</main><script>window.tick=function(i){var li=document.getElementById('c'+i);if(!li)return;var ok=li.dataset.ok==='yes';li.className=ok?'ok':'warn';li.querySelector('i').innerHTML=ok?" +
-      JSON.stringify(CHECKED) +
-      ":" +
-      JSON.stringify(DASHED) +
-      ";}</script>",
-    "main{box-sizing:border-box;height:100%;padding:64px 88px 96px;display:flex;flex-direction:column;justify-content:center;gap:22px}" +
-      ".by{margin:0;color:" +
-      COLORS.muted +
-      ";font-size:18px}" +
-      "h1{margin:0;font:500 44px/1.15 Jost,Geist,sans-serif;letter-spacing:-.02em;max-width:1000px}" +
-      ".sum{margin:0;max-width:960px;color:" +
-      COLORS.secondary +
-      ";font-size:23px;line-height:1.55}" +
-      "h2{margin:14px 0 0;font-size:17px;font-weight:500;color:" +
-      COLORS.muted +
-      "}" +
-      "ul{list-style:none;margin:0;padding:0;display:grid;gap:16px}" +
-      "li{display:flex;gap:14px;align-items:center;font-size:24px;color:" +
-      COLORS.secondary +
-      ";transition:color .3s}" +
-      "li i{display:grid;color:" +
-      COLORS.muted +
-      "}li.ok{color:" +
-      COLORS.text +
-      "}li.ok i{color:" +
-      COLORS.green +
-      "}" +
-      "li.warn,li.warn i{color:" +
+      "</h1></main>",
+    "body{background:#f6f4ef;color:#141518}" +
+      "main{box-sizing:border-box;height:100%;padding:0 128px 24px;display:flex;flex-direction:column;justify-content:center;gap:30px}" +
+      "main>*{opacity:0;transform:translateY(16px)}" +
+      ".go main>*{animation:in .7s cubic-bezier(.2,.7,.2,1) forwards}.go main>h1{animation-delay:.15s}" +
+      "@keyframes in{to{opacity:1;transform:none}}" +
+      ".by{margin:0;display:flex;align-items:center;gap:12px;color:#5f636b;font-size:24px;font-weight:500}" +
+      ".by b{margin-left:4px;padding:3px 12px;border-radius:9px;background:" +
       COLORS.amber +
-      "}",
+      ";color:#1a1408;font-weight:600}" +
+      "h1{margin:0;max-width:1000px;font:500 66px/1.1 Jost,Geist,sans-serif;letter-spacing:-.02em;text-wrap:balance}",
   );
 }
 
@@ -669,6 +629,17 @@ async function record(browser, plan, chapter, index, take, state) {
   }
   const startMs = Date.now() - born;
   const clock = () => Date.now() - born - startMs;
+  // The address bar follows the page: a link, a filter kept in the address.
+  const urls = [];
+  if (tab === "app") {
+    url = bare(page.url());
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      const address = bare(frame.url());
+      if (address !== (urls.at(-1)?.url ?? url))
+        urls.push({ atMs: clock(), url: address });
+    });
+  }
 
   if (tab === "app") {
     const actions = chapter.actions || [];
@@ -698,15 +669,7 @@ async function record(browser, plan, chapter, index, take, state) {
       }
     }
   } else if (tab === "ticket") {
-    const count = (plan.ticket.criteria || []).slice(0, 8).length;
-    await page.waitForTimeout(600);
-    if (chapter.checked)
-      for (let i = 0; i < count; i++) {
-        await page.evaluate((n) => window.tick(n), i);
-        await page.waitForTimeout(
-          Math.max(500, Math.min(1600, (target - 1200) / Math.max(count, 1))),
-        );
-      }
+    await page.evaluate(() => document.body.classList.add("go"));
   } else {
     const lines = output.text
       .replace(ANSI, "")
@@ -760,7 +723,8 @@ async function record(browser, plan, chapter, index, take, state) {
     chapter: {
       title: chapter.title,
       tab,
-      url: tab === "app" ? url.replace(/^https?:\/\//, "") : url,
+      url,
+      urls,
       page: title || null,
       before,
       say: chapter.say,

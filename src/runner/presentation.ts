@@ -67,6 +67,10 @@ export const recordedSchema = z.object({
             }),
           )
           .default([]),
+        urls: z
+          .array(z.object({ atMs: z.number().nonnegative(), url: z.string() }))
+          .default([])
+          .transform((urls) => urls.slice(0, 50)),
       }),
     )
     .min(1)
@@ -188,6 +192,10 @@ export async function publishPresentation(
       marks: chapter.marks.map((mark) => ({
         ...mark,
         atMs: Math.round(mark.atMs),
+      })),
+      urls: chapter.urls.map((step) => ({
+        atMs: Math.round(step.atMs),
+        url: step.url.slice(0, 500),
       })),
     });
   }

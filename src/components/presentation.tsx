@@ -1,26 +1,30 @@
 import {
-  AppWindow,
   Captions,
   CaptionsOff,
-  Github,
   Maximize,
   Minimize,
   Pause,
   Play,
   RotateCcw,
-  SquareTerminal,
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   chapterMs,
   cueAt,
+  posterChapter,
   presentationSchema,
+  urlAt,
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
-import { JiraIcon } from "./brand-icons";
 
 const evidence = (key: string) => `/evidence/${key}`;
 
@@ -65,10 +69,48 @@ const clockTime = (ms: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
 
+/** A mouse click, soft: a press and a lighter release, a few milliseconds of noise each. */
+function clickSound(context: AudioContext): AudioBuffer {
+  const rate = context.sampleRate;
+  const buffer = context.createBuffer(1, Math.round(rate * 0.1), rate);
+  const data = buffer.getChannelData(0);
+  for (const [at, level] of [
+    [0, 1],
+    [0.065, 0.5],
+  ] as const) {
+    const from = Math.round(at * rate);
+    for (let i = 0; i < Math.round(rate * 0.012); i++)
+      data[from + i] =
+        (data[from + i] ?? 0) +
+        (Math.random() * 2 - 1) * level * Math.exp(-i / (rate * 0.0018));
+  }
+  return buffer;
+}
+
+interface Sound {
+  context: AudioContext;
+  click: AudioBuffer;
+}
+
+function playClick(sound: Sound) {
+  const { context } = sound;
+  const source = context.createBufferSource();
+  source.buffer = sound.click;
+  const tone = context.createBiquadFilter();
+  tone.type = "bandpass";
+  tone.frequency.value = 2200;
+  tone.Q.value = 1.2;
+  const gain = context.createGain();
+  gain.gain.value = 0.5;
+  source.connect(tone).connect(gain).connect(context.destination);
+  source.start();
+}
+
 /**
  * The agent's screen, as it presented its pull request: one clip and one
- * voice line per chapter, under the tab it was in. The clip holds its last
- * frame while the voice finishes, and the voice waits for the clip.
+ * voice line per chapter, in a window on a stage (the browser and its
+ * address, the terminal, the ticket). The clip holds its last frame while
+ * the voice finishes, and the voice waits for the clip.
  */
 export function Presentation({ artifact }: { artifact: StoredArtifact }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
@@ -115,19 +157,26 @@ function Player({
   const tapped = useRef(false);
   // Each start of a chapter, a jump back to it included.
   const [take, setTake] = useState(0);
+  // Where in its chapter the next take starts: a click on the bar.
+  const from = useRef(0);
   // Where the chapter is, and where its voice is (they drift while it loads).
   const [time, setTime] = useState({ at: 0, spoken: 0 });
   const elapsed = time.at;
   // The chapter's clock: what ran before the last pause, and since when.
   const clock = useRef({ before: 0, since: 0 });
+  // The agent's clicks are heard with the voice, made once a gesture allows sound.
+  const sound = useRef<Sound | null>(null);
+  const hearing = useRef(voice);
 
   useEffect(() => {
     if (audio.current) audio.current.muted = !voice;
+    hearing.current = voice;
   }, [voice]);
 
   const chapters = timeline?.chapters ?? [];
   const chapter = chapters[index];
   const length = chapter ? chapterMs(chapter) : 0;
+  const lengths = chapters.map(chapterMs);
 
   const now = () =>
     clock.current.before +
@@ -136,31 +185,42 @@ function Player({
   const playMedia = useCallback(() => {
     const clip = video.current;
     const voiceLine = audio.current;
-    if (clip && !clip.ended) void clip.play().catch(() => {});
+    if (clip && clip.src && !clip.ended) void clip.play().catch(() => {});
     if (voiceLine && voiceLine.src && !voiceLine.ended)
       void voiceLine.play().catch(() => {});
   }, []);
 
-  // A new chapter: its clip from where its page had loaded, its voice line.
+  // A new take: its clip from where its page had loaded, its voice line,
+  // both from where the bar was clicked.
   useEffect(() => {
     const clip = video.current;
     const voiceLine = audio.current;
     if (!chapter || !clip || !voiceLine) return;
-    clock.current = { before: 0, since: 0 };
-    setTime({ at: 0, spoken: 0 });
-    if (chapter.video) {
-      const start = chapter.video.startMs / 1000;
-      clip.src = evidence(chapter.video.key);
-      clip.onloadedmetadata = () => {
-        clip.currentTime = start;
+    const offset = from.current;
+    from.current = 0;
+    clock.current = { before: offset, since: 0 };
+    setTime({ at: offset, spoken: offset });
+    const seek = (media: HTMLMediaElement, seconds: number) => {
+      media.currentTime = seconds;
+      media.onloadedmetadata = () => {
+        if (Math.abs(media.currentTime - seconds) > 0.2)
+          media.currentTime = seconds;
       };
+    };
+    if (chapter.video) {
+      const { startMs, durationMs } = chapter.video;
+      clip.src = evidence(chapter.video.key);
+      seek(clip, (startMs + Math.min(offset, durationMs - 40)) / 1000);
     } else clip.removeAttribute("src");
-    if (chapter.audio) voiceLine.src = evidence(chapter.audio.key);
-    else voiceLine.removeAttribute("src");
+    // Past its end the voice has said its piece: the subtitles stay.
+    if (chapter.audio && offset < chapter.audio.durationMs - 100) {
+      voiceLine.src = evidence(chapter.audio.key);
+      seek(voiceLine, offset / 1000);
+    } else voiceLine.removeAttribute("src");
     // The next chapter's clip starts loading now.
     const next = chapters[index + 1];
     if (next?.video) void fetch(evidence(next.video.key)).catch(() => {});
-    // Only a chapter's start changes the media; playing is read when it starts.
+    // Only a take's start changes the media; playing is read when it starts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapter, take]);
 
@@ -177,6 +237,8 @@ function Player({
     playMedia();
     let frame = 0;
     let done = false;
+    // Where the clip was at the last tick: a click between then and now is heard.
+    let seen = clock.current.before;
     const tick = () => {
       if (done) return;
       const at = now();
@@ -192,6 +254,16 @@ function Player({
         at,
         spoken: speaking ? voiceLine!.currentTime * 1000 : at,
       });
+      const clip = video.current;
+      const shown =
+        chapter.video && clip && clip.readyState >= 2 && !clip.ended
+          ? clip.currentTime * 1000 - chapter.video.startMs
+          : at;
+      if (hearing.current && sound.current)
+        for (const mark of chapter.marks)
+          if (mark.kind !== "point" && mark.atMs > seen && mark.atMs <= shown)
+            playClick(sound.current);
+      seen = Math.max(seen, shown);
       if (at >= length && !speaking) {
         done = true;
         if (index + 1 < chapters.length) setIndex(index + 1);
@@ -236,6 +308,7 @@ function Player({
       video.current?.pause();
       audio.current?.pause();
       clearTimeout(rest.current);
+      void sound.current?.context.close().catch(() => {});
     },
     [],
   );
@@ -245,6 +318,17 @@ function Player({
     clearTimeout(rest.current);
     rest.current = window.setTimeout(() => setAwake(false), 2500);
   };
+  // Browsers allow sound from a gesture on: the first play makes it.
+  const allowSound = () => {
+    if (!sound.current && typeof AudioContext !== "undefined")
+      try {
+        const context = new AudioContext();
+        sound.current = { context, click: clickSound(context) };
+      } catch {
+        // No sound here: the clicks stay silent.
+      }
+    void sound.current?.context.resume().catch(() => {});
+  };
 
   const toggle = () => {
     if (!timeline) return;
@@ -253,11 +337,14 @@ function Player({
       return;
     }
     wake();
+    allowSound();
     setStarted(true);
     setPlaying((on) => !on);
   };
-  function jump(to: number) {
+  function jump(to: number, offset = 0) {
     wake();
+    allowSound();
+    from.current = Math.max(0, Math.min(offset, (lengths[to] ?? 0) - 250));
     setFinished(false);
     setStarted(true);
     setIndex(to);
@@ -280,12 +367,16 @@ function Player({
   };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
-  const lengths = chapters.map(chapterMs);
   const total = lengths.reduce((sum, ms) => sum + ms, 0);
   const played =
     lengths.slice(0, index).reduce((sum, ms) => sum + ms, 0) +
     (finished ? length : Math.min(elapsed, length));
   const idle = playing && !awake;
+  // Before it starts, the window the poster was taken in, as it ended.
+  const framed = started ? chapter : timeline && posterChapter(timeline);
+  const kind = framed?.tab ?? "app";
+  const size = framed?.video ?? { width: 1280, height: 720 };
+  const address = framed ? urlAt(framed, started ? elapsed : Infinity) : null;
 
   return (
     <div className="pv">
@@ -301,7 +392,32 @@ function Player({
           }}
           onFocus={wake}
         >
-          <video ref={video} muted playsInline preload="auto" />
+          <div
+            className={`pv-window ${kind} ${size.width < size.height ? "phone" : ""}`}
+            style={{ "--ratio": size.width / size.height } as CSSProperties}
+          >
+            {kind !== "ticket" && (
+              <div className="pv-chrome">
+                <span className="pv-lights" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                {kind === "app" ? (
+                  <span className="pv-address">
+                    <span>{address ?? framed?.page ?? ""}</span>
+                  </span>
+                ) : (
+                  <span className="pv-name">Terminal</span>
+                )}
+                {framed?.before && <em>Before</em>}
+              </div>
+            )}
+            <div className="pv-glass">
+              <video ref={video} muted playsInline preload="auto" />
+              {!started && poster && <img src={poster} alt="" />}
+            </div>
+          </div>
           <audio ref={audio} preload="auto" />
           <button
             type="button"
@@ -312,12 +428,6 @@ function Player({
               if (!tapped.current) toggle();
             }}
           />
-          {started && timeline && chapter && (
-            <span key={`${index}-${take}`} className="pv-where">
-              {chapter.before && <em>Before</em>}
-              {where(timeline, chapter)}
-            </span>
-          )}
           {!started && (
             <button
               type="button"
@@ -325,7 +435,6 @@ function Player({
               onClick={toggle}
               aria-label="Play the presentation"
             >
-              {poster && <img src={poster} alt="" />}
               <span className="pv-big">
                 <Play size={26} aria-hidden="true" />
               </span>
@@ -344,7 +453,14 @@ function Player({
                       type="button"
                       className={`pv-chapter ${i === index ? "now" : ""}`}
                       style={{ flexGrow: lengths[i] }}
-                      onClick={() => jump(i)}
+                      onClick={(event) => {
+                        // Where it was clicked; from the keyboard, its start.
+                        const box = event.currentTarget.getBoundingClientRect();
+                        const at = event.detail
+                          ? (event.clientX - box.left) / box.width
+                          : 0;
+                        jump(i, at * lengths[i]!);
+                      }}
                       aria-current={i === index ? "step" : undefined}
                       aria-label={item.title}
                       data-title={item.title}
@@ -404,7 +520,7 @@ function Player({
                       className="pv-icon"
                       onClick={flipVoice}
                       aria-pressed={voice}
-                      aria-label="Voice"
+                      aria-label="Sound"
                     >
                       {voice ? (
                         <Volume2 size={18} aria-hidden="true" />
@@ -434,38 +550,5 @@ function Player({
         </div>
       </div>
     </div>
-  );
-}
-
-/** Where the chapter was filmed: the app's address, the ticket, a terminal. */
-function where(timeline: Timeline, chapter: Timeline["chapters"][number]) {
-  if (chapter.tab === "app")
-    return (
-      <>
-        <AppWindow size={13} aria-hidden="true" />
-        <span>{chapter.url ?? chapter.page ?? "App"}</span>
-      </>
-    );
-  if (chapter.tab === "ticket") {
-    const url = timeline.ticket.url;
-    const key =
-      url.match(/\/(?:issues|pull)\/(\d+)/)?.[1] ??
-      url.match(/[A-Z][A-Z0-9]+-\d+/)?.[0];
-    return (
-      <>
-        {timeline.ticket.source === "jira" ? (
-          <JiraIcon size={13} />
-        ) : (
-          <Github size={13} aria-hidden="true" />
-        )}
-        <span>{key ? (/^\d+$/.test(key) ? `#${key}` : key) : "Ticket"}</span>
-      </>
-    );
-  }
-  return (
-    <>
-      <SquareTerminal size={13} aria-hidden="true" />
-      <span>Terminal</span>
-    </>
   );
 }

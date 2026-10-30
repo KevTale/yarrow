@@ -245,6 +245,16 @@ async function check(
       ok: chapters.some((chapter) => chapter.tab === tab && !chapter.before),
       what: `Shows it in the ${tab}`,
     });
+  // A change one can see opens on the app as it was, never on the ticket.
+  if (scenario.expect.shows?.includes("app"))
+    checks.push({
+      ok: chapters[0]?.tab === "app" && chapters[0].before,
+      what: "Opens on the app as it was",
+    });
+  checks.push({
+    ok: chapters.at(-1)?.tab !== "ticket",
+    what: "Ends on the change, not the ticket",
+  });
   // The player reads clips in ranges.
   const clip = chapters.find((chapter) => chapter.video)?.video;
   if (clip) {

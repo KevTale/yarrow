@@ -7869,16 +7869,119 @@ body:has(.sb-dialog[open]) {
   border-radius: 14px;
   background: #0f1013;
 }
+/* The stage: the agent's window on it, as screen recordings are shown. */
 .pv-view {
   --pv-controls: 56px;
+  --pv-bar: clamp(16px, 3.2cqw, 38px);
   position: relative;
+  display: grid;
+  place-items: center;
   overflow: hidden;
   aspect-ratio: 16 / 10;
-  background: #0a0b0d;
-  container-type: inline-size;
+  background: radial-gradient(
+    120% 100% at 50% 0%,
+    #23252b 0%,
+    #131417 62%,
+    #0f1012 100%
+  );
+  container-type: size;
+}
+/* The browser, the terminal or the ticket, the size of its clip. */
+.pv-window {
+  display: flex;
+  flex-direction: column;
+  width: min(84cqw, calc((86cqh - var(--pv-bar)) * var(--ratio)));
+  margin-bottom: 2cqh;
+  overflow: hidden;
+  border-radius: clamp(5px, 0.9cqw, 12px);
+  background: #0f1013;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 1.4cqw 4cqw rgba(0, 0, 0, 0.5);
+}
+.pv-window.ticket {
+  width: min(84cqw, calc(86cqh * var(--ratio)));
+}
+.pv-chrome {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: var(--pv-bar);
+  padding: 0 1.2cqw;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+  background: #25272c;
+  color: #d5d7dc;
+  font-size: clamp(8px, 1.2cqw, 15px);
+  white-space: nowrap;
+}
+.pv-lights {
+  display: flex;
+  gap: 0.6cqw;
+}
+.pv-lights i {
+  width: clamp(6px, 0.95cqw, 12px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+.pv-lights i:nth-child(2) {
+  background: #febc2e;
+}
+.pv-lights i:nth-child(3) {
+  background: #28c840;
+}
+.pv-address,
+.pv-name {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.pv-address {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48%;
+  height: 64%;
+  padding: 0 1cqw;
+  border-radius: clamp(4px, 0.6cqw, 8px);
+  background: rgba(255, 255, 255, 0.08);
+}
+.pv-address span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A phone's narrow window: the address alone. */
+.pv-window.phone .pv-lights {
+  display: none;
+}
+.pv-window.phone .pv-address {
+  left: 1.2cqw;
+  width: 64%;
+  transform: none;
+}
+.pv-name {
+  color: #a3a7af;
+  font-weight: 500;
+}
+.pv-chrome em {
+  margin-left: auto;
+  padding: 0.15cqw 0.8cqw;
+  border-radius: clamp(4px, 0.5cqw, 7px);
+  background: rgba(242, 181, 68, 0.2);
+  color: var(--amber);
+  font-size: clamp(8px, 1.1cqw, 14px);
+  font-style: normal;
+  font-weight: 500;
+}
+.pv-glass {
+  position: relative;
+  aspect-ratio: var(--ratio);
+  background: #0f1013;
 }
 /* Out of the flow: a clip's own size never widens the column. */
-.pv-view video {
+.pv-glass video,
+.pv-glass img {
   position: absolute;
   inset: 0;
   display: block;
@@ -7905,20 +8008,12 @@ body:has(.sb-dialog[open]) {
   place-items: center;
   padding: 0;
   border: 0;
-  background: #0a0b0d;
+  background: rgba(8, 9, 11, 0.3);
   cursor: pointer;
+  transition: background-color 0.2s ease-out;
 }
-.pv-start img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0.72;
-  transition: opacity 0.2s ease-out;
-}
-.pv-start:hover img {
-  opacity: 0.86;
+.pv-start:hover {
+  background: rgba(8, 9, 11, 0.14);
 }
 .pv-big {
   position: relative;
@@ -7933,54 +8028,6 @@ body:has(.sb-dialog[open]) {
 }
 .pv-big svg {
   margin-left: 3px;
-}
-/* Where the chapter was filmed: shown with the controls and as it starts. */
-.pv-where {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  max-width: calc(100% - 20px);
-  padding: 5px 10px;
-  border-radius: 8px;
-  background: rgba(10, 11, 13, 0.74);
-  color: #fff;
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.pv-where span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pv-where svg {
-  flex-shrink: 0;
-}
-.pv-where em {
-  padding: 1px 7px;
-  border-radius: 5px;
-  background: rgba(242, 181, 68, 0.2);
-  color: var(--amber);
-  font:
-    500 11.5px var(--font-geist-sans),
-    sans-serif;
-  font-style: normal;
-}
-.pv-view.idle .pv-where {
-  animation: pv-where 3.5s ease-out forwards;
-}
-@keyframes pv-where {
-  0%,
-  75% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
 }
 /* The player's own controls sit on the video, as in any player. */
 .pv-overlay {
@@ -8009,8 +8056,9 @@ body:has(.sb-dialog[open]) {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
+/* Resting, under the window: the controls are gone. */
 .pv-view.idle .pv-caption {
-  transform: translateY(calc(var(--pv-controls) - 10px));
+  transform: translateY(calc(var(--pv-controls) + 8px - 1.5cqw));
 }
 .pv-controls {
   position: relative;
@@ -8018,14 +8066,21 @@ body:has(.sb-dialog[open]) {
   height: var(--pv-controls);
   padding: 0 10px 4px;
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   pointer-events: auto;
   transition: opacity 0.25s ease-out;
 }
+/* Dark enough under the controls for a white page. */
 .pv-controls::before {
   position: absolute;
-  inset: -36px 0 0;
+  inset: -56px 0 0;
   z-index: -1;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.82),
+    rgba(0, 0, 0, 0.5) 45%,
+    rgba(0, 0, 0, 0)
+  );
   content: "";
   pointer-events: none;
 }
@@ -8055,7 +8110,8 @@ body:has(.sb-dialog[open]) {
   height: 4px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.25);
   transition: height 0.15s ease-out;
 }
 .pv-chapter b {
@@ -8115,6 +8171,9 @@ body:has(.sb-dialog[open]) {
   color: #fff;
   cursor: pointer;
 }
+.pv-icon svg {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
 .pv-icon:hover {
   background: rgba(255, 255, 255, 0.14);
 }
@@ -8150,6 +8209,12 @@ body:has(.sb-dialog[open]) {
 @media (max-width: 760px) {
   .pv-view {
     --pv-controls: 50px;
+  }
+  .pv-window {
+    width: min(92cqw, calc((90cqh - var(--pv-bar)) * var(--ratio)));
+  }
+  .pv-window.ticket {
+    width: min(92cqw, calc(90cqh * var(--ratio)));
   }
   .pv-bar {
     height: 34px;

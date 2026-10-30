@@ -64,6 +64,16 @@ export const presentationChapterSchema = z.object({
       }),
     )
     .default([]),
+  /** Where the address bar went while it played (a link, a filter in the address). */
+  urls: z
+    .array(
+      z.object({
+        atMs: z.number().int().nonnegative(),
+        url: z.string().max(500),
+      }),
+    )
+    .max(50)
+    .default([]),
 });
 export type PresentationChapter = z.infer<typeof presentationChapterSchema>;
 
@@ -96,6 +106,26 @@ export function chapterMs(chapter: PresentationChapter): number {
     chapter.audio?.durationMs ?? 0,
   );
   return media || estimateSpeechMs(chapter.say);
+}
+
+/** What the address bar shows at `ms`: the page loaded, then where it went. */
+export function urlAt(chapter: PresentationChapter, ms: number): string | null {
+  let url = chapter.url;
+  for (const step of chapter.urls) if (step.atMs <= ms) url = step.url;
+  return url;
+}
+
+/**
+ * The chapter the poster was taken in, as the recorder picks it: the app
+ * after the change, else its proof run, else the first chapter.
+ */
+export function posterChapter(timeline: Presentation): PresentationChapter {
+  const { chapters } = timeline;
+  return (
+    chapters.find((chapter) => chapter.tab === "app" && !chapter.before) ??
+    chapters.find((chapter) => chapter.tab === "terminal" && !chapter.before) ??
+    chapters[0]!
+  );
 }
 
 /** Per character, as text-to-speech providers report it, in seconds. */

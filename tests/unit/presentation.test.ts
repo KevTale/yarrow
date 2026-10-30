@@ -8,6 +8,8 @@ import {
   cuesFromAlignment,
   estimatedCues,
   estimateSpeechMs,
+  posterChapter,
+  urlAt,
 } from "../../src/core/presentation";
 import { ManagedAgentsClient } from "../../src/runner/anthropic";
 import { publishPresentation } from "../../src/runner/presentation";
@@ -114,6 +116,7 @@ describe("chapter length", () => {
     say: "One click, and the file downloads.",
     cues: [],
     marks: [],
+    urls: [],
   };
   it("is the longer of the clip and the voice", () => {
     const video = {
@@ -121,7 +124,7 @@ describe("chapter length", () => {
       startMs: 0,
       durationMs: 5000,
       width: 1280,
-      height: 800,
+      height: 720,
     };
     expect(chapterMs({ ...base, video, audio: null })).toBe(5000);
     expect(
@@ -130,6 +133,52 @@ describe("chapter length", () => {
     expect(chapterMs({ ...base, video: null, audio: null })).toBe(
       estimateSpeechMs(base.say),
     );
+  });
+});
+
+describe("the window", () => {
+  const chapter = {
+    title: "Pick one",
+    tab: "app" as const,
+    url: "localhost:3000/",
+    page: null,
+    before: false,
+    say: "So I click Doing.",
+    video: null,
+    audio: null,
+    cues: [],
+    marks: [],
+    urls: [
+      { atMs: 1800, url: "localhost:3000/?status=doing" },
+      { atMs: 4200, url: "localhost:3000/?status=done" },
+    ],
+  };
+  it("shows the address the page was at", () => {
+    expect(urlAt(chapter, 0)).toBe("localhost:3000/");
+    expect(urlAt(chapter, 1800)).toBe("localhost:3000/?status=doing");
+    expect(urlAt(chapter, 9000)).toBe("localhost:3000/?status=done");
+  });
+
+  it("frames the poster where it was taken: the app after the change", () => {
+    const timeline = {
+      version: 1 as const,
+      title: "Filters",
+      language: "en",
+      voice: null,
+      ticket: { source: "github", title: "Filters", url: "" },
+      poster: null,
+      chapters: [
+        { ...chapter, title: "Before", before: true },
+        { ...chapter, title: "Run", tab: "terminal" as const },
+        chapter,
+      ],
+    };
+    expect(posterChapter(timeline).title).toBe("Pick one");
+    const proof = { ...timeline, chapters: timeline.chapters.slice(0, 2) };
+    expect(posterChapter(proof).title).toBe("Run");
+    expect(
+      posterChapter({ ...timeline, chapters: [timeline.chapters[0]!] }).title,
+    ).toBe("Before");
   });
 });
 
@@ -252,7 +301,8 @@ describe("publishing a presentation", () => {
         startMs: 50,
         durationMs: 2000,
         width: 1280,
-        height: 800,
+        height: 720,
+        urls: [{ atMs: 812.4, url: "localhost:3000/?status=doing" }],
       },
       {
         title: "Lost",
@@ -324,6 +374,7 @@ describe("publishing a presentation", () => {
     expect(timeline.chapters[0]).toMatchObject({
       say: "It holds. Written by Claude Opus 5.5.",
       audio: null,
+      urls: [{ atMs: 812, url: "localhost:3000/?status=doing" }],
       cues: [
         { startMs: 0, text: "It holds." },
         { text: "Written by Claude Opus 5.5." },
