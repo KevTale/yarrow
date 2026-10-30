@@ -42,7 +42,9 @@ function gh(argv: string[], input?: string): string {
 }
 const api = <T>(path: string): T => JSON.parse(gh(["api", path])) as T;
 const git = (dir: string, ...argv: string[]) =>
-  execFileSync("git", ["-C", dir, ...argv], { encoding: "utf8" });
+  execFileSync("git", ["-c", "core.autocrlf=false", "-C", dir, ...argv], {
+    encoding: "utf8",
+  });
 const elapsed = (start: number) =>
   `${Math.round((Date.now() - start) / 60_000)} min`;
 
