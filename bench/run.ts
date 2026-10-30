@@ -219,7 +219,8 @@ async function run(scenario: Scenario): Promise<void> {
   const checks = await check(scenario, outcome, folder);
   const runUrl =
     outcome.kind === "pull_request"
-      ? outcome.pull.body?.match(/https:\/\/[^\s)]+\/runs\/[0-9a-f-]{36}/)?.[0]
+      ? // The run's page sits at the root, unlike its evidence.
+        outcome.pull.body?.match(/https:\/\/[^\s)/]+\/runs\/[0-9a-f-]{36}/)?.[0]
       : undefined;
   const passed = checks.every((item) => item.ok);
   const report = [
