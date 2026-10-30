@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
 import {
@@ -102,6 +102,22 @@ export async function pullRequestSummaryNow(
   return pullRequestNow(runs)?.summary ?? null;
 }
 
+/** The ticket's pull request number, null before one is opened. */
+export async function pullNumber(
+  db: Database,
+  projectId: string,
+  key: string,
+): Promise<number | null> {
+  const [row] = await db
+    .select({ number: pullRequests.number })
+    .from(pullRequests)
+    .innerJoin(workUnits, eq(workUnits.id, pullRequests.workUnitId))
+    .where(
+      and(eq(workUnits.projectId, projectId), eq(workUnits.externalId, key)),
+    );
+  return row?.number ?? null;
+}
+
 /**
  * What the builder reads when a ticket's row opens: what the implementer
  * did and checked, the review, the corrections asked since, the models and
@@ -148,47 +164,49 @@ export async function pullPanel(
       and(eq(workUnits.projectId, projectId), eq(workUnits.externalId, key)),
     );
   if (!unit) return null;
-  const runs = await db
-    .select({
-      id: agentRuns.id,
-      kind: agentRuns.kind,
-      status: agentRuns.status,
-      phase: agentRuns.phase,
-      implementer: agentRuns.implementer,
-      reviewer: agentRuns.reviewer,
-      createdAt: agentRuns.createdAt,
-      finishedAt: agentRuns.finishedAt,
-      outcome: results.outcome,
-      summary: results.summary,
-      evidence: results.evidence,
-      review: results.review,
-      details: results.details,
-      artifacts: results.artifacts,
-    })
-    .from(agentRuns)
-    .leftJoin(results, eq(results.agentRunId, agentRuns.id))
-    .where(eq(agentRuns.workUnitId, unit.id))
-    .orderBy(asc(agentRuns.createdAt));
-  const [pull] = await db
-    .select()
-    .from(pullRequests)
-    .where(eq(pullRequests.workUnitId, unit.id));
-  const requests = await db
-    .select()
-    .from(correctionRequests)
-    .where(eq(correctionRequests.workUnitId, unit.id))
-    .orderBy(asc(correctionRequests.queuedAt));
-  const recorded = runs.length
-    ? await db
-        .select()
-        .from(runModels)
-        .where(
-          inArray(
-            runModels.agentRunId,
-            runs.map((run) => run.id),
-          ),
-        )
-    : [];
+  // Independent reads, sent together on the one connection.
+  const [runs, [pull], requests, recorded, paidBy] = await Promise.all([
+    db
+      .select({
+        id: agentRuns.id,
+        kind: agentRuns.kind,
+        status: agentRuns.status,
+        phase: agentRuns.phase,
+        implementer: agentRuns.implementer,
+        reviewer: agentRuns.reviewer,
+        createdAt: agentRuns.createdAt,
+        finishedAt: agentRuns.finishedAt,
+        outcome: results.outcome,
+        summary: results.summary,
+        evidence: results.evidence,
+        review: results.review,
+        details: results.details,
+        artifacts: results.artifacts,
+      })
+      .from(agentRuns)
+      .leftJoin(results, eq(results.agentRunId, agentRuns.id))
+      .where(eq(agentRuns.workUnitId, unit.id))
+      .orderBy(asc(agentRuns.createdAt)),
+    db.select().from(pullRequests).where(eq(pullRequests.workUnitId, unit.id)),
+    db
+      .select()
+      .from(correctionRequests)
+      .where(eq(correctionRequests.workUnitId, unit.id))
+      .orderBy(asc(correctionRequests.queuedAt)),
+    db
+      .select({
+        role: runModels.role,
+        model: runModels.model,
+        seconds: runModels.seconds,
+        secondsExact: runModels.secondsExact,
+        costCents: runModels.costCents,
+        costExact: runModels.costExact,
+      })
+      .from(runModels)
+      .innerJoin(agentRuns, eq(agentRuns.id, runModels.agentRunId))
+      .where(eq(agentRuns.workUnitId, unit.id)),
+    sponsorsByUnit(db, [unit.id]),
+  ]);
 
   const delivered = runs.find(
     (run) => run.kind === "implementation" && run.outcome === "pull_request",
@@ -285,7 +303,7 @@ export async function pullPanel(
               : sum,
           0,
         ) || null,
-    paidBy: (await sponsorsByUnit(db, [unit.id])).get(unit.id) ?? [],
+    paidBy: paidBy.get(unit.id) ?? [],
     screens:
       ([...runs]
         .reverse()

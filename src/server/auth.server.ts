@@ -43,14 +43,34 @@ export function githubProfile(user: User) {
   };
 }
 
-/** The signed-in user, verified against Supabase Auth, or null. */
+/**
+ * The signed-in user, or null. The session's token is checked against the
+ * project's public signing key, held after the first request, so it costs
+ * no call to Supabase Auth. Only an account whose GitHub link is not in its
+ * token yet (opened by email, linked later) asks Auth for the full user.
+ */
 export async function getViewer(): Promise<Viewer | null> {
-  const { data, error } = await supabaseServer().auth.getUser();
-  if (error || !data.user) return null;
+  const auth = supabaseServer().auth;
+  const { data, error } = await auth.getClaims();
+  if (error || !data?.claims.sub) return null;
+  const { claims } = data;
+  const fromToken = githubProfile({
+    user_metadata: claims.user_metadata ?? {},
+  } as User);
+  const providers = (claims.app_metadata?.providers ?? []) as string[];
+  if (!fromToken.githubLogin && providers.includes("github")) {
+    const { data: full } = await auth.getUser();
+    if (full.user)
+      return {
+        userId: full.user.id,
+        ...githubProfile(full.user),
+        email: full.user.email ?? null,
+      };
+  }
   return {
-    userId: data.user.id,
-    ...githubProfile(data.user),
-    email: data.user.email ?? null,
+    userId: claims.sub,
+    ...fromToken,
+    email: claims.email ?? null,
   };
 }
 

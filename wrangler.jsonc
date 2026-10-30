@@ -8,6 +8,8 @@
   "compatibility_date": "2026-10-05",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Runs next to Supabase (eu-west-1, dev and prod): a query costs 1-3 ms, not 25.
+  "placement": { "region": "aws:eu-west-1" },
   "upload_source_maps": true,
   // Public values only, repeated in each environment (vars are not inherited).
   // Secrets (DATABASE_URL, STRIPE_*, GITHUB_APP_*, tracker OAuth secrets,

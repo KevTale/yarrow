@@ -188,6 +188,33 @@ async function isMember(
   return Boolean(row);
 }
 
+/**
+ * Who may see a run's screenshots and videos, in one query: everyone on a
+ * public project, members only otherwise. Null when the run is unknown.
+ */
+export async function runEvidenceAccess(
+  db: Database,
+  runId: string,
+  viewerUserId: string | null,
+): Promise<{ visibility: string; allowed: boolean } | null> {
+  const [row] = await db
+    .select({
+      visibility: projects.visibility,
+      member: viewerUserId
+        ? sql<boolean>`exists (select 1 from ${accountMembers} where ${accountMembers.accountId} = ${projects.accountId} and ${accountMembers.userId} = ${viewerUserId})`
+        : sql<boolean>`false`,
+    })
+    .from(agentRuns)
+    .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(eq(agentRuns.id, runId));
+  if (!row) return null;
+  return {
+    visibility: row.visibility,
+    allowed: row.visibility === "public" || row.member,
+  };
+}
+
 /** One run. Null when the viewer may not see it at all. */
 export async function runDetail(
   db: Database,

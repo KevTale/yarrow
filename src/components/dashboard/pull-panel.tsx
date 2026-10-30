@@ -48,20 +48,28 @@ const cacheKey = (projectId: string, key: string) => `${projectId}:${key}`;
 
 const filesInflight = new Map<string, Promise<Files | null>>();
 
-/** The pull request's files, once per size: a new commit reads them again. */
+/** What GitHub counts for a pull request: added, deleted, files. */
+const sizeOf = (files: Files) =>
+  `${files.reduce((sum, file) => sum + file.additions, 0)}:${files.reduce((sum, file) => sum + file.deletions, 0)}:${files.length}`;
+
+/**
+ * The pull request's files, once per size: a new commit reads them again.
+ * Without a size (the row is opening) whatever is kept will do.
+ */
 function loadFiles(
   projectId: string,
   key: string,
-  size: string,
+  size?: string,
 ): Promise<Files | null> {
   const id = cacheKey(projectId, key);
   const kept = changes.get(id);
-  if (kept && kept.size === size) return Promise.resolve(kept.files);
+  if (kept && (size === undefined || kept.size === size))
+    return Promise.resolve(kept.files);
   const pending = filesInflight.get(id);
   if (pending) return pending;
   const request = getPullFilesFn({ data: { projectId, key } })
     .then((files) => {
-      if (files) changes.set(id, { size, files });
+      if (files) changes.set(id, { size: sizeOf(files), files });
       return files;
     })
     .finally(() => filesInflight.delete(id));
@@ -75,18 +83,20 @@ function usePullFiles(
   size: string,
 ): Files | null | undefined {
   const kept = changes.get(cacheKey(projectId, key));
+  // No size when GitHub's side could not be read: what is kept will do.
+  const fresh = size || undefined;
   const [files, setFiles] = useState<Files | null | undefined>(
-    kept && kept.size === size ? kept.files : undefined,
+    kept && (!fresh || kept.size === fresh) ? kept.files : undefined,
   );
   useEffect(() => {
     let live = true;
-    loadFiles(projectId, key, size)
+    loadFiles(projectId, key, fresh)
       .then((next) => live && setFiles(next))
       .catch(() => live && setFiles(null));
     return () => {
       live = false;
     };
-  }, [projectId, key, size]);
+  }, [projectId, key, fresh]);
   return files;
 }
 
@@ -96,7 +106,10 @@ function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
   if (pending) return pending;
   const request = getPullPanelFn({ data: { projectId, key } })
     .then((panel) => {
-      if (panel) panels.set(id, panel);
+      if (panel) {
+        panels.set(id, panel);
+        warmScreens(panel.screens);
+      }
       return panel;
     })
     .finally(() => inflight.delete(id));
@@ -104,10 +117,24 @@ function fetchPanel(projectId: string, key: string): Promise<Panel | null> {
   return request;
 }
 
-/** Reads a row before it opens (hover, focus, To review on arrival). */
+/** The screenshots start loading with the panel, not once it shows. */
+const warmed = new Set<string>();
+function warmScreens(screens: Panel["screens"]): void {
+  for (const screen of screens)
+    if (screen.kind === "screenshot" && !warmed.has(screen.key)) {
+      warmed.add(screen.key);
+      new Image().src = `/evidence/${screen.key}`;
+    }
+}
+
+/**
+ * Reads a row before it opens (hover, focus, To review on arrival): Yarrow's
+ * side and the changes at once, the screenshots as soon as they are known.
+ */
 export function prefetchPullPanel(projectId: string, key: string): void {
-  if (panels.has(cacheKey(projectId, key))) return;
-  void fetchPanel(projectId, key).catch(() => {});
+  if (!panels.has(cacheKey(projectId, key)))
+    void fetchPanel(projectId, key).catch(() => {});
+  void loadFiles(projectId, key).catch(() => {});
 }
 
 /**
@@ -142,7 +169,8 @@ export function PullPanel({
   );
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void loadFiles(projectId, rowKey).catch(() => {});
+  }, [refresh, projectId, rowKey]);
 
   // A correction on its way: follow it until its commit lands.
   const busy =
@@ -487,7 +515,6 @@ function Screens({ screens }: { screens: Panel["screens"] }) {
                 <img
                   src={`/evidence/${screen.key}`}
                   alt={screen.label}
-                  loading="lazy"
                 />
               </button>
             )}

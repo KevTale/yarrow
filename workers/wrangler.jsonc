@@ -29,6 +29,8 @@
     { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-local" },
   ],
   "observability": { "enabled": true },
+  // Runs next to Supabase (eu-west-1, dev and prod): a query costs 1-3 ms, not 25.
+  "placement": { "region": "aws:eu-west-1" },
   // Bindings and vars are not inherited: each environment repeats them.
   "env": {
     // Paired with dev.yarrow.run, deployed on every push to main.

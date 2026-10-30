@@ -34,7 +34,7 @@ import {
   trackerTicketDetail,
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
-import { pullPanel } from "@/db/pull-panel";
+import { pullNumber, pullPanel } from "@/db/pull-panel";
 import { livePull, pullFiles } from "@/server/github/pulls.server";
 import { kickBrain } from "@/server/brain.server";
 
@@ -132,19 +132,21 @@ export const getPullPanelFn = createServerFn({ method: "GET" })
   .validator(ticketRef)
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
-    const { project, panel } = await withDb(async (db) => {
+    return withDb(async (db) => {
       const project = await requireProjectMember(
         db,
         viewer.userId,
         data.projectId,
       );
-      return { project, panel: await pullPanel(db, project.id, data.key) };
+      // GitHub is read while Yarrow's side is.
+      const [panel, live] = await Promise.all([
+        pullPanel(db, project.id, data.key),
+        pullNumber(db, project.id, data.key).then((number) =>
+          number === null ? null : livePull(project, number),
+        ),
+      ]);
+      return panel ? { ...panel, live } : null;
     });
-    if (!panel) return null;
-    const live = panel.pullRequest
-      ? await livePull(project, panel.pullRequest.number)
-      : null;
-    return { ...panel, live };
   });
 
 /**
@@ -199,16 +201,16 @@ export const getPullFilesFn = createServerFn({ method: "GET" })
   .validator(ticketRef)
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
-    const { project, panel } = await withDb(async (db) => {
+    const { project, number } = await withDb(async (db) => {
       const project = await requireProjectMember(
         db,
         viewer.userId,
         data.projectId,
       );
-      return { project, panel: await pullPanel(db, project.id, data.key) };
+      return { project, number: await pullNumber(db, project.id, data.key) };
     });
-    if (!panel?.pullRequest) return null;
-    return pullFiles(project, panel.pullRequest.number);
+    if (number === null) return null;
+    return pullFiles(project, number);
   });
 
 async function memberPanel(projectId: string, key: string) {
