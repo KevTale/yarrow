@@ -376,7 +376,12 @@ function Player({
   const framed = started ? chapter : timeline && posterChapter(timeline);
   const kind = framed?.tab ?? "app";
   const size = framed?.video ?? { width: 1280, height: 720 };
-  const address = framed ? urlAt(framed, started ? elapsed : Infinity) : null;
+  const at = started ? elapsed : Infinity;
+  const address = framed ? urlAt(framed, at) : null;
+  // Each page loaded during the chapter replays the address bar's loading line.
+  const loads = started
+    ? (framed?.urls.filter((step) => step.atMs <= at).length ?? 0)
+    : 0;
 
   return (
     <div className="pv">
@@ -404,7 +409,10 @@ function Player({
                   <i />
                 </span>
                 {kind === "app" ? (
-                  <span className="pv-address">
+                  <span
+                    key={loads}
+                    className={`pv-address ${loads ? "loading" : ""}`}
+                  >
                     <span>{address ?? framed?.page ?? ""}</span>
                   </span>
                 ) : (

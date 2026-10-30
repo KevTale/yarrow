@@ -32,6 +32,7 @@ const ACTIONS = [
   "select",
   "scroll",
   "goto",
+  "reload",
   "wait",
 ];
 const COLORS = {
@@ -422,6 +423,10 @@ async function act(page, base, action, marks, clock) {
     await page.goto(join(base, action.path), { waitUntil: "load" });
     return settle(page);
   }
+  if (kind === "reload") {
+    await page.reload({ waitUntil: "load" });
+    return settle(page);
+  }
   if (kind === "press") {
     await page.keyboard.press(action.key);
     return settle(page);
@@ -629,15 +634,14 @@ async function record(browser, plan, chapter, index, take, state) {
   }
   const startMs = Date.now() - born;
   const clock = () => Date.now() - born - startMs;
-  // The address bar follows the page: a link, a filter kept in the address.
+  // The address bar follows the page: a link, a filter kept in the
+  // address, a reload (the same address, loaded again).
   const urls = [];
   if (tab === "app") {
     url = bare(page.url());
     page.on("framenavigated", (frame) => {
-      if (frame !== page.mainFrame()) return;
-      const address = bare(frame.url());
-      if (address !== (urls.at(-1)?.url ?? url))
-        urls.push({ atMs: clock(), url: address });
+      if (frame === page.mainFrame())
+        urls.push({ atMs: clock(), url: bare(frame.url()) });
     });
   }
 

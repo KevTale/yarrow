@@ -7938,6 +7938,7 @@ body:has(.sb-dialog[open]) {
   transform: translateX(-50%);
 }
 .pv-address {
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7950,6 +7951,31 @@ body:has(.sb-dialog[open]) {
 .pv-address span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* A page loading: a line along the address, as browsers draw it. */
+.pv-address.loading::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: #4c8dff;
+  content: "";
+  animation: pv-load 0.7s ease-out forwards;
+}
+@keyframes pv-load {
+  0% {
+    width: 0;
+    opacity: 1;
+  }
+  75% {
+    width: 100%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0;
+  }
 }
 /* A phone's narrow window: the address alone. */
 .pv-window.phone .pv-lights {
