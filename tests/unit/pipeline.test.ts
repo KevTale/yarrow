@@ -308,11 +308,16 @@ describe("run pipeline", async () => {
         },
       ],
     });
-    // The sandbox token is read-only and scoped to one repository.
-    const tokenCall = calls.find((call) =>
-      call.url.includes("/access_tokens"),
-    )!;
-    expect(tokenCall.body).toEqual({
+    // The sandbox token is read-only and scoped to one repository; only
+    // the brain's own read (the ticket) may read issues, private ones too.
+    const tokens = calls
+      .filter((call) => call.url.includes("/access_tokens"))
+      .map((call) => call.body);
+    expect(tokens[0]).toEqual({
+      repository_ids: [999],
+      permissions: { contents: "read", issues: "read" },
+    });
+    expect(tokens.at(-1)).toEqual({
       repository_ids: [999],
       permissions: { contents: "read" },
     });

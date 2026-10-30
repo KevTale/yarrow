@@ -159,7 +159,7 @@ export class RunPipeline {
 
   private async token(
     run: Pick<PreparedRun, "installationId" | "repositoryId">,
-    access: "read" | "write",
+    access: "read" | "ticket" | "write",
   ): Promise<string> {
     const ask = (permissions: TokenPermissions) =>
       installationToken(
@@ -169,6 +169,9 @@ export class RunPipeline {
         this.deps.fetcher,
       ).then(({ token }) => token);
     if (access === "read") return ask({ contents: "read" });
+    // The brain's own reads: a private repository's issues need their own
+    // permission (the sandbox's token never gets it).
+    if (access === "ticket") return ask({ contents: "read", issues: "read" });
     const write: TokenPermissions = {
       contents: "write",
       pull_requests: "write",
@@ -189,11 +192,16 @@ export class RunPipeline {
     readToken: string,
   ): Promise<PreparedRun["ticket"]> {
     const { workUnit } = context;
+    // Yarrow's own copy, when the tracker cannot be read. A GitHub issue
+    // keeps its number, so the pull request still closes it.
     const fallback = {
       title: workUnit.title,
       body: workUnit.body,
       url: workUnit.url,
       source: workUnit.source,
+      ...(workUnit.source === "github"
+        ? { number: Number(workUnit.externalId) }
+        : {}),
     };
     try {
       if (workUnit.source === "github") {
@@ -305,7 +313,7 @@ export class RunPipeline {
       installationId: project.githubInstallationId,
       repositoryId: Number(project.githubRepositoryId),
     };
-    const readToken = await this.token(access, "read");
+    const readToken = await this.token(access, "ticket");
     const { owner, repo } = splitRepository(project.repository);
     const repository = await new GitHubClient(
       readToken,

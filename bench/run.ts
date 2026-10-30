@@ -106,8 +106,11 @@ type Outcome =
 async function waitFor(issue: number, start: number): Promise<Outcome> {
   while (Date.now() - start < TIMEOUT_MS) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    // Found by the ticket it names, closing it or not (checked later).
     const pull = api<Pull[]>(`repos/${repo}/pulls?state=all&per_page=30`).find(
-      (candidate) => candidate.body?.includes(`Closes #${issue}`),
+      (candidate) =>
+        candidate.body?.includes(`Closes #${issue}`) ||
+        candidate.body?.includes(`/${repo}/issues/${issue}`),
     );
     if (pull) return { kind: "pull_request", pull };
     const comment = api<{ body: string; user: { type: string } }[]>(
@@ -126,6 +129,7 @@ interface Check {
 
 async function check(
   scenario: Scenario,
+  issue: number,
   outcome: Outcome,
   folder: string,
 ): Promise<Check[]> {
@@ -140,6 +144,10 @@ async function check(
   const body = pull.body ?? "";
   checks.push(
     { ok: pull.draft, what: "Opened as a draft" },
+    {
+      ok: body.includes(`Closes #${issue}`),
+      what: `Closes the ticket on merge (Closes #${issue})`,
+    },
     { ok: body.includes("## What changed"), what: "Says what changed" },
     { ok: body.includes("## Review by"), what: "Carries the review" },
   );
@@ -216,7 +224,7 @@ async function run(scenario: Scenario): Promise<void> {
   console.log(`  ticket ${issue.html_url}, waiting for Yarrow dev`);
 
   const outcome = await waitFor(issue.number, start);
-  const checks = await check(scenario, outcome, folder);
+  const checks = await check(scenario, issue.number, outcome, folder);
   const runUrl =
     outcome.kind === "pull_request"
       ? // The run's page sits at the root, unlike its evidence.
