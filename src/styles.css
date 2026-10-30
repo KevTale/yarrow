@@ -7946,10 +7946,12 @@ body:has(.sb-dialog[open]) {
   font-style: normal;
 }
 .pv-view {
+  --pv-controls: 56px;
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 10;
   background: #0a0b0d;
+  container-type: inline-size;
 }
 /* Out of the flow: a clip's own size never widens the column. */
 .pv-view video {
@@ -7959,6 +7961,18 @@ body:has(.sb-dialog[open]) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+.pv-hit {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.pv-view.idle,
+.pv-view.idle .pv-hit {
+  cursor: none;
 }
 .pv-start {
   position: absolute;
@@ -7996,88 +8010,170 @@ body:has(.sb-dialog[open]) {
 .pv-big svg {
   margin-left: 3px;
 }
-.pv-player {
+/* The player's own controls sit on the video, as in any player. */
+.pv-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-top: 14px;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
 }
-.pv-round {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 9999px;
-  background: transparent;
-  color: var(--secondary);
-  cursor: pointer;
+.pv-caption {
+  max-width: 86%;
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: clamp(12px, 2.3cqw, 28px);
+  line-height: 1.5;
+  text-align: center;
+  transition: transform 0.25s ease-out;
 }
-.pv-round.solid {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--bg);
+.pv-caption span {
+  padding: 0.12em 0.45em;
+  border-radius: 4px;
+  background: rgba(8, 8, 9, 0.78);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
-.pv-round[aria-pressed="true"] {
-  border-color: var(--border-strong);
-  color: var(--text);
+.pv-view.idle .pv-caption {
+  transform: translateY(calc(var(--pv-controls) - 10px));
+}
+.pv-controls {
+  position: relative;
+  width: 100%;
+  height: var(--pv-controls);
+  padding: 0 10px 4px;
+  color: #fff;
+  pointer-events: auto;
+  transition: opacity 0.25s ease-out;
+}
+.pv-controls::before {
+  position: absolute;
+  inset: -36px 0 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  content: "";
+  pointer-events: none;
+}
+.pv-view.idle .pv-controls {
+  opacity: 0;
+  pointer-events: none;
 }
 .pv-chapters {
   display: flex;
-  flex: 1;
-  gap: 6px;
-  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  height: 12px;
+  padding: 0 4px;
 }
 .pv-chapter {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-width: 6px;
+  height: 12px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
   cursor: pointer;
 }
 .pv-chapter i {
   display: block;
   height: 4px;
-  margin-top: 6px;
   overflow: hidden;
   border-radius: 2px;
-  background: var(--line);
+  background: rgba(255, 255, 255, 0.3);
+  transition: height 0.15s ease-out;
 }
 .pv-chapter b {
   display: block;
   height: 100%;
-  background: var(--secondary);
-}
-.pv-chapter.now {
-  color: var(--text);
-}
-.pv-chapter.now b {
   background: var(--amber);
 }
-.pv-chapter span {
+.pv-chapter::after {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(15, 16, 19, 0.92);
+  color: #fff;
+  content: attr(data-title);
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.15s ease-out;
+}
+.pv-chapter:first-child::after {
+  left: 0;
+  transform: none;
+}
+.pv-chapter:last-child::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+@media (hover: hover) {
+  .pv-chapter:hover i {
+    height: 6px;
+  }
+  .pv-chapter:hover::after {
+    opacity: 1;
+  }
+}
+.pv-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+}
+.pv-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+.pv-icon:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.pv-time {
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.86);
+  font:
+    12.5px var(--font-geist-mono),
+    monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pv-now {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
   overflow: hidden;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pv-chapter:hover {
-  color: var(--secondary);
+.pv-screen:fullscreen {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
 }
-.pv-say {
-  min-height: 54px;
-  margin: 16px 0 0;
-  color: var(--text);
-  font-size: 19px;
-  line-height: 1.42;
-  letter-spacing: -0.015em;
+.pv-screen:fullscreen .pv-view {
+  flex: 1;
+  aspect-ratio: auto;
 }
 @media (max-width: 760px) {
   .pv-tabs {
@@ -8091,18 +8187,19 @@ body:has(.sb-dialog[open]) {
   .pv-tab:not(.on) > span:last-child {
     display: none;
   }
-  .pv-player {
-    gap: 10px;
+  .pv-view {
+    --pv-controls: 50px;
   }
-  .pv-chapter span {
-    display: none;
+  .pv-bar {
+    height: 34px;
   }
-  .pv-chapter i {
-    margin-top: 15px;
+  .pv-icon {
+    width: 32px;
+    height: 32px;
   }
-  .pv-say {
-    margin-top: 14px;
-    font-size: 17px;
+  .pv-big {
+    width: 52px;
+    height: 52px;
   }
 }
 

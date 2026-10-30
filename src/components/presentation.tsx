@@ -1,5 +1,9 @@
 import {
+  Captions,
+  CaptionsOff,
   Github,
+  Maximize,
+  Minimize,
   Pause,
   Play,
   RotateCcw,
@@ -39,13 +43,26 @@ export function loadPresentation(key: string): Promise<Timeline | null> {
 }
 
 const VOICE_KEY = "yarrow.presentation.voice";
-function savedVoice(): boolean {
+const CAPTIONS_KEY = "yarrow.presentation.captions";
+function saved(key: string): boolean {
   try {
-    return localStorage.getItem(VOICE_KEY) !== "off";
+    return localStorage.getItem(key) !== "off";
   } catch {
     return true;
   }
 }
+function save(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? "on" : "off");
+  } catch {
+    // Private window: the choice lasts the page.
+  }
+}
+
+const clockTime = (ms: number) => {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+};
 
 /**
  * The agent's screen, as it presented its pull request: one clip and one
@@ -79,6 +96,7 @@ function Player({
   timeline: Timeline | undefined;
   poster: string | null;
 }) {
+  const screen = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const [index, setIndex] = useState(0);
@@ -86,7 +104,14 @@ function Player({
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   // The timeline loads in the browser: the button never renders on the server.
-  const [voice, setVoice] = useState(savedVoice);
+  const [voice, setVoice] = useState(() => saved(VOICE_KEY));
+  const [captions, setCaptions] = useState(() => saved(CAPTIONS_KEY));
+  const [full, setFull] = useState(false);
+  // The controls hide while it plays and the pointer rests.
+  const [awake, setAwake] = useState(true);
+  const rest = useRef(0);
+  // A tap on a phone first brings the controls back.
+  const tapped = useRef(false);
   // Each start of a chapter, a jump back to it included.
   const [take, setTake] = useState(0);
   // Where the chapter is, and where its voice is (they drift while it loads).
@@ -198,13 +223,27 @@ function Player({
     return () => clip?.removeEventListener("seeked", onReady);
   }, [playing, playMedia]);
 
+  useEffect(() => {
+    const onChange = () =>
+      setFull(document.fullscreenElement === screen.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
   useEffect(
     () => () => {
       video.current?.pause();
       audio.current?.pause();
+      clearTimeout(rest.current);
     },
     [],
   );
+
+  const wake = () => {
+    setAwake(true);
+    clearTimeout(rest.current);
+    rest.current = window.setTimeout(() => setAwake(false), 2500);
+  };
 
   const toggle = () => {
     if (!timeline) return;
@@ -212,10 +251,12 @@ function Player({
       jump(0);
       return;
     }
+    wake();
     setStarted(true);
     setPlaying((on) => !on);
   };
   function jump(to: number) {
+    wake();
     setFinished(false);
     setStarted(true);
     setIndex(to);
@@ -224,13 +265,18 @@ function Player({
   }
   const flipVoice = () =>
     setVoice((on) => {
-      try {
-        localStorage.setItem(VOICE_KEY, on ? "off" : "on");
-      } catch {
-        // Private window: the choice lasts the page.
-      }
+      save(VOICE_KEY, !on);
       return !on;
     });
+  const flipCaptions = () =>
+    setCaptions((on) => {
+      save(CAPTIONS_KEY, !on);
+      return !on;
+    });
+  const flipFull = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void screen.current?.requestFullscreen().catch(() => {});
+  };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
   const tabs = timeline ? screenTabs(timeline) : [];
@@ -240,10 +286,16 @@ function Player({
       : chapter?.tab === "ticket"
         ? timeline?.ticket.url
         : chapter?.url;
+  const lengths = chapters.map(chapterMs);
+  const total = lengths.reduce((sum, ms) => sum + ms, 0);
+  const played =
+    lengths.slice(0, index).reduce((sum, ms) => sum + ms, 0) +
+    (finished ? length : Math.min(elapsed, length));
+  const idle = playing && !awake;
 
   return (
     <div className="pv">
-      <div className="pv-screen">
+      <div className={`pv-screen ${full ? "full" : ""}`} ref={screen}>
         <div className="pv-tabs" aria-hidden="true">
           {tabs.map((tab) => (
             <span
@@ -259,9 +311,28 @@ function Player({
           {chapter?.before && <em>Before</em>}
           <span>{address ?? (chapter ? "Terminal" : "")}</span>
         </div>
-        <div className="pv-view">
+        <div
+          className={`pv-view ${idle ? "idle" : ""}`}
+          onPointerMove={(event) => {
+            if (event.pointerType === "mouse") wake();
+          }}
+          onPointerDown={(event) => {
+            tapped.current = event.pointerType !== "mouse" && idle;
+            wake();
+          }}
+          onFocus={wake}
+        >
           <video ref={video} muted playsInline preload="auto" />
           <audio ref={audio} preload="auto" />
+          <button
+            type="button"
+            className="pv-hit"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={() => {
+              if (!tapped.current) toggle();
+            }}
+          />
           {!started && (
             <button
               type="button"
@@ -275,67 +346,108 @@ function Player({
               </span>
             </button>
           )}
-        </div>
-      </div>
-      <div className="pv-player">
-        <button
-          type="button"
-          className="pv-round solid"
-          onClick={toggle}
-          aria-label={finished ? "Play again" : playing ? "Pause" : "Play"}
-        >
-          {finished ? (
-            <RotateCcw size={16} aria-hidden="true" />
-          ) : playing ? (
-            <Pause size={16} aria-hidden="true" />
-          ) : (
-            <Play size={16} aria-hidden="true" />
-          )}
-        </button>
-        <div className="pv-chapters">
-          {chapters.map((item, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`pv-chapter ${i === index ? "now" : ""}`}
-              onClick={() => jump(i)}
-              aria-current={i === index ? "step" : undefined}
-            >
-              <i>
-                <b
-                  style={{
-                    width:
-                      i < index || (finished && i === index)
-                        ? "100%"
-                        : i === index
-                          ? `${Math.min(100, (elapsed / (length || 1)) * 100)}%`
-                          : "0%",
-                  }}
-                />
-              </i>
-              <span>{item.title}</span>
-            </button>
-          ))}
-        </div>
-        {chapters.some((item) => item.audio) && (
-          <button
-            type="button"
-            className="pv-round"
-            onClick={flipVoice}
-            aria-pressed={voice}
-            aria-label="Voice"
-          >
-            {voice ? (
-              <Volume2 size={16} aria-hidden="true" />
-            ) : (
-              <VolumeX size={16} aria-hidden="true" />
+          <div className="pv-overlay">
+            <p className="pv-caption" aria-live="polite">
+              {captions && started && cue?.text && <span>{cue.text}</span>}
+            </p>
+            {timeline && (
+              <div className="pv-controls">
+                <div className="pv-chapters">
+                  {chapters.map((item, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`pv-chapter ${i === index ? "now" : ""}`}
+                      style={{ flexGrow: lengths[i] }}
+                      onClick={() => jump(i)}
+                      aria-current={i === index ? "step" : undefined}
+                      aria-label={item.title}
+                      data-title={item.title}
+                    >
+                      <i>
+                        <b
+                          style={{
+                            width:
+                              i < index || (finished && i === index)
+                                ? "100%"
+                                : i === index
+                                  ? `${Math.min(100, (elapsed / (length || 1)) * 100)}%`
+                                  : "0%",
+                          }}
+                        />
+                      </i>
+                    </button>
+                  ))}
+                </div>
+                <div className="pv-bar">
+                  <button
+                    type="button"
+                    className="pv-icon"
+                    onClick={toggle}
+                    aria-label={
+                      finished ? "Play again" : playing ? "Pause" : "Play"
+                    }
+                  >
+                    {finished ? (
+                      <RotateCcw size={18} aria-hidden="true" />
+                    ) : playing ? (
+                      <Pause size={18} aria-hidden="true" />
+                    ) : (
+                      <Play size={18} aria-hidden="true" />
+                    )}
+                  </button>
+                  <span className="pv-time">
+                    {clockTime(played)} / {clockTime(total)}
+                  </span>
+                  <span className="pv-now">{chapter?.title}</span>
+                  <button
+                    type="button"
+                    className="pv-icon"
+                    onClick={flipCaptions}
+                    aria-pressed={captions}
+                    aria-label="Captions"
+                  >
+                    {captions ? (
+                      <Captions size={18} aria-hidden="true" />
+                    ) : (
+                      <CaptionsOff size={18} aria-hidden="true" />
+                    )}
+                  </button>
+                  {chapters.some((item) => item.audio) && (
+                    <button
+                      type="button"
+                      className="pv-icon"
+                      onClick={flipVoice}
+                      aria-pressed={voice}
+                      aria-label="Voice"
+                    >
+                      {voice ? (
+                        <Volume2 size={18} aria-hidden="true" />
+                      ) : (
+                        <VolumeX size={18} aria-hidden="true" />
+                      )}
+                    </button>
+                  )}
+                  {document.fullscreenEnabled && (
+                    <button
+                      type="button"
+                      className="pv-icon"
+                      onClick={flipFull}
+                      aria-label={full ? "Exit full screen" : "Full screen"}
+                    >
+                      {full ? (
+                        <Minimize size={18} aria-hidden="true" />
+                      ) : (
+                        <Maximize size={18} aria-hidden="true" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
-          </button>
-        )}
+          </div>
+        </div>
       </div>
-      <p className="pv-say" aria-live="polite">
-        {started ? cue?.text : (timeline?.title ?? "")}
-      </p>
     </div>
   );
 }
