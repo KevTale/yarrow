@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   Captions,
   CaptionsOff,
   Github,
@@ -279,13 +280,6 @@ function Player({
   };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
-  const tabs = timeline ? screenTabs(timeline) : [];
-  const address =
-    chapter?.tab === "terminal"
-      ? null
-      : chapter?.tab === "ticket"
-        ? timeline?.ticket.url
-        : chapter?.url;
   const lengths = chapters.map(chapterMs);
   const total = lengths.reduce((sum, ms) => sum + ms, 0);
   const played =
@@ -296,21 +290,6 @@ function Player({
   return (
     <div className="pv">
       <div className={`pv-screen ${full ? "full" : ""}`} ref={screen}>
-        <div className="pv-tabs" aria-hidden="true">
-          {tabs.map((tab) => (
-            <span
-              key={tab.tab}
-              className={`pv-tab ${chapter?.tab === tab.tab ? "on" : ""}`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </span>
-          ))}
-        </div>
-        <div className="pv-url" aria-hidden="true">
-          {chapter?.before && <em>Before</em>}
-          <span>{address ?? (chapter ? "Terminal" : "")}</span>
-        </div>
         <div
           className={`pv-view ${idle ? "idle" : ""}`}
           onPointerMove={(event) => {
@@ -333,6 +312,12 @@ function Player({
               if (!tapped.current) toggle();
             }}
           />
+          {started && timeline && chapter && (
+            <span key={`${index}-${take}`} className="pv-where">
+              {chapter.before && <em>Before</em>}
+              {where(timeline, chapter)}
+            </span>
+          )}
           {!started && (
             <button
               type="button"
@@ -452,38 +437,35 @@ function Player({
   );
 }
 
-/** The tabs the agent had open, in the order it opened them. */
-function screenTabs(timeline: Timeline) {
-  const opened = [...new Set(timeline.chapters.map((chapter) => chapter.tab))];
-  return opened.map((tab) => {
-    if (tab === "app") {
-      const app = timeline.chapters.find((chapter) => chapter.tab === "app")!;
-      const label = app.page || app.url?.split("/")[0] || "App";
-      return {
-        tab,
-        label,
-        icon: (
-          <span className="pv-site">{label.slice(0, 1).toUpperCase()}</span>
-        ),
-      };
-    }
-    if (tab === "ticket") {
-      const number = timeline.ticket.url.match(/\/(?:issues|pull)\/(\d+)/)?.[1];
-      return {
-        tab,
-        label: `${number ? `#${number} ` : ""}${timeline.ticket.title}`,
-        icon:
-          timeline.ticket.source === "jira" ? (
-            <JiraIcon size={14} />
-          ) : (
-            <Github size={14} aria-hidden="true" />
-          ),
-      };
-    }
-    return {
-      tab,
-      label: "Terminal",
-      icon: <SquareTerminal size={14} aria-hidden="true" />,
-    };
-  });
+/** Where the chapter was filmed: the app's address, the ticket, a terminal. */
+function where(timeline: Timeline, chapter: Timeline["chapters"][number]) {
+  if (chapter.tab === "app")
+    return (
+      <>
+        <AppWindow size={13} aria-hidden="true" />
+        <span>{chapter.url ?? chapter.page ?? "App"}</span>
+      </>
+    );
+  if (chapter.tab === "ticket") {
+    const url = timeline.ticket.url;
+    const key =
+      url.match(/\/(?:issues|pull)\/(\d+)/)?.[1] ??
+      url.match(/[A-Z][A-Z0-9]+-\d+/)?.[0];
+    return (
+      <>
+        {timeline.ticket.source === "jira" ? (
+          <JiraIcon size={13} />
+        ) : (
+          <Github size={13} aria-hidden="true" />
+        )}
+        <span>{key ? (/^\d+$/.test(key) ? `#${key}` : key) : "Ticket"}</span>
+      </>
+    );
+  }
+  return (
+    <>
+      <SquareTerminal size={13} aria-hidden="true" />
+      <span>Terminal</span>
+    </>
+  );
 }

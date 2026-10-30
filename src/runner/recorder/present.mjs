@@ -375,6 +375,12 @@ function overlay() {
 const cursor = { x: 640, y: 520 };
 
 async function place(page) {
+  // In sight from the chapter's first frame, a phone's narrow screen too.
+  const size = page.viewportSize();
+  if (size) {
+    cursor.x = Math.min(cursor.x, size.width - 40);
+    cursor.y = Math.min(cursor.y, size.height - 60);
+  }
   await page
     .evaluate(([x, y]) => window.__yarrow?.move(x, y, 0), [cursor.x, cursor.y])
     .catch(() => {});

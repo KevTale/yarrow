@@ -7869,82 +7869,6 @@ body:has(.sb-dialog[open]) {
   border-radius: 14px;
   background: #0f1013;
 }
-.pv-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 40px;
-  padding: 0 6px;
-  overflow: hidden;
-  border-bottom: 1px solid var(--line);
-}
-.pv-tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  min-width: 0;
-  padding: 0 12px;
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-  white-space: nowrap;
-  transition:
-    background-color 0.2s ease-out,
-    color 0.2s ease-out;
-}
-.pv-tab > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pv-tab.on {
-  background: var(--elevated);
-  color: var(--text);
-}
-.pv-tab svg {
-  flex-shrink: 0;
-}
-.pv-site {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: #f6f6f4;
-  color: #1d1f23;
-  font-size: 9px;
-  font-weight: 600;
-}
-.pv-url {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 14px;
-  overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  white-space: nowrap;
-}
-.pv-url span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pv-url em {
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: rgba(242, 181, 68, 0.14);
-  color: var(--amber);
-  font:
-    500 11.5px var(--font-geist-sans),
-    sans-serif;
-  font-style: normal;
-}
 .pv-view {
   --pv-controls: 56px;
   position: relative;
@@ -8009,6 +7933,54 @@ body:has(.sb-dialog[open]) {
 }
 .pv-big svg {
   margin-left: 3px;
+}
+/* Where the chapter was filmed: shown with the controls and as it starts. */
+.pv-where {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 20px);
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(10, 11, 13, 0.74);
+  color: #fff;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.pv-where span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pv-where svg {
+  flex-shrink: 0;
+}
+.pv-where em {
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: rgba(242, 181, 68, 0.2);
+  color: var(--amber);
+  font:
+    500 11.5px var(--font-geist-sans),
+    sans-serif;
+  font-style: normal;
+}
+.pv-view.idle .pv-where {
+  animation: pv-where 3.5s ease-out forwards;
+}
+@keyframes pv-where {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 /* The player's own controls sit on the video, as in any player. */
 .pv-overlay {
@@ -8176,17 +8148,6 @@ body:has(.sb-dialog[open]) {
   aspect-ratio: auto;
 }
 @media (max-width: 760px) {
-  .pv-tabs {
-    height: 36px;
-    padding: 0 4px;
-  }
-  .pv-tab {
-    height: 28px;
-    padding: 0 9px;
-  }
-  .pv-tab:not(.on) > span:last-child {
-    display: none;
-  }
   .pv-view {
     --pv-controls: 50px;
   }
