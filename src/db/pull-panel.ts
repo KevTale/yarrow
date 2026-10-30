@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
-import { blockingComments, type StoredReview } from "../core/review";
+import {
+  blockingComments,
+  type StoredArtifact,
+  type StoredReview,
+} from "../core/review";
 import { phaseStatus, type PaidBy } from "../core/tickets";
 import type { Database } from "./client";
 import {
@@ -128,6 +132,8 @@ export interface PanelData {
   /** Every run's own duration added up, in seconds; null while one works. */
   totalSeconds: number | null;
   paidBy: PaidBy[];
+  /** The latest delivered run's screenshots and videos, served by /evidence. */
+  screens: StoredArtifact[];
 }
 
 export async function pullPanel(
@@ -157,6 +163,7 @@ export async function pullPanel(
       evidence: results.evidence,
       review: results.review,
       details: results.details,
+      artifacts: results.artifacts,
     })
     .from(agentRuns)
     .leftJoin(results, eq(results.agentRunId, agentRuns.id))
@@ -279,5 +286,11 @@ export async function pullPanel(
           0,
         ) || null,
     paidBy: (await sponsorsByUnit(db, [unit.id])).get(unit.id) ?? [],
+    screens:
+      ([...runs]
+        .reverse()
+        .find(
+          (run) => run.outcome === "pull_request" && run.artifacts?.length,
+        )?.artifacts as StoredArtifact[] | undefined) ?? [],
   };
 }

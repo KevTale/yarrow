@@ -43,6 +43,53 @@ describe("the pull request's summary", () => {
     );
   });
 
+  it("shows a public project's screenshots, and only counts a private one's", () => {
+    const shot = {
+      kind: "screenshot" as const,
+      label: "Truncated title",
+      url: "https://yarrow.run/evidence/runs/1/ab-title.png",
+    };
+    const open = pullRequestBlock({ ...input, evidence: [shot] });
+    expect(open).toContain(
+      "## Screenshots\n\n**Truncated title**\n\n![Truncated title](https://yarrow.run/evidence/runs/1/ab-title.png)",
+    );
+    const hidden = pullRequestBlock({
+      ...input,
+      evidenceInYarrow: { count: 2, url: "https://yarrow.run/runs/1" },
+    });
+    expect(hidden).not.toContain("## Screenshots");
+    expect(hidden).not.toContain("/evidence/");
+    expect(hidden).toContain(
+      "- npm test → 10 pass\n- [2 screenshots](https://yarrow.run/runs/1), in Yarrow",
+    );
+  });
+
+  it("reads the recipe the agent found, and drops one that does not parse", () => {
+    const base = { status: "done", summary: "Done." };
+    const found = implementationResultSchema.parse({
+      ...base,
+      recipe: {
+        mode: "dev",
+        steps: ["pnpm install", "pnpm dev &"],
+        url: "http://localhost:5173",
+        sign_in: null,
+      },
+    });
+    expect(found.recipe).toEqual({
+      mode: "dev",
+      steps: ["pnpm install", "pnpm dev &"],
+      url: "http://localhost:5173",
+      signIn: null,
+      notes: [],
+    });
+    const broken = implementationResultSchema.parse({
+      ...base,
+      recipe: { mode: "somehow", steps: [] },
+    });
+    expect(broken.recipe).toBeUndefined();
+    expect(broken.status).toBe("done");
+  });
+
   it("rewrites only Yarrow's part, keeping what people wrote around it", () => {
     const before = `Notes from Marie.\n\n${pullRequestBlock(input)}\n\nNeed a change? Comment @yarrow-run\n\nImplemented by Claude`;
     const after = replaceBlock(

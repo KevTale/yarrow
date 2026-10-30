@@ -39,7 +39,10 @@ export interface PullRequestInput {
   /** Problems outside the ticket, left alone. */
   spotted: string[];
   review: StoredReview | null;
+  /** Shown in the description: public projects only. */
   evidence: { label: string; url: string; kind: "screenshot" | "video" }[];
+  /** A private project's evidence: counted, and seen in Yarrow by its builders. */
+  evidenceInYarrow?: { count: number; url: string } | null;
   roles: PipelineRoles;
   sponsors: RunSponsor[];
   runUrl: string;
@@ -82,12 +85,24 @@ export function pullRequestBlock(
       : `Ticket: ${input.ticket.url}`,
   );
   sections.push(`## What changed\n\n${input.summary || "See the diff."}`);
+  if (input.evidence.length > 0)
+    sections.push(
+      `## Screenshots\n\n${input.evidence
+        .map((item) =>
+          item.kind === "video"
+            ? `[Video: ${item.label}](${item.url})`
+            : `**${item.label}**\n\n![${item.label}](${item.url})`,
+        )
+        .join("\n\n")}`,
+    );
+  const shots = input.evidenceInYarrow;
   const verified = [
     ...input.verification.map((line) => `- ${line}`),
-    ...input.evidence.map(
-      (item) =>
-        `- ${item.kind === "video" ? "Video" : "Screenshot"}: [${item.label}](${item.url})`,
-    ),
+    ...(shots && shots.count > 0
+      ? [
+          `- [${shots.count} screenshot${shots.count === 1 ? "" : "s"}](${shots.url}), in Yarrow`,
+        ]
+      : []),
   ];
   sections.push(
     `## How it was verified\n\n${verified.join("\n") || "- No automated verification was reported."}`,

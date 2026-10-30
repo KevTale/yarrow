@@ -66,7 +66,7 @@ How it runs: "Get a pull request" and "Connect" go to `/connect/github` (GitHub 
    - **Back without the pasted repository** (decided 2026-10-12): it was not picked during the install, or it is not the visitor's to install (only a repository's admins can, so an issue pasted from someone else's project ends here). Once projects are there and the repository is still missing three polls (about 9 s) after the install, or after a minute in any case, the dashboard shows "owner/repo is not connected · Only its admins can add it" with **Add it on GitHub** (back through `/connect/github` with the ticket), and a close that forgets the ticket. Polling goes on behind it for the minute, so a late webhook still queues the ticket. A member who is not an organization's admin only asks them: GitHub returns `setup_action=request`, and the dashboard says "Request sent · owner's admins approve it on GitHub". Once approved, the projects land in the approving admin's account, not the requester's.
 4. Optionally connect a tracker and map each board to its repo. Supported trackers: GitHub Issues, Linear, Jira and Trello.
 5. Tag tickets with the platform label (`yarrow`) or the tracker's equivalent. Only tagged tickets become work units.
-6. Optional, to enable screenshots and videos: describe how to run the app.
+6. Nothing to describe for screenshots (decided 2026-10-16): the agent finds how to run the app and keeps that recipe for the next run (see Evidence). What follows stays possible, though no screen asks for it yet:
    - Setup and start commands, plus a seed.
    - Development environment variables.
    - **Test or staging secrets only, never production.**
@@ -226,6 +226,12 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
    - Astra's final review is **in the pull request's own description**, under "Review by GPT Astra": one or two sentences, the verdict and why, then at most three suggestions (blocking comments were fixed, nits are left out). No separate GitHub review is posted any more (decided 2026-10-10: it repeated the description). A correction's comment carries its review the same way.
    - The implement → review → fix loop is an internal brain module (`ReviewLoop`), with the maximum rounds and the severity threshold in config.
 4. **Evidence:** screenshots and video of the change, when the change is visible and the app can run in the sandbox. Uses Playwright and Chromium, installed as environment packages.
+   - **The agent decides what proves the change** (decided 2026-10-16, step 1 of screenshots, video, then previews): a change people can see gets screenshots of the changed screens, an API or a command one real request or run and its output as a verification line, anything else no evidence beyond the checks run. The rules travel with every task (`EVIDENCE_GUIDE`), so they apply without re-registering the agent.
+   - **The code comes first.** The app is run once the change is done and checked, for about 15 minutes at most; past that the agent keeps its change and says in one "Not verified" line what blocked it. This bounds the time spent on evidence, not the run's cost (there is still no cost cap per ticket).
+   - **How it runs the app:** the project's own seed and demo user when it has them; otherwise the data the screen needs goes straight into the local database and the session is minted with the app's own local secret. Never a sign-up through the UI, never a real third party (a local stub stands in), never a real credential. Built and served as in production when it builds with placeholder settings, the dev server otherwise.
+   - **Screenshots:** Playwright, 1280×800, at most four, each looked at by the agent before it keeps it (no error, login page, loading skeleton or dev overlay). A part it had to fake, or that stayed empty, gets a "Not verified" line. No video yet.
+   - **The recipe** (`project_run_configs.recipe`): when the app ran, the agent writes how (production build or dev server, the commands from a fresh checkout, the address, how a session is signed in, what tripped it). Yarrow keeps the last one per project and gives it to the next run, which corrects it when it no longer works. It is what a preview will replay without the agent. Never secrets.
+   - **Where they show:** in the pull request's panel on the builder's dashboard, under the summary, full size on a click. In the description on GitHub only for a public project ("Screenshots", the images themselves); a listed or hidden project's description counts them and links to the run in Yarrow (decided 2026-10-16: a private app's screens stay with its builders).
    - **The sandbox's network** (decided 2026-10-15, after the agent booted 16 public projects with no help: all 16 showed a real page, 13 signed in, 7 minutes and $0.56 at the median): besides the package registries, every sandbox reaches what projects download while they install and start (browsers, Node, Yarn, Go and Ruby releases, GitHub releases, Prisma's engines, Google Fonts: `SANDBOX_HOSTS`). An environment made before a host joined the list gets it on its next run. A project's own third parties stay closed: the agent fakes them. Docker does not run in the sandbox; the preinstalled Postgres and Redis stand in for compose files.
 5. **PR readable in one minute** (tightened 2026-10-10, the first real PRs ran long): the summary is one to three short sentences, with no file-by-file account or history of attempts; at most three verification lines ("command → result", final change only); at most three risks, only what the owner must check, none when there is none. These rules travel with every task sent to the implementer, so they apply without re-registering the agent:
    - what changed and why;
@@ -237,9 +243,9 @@ Decided 2026-10-07. Database triggers send a bare "changed" signal on Supabase R
 
 Only one PR ever reaches the repo.
 
-Evidence files are stored in platform object storage (R2):
-- Public and Listed projects get unguessable links in the PR body.
-- Hidden projects get links to the authenticated run page only.
+Evidence files are stored in platform object storage (R2, `yarrow-evidence` and `yarrow-evidence-dev`), served by `/evidence/…` to whoever may see the run:
+- Public projects show the images in the PR body.
+- Listed and hidden projects show them to their members only; the PR body links to the run page.
 
 Track **cost per merged PR**, **merge rate** and **rejection reasons** from day one, and show the first two to sponsors.
 

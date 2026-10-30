@@ -95,3 +95,22 @@ export const runResultSchema = z.discriminatedUnion("outcome", [
   }),
 ]);
 export type RunResult = z.input<typeof runResultSchema>;
+
+/**
+ * How the implementer got a project's app running in its sandbox, written
+ * by the agent after a run that did, and given to the next run so it does
+ * not search again. Never secrets: the sandbox has none to write down.
+ */
+export const appRecipeSchema = z.object({
+  /** "build": built and served as in production; "dev": the dev server. */
+  mode: z.enum(["build", "dev"]),
+  /** Shell commands from a fresh checkout to the app answering, in order. */
+  steps: z.array(z.string().trim().min(1).max(2000)).min(1).max(30),
+  /** Where the app answers, with the page worth opening first. */
+  url: z.string().trim().min(1).max(500),
+  /** How a signed-in session is obtained, when the app needs one. */
+  signIn: z.string().trim().max(2000).nullable().default(null),
+  /** What tripped the agent, so the next run does not trip on it. */
+  notes: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+});
+export type AppRecipe = z.infer<typeof appRecipeSchema>;

@@ -40,6 +40,13 @@ function fakeProviders() {
           kind: "screenshot",
         },
       ],
+      recipe: {
+        mode: "build",
+        steps: ["pnpm install", "pnpm build", "pnpm start &"],
+        url: "http://localhost:3000/exports",
+        sign_in: "POST /api/dev/session as demo@halyard.dev",
+        notes: ["Prisma needs binaries.prisma.sh"],
+      },
     }),
     "changes.json": encode({
       files: [
@@ -311,11 +318,26 @@ describe("run pipeline", async () => {
     });
 
     expect(await runner.implementerState(sessionId)).toBe("done");
-    const snapshot = await runner.readImplementation(sessionId);
+    // The task carries the evidence rules; no recipe yet for this project.
+    const task = JSON.stringify(created.body);
+    expect(task).toContain("Evidence (these rules replace");
+    expect(task).toContain("No recipe yet for running this app");
+
+    const snapshot = await runner.readImplementation(sessionId, projectId);
     expect(snapshot).toMatchObject({
       status: "done",
       paths: ["src/export.ts"],
     });
+    // The recipe the agent found is the project's now, for the next run.
+    const [config] = await raw.select().from(schema.projectRunConfigs);
+    expect(config?.recipe).toEqual({
+      mode: "build",
+      steps: ["pnpm install", "pnpm build", "pnpm start &"],
+      url: "http://localhost:3000/exports",
+      signIn: "POST /api/dev/session as demo@halyard.dev",
+      notes: ["Prisma needs binaries.prisma.sh"],
+    });
+    expect((await runner.prepare(runId)).recipe?.mode).toBe("build");
 
     const reviewerId = await runner.startReview(run, sessionId, snapshot);
     const reviewSession = calls.find(
@@ -356,6 +378,10 @@ describe("run pipeline", async () => {
     expect((pull.body as { draft: boolean }).draft).toBe(true);
     expect(body).toContain("Closes #5");
     expect(body).toContain("pnpm test → 42 passed");
+    // A public project's screenshots show in the description.
+    expect(body).toMatch(
+      /## Screenshots\n\n\*\*Export dialog\*\*\n\n!\[Export dialog\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-export\.png\)/,
+    );
     expect(body).toContain("Need a change? Comment `@yarrow-run` followed by");
     expect(body).toContain(
       "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",

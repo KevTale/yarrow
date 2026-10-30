@@ -175,6 +175,7 @@ export function PullPanel({
             <Implementation
               implementation={panel.implementation}
               legacyRisks={live?.risks ?? []}
+              screens={panel.screens}
             />
           )}
 
@@ -382,10 +383,12 @@ function workingText(panel: Panel): string | null {
 function Implementation({
   implementation,
   legacyRisks,
+  screens,
 }: {
   implementation: NonNullable<Panel["implementation"]>;
   /** Pull requests delivered before these were apart: their Risks. */
   legacyRisks: string[];
+  screens: Panel["screens"];
 }) {
   const notes = implementation.legacy ? legacyRisks : [];
   return (
@@ -396,6 +399,7 @@ function Implementation({
       <p className="pp-text">
         <Rich text={implementation.summary} />
       </p>
+      {screens.length > 0 && <Screens screens={screens} />}
       <ul className="pp-list">
         {implementation.verification.map((line) => (
           <li key={`v${line}`}>
@@ -446,6 +450,84 @@ function Implementation({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * What the change looks like: the implementer's screenshots, opened full
+ * size in the browser's modal dialog (a click or Escape closes it, the
+ * arrows go from one to the next).
+ */
+function Screens({ screens }: { screens: Panel["screens"] }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  const images = screens.filter((screen) => screen.kind === "screenshot");
+  useEffect(() => {
+    if (open !== null && !dialog.current?.open) dialog.current?.showModal();
+  }, [open]);
+  const shown = open === null ? null : images[open];
+  return (
+    <>
+      <ul className="pp-shots">
+        {screens.map((screen) => (
+          <li key={screen.key}>
+            {screen.kind === "video" ? (
+              <video
+                src={`/evidence/${screen.key}`}
+                controls
+                preload="metadata"
+                aria-label={screen.label}
+              />
+            ) : (
+              <button
+                type="button"
+                aria-label={`${screen.label}, full size`}
+                onClick={() => setOpen(images.indexOf(screen))}
+              >
+                <img
+                  src={`/evidence/${screen.key}`}
+                  alt={screen.label}
+                  loading="lazy"
+                />
+              </button>
+            )}
+            <span>{screen.label}</span>
+          </li>
+        ))}
+      </ul>
+      <dialog
+        ref={dialog}
+        className="pp-shot"
+        aria-label={shown?.label ?? "Screenshot"}
+        onClose={() => setOpen(null)}
+        onClick={() => dialog.current?.close()}
+        onKeyDown={(event) => {
+          if (open === null || images.length < 2) return;
+          const step =
+            event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+          if (step) setOpen((open + step + images.length) % images.length);
+        }}
+      >
+        {shown && (
+          <figure>
+            {/* Keyed: the caption never sits under the previous image. */}
+            <img
+              key={shown.key}
+              src={`/evidence/${shown.key}`}
+              alt={shown.label}
+            />
+            <figcaption>
+              {shown.label}
+              {images.length > 1 && (
+                <span>
+                  {open! + 1} / {images.length}
+                </span>
+              )}
+            </figcaption>
+          </figure>
+        )}
+      </dialog>
+    </>
   );
 }
 

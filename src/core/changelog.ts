@@ -19,6 +19,15 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-19",
+    title: "Screenshots",
+    new: [
+      builders(
+        "A pull request that changes what people see comes with screenshots of the changed screens, in its panel and, for public projects, in its description.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-14",
     title: "Tickets, one list",
     new: [

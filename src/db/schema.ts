@@ -14,7 +14,7 @@ import {
   primaryKey,
   customType,
 } from "drizzle-orm/pg-core";
-import type { ResultDetails } from "../core/contracts";
+import type { AppRecipe, ResultDetails } from "../core/contracts";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { TicketMoves } from "../core/tracker-moves";
 
@@ -189,7 +189,10 @@ export const trackerBoards = pgTable(
   ],
 ).enableRLS();
 
-/** How to run the app in the provider sandbox, for screenshots and video. Optional. */
+/**
+ * How to run the app in the provider sandbox, for screenshots and video:
+ * the commands an owner gave (none ask yet) and the recipe the agent found.
+ */
 export const projectRunConfigs = pgTable("project_run_configs", {
   projectId: uuid("project_id")
     .primaryKey()
@@ -200,6 +203,8 @@ export const projectRunConfigs = pgTable("project_run_configs", {
   appPort: integer("app_port"),
   // Non-secret development variables only. Secrets live in project_secrets.
   env: jsonb("env").$type<Record<string, string>>().default({}).notNull(),
+  // How the agent got the app running, written back after a run that did.
+  recipe: jsonb("recipe").$type<AppRecipe>(),
   // Managed Agents resources for this project, created on first use. The
   // environment is reset when the secrets (and so the allowed hosts) change.
   anthropicEnvironmentId: text("anthropic_environment_id"),

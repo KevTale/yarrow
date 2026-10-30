@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { AppRecipe } from "../core/contracts";
 import type { RunModelUsage } from "../core/pipeline";
 import type { Database } from "./client";
 import {
@@ -79,6 +80,21 @@ export async function setAnthropicResources(
     .insert(projectRunConfigs)
     .values({ projectId, ...values })
     .onConflictDoUpdate({ target: projectRunConfigs.projectId, set: values });
+}
+
+/** Keeps the recipe the agent last got the project's app running with. */
+export async function saveRecipe(
+  db: Database,
+  projectId: string,
+  recipe: AppRecipe,
+): Promise<void> {
+  await db
+    .insert(projectRunConfigs)
+    .values({ projectId, recipe })
+    .onConflictDoUpdate({
+      target: projectRunConfigs.projectId,
+      set: { recipe, updatedAt: new Date() },
+    });
 }
 
 /** Stores what each model did on a run. Idempotent: Workflow steps may retry. */

@@ -10,7 +10,13 @@ import {
 import type { Database } from "../db/client";
 import { pullRequestSummaryNow } from "../db/pull-panel";
 import { runSponsors } from "../db/queries";
-import { runContext, setAnthropicResources, type RunContext } from "../db/runs";
+import {
+  runContext,
+  saveRecipe,
+  setAnthropicResources,
+  type RunContext,
+} from "../db/runs";
+import type { AppRecipe } from "../core/contracts";
 import {
   GitHubClient,
   GitHubError,
@@ -138,6 +144,9 @@ export interface PreparedRun {
     env: Record<string, string>;
     secretNames: string[];
   } | null;
+  /** How an earlier run got the project's app running. */
+  recipe: AppRecipe | null;
+  projectId: string;
   visibility: "public" | "listed" | "hidden";
 }
 
@@ -340,6 +349,8 @@ export class RunPipeline {
             secretNames: context.secrets.map((secret) => secret.name),
           }
         : null,
+      recipe: context.runConfig?.recipe ?? null,
+      projectId: project.id,
       visibility: project.visibility,
     };
   }
@@ -361,6 +372,7 @@ export class RunPipeline {
         instruction: run.instruction,
         pullRequestSummary: run.pullRequestSummary,
         runConfig: run.runConfig,
+        recipe: run.recipe,
       }),
     });
     // Kept for the activity feed (corrections reuse the run row's latest).
@@ -397,12 +409,21 @@ export class RunPipeline {
     return this.deps.anthropic.lastError(sessionId);
   }
 
-  async readImplementation(sessionId: string): Promise<ImplementationSnapshot> {
+  /**
+   * The implementer's result.json and the paths it changed. A recipe in it
+   * becomes the project's: the next run starts the app without searching.
+   */
+  async readImplementation(
+    sessionId: string,
+    projectId?: string,
+  ): Promise<ImplementationSnapshot> {
     const raw = await this.deps.anthropic.readOutput(sessionId, "result.json");
     if (!raw) throw new Error("The implementer wrote no result.json");
     const result = implementationResultSchema.parse(
       JSON.parse(new TextDecoder().decode(raw)),
     );
+    if (projectId && result.recipe)
+      await saveRecipe(this.deps.db, projectId, result.recipe);
     const changes = await this.changes(sessionId);
     return { ...result, paths: changes.map((file) => file.path) };
   }
@@ -596,7 +617,7 @@ export class RunPipeline {
     return `${this.deps.appUrl}/runs/${runId}`;
   }
 
-  /** Copies evidence to R2. Hidden projects only link to the authenticated run page. */
+  /** Copies evidence to R2, served by /evidence to those who may see the run. */
   private async storeEvidence(
     run: PreparedRun,
     implementerSessionId: string,
@@ -659,14 +680,19 @@ export class RunPipeline {
       implementerSessionId,
       snapshot,
     );
-    const evidenceLinks = artifacts.map((artifact) => ({
-      kind: artifact.kind,
-      label: artifact.label,
-      url:
-        run.visibility === "hidden"
-          ? this.runUrl(run.runId)
-          : `${this.deps.appUrl}/evidence/${artifact.key}`,
-    }));
+    // A public project's screenshots show in the description; a private
+    // one's stay in Yarrow, for its builders (decided 2026-10-16).
+    const shown = run.visibility === "public";
+    const evidenceLinks = shown
+      ? artifacts.map((artifact) => ({
+          kind: artifact.kind,
+          label: artifact.label,
+          url: `${this.deps.appUrl}/evidence/${artifact.key}`,
+        }))
+      : [];
+    const evidenceInYarrow = shown
+      ? null
+      : { count: artifacts.length, url: this.runUrl(run.runId) };
     await commitChanges(client, repository, {
       baseBranch: run.baseBranch,
       branch: run.workBranch,
@@ -719,6 +745,7 @@ export class RunPipeline {
             spotted: snapshot.spotted,
             review,
             evidence: evidenceLinks,
+            evidenceInYarrow,
           }),
         );
         if (body)
@@ -738,6 +765,7 @@ export class RunPipeline {
           spotted: snapshot.spotted,
           review,
           evidence: evidenceLinks,
+          evidenceInYarrow,
           roles: this.deps.roles,
           sponsors,
           runUrl: this.runUrl(run.runId),

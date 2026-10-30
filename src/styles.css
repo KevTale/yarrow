@@ -7856,6 +7856,109 @@ body:has(.sb-dialog[open]) {
   line-height: 1.65;
   color: var(--secondary);
 }
+/* The implementer's screenshots, under the summary; full size on a click. */
+.pp-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  max-width: 760px;
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.pp-shots li {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.pp-shots button {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--elevated);
+  cursor: zoom-in;
+  transition: border-color 0.15s ease-out;
+}
+.pp-shots button:hover {
+  border-color: var(--border-strong);
+}
+.pp-shots img,
+.pp-shots video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top;
+}
+.pp-shots video {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--elevated);
+}
+.pp-shots span {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pp-shot {
+  max-width: min(1280px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-floating);
+  cursor: zoom-out;
+}
+.pp-shot[open] {
+  animation: nt-rise 0.22s var(--ease-enter);
+}
+/* The dialog only holds focus for Escape and the arrows: no ring on it. */
+.pp-shot:focus,
+.pp-shot:focus-visible {
+  outline: none;
+}
+.pp-shot::backdrop {
+  background: #05060899;
+  animation: nt-fade 0.16s ease-out;
+}
+.pp-shot figure {
+  display: grid;
+  margin: 0;
+}
+.pp-shot img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 80px);
+  object-fit: contain;
+}
+.pp-shot figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--secondary);
+}
+.pp-shot figcaption span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-shot[open],
+  .pp-shot::backdrop {
+    animation: none;
+  }
+}
 .pp-list {
   display: grid;
   gap: 8px;

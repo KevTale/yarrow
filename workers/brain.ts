@@ -272,7 +272,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       const readImplementation = (label: string) =>
         step.do(label, () =>
           withDb(env, (db) =>
-            pipeline(env, db).readImplementation(implementerId),
+            pipeline(env, db).readImplementation(implementerId, run.projectId),
           ),
         );
 
