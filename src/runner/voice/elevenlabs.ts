@@ -4,11 +4,11 @@ import type { Fetch, Speech, VoiceProvider } from "./index";
 const API = "https://api.elevenlabs.io/v1";
 
 /**
- * Mark, "Natural Conversations" in the voice library, its most used
- * conversational voice: a colleague talking, not a narrator (2026-10-21;
- * Chris, the promo film's, read as a voice-over).
+ * Josh, "Warm, Smooth and Steady" in the voice library: a colleague
+ * talking, not a narrator (chosen 2026-10-21; Chris, the promo film's,
+ * read as a voice-over).
  */
-export const DEFAULT_ELEVENLABS_VOICE = "UgBBYS2sOqTuMpoF3BR0";
+export const DEFAULT_ELEVENLABS_VOICE = "ZoiZ8fuDWInAcwPXaVeq";
 /** Multilingual; eleven_v4_turbo answers faster, for live talk. */
 export const DEFAULT_ELEVENLABS_MODEL = "eleven_v4";
 

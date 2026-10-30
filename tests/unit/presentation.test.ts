@@ -167,7 +167,7 @@ describe("ElevenLabs", () => {
       after: "Written by Claude Opus 5.5.",
     });
     expect(calls[0]!.url).toBe(
-      "https://api.elevenlabs.io/v1/text-to-speech/UgBBYS2sOqTuMpoF3BR0/with-timestamps?output_format=mp3_44100_128",
+      "https://api.elevenlabs.io/v1/text-to-speech/ZoiZ8fuDWInAcwPXaVeq/with-timestamps?output_format=mp3_44100_128",
     );
     expect(calls[0]!.init.headers).toMatchObject({ "xi-api-key": "xi_test" });
     // The lines around it keep one tone across the chapters.
