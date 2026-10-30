@@ -89,7 +89,7 @@ export function presentationGuide(baseBranch: string): string {
 - Terminal: the command runs for real just before its chapter is recorded, from /workspace/repo or "cwd", for at most four minutes. For a long run you already did, give its "output" instead, copied exactly.
 - Record: node ${RECORDER_PATH} /tmp/presentation.json (add --check to check the plan only). It finds or installs Playwright, Chromium and ffmpeg itself. Each "problem:" line it prints is an action that failed: fix the plan or the app and run it again. Then look at the poster it saved (${OUTPUTS}/presentation/*-poster.jpg): it must show the change, not an error, a login page or a dev overlay.
 - Record it again after a fix round or a correction when what it shows changed. A correction's presentation shows the whole pull request as it stands; its first chapter says what this correction changed.
-- Spend at most about 20 minutes on the presentation beyond running the app. If the recorder cannot run at all, say why in one not_verified line. Nothing goes in artifacts for it: Yarrow finds it.`;
+- Spend at most about 20 minutes on the presentation beyond running the app. If the recorder cannot run at all, say why in one not_verified line. Nothing goes in artifacts or in the checks for it: Yarrow finds it, and recording it proves nothing about the change.`;
 }
 
 /** Without the recorder (its upload failed): screenshots, as before. */
