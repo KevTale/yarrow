@@ -44,6 +44,8 @@ export const presentationChapterSchema = z.object({
   page: z.string().max(120).nullable().default(null),
   /** The app as it was before the change. */
   before: z.boolean().default(false),
+  /** How long it still shows the app as it was, until its tab is clicked. */
+  beforeMs: z.number().int().nonnegative().default(0),
   /** Filmed on the agent's desktop: the clip is the whole screen, windows and dock. */
   desktop: z.boolean().default(false),
   say: z.string().max(2000),

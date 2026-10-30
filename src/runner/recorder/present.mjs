@@ -1884,7 +1884,8 @@ class Desktop {
           String(error?.message).split("\n")[0],
       );
     await this.show("browser", clock, marks);
-    if (switching) await this.switchTab(which, clock, marks);
+    // Until its tab is clicked, the chapter still shows the other app.
+    const shownFrom = switching ? await this.switchTab(which, clock, marks) : 0;
     this.tabs.active = which;
     this.tabs.fresh[which] = false;
     const actions = chapter.actions || [];
@@ -1911,7 +1912,15 @@ class Desktop {
     return {
       take: film,
       problems,
-      chapter: { url: bare(url), urls, page: title || null, before, marks },
+      chapter: {
+        url: bare(url),
+        urls,
+        page: title || null,
+        before,
+        // The app as it was, still on screen until the tab is clicked.
+        beforeMs: switching && !before ? shownFrom : 0,
+        marks,
+      },
     };
   }
 
@@ -2020,6 +2029,7 @@ class Desktop {
       kind: "click",
       box: { x: left, y: spot.y - 14, width: TABS.width, height: 28 },
     });
+    const at = clock();
     await this.click();
     const shown = await until(
       () =>
@@ -2035,6 +2045,7 @@ class Desktop {
     }
     // Down off the strip, its tab's preview with it.
     await this.glide(spot.x + 220, spot.y + 320, 650);
+    return Math.round(at);
   }
 
   async settle(page) {

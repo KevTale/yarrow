@@ -47,6 +47,7 @@ export const recordedSchema = z.object({
           .default(null)
           .transform((page) => page?.slice(0, 120) || null),
         before: z.boolean().default(false),
+        beforeMs: z.number().nonnegative().default(0),
         desktop: z.boolean().default(false),
         say: clipped(2000),
         clip: z.string().min(1),
@@ -173,6 +174,7 @@ export async function publishPresentation(
       url: chapter.url,
       page: chapter.page,
       before: chapter.before,
+      beforeMs: Math.round(chapter.beforeMs),
       desktop: chapter.desktop,
       say,
       video: {

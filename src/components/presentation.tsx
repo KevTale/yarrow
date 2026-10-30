@@ -386,12 +386,15 @@ function Player({
   const loads = started
     ? (framed?.urls.filter((step) => step.atMs <= at).length ?? 0)
     : 0;
-  // Right after the app as it was, "After" for a moment: the switch is seen.
-  const stage = framed?.before
-    ? "Before"
-    : started && chapters[index - 1]?.before && elapsed < 2800
-      ? "After"
-      : null;
+  // Right after the app as it was (its tab clicked, on the desktop),
+  // "After" for a moment: the switch is seen.
+  const switched = framed?.beforeMs ?? 0;
+  const stage =
+    framed?.before || (started && elapsed < switched)
+      ? "Before"
+      : started && chapters[index - 1]?.before && elapsed < switched + 2800
+        ? "After"
+        : null;
 
   return (
     <div className="pv">
