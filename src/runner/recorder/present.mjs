@@ -730,8 +730,12 @@ async function record(browser, plan, chapter, index, take, state) {
 
   await page.waitForTimeout(Math.max(target, clock() + 1000) - clock());
   const title = tab === "app" ? await page.title().catch(() => "") : null;
-  if (tab === "app" && chapter.app !== "before" && !state.poster)
+  // The poster shows the change: the app after it, else its proof run.
+  const before = chapter.app === "before" || chapter.before === true;
+  if (!before && tab === "app" && !state.poster)
     state.poster = await page.screenshot({ type: "jpeg", quality: 82 });
+  if (!before && tab === "terminal" && !state.run)
+    state.run = await page.screenshot({ type: "jpeg", quality: 82 });
   if (!state.first)
     state.first = await page.screenshot({ type: "jpeg", quality: 82 });
   const durationMs = clock();
@@ -752,7 +756,7 @@ async function record(browser, plan, chapter, index, take, state) {
       tab,
       url: tab === "app" ? url.replace(/^https?:\/\//, "") : url,
       page: title || null,
-      before: chapter.app === "before",
+      before,
       say: chapter.say,
       clip: "presentation/" + name,
       startMs,
@@ -783,7 +787,7 @@ async function main() {
   fs.rmSync(DIR, { recursive: true, force: true });
   fs.mkdirSync(DIR, { recursive: true });
   const take = Date.now().toString(36).slice(-6);
-  const state = { poster: null, first: null };
+  const state = { poster: null, run: null, first: null };
   const chapters = [];
   const failed = [];
   for (const [index, chapter] of plan.chapters.entries()) {
@@ -804,7 +808,7 @@ async function main() {
     }
   }
   await browser.close();
-  const poster = state.poster || state.first;
+  const poster = state.poster || state.run || state.first;
   if (poster) fs.writeFileSync(path.join(DIR, take + "-poster.jpg"), poster);
   const ticket = plan.ticket;
   fs.writeFileSync(

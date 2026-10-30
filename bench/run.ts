@@ -190,8 +190,14 @@ async function check(
   if (!runUrl) return checks;
   const origin = new URL(runUrl).origin;
   const runId = runUrl.split("/").pop()!;
-  const page = await (await fetch(runUrl)).text();
-  const file = page.match(/[0-9a-f]{8}-presentation\.json/)?.[0];
+  // The run keeps its artifacts once the pull request is open: a few
+  // seconds after the description shows.
+  let file: string | undefined;
+  for (let tries = 0; !file && tries < 12; tries++) {
+    if (tries) await new Promise((resolve) => setTimeout(resolve, 10_000));
+    const page = await (await fetch(runUrl)).text();
+    file = page.match(/[0-9a-f]{8}-presentation\.json/)?.[0];
+  }
   const timeline = file
     ? ((await (
         await fetch(`${origin}/evidence/runs/${runId}/${file}`)
@@ -200,6 +206,7 @@ async function check(
         chapters: {
           title: string;
           tab: string;
+          before: boolean;
           say: string;
           video: { key: string } | null;
           audio: { key: string } | null;
@@ -235,9 +242,7 @@ async function check(
   );
   for (const tab of scenario.expect.shows ?? [])
     checks.push({
-      ok: chapters.some(
-        (chapter) => chapter.tab === tab && !chapter.title.match(/before/i),
-      ),
+      ok: chapters.some((chapter) => chapter.tab === tab && !chapter.before),
       what: `Shows it in the ${tab}`,
     });
   // The player reads clips in ranges.

@@ -69,7 +69,7 @@ export function presentationGuide(baseBranch: string): string {
   return `Presentation: every pull request gets one, instead of screenshots. It is your screen, recorded, with your words over it, like a colleague presenting their pull request in a few minutes: the owner sees it work instead of reading the code. You write a plan; the recorder plays it in a real browser and records it. Yarrow voices your words after the review, in English, and adds who wrote and reviewed it.
 - Chapters, in this order:
   1. The ask (tab "ticket"): what the pull request is about, in a sentence or two.
-  2. Before (tab "app" with "app": "before", or tab "terminal"), when there is something to see: the bug happening, the screen as it was. Leave it out for something new.
+  2. Before (tab "app" with "app": "before", or tab "terminal" with "before": true), when there is something to see: the bug happening, the screen as it was. Leave it out for something new.
   3. One chapter per thing the ticket asks (its Done-when criteria, or what it asks when it lists none), showing it work: in the app (tab "app"), or run for real (tab "terminal": the API call with curl, the command, the test that proves it). A risky change also shows what must still be refused or fail.
   4. Checked (tab "ticket", "checked": true): what holds and, plainly, what you could not verify.
   Two or three chapters for a small change, up to ten for a large one. When the app does not run: terminal and ticket chapters only. Never fake a screen.
