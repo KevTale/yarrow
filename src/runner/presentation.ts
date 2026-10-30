@@ -47,6 +47,7 @@ export const recordedSchema = z.object({
           .default(null)
           .transform((page) => page?.slice(0, 120) || null),
         before: z.boolean().default(false),
+        desktop: z.boolean().default(false),
         say: clipped(2000),
         clip: z.string().min(1),
         startMs: z.number().nonnegative(),
@@ -141,7 +142,7 @@ export async function publishPresentation(
     const videoKey = await store(
       chapter.clip,
       await deps.anthropic.download(clip.id),
-      "video/webm",
+      chapter.clip.endsWith(".mp4") ? "video/mp4" : "video/webm",
     );
     const say = lines[index]!;
     let audio: PresentationChapter["audio"] = null;
@@ -179,6 +180,7 @@ export async function publishPresentation(
       url: chapter.url,
       page: chapter.page,
       before: chapter.before,
+      desktop: chapter.desktop,
       say,
       video: {
         key: videoKey,

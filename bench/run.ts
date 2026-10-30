@@ -255,6 +255,16 @@ async function check(
     ok: chapters.at(-1)?.tab !== "ticket",
     what: "Ends on the change, not the ticket",
   });
+  // The app and its runs are filmed on the desktop, not as a page alone.
+  const filmable = chapters.filter((chapter) => chapter.tab !== "ticket");
+  checks.push({
+    ok:
+      filmable.length > 0 &&
+      filmable.every(
+        (chapter) => chapter.desktop || (chapter.video?.width ?? 0) < 600,
+      ),
+    what: "Filmed on the desktop",
+  });
   // The player reads clips in ranges.
   const clip = chapters.find((chapter) => chapter.video)?.video;
   if (clip) {

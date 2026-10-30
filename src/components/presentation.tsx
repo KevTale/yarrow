@@ -375,6 +375,8 @@ function Player({
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
   const kind = framed?.tab ?? "app";
+  // Filmed on the agent's desktop: its own windows, edge to edge.
+  const desktop = Boolean(framed?.desktop);
   const size = framed?.video ?? { width: 1280, height: 720 };
   const at = started ? elapsed : Infinity;
   const address = framed ? urlAt(framed, at) : null;
@@ -387,7 +389,7 @@ function Player({
     <div className="pv">
       <div className={`pv-screen ${full ? "full" : ""}`} ref={screen}>
         <div
-          className={`pv-view ${idle ? "idle" : ""}`}
+          className={`pv-view ${idle ? "idle" : ""} ${desktop ? "desktop" : ""}`}
           onPointerMove={(event) => {
             if (event.pointerType === "mouse") wake();
           }}
@@ -398,10 +400,10 @@ function Player({
           onFocus={wake}
         >
           <div
-            className={`pv-window ${kind} ${size.width < size.height ? "phone" : ""}`}
+            className={`pv-window ${desktop ? "desktop" : kind} ${size.width < size.height ? "phone" : ""}`}
             style={{ "--ratio": size.width / size.height } as CSSProperties}
           >
-            {kind !== "ticket" && (
+            {kind !== "ticket" && !desktop && (
               <div className="pv-chrome">
                 <span className="pv-lights" aria-hidden="true">
                   <i />
@@ -426,6 +428,7 @@ function Player({
               {!started && poster && <img src={poster} alt="" />}
             </div>
           </div>
+          {desktop && framed?.before && <em className="pv-before">Before</em>}
           <audio ref={audio} preload="auto" />
           <button
             type="button"

@@ -113,6 +113,7 @@ describe("chapter length", () => {
     url: null,
     page: null,
     before: false,
+    desktop: false,
     say: "One click, and the file downloads.",
     cues: [],
     marks: [],
@@ -143,6 +144,7 @@ describe("the window", () => {
     url: "localhost:3000/",
     page: null,
     before: false,
+    desktop: false,
     say: "So I click Doing.",
     video: null,
     audio: null,
@@ -380,6 +382,62 @@ describe("publishing a presentation", () => {
         { text: "Written by Claude Opus 5.5." },
       ],
     });
+  });
+
+  it("keeps a desktop film whole-screen and stored as mp4", async () => {
+    const filmed = {
+      ...recorded,
+      chapters: [
+        {
+          ...recorded.chapters[0]!,
+          tab: "app",
+          desktop: true,
+          clip: "presentation/a-01-filters.mp4",
+          startMs: 0,
+          width: 1440,
+          height: 900,
+        },
+      ],
+    };
+    const files: Record<string, Uint8Array> = {
+      "presentation.json": new TextEncoder().encode(JSON.stringify(filmed)),
+      "a-01-filters.mp4": new Uint8Array([1]),
+    };
+    const types = new Map<string, string | undefined>();
+    const objects = new Map<string, Uint8Array>();
+    const artifact = await publishPresentation(
+      {
+        anthropic: new ManagedAgentsClient("sk", (async (url: string) => {
+          if (url.includes("/v1/files?scope_id="))
+            return new Response(
+              JSON.stringify({
+                data: Object.keys(files).map((name) => ({
+                  id: `file_${name}`,
+                  filename: name,
+                })),
+              }),
+            );
+          const id = url.match(/\/files\/file_(.+)\/content$/)?.[1];
+          return new Response(files[id!] as BodyInit);
+        }) as typeof fetch),
+        evidence: {
+          put: async (key, data, options) => {
+            objects.set(key, data);
+            types.set(key, options?.httpMetadata?.contentType);
+          },
+        },
+        voice: null,
+      },
+      { runId: "r", sessionId: "s", closing: "" },
+    );
+    const timeline = JSON.parse(
+      new TextDecoder().decode(objects.get(artifact!.key)),
+    );
+    expect(timeline.chapters[0]).toMatchObject({
+      desktop: true,
+      video: { startMs: 0, width: 1440, height: 900 },
+    });
+    expect(types.get(timeline.chapters[0].video.key)).toBe("video/mp4");
   });
 
   it("is none when the session recorded none", async () => {

@@ -345,7 +345,8 @@ describe("run pipeline", async () => {
     });
     expect(run.ticket.body).toContain("@marie: Happens on Safari too.");
 
-    // An environment made before a host was added gets it, and keeps its own.
+    // An environment made before a host was added gets it, and keeps its
+    // own; the recorder's desktop packages too.
     const opened = calls.find(
       (call) =>
         call.method === "POST" && call.url.endsWith("/v1/environments/env_1"),
@@ -362,6 +363,7 @@ describe("run pipeline", async () => {
             "nodejs.org",
           ]),
         },
+        packages: { apt: expect.arrayContaining(["xvfb", "ffmpeg"]) },
       },
     });
 

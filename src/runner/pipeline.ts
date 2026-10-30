@@ -48,6 +48,7 @@ import type { MoveEvent } from "../core/tracker-moves";
 import {
   listCostCents,
   SANDBOX_HOSTS,
+  SANDBOX_PACKAGES,
   type ManagedAgentsClient,
 } from "./anthropic";
 import {
@@ -86,7 +87,7 @@ import {
 } from "./pull-request";
 
 /** Environments whose hosts this isolate already brought up to date. */
-const hostsChecked = new Set<string>();
+const setupChecked = new Set<string>();
 
 /** The recorder, uploaded once per isolate and mounted in every session. */
 let recorderFile: Promise<string> | null = null;
@@ -279,9 +280,9 @@ export class RunPipeline {
   /** The project's sandbox environment, created when secrets need allowed hosts. */
   private async environmentFor(context: RunContext): Promise<string> {
     if (context.secrets.length === 0 && !context.runConfig?.startCommand)
-      return this.withHosts(this.deps.defaultEnvironmentId);
+      return this.withSetup(this.deps.defaultEnvironmentId);
     if (context.runConfig?.anthropicEnvironmentId)
-      return this.withHosts(context.runConfig.anthropicEnvironmentId);
+      return this.withSetup(context.runConfig.anthropicEnvironmentId);
     const hosts = [
       ...new Set([
         ...SANDBOX_HOSTS,
@@ -299,16 +300,20 @@ export class RunPipeline {
   }
 
   /**
-   * Environments created before a host joined SANDBOX_HOSTS get it on their
-   * next run. A failure only warns: the run starts with the hosts it had.
+   * Environments created before a host joined SANDBOX_HOSTS (or a package
+   * SANDBOX_PACKAGES) get it on their next run. A failure only warns: the
+   * run starts with what it had.
    */
-  private async withHosts(environmentId: string): Promise<string> {
-    if (hostsChecked.has(environmentId)) return environmentId;
+  private async withSetup(environmentId: string): Promise<string> {
+    if (setupChecked.has(environmentId)) return environmentId;
     try {
-      await this.deps.anthropic.ensureHosts(environmentId, SANDBOX_HOSTS);
-      hostsChecked.add(environmentId);
+      await this.deps.anthropic.ensureSetup(environmentId, {
+        hosts: SANDBOX_HOSTS,
+        apt: SANDBOX_PACKAGES,
+      });
+      setupChecked.add(environmentId);
     } catch (error) {
-      console.warn("environment hosts:", (error as Error).message);
+      console.warn("environment setup:", (error as Error).message);
     }
     return environmentId;
   }

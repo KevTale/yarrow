@@ -39,6 +39,8 @@ export const presentationChapterSchema = z.object({
   page: z.string().max(120).nullable().default(null),
   /** The app as it was before the change. */
   before: z.boolean().default(false),
+  /** Filmed on the agent's desktop: the clip is the whole screen, windows and dock. */
+  desktop: z.boolean().default(false),
   say: z.string().max(2000),
   /** The clip, from startMs (the page loaded) for durationMs. */
   video: z

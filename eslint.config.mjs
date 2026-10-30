@@ -16,6 +16,8 @@ export default defineConfig([
     ".claude/skills/**",
     // The bench's app: its own project, pushed to the bench repositories.
     "bench/app/**",
+    // What bench runs and throwaway tests leave behind (gitignored).
+    "bench/reports/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

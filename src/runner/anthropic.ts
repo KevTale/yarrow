@@ -81,6 +81,27 @@ export const SANDBOX_HOSTS = [
   "fonts.gstatic.com",
 ];
 
+/**
+ * What the recorder's desktop runs on (src/runner/recorder/present.mjs): the
+ * virtual screen, its window manager and compositor, the pointer, the
+ * terminal, the film, a cursor and fonts. Installed with the environment, so a presentation
+ * does not wait on apt (the recorder installs what is missing otherwise).
+ */
+export const SANDBOX_PACKAGES = [
+  "xvfb",
+  "openbox",
+  "xdotool",
+  "wmctrl",
+  "xterm",
+  "x11-utils",
+  "ffmpeg",
+  "picom",
+  "dmz-cursor-theme",
+  "fonts-inter",
+  "fonts-jetbrains-mono",
+  "fonts-dejavu-core",
+];
+
 interface Environment {
   id: string;
   config: {
@@ -90,6 +111,7 @@ interface Environment {
       allow_package_managers?: boolean;
       allowed_hosts?: string[];
     };
+    packages?: { type?: string; apt?: string[] } & Record<string, unknown>;
   };
 }
 
@@ -143,13 +165,12 @@ export class ManagedAgentsClient {
   createEnvironment(input: {
     name: string;
     allowedHosts: string[];
-    packages?: Record<string, string[]>;
   }): Promise<{ id: string }> {
     return this.call("POST", "/environments", {
       name: input.name,
       config: {
         type: "cloud",
-        ...(input.packages ? { packages: input.packages } : {}),
+        packages: { apt: SANDBOX_PACKAGES },
         networking: {
           type: "limited",
           allow_package_managers: true,
@@ -160,29 +181,36 @@ export class ManagedAgentsClient {
   }
 
   /**
-   * Adds the hosts an environment lacks, keeping the ones it has (a
-   * project's secret hosts). New sessions get them; running ones keep theirs.
-   * True when the environment changed.
+   * Adds the hosts and apt packages an environment lacks, keeping what it
+   * has (a project's secret hosts, its own packages). New sessions get them;
+   * running ones keep theirs. True when the environment changed.
    */
-  async ensureHosts(environmentId: string, hosts: string[]): Promise<boolean> {
+  async ensureSetup(
+    environmentId: string,
+    wanted: { hosts: string[]; apt: string[] },
+  ): Promise<boolean> {
     const environment = await this.call<Environment>(
       "GET",
       `/environments/${environmentId}`,
     );
+    const config: Record<string, unknown> = { type: environment.config.type };
     const networking = environment.config.networking;
-    if (networking?.type !== "limited") return false;
-    const current = networking.allowed_hosts ?? [];
-    const missing = hosts.filter((host) => !current.includes(host));
-    if (missing.length === 0) return false;
-    await this.call("POST", `/environments/${environmentId}`, {
-      config: {
-        type: environment.config.type,
-        networking: {
+    if (networking?.type === "limited") {
+      const current = networking.allowed_hosts ?? [];
+      const missing = wanted.hosts.filter((host) => !current.includes(host));
+      if (missing.length > 0)
+        config.networking = {
           ...networking,
           allowed_hosts: [...current, ...missing],
-        },
-      },
-    });
+        };
+    }
+    const { type: _type, ...packages } = environment.config.packages ?? {};
+    const apt = packages.apt ?? [];
+    const lacking = wanted.apt.filter((name) => !apt.includes(name));
+    if (lacking.length > 0)
+      config.packages = { ...packages, apt: [...apt, ...lacking] };
+    if (!config.networking && !config.packages) return false;
+    await this.call("POST", `/environments/${environmentId}`, { config });
     return true;
   }
 
