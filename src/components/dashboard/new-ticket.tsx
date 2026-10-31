@@ -1,6 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, Github, Play, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useEffect, useRef, useState } from "react";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { JiraIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
@@ -8,6 +8,17 @@ import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
 
 type Board = { tracker: string; key: string; site: string };
+
+/** A ticket written for the builder, to read, change and send. */
+export type TicketDraft = { title: string; body: string };
+
+/**
+ * Opens the new ticket dialog in a project, filled in (what the agents
+ * noticed outside their ticket). Only the builder's dashboard provides it.
+ */
+export const DraftTicket = createContext<
+  ((projectId: string, draft: TicketDraft) => void) | null
+>(null);
 
 /** The dialog only opens on a click, so the browser is there to ask. */
 const shortcut = () =>
@@ -40,6 +51,7 @@ export function NewTicket({
   projectName,
   boards,
   start,
+  draft,
   onCreated,
   onClose,
 }: {
@@ -48,6 +60,8 @@ export function NewTicket({
   boards: Board[];
   /** Opened from In progress: starting is what the builder came for. */
   start: boolean;
+  /** Written already, from a pull request's notes. */
+  draft?: TicketDraft;
   onCreated: (key: string, started: boolean) => void;
   onClose: () => void;
 }) {
@@ -61,8 +75,8 @@ export function NewTicket({
       ? last
       : (jira[0]?.key ?? "github");
   });
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [title, setTitle] = useState(draft?.title ?? "");
+  const [body, setBody] = useState(draft?.body ?? "");
   const [pending, setPending] = useState<"start" | "create" | null>(null);
   const [error, setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);

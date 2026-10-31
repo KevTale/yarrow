@@ -41,7 +41,7 @@ import { longDate, shortDate } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
-import { NewTicket } from "./new-ticket";
+import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
 import { RowMenu } from "./row-menu";
 import { prefetchPullPanel } from "./pull-panel";
@@ -191,8 +191,13 @@ export function BuilderView({
   // The row opened in place ("projectId:key"), one at a time.
   const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
-  // The new ticket dialog, and whether it came from In progress.
-  const [composing, setComposing] = useState<{ start: boolean } | null>(null);
+  // The new ticket dialog, and whether it came from In progress; drafted
+  // from a pull request's notes, in that pull request's project.
+  const [composing, setComposing] = useState<{
+    start: boolean;
+    projectId?: string;
+    draft?: TicketDraft;
+  } | null>(null);
   // Done past two weeks, shown on demand.
   const [older, setOlder] = useState(false);
   const [source, setSource] = useState({ data, highlight, jira });
@@ -515,178 +520,194 @@ export function BuilderView({
   const shownProject =
     project ?? meta.projects.find((item) => item.id === currentId) ?? null;
   const toggle = (id: string) => setOpened(opened === id ? null : id);
+  // Every linked project loads in the background, To review's included.
+  const composeIn = composing?.projectId
+    ? (store[composing.projectId]?.project ?? null)
+    : project;
+  const draftTicket = (id: string, draft: TicketDraft) => {
+    setComposing({ start: false, projectId: id, draft });
+    // Not read yet: the dialog opens once it is.
+    if (!store[id]) void pull(id);
+  };
 
   return (
-    <div className="bd">
-      {jiraCard}
-      <div className="tix-head">
-        {!reviewing && project && (
-          <LogoPicker
-            name={project.name}
-            value={project.logoUrl}
-            removable={project.uploadedLogo}
-            onChange={(logo) => void changeLogo(logo)}
-            size="small"
+    <DraftTicket.Provider value={draftTicket}>
+      <div className="bd">
+        {jiraCard}
+        <div className="tix-head">
+          {!reviewing && project && (
+            <LogoPicker
+              name={project.name}
+              value={project.logoUrl}
+              removable={project.uploadedLogo}
+              onChange={(logo) => void changeLogo(logo)}
+              size="small"
+            />
+          )}
+          <ProjectSwitcher
+            projects={meta.projects}
+            current={shownProject}
+            reviewing={reviewing}
+            toReview={meta.review.length}
+            onProject={choose}
+            onReview={openReview}
           />
+          {!reviewing && shownProject && (
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: shownProject.id }}
+              className="bd-cog"
+              aria-label="Settings"
+              data-tip="Settings"
+            >
+              <Settings size={16} />
+            </Link>
+          )}
+          {!reviewing && project?.linked && (
+            <SearchField
+              fieldClassName="bd-search"
+              label="Search tickets"
+              hideLabel
+              placeholder="Search tickets"
+              value={query}
+              onValueChange={setQuery}
+            />
+          )}
+        </div>
+        {reviewing ? (
+          <ReviewList
+            rows={meta.review}
+            list={list}
+            opened={opened}
+            onOpen={toggle}
+            onChanged={() => void pull()}
+            folded={folded.includes("review")}
+            onFold={() => fold("review")}
+          />
+        ) : loading ? (
+          <BuilderSkeleton />
+        ) : (
+          project && (
+            <>
+              {waiting && (
+                <p className="bd-wait" role="status">
+                  Connecting <span className="mono">{waiting}</span>…
+                </p>
+              )}
+              {!project.linked ? (
+                <div className="bd-empty">
+                  <p className="muted">
+                    GitHub is not connected to this repository
+                  </p>
+                  <a className="go" href="/connect/github">
+                    <Github size={16} /> Connect GitHub
+                  </a>
+                </div>
+              ) : (
+                <>
+                  {live?.issues === null && (
+                    <p className="bd-note">
+                      GitHub did not answer: only the tickets already in Yarrow
+                      are listed.
+                    </p>
+                  )}
+                  {error && (
+                    <p className="feedback feedback-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <div
+                    className="tix-list"
+                    ref={list}
+                    style={refColumn(matches)}
+                  >
+                    {stages.map((stage) => {
+                      const shown = matches.filter(stage.test);
+                      // Stopped only when a ticket is there; searching shows
+                      // only the groups with a match.
+                      if ((stage.key === "stopped" || q) && shown.length === 0)
+                        return null;
+                      return (
+                        <TicketGroup
+                          key={stage.key}
+                          stage={stage.key}
+                          label={stage.label}
+                          count={shown.length}
+                          folded={!q && folded.includes(stage.key)}
+                          onFold={() => fold(stage.key)}
+                          onAdd={
+                            stage.add
+                              ? () =>
+                                  setComposing({ start: stage.add === "start" })
+                              : undefined
+                          }
+                        >
+                          {(stage.key === "done" && !q && !older
+                            ? shown.filter(
+                                (row) =>
+                                  Date.parse(row.updatedAt) >
+                                  Date.now() - RECENT_MS,
+                              )
+                            : shown
+                          ).map((row) => {
+                            const id = `${project.id}:${row.key}`;
+                            return (
+                              <TicketLine
+                                key={row.key}
+                                row={row}
+                                projectId={project.id}
+                                open={opened === id}
+                                onToggle={() => toggle(id)}
+                                fresh={fresh === row.key}
+                                onFreshEnd={() => setFresh(null)}
+                                act={act}
+                                onChanged={() => void pull()}
+                              />
+                            );
+                          })}
+                          {stage.key === "done" && !q && (
+                            <OlderToggle
+                              count={
+                                shown.filter(
+                                  (row) =>
+                                    Date.parse(row.updatedAt) <=
+                                    Date.now() - RECENT_MS,
+                                ).length
+                              }
+                              shown={older}
+                              onToggle={() => setOlder((value) => !value)}
+                            />
+                          )}
+                        </TicketGroup>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )
         )}
-        <ProjectSwitcher
-          projects={meta.projects}
-          current={shownProject}
-          reviewing={reviewing}
-          toReview={meta.review.length}
-          onProject={choose}
-          onReview={openReview}
-        />
-        {!reviewing && shownProject && (
-          <Link
-            to="/projects/$projectId"
-            params={{ projectId: shownProject.id }}
-            className="bd-cog"
-            aria-label="Settings"
-            data-tip="Settings"
-          >
-            <Settings size={16} />
-          </Link>
-        )}
-        {!reviewing && project?.linked && (
-          <SearchField
-            fieldClassName="bd-search"
-            label="Search tickets"
-            hideLabel
-            placeholder="Search tickets"
-            value={query}
-            onValueChange={setQuery}
+        {composing && composeIn && (
+          <NewTicket
+            projectId={composeIn.id}
+            projectName={composeIn.name}
+            boards={composeIn.boards}
+            start={composing.start}
+            draft={composing.draft}
+            onClose={() => setComposing(null)}
+            onCreated={(key, started) => {
+              setComposing(null);
+              setQuery("");
+              // Where it now stands, lit like a pasted ticket.
+              unfold(started ? "progress" : "todo");
+              setFresh(key);
+              issuesRead.delete(composeIn.id);
+              void pull(composeIn.id);
+            }}
           />
         )}
       </div>
-      {reviewing ? (
-        <ReviewList
-          rows={meta.review}
-          list={list}
-          opened={opened}
-          onOpen={toggle}
-          onChanged={() => void pull()}
-          folded={folded.includes("review")}
-          onFold={() => fold("review")}
-        />
-      ) : loading ? (
-        <BuilderSkeleton />
-      ) : (
-        project && (
-          <>
-            {waiting && (
-              <p className="bd-wait" role="status">
-                Connecting <span className="mono">{waiting}</span>…
-              </p>
-            )}
-            {!project.linked ? (
-              <div className="bd-empty">
-                <p className="muted">
-                  GitHub is not connected to this repository
-                </p>
-                <a className="go" href="/connect/github">
-                  <Github size={16} /> Connect GitHub
-                </a>
-              </div>
-            ) : (
-              <>
-                {live?.issues === null && (
-                  <p className="bd-note">
-                    GitHub did not answer: only the tickets already in Yarrow
-                    are listed.
-                  </p>
-                )}
-                {error && (
-                  <p className="feedback feedback-error" role="alert">
-                    {error}
-                  </p>
-                )}
-                <div className="tix-list" ref={list} style={refColumn(matches)}>
-                  {stages.map((stage) => {
-                    const shown = matches.filter(stage.test);
-                    // Stopped only when a ticket is there; searching shows
-                    // only the groups with a match.
-                    if ((stage.key === "stopped" || q) && shown.length === 0)
-                      return null;
-                    return (
-                      <TicketGroup
-                        key={stage.key}
-                        stage={stage.key}
-                        label={stage.label}
-                        count={shown.length}
-                        folded={!q && folded.includes(stage.key)}
-                        onFold={() => fold(stage.key)}
-                        onAdd={
-                          stage.add
-                            ? () =>
-                                setComposing({ start: stage.add === "start" })
-                            : undefined
-                        }
-                      >
-                        {(stage.key === "done" && !q && !older
-                          ? shown.filter(
-                              (row) =>
-                                Date.parse(row.updatedAt) >
-                                Date.now() - RECENT_MS,
-                            )
-                          : shown
-                        ).map((row) => {
-                          const id = `${project.id}:${row.key}`;
-                          return (
-                            <TicketLine
-                              key={row.key}
-                              row={row}
-                              projectId={project.id}
-                              open={opened === id}
-                              onToggle={() => toggle(id)}
-                              fresh={fresh === row.key}
-                              onFreshEnd={() => setFresh(null)}
-                              act={act}
-                              onChanged={() => void pull()}
-                            />
-                          );
-                        })}
-                        {stage.key === "done" && !q && (
-                          <OlderToggle
-                            count={
-                              shown.filter(
-                                (row) =>
-                                  Date.parse(row.updatedAt) <=
-                                  Date.now() - RECENT_MS,
-                              ).length
-                            }
-                            shown={older}
-                            onToggle={() => setOlder((value) => !value)}
-                          />
-                        )}
-                      </TicketGroup>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </>
-        )
-      )}
-      {composing && project && (
-        <NewTicket
-          projectId={project.id}
-          projectName={project.name}
-          boards={project.boards}
-          start={composing.start}
-          onClose={() => setComposing(null)}
-          onCreated={(key, started) => {
-            setComposing(null);
-            setQuery("");
-            // Where it now stands, lit like a pasted ticket.
-            unfold(started ? "progress" : "todo");
-            setFresh(key);
-            issuesRead.delete(project.id);
-            void pull(project.id);
-          }}
-        />
-      )}
-    </div>
+    </DraftTicket.Provider>
   );
 }
 

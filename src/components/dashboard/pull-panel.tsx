@@ -10,14 +10,23 @@ import {
   FileText,
   GitCommitHorizontal,
   Info,
+  Plus,
   ScanSearch,
   TriangleAlert,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
+import { checksLine, splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
@@ -30,6 +39,7 @@ import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
 import { timeAgo } from "@/components/ui";
+import { DraftTicket } from "./new-ticket";
 import { SponsorLink } from "./paid-by";
 import { shortSite } from "@/core/pr-card";
 
@@ -211,6 +221,8 @@ export function PullPanel({
           {presentation && <Presentation artifact={presentation} />}
           {panel.implementation && (
             <Implementation
+              projectId={projectId}
+              pullRequestUrl={pullRequest?.url ?? null}
               implementation={panel.implementation}
               legacyRisks={live?.risks ?? []}
               screens={panel.screens}
@@ -414,21 +426,33 @@ function workingText(panel: Panel): string | null {
 }
 
 /**
- * What the pull request does now, in the implementer's words: the summary,
- * what it ran and could not run, what the owner must act on, and what it
- * saw outside the ticket.
+ * What the pull request does now, in the implementer's words, read by a
+ * product manager as well as a developer: the summary, the checks folded
+ * into one line, what could not run and what the owner must act on, then
+ * what it noticed outside the ticket, each a ticket in one click. Each note
+ * shows its everyday words; the technical pointer sits under them.
  */
 function Implementation({
+  projectId,
+  pullRequestUrl,
   implementation,
   legacyRisks,
   screens,
 }: {
+  projectId: string;
+  pullRequestUrl: string | null;
   implementation: NonNullable<Panel["implementation"]>;
   /** Pull requests delivered before these were apart: their Risks. */
   legacyRisks: string[];
   screens: Panel["screens"];
 }) {
+  const draft = useContext(DraftTicket);
   const notes = implementation.legacy ? legacyRisks : [];
+  const watch = [
+    ...implementation.notVerified.map((line) => ({ kind: "n", line })),
+    ...notes.map((line) => ({ kind: "l", line })),
+    ...implementation.risks.map((line) => ({ kind: "r", line })),
+  ];
   return (
     <section className="pp-section">
       <h3>
@@ -442,56 +466,112 @@ function Implementation({
           screens={screens.filter((screen) => screen.kind !== "presentation")}
         />
       )}
-      <ul className="pp-list">
-        {implementation.verification.map((line) => (
-          <li key={`v${line}`}>
-            <CircleCheck size={15} className="ok" aria-hidden="true" />
-            <span>
-              <Rich text={line} />
-            </span>
-          </li>
-        ))}
-        {implementation.notVerified.map((line) => (
-          <li key={`n${line}`}>
-            <CircleDashed size={15} aria-label="Not run" />
-            <span>
-              <Rich text={line} />
-            </span>
-          </li>
-        ))}
-        {notes.map((line) => (
-          <li key={`l${line}`}>
-            <Eye size={15} aria-hidden="true" />
-            <span>
-              <Rich text={line} />
-            </span>
-          </li>
-        ))}
-        {implementation.risks.map((line) => (
-          <li key={`r${line}`} className="pp-risk">
-            <TriangleAlert size={15} className="warn" aria-hidden="true" />
-            <span>
-              <Rich text={line} />
-            </span>
-          </li>
-        ))}
-      </ul>
+      {implementation.verification.length > 0 && (
+        <Checks lines={implementation.verification} />
+      )}
+      {watch.length > 0 && (
+        <ul className="pp-list">
+          {watch.map(({ kind, line }) => (
+            <li
+              key={`${kind}${line}`}
+              className={kind === "r" ? "pp-risk" : ""}
+            >
+              {kind === "n" ? (
+                <CircleDashed size={15} aria-label="Not run" />
+              ) : kind === "l" ? (
+                <Eye size={15} aria-hidden="true" />
+              ) : (
+                <TriangleAlert size={15} className="warn" aria-hidden="true" />
+              )}
+              <Note line={line} />
+            </li>
+          ))}
+        </ul>
+      )}
       {implementation.spotted.length > 0 && (
         <div className="pp-spotted">
-          <h4>Spotted outside this ticket</h4>
+          <h4>Noticed along the way</h4>
           <ul className="pp-list">
             {implementation.spotted.map((line) => (
               <li key={line}>
                 <ScanSearch size={15} aria-hidden="true" />
-                <span>
-                  <Rich text={line} />
-                </span>
+                <Note line={line}>
+                  {draft && (
+                    <button
+                      type="button"
+                      className="pp-make"
+                      onClick={() =>
+                        draft(
+                          projectId,
+                          spottedTicket(
+                            line,
+                            implementation.by,
+                            pullRequestUrl,
+                          ),
+                        )
+                      }
+                    >
+                      <Plus size={13} aria-hidden="true" /> Make it a ticket
+                    </button>
+                  )}
+                </Note>
               </li>
             ))}
           </ul>
         </div>
       )}
     </section>
+  );
+}
+
+/** A note's everyday words, then, smaller, where it comes from in the code. */
+function Note({ line, children }: { line: string; children?: ReactNode }) {
+  const { plain, detail } = splitNote(line);
+  return (
+    <span className="pp-note">
+      <Rich text={plain} />
+      {detail && (
+        <small className="pp-detail">
+          <Rich text={detail} />
+        </small>
+      )}
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The checks run on the change, folded into one line ("Verified", then
+ * what they show); unfolded, each check as the agent ran it.
+ */
+function Checks({ lines }: { lines: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pp-checks">
+      <button
+        type="button"
+        className="pp-checks-btn"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <CircleCheck size={15} className="ok" aria-hidden="true" />
+        <span>
+          <strong>Verified</strong> {checksLine(lines)}
+        </span>
+        <ChevronRight size={14} className="pp-checks-chev" aria-hidden="true" />
+      </button>
+      {open && (
+        <ul className="pp-list pp-checks-list">
+          {lines.map((line) => (
+            <li key={line}>
+              <span>
+                <Rich text={line} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

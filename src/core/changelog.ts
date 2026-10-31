@@ -19,6 +19,28 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-22",
+    title: "Pull requests in plain words",
+    new: [
+      builders(
+        'What the agents noticed outside a ticket shows under "Noticed along the way", each with Make it a ticket: the new ticket opens written, ready to send.',
+      ),
+    ],
+    improved: [
+      builders(
+        "A pull request's summary and notes are written for whoever owns the product, the technical detail under each, smaller.",
+      ),
+      builders(
+        'The checks fold into one line, "Verified" and what they show; open it for each check as it ran.',
+      ),
+    ],
+    fixed: [
+      builders(
+        "On a phone, tickets keep their line and scroll sideways, and an opened ticket's text no longer runs past the screen.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-19",
     title: "Screenshots",
     new: [

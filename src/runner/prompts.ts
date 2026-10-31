@@ -38,13 +38,13 @@ PY`;
  * How result.json is written: the owner reads it in the pull request.
  * Sent with every task, so it applies without re-registering the agent.
  */
-export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. Its shape:
+export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". Its shape:
 {"status": "done" | "unclear" | "cannot_do", "summary": "...", "pr_summary": "...", "questions": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
-- summary: one to three short sentences on what changed and why, including any choice the ticket left open and why you made it. No file-by-file account, no command lines, no history of what you tried.
-- verification: at most three items, each "command → result" on one line, only for checks run on the final change.
-- not_verified: a check that matters but could not run here (a missing tool, no network), one line each, at most three. Empty when what matters ran.
-- risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each.
-- spotted: existing problems outside the ticket that you saw and left alone, one line each, at most three. Empty when none.
+- summary: one to three short sentences on what changed and why, including any choice the ticket left open and why you made it: what people using the app will see or can now do. Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried.
+- verification: at most three items, only for checks run on the final change, each on one line: what the check shows in a few everyday words, a colon, then the check as "command → result". Example: "Reload keeps the filter: Playwright, reload on /?status=doing → Doing still selected".
+- not_verified: a check that matters but could not run here (a missing tool, no network), one line each, at most three: what is unknown in everyday words, then " — " and the technical reason. Empty when what matters ran.
+- risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each, in everyday words, then " — " and the technical pointer when it helps.
+- spotted: existing problems outside the ticket that you saw and left alone, one line each, at most three. Each may become a ticket of its own, so it stands alone: what people would notice, in everyday words, then " — " and where it comes from in the code. Example: "Adding a task brings you back to All, even with a filter picked — POST /tasks redirects to /". Empty when none.
 - Say each thing once, in one field. Do not restate the ticket. Empty lists are normal.
 - For a correction: summary is only what this correction changed, one or two sentences. pr_summary is the whole pull request as it stands now, written as if it had been delivered at once, with no history of corrections. verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
 
@@ -258,7 +258,7 @@ Be pragmatic, not pedantic:
 - "nit": style and naming.
 Do not invent problems. A clean change gets an approving summary and no blocking comment.
 
-The summary goes in the pull request under "Review by" your name: one or two short sentences, your verdict and why. Do not restate the change or list what you could not run. Keep comments to what matters; at most three suggestions.
+The summary goes in the pull request under "Review by" your name: one or two short sentences, your verdict and why, in everyday words a product manager who does not read code understands. Do not restate the change or list what you could not run. Keep comments to what matters; at most three suggestions.
 
 Answer with JSON only, no prose and no code fence:
 {"summary": "one or two sentences for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}]}`;
