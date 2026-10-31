@@ -311,7 +311,7 @@ export function PullPanel({
                 </div>
                 {cinema && (
                   <aside className="pp-talk">
-                    <div className="pp-thread">{thread}</div>
+                    <div className="pp-talk-thread">{thread}</div>
                     {composer}
                   </aside>
                 )}

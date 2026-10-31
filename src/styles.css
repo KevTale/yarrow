@@ -8369,7 +8369,7 @@ html:has(.pp-stage:modal) {
   border-left: 1px solid var(--line);
   color: var(--secondary);
 }
-.pp-thread {
+.pp-talk-thread {
   display: grid;
   gap: 26px;
   align-content: start;
@@ -8404,7 +8404,7 @@ html:has(.pp-stage:modal) {
   .pp-talk {
     border-left: 0;
   }
-  .pp-thread {
+  .pp-talk-thread {
     padding: 18px 14px 22px;
   }
   .pp-talk > .pp-composer {
