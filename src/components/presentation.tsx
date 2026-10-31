@@ -66,8 +66,9 @@ function save(key: string, on: boolean) {
   }
 }
 
-// ←/→ move the player last used (or the first on the page) this far.
-const SKIP_MS = 5000;
+// ←/→ move the player last used (or the first on the page) this far: the
+// films are short.
+const SKIP_MS = 3000;
 let keyed: object | null = null;
 
 const clockTime = (ms: number) => {

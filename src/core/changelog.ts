@@ -23,9 +23,9 @@ export const changelog: ChangelogEntry[] = [
     title: "Cinema mode",
     new: [
       builders(
-        "Cinema mode: a pull request's presentation fills the window beside its summary, its review and the box to ask for a change.",
+        "Cinema mode: a pull request's presentation fills the window beside the conversation, the changes asked and the box to ask for one.",
       ),
-      builders("The arrow keys move a presentation five seconds back or on."),
+      builders("The arrow keys move a presentation three seconds back or on."),
     ],
     improved: [
       builders(
@@ -35,6 +35,9 @@ export const changelog: ChangelogEntry[] = [
     fixed: [
       builders(
         "A presentation no longer shows a page's text selected after the agent's first click.",
+      ),
+      builders(
+        "When a presentation's controls hide, its captions drop to the foot of the film instead of hanging over the app.",
       ),
     ],
   },

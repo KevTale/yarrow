@@ -8163,13 +8163,10 @@ body:has(.sb-dialog[open]) {
   padding-right: 0.45em;
   border-radius: 0 4px 4px 0;
 }
-/* Resting, under the window: the controls are gone. */
+/* Resting, low on the film (under the window drawn, or near a desktop's
+   bottom edge, its dock on the left): the controls are gone. */
 .pv-view.idle .pv-caption {
   transform: translateY(calc(var(--pv-controls) + 8px - 1.5cqw));
-}
-/* Over a desktop, above its dock. */
-.pv-view.idle.desktop .pv-caption {
-  transform: translateY(calc(var(--pv-controls) + 8px - 10.5cqh));
 }
 .pv-controls {
   position: relative;

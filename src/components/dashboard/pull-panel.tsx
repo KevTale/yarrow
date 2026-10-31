@@ -231,30 +231,14 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  const thread = (
-    <>
-      {panel.implementation && (
-        <Summary
-          implementation={panel.implementation}
-          screens={panel.screens}
-        />
-      )}
-
-      <Review
-        implementation={panel.implementation}
-        review={panel.review}
-        legacyRisks={live?.risks ?? []}
-      />
-
-      {panel.corrections.length > 0 && (
-        <ChangesAsked
-          // A new change asked opens alone, the others shut.
-          key={panel.corrections.length}
-          corrections={panel.corrections}
-          working={workingText(panel)}
-        />
-      )}
-    </>
+  // The conversation: the changes asked, then the box to ask for another.
+  const thread = panel.corrections.length > 0 && (
+    <ChangesAsked
+      // A new change asked opens alone, the others shut.
+      key={panel.corrections.length}
+      corrections={panel.corrections}
+      working={workingText(panel)}
+    />
   );
   const composer = open && pullRequest && (
     <Composer
@@ -318,6 +302,19 @@ export function PullPanel({
               </dialog>
             </>
           )}
+          {panel.implementation && (
+            <Summary
+              implementation={panel.implementation}
+              screens={panel.screens}
+            />
+          )}
+
+          <Review
+            implementation={panel.implementation}
+            review={panel.review}
+            legacyRisks={live?.risks ?? []}
+          />
+
           {thread}
           {composer}
         </div>
