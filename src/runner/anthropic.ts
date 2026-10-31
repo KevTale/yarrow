@@ -83,9 +83,9 @@ export const SANDBOX_HOSTS = [
 
 /**
  * What the recorder's desktop runs on (src/runner/recorder/present.mjs): the
- * virtual screen, its window manager and compositor, the pointer, the
- * terminal, the film, a cursor and fonts. Installed with the environment, so a presentation
- * does not wait on apt (the recorder installs what is missing otherwise).
+ * virtual screen, its window manager, the pointer, the terminal, the film, a
+ * cursor and fonts. Installed with the environment, so a presentation does
+ * not wait on apt (the recorder installs what is missing otherwise).
  */
 export const SANDBOX_PACKAGES = [
   "xvfb",
@@ -95,7 +95,6 @@ export const SANDBOX_PACKAGES = [
   "xterm",
   "x11-utils",
   "ffmpeg",
-  "picom",
   "dmz-cursor-theme",
   "fonts-inter",
   "fonts-jetbrains-mono",

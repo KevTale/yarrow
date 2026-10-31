@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
   criterionMarkdown,
-  proofLabel,
   splitNote,
   spottedTicket,
 } from "../../src/core/pull-notes";
@@ -25,14 +24,14 @@ describe("pull request notes", () => {
     });
   });
 
-  it("ticks a criterion in the description with how it was shown", () => {
+  it("ticks a criterion in the description, why only when not met", () => {
     expect(
       criterionMarkdown({
         criterion: "A reload keeps the filter",
         status: "met",
         proof: "app",
       }),
-    ).toBe("- ✅ A reload keeps the filter _(in the app)_");
+    ).toBe("- ✅ A reload keeps the filter");
     expect(
       criterionMarkdown({
         criterion: "Works on a phone",
@@ -41,7 +40,6 @@ describe("pull request notes", () => {
         note: "no phone browser here",
       }),
     ).toBe("- ⬜ Works on a phone _(not checked: no phone browser here)_");
-    expect(proofLabel("none")).toBe("");
   });
 
   it("reads the agent's criteria without ever costing the run", () => {

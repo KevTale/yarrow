@@ -2,8 +2,8 @@
  * How a pull request's notes read for a product manager and a developer at
  * once. The agents write each note in everyday words first, then, after
  * " — ", where it comes from for a developer; what the ticket asks comes
- * as acceptance criteria, ticked with how each was shown. Notes written
- * before (one technical line) still read.
+ * as acceptance criteria, ticked. Notes written before (one technical
+ * line) still read.
  */
 
 import type { Criterion } from "./contracts";
@@ -19,31 +19,21 @@ export function splitNote(line: string): { plain: string; detail: string } {
   };
 }
 
-/** How a criterion was shown, as its tag reads: "in the app". */
-export function proofLabel(proof: Criterion["proof"]): string {
-  switch (proof) {
-    case "app":
-      return "in the app";
-    case "test":
-      return "by a test";
-    case "request":
-      return "by a request";
-    default:
-      return "";
-  }
-}
-
-/** A criterion in the pull request's description, ticked as in Yarrow. */
+/**
+ * A criterion in the pull request's description, ticked as in Yarrow: how
+ * a met one was shown is the agents' business (decided 2026-10-23), why
+ * one is not met or not checked is the owner's.
+ */
 export function criterionMarkdown(item: Criterion): string {
   const mark =
     item.status === "met" ? "✅" : item.status === "unmet" ? "❌" : "⬜";
-  const how =
+  const why =
     item.status === "met"
-      ? proofLabel(item.proof)
+      ? ""
       : item.status === "unmet"
         ? `not met${item.note ? `: ${item.note}` : ""}`
         : `not checked${item.note ? `: ${item.note}` : ""}`;
-  return `- ${mark} ${item.criterion}${how ? ` _(${how})_` : ""}`;
+  return `- ${mark} ${item.criterion}${why ? ` _(${why})_` : ""}`;
 }
 
 /** A suggestion's first sentence, the title of the ticket made from it. */

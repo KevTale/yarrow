@@ -5,6 +5,7 @@ import {
   Minimize,
   Pause,
   Play,
+  RectangleHorizontal,
   RotateCcw,
   Volume2,
   VolumeX,
@@ -65,6 +66,10 @@ function save(key: string, on: boolean) {
   }
 }
 
+// ←/→ move the player last used (or the first on the page) this far.
+const SKIP_MS = 5000;
+let keyed: object | null = null;
+
 const clockTime = (ms: number) => {
   const seconds = Math.floor(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -113,7 +118,16 @@ function playClick(sound: Sound) {
  * address, the terminal, the ticket). The clip holds its last frame while
  * the voice finishes, and the voice waits for the clip.
  */
-export function Presentation({ artifact }: { artifact: StoredArtifact }) {
+export function Presentation({
+  artifact,
+  cinema = false,
+  onCinema,
+}: {
+  artifact: StoredArtifact;
+  /** Filling the window beside the conversation: the page offers it. */
+  cinema?: boolean;
+  onCinema?: () => void;
+}) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
     let live = true;
@@ -129,6 +143,8 @@ export function Presentation({ artifact }: { artifact: StoredArtifact }) {
     <Player
       timeline={timeline}
       poster={artifact.poster ? evidence(artifact.poster) : null}
+      cinema={cinema}
+      onCinema={onCinema}
     />
   );
 }
@@ -136,11 +152,16 @@ export function Presentation({ artifact }: { artifact: StoredArtifact }) {
 function Player({
   timeline,
   poster,
+  cinema,
+  onCinema,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
+  cinema: boolean;
+  onCinema?: () => void;
 }) {
   const screen = useRef<HTMLDivElement>(null);
+  const me = useRef<object>({});
   const video = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const [index, setIndex] = useState(0);
@@ -304,6 +325,37 @@ function Player({
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  useEffect(() => {
+    const self = me.current;
+    keyed ??= self;
+    return () => {
+      if (keyed === self) keyed = null;
+    };
+  }, []);
+
+  // The arrows skip unless something else on the page takes them.
+  const skipping = useRef<(ms: number) => void>(() => {});
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      if (keyed !== me.current || event.defaultPrevented) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+        return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          "input, textarea, select, [contenteditable], [role=slider], [role=radiogroup], [role=menu], [role=listbox], [role=tablist]",
+        )
+      )
+        return;
+      event.preventDefault();
+      skipping.current(event.key === "ArrowLeft" ? -SKIP_MS : SKIP_MS);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(
     () => () => {
       video.current?.pause();
@@ -315,6 +367,7 @@ function Player({
   );
 
   const wake = () => {
+    keyed = me.current;
     setAwake(true);
     clearTimeout(rest.current);
     rest.current = window.setTimeout(() => setAwake(false), 2500);
@@ -342,7 +395,7 @@ function Player({
     setStarted(true);
     setPlaying((on) => !on);
   };
-  function jump(to: number, offset = 0) {
+  function jump(to: number, offset = 0, play = true) {
     wake();
     allowSound();
     from.current = Math.max(0, Math.min(offset, (lengths[to] ?? 0) - 250));
@@ -350,7 +403,7 @@ function Player({
     setStarted(true);
     setIndex(to);
     setTake((n) => n + 1);
-    setPlaying(true);
+    setPlaying(play);
   }
   const flipVoice = () =>
     setVoice((on) => {
@@ -373,6 +426,20 @@ function Player({
   const played =
     lengths.slice(0, index).reduce((sum, ms) => sum + ms, 0) +
     (finished ? length : Math.min(elapsed, length));
+  // Across chapters, playing or paused as it was.
+  const skip = (ms: number) => {
+    if (!timeline || !lengths.length) return;
+    let rest = Math.max(0, Math.min(total - 1, played + ms));
+    let to = 0;
+    while (to < lengths.length - 1 && rest >= lengths[to]!) {
+      rest -= lengths[to]!;
+      to++;
+    }
+    jump(to, rest, playing);
+  };
+  useEffect(() => {
+    skipping.current = skip;
+  });
   const idle = playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
@@ -574,6 +641,17 @@ function Player({
                       ) : (
                         <VolumeX size={18} aria-hidden="true" />
                       )}
+                    </button>
+                  )}
+                  {onCinema && !full && (
+                    <button
+                      type="button"
+                      className="pv-icon"
+                      onClick={onCinema}
+                      aria-pressed={cinema}
+                      aria-label={cinema ? "Exit cinema mode" : "Cinema mode"}
+                    >
+                      <RectangleHorizontal size={18} aria-hidden="true" />
                     </button>
                   )}
                   {document.fullscreenEnabled && (

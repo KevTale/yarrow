@@ -19,11 +19,31 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-23",
+    title: "Cinema mode",
+    new: [
+      builders(
+        "Cinema mode: a pull request's presentation fills the window beside its summary, its review and the box to ask for a change.",
+      ),
+      builders("The arrow keys move a presentation five seconds back or on."),
+    ],
+    improved: [
+      builders(
+        "In a presentation the dock is a thin strip and each app takes the rest of the screen, with square corners.",
+      ),
+    ],
+    fixed: [
+      builders(
+        "A presentation no longer shows a page's text selected after the agent's first click.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-22",
     title: "Pull requests in plain words",
     new: [
       builders(
-        "Every pull request lists the ticket's acceptance criteria, each ticked with how it was shown: in the app, by a test or by a request.",
+        "Every pull request lists the ticket's acceptance criteria, each ticked once it was shown working.",
       ),
       builders(
         "What the agents noticed outside a ticket shows as a suggested ticket beside its pull request: one click and the new ticket opens written, ready to send.",

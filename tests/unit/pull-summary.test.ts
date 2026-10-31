@@ -61,7 +61,7 @@ describe("the pull request's summary", () => {
       ],
     });
     expect(block).toContain(
-      "## Acceptance criteria\n\n- ✅ truncate cuts at the length _(by a test)_\n- ⬜ Works with emoji _(not checked: no emoji in the fixtures)_",
+      "## Acceptance criteria\n\n- ✅ truncate cuts at the length\n- ⬜ Works with emoji _(not checked: no emoji in the fixtures)_",
     );
     expect(block.indexOf("## Acceptance criteria")).toBeLessThan(
       block.indexOf("## How it was verified"),

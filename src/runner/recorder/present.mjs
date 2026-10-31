@@ -848,16 +848,17 @@ async function record(browser, plan, chapter, index, take, state) {
 
 const SCREEN = { width: 1440, height: 900 };
 const DOCK_APPS = ["browser", "terminal"];
-// Upright on the left edge: at the bottom, under the player's controls,
-// its icons read as the player's buttons.
-const DOCK = { icon: 54, gap: 14, pad: 10, edge: 12 };
-// Each app fills the screen beside the dock, so it reads large on film.
-const BESIDE_DOCK = DOCK.edge + DOCK.icon + 2 * DOCK.pad + 12;
+// A thin strip down the left edge: at the bottom, under the player's
+// controls, its icons read as the player's buttons.
+const DOCK = { icon: 34, gap: 12, pad: 8 };
+const DOCK_WIDTH = DOCK.icon + 2 * DOCK.pad;
+// Each app fills the rest of the screen, its frame included, so it reads
+// large on film: no corners, no gaps.
 const FULL = {
-  x: BESIDE_DOCK,
-  y: 10,
-  width: SCREEN.width - BESIDE_DOCK - 10,
-  height: SCREEN.height - 20,
+  x: DOCK_WIDTH,
+  y: 0,
+  width: SCREEN.width - DOCK_WIDTH,
+  height: SCREEN.height,
 };
 const WINDOWS = { browser: FULL, terminal: FULL };
 // The browser and its pages a quarter larger, as a zoomed screen share:
@@ -883,7 +884,6 @@ const DESKTOP_TOOLS = {
   ffmpeg: "ffmpeg",
 };
 const DESKTOP_EXTRAS = [
-  "picom",
   "dmz-cursor-theme",
   "fonts-inter",
   "fonts-jetbrains-mono",
@@ -1091,7 +1091,10 @@ function openboxConfig() {
     '<font place="ActiveWindow"><name>Inter</name><size>10</size><weight>Normal</weight></font>' +
     '<font place="InactiveWindow"><name>Inter</name><size>10</size><weight>Normal</weight></font>' +
     "</theme><desktops><number>1</number></desktops>" +
-    "<margins><top>0</top><bottom>0</bottom><left>0</left><right>0</right></margins>" +
+    // A window maximized fills the screen beside the dock.
+    "<margins><top>0</top><bottom>0</bottom><left>" +
+    DOCK_WIDTH +
+    "</left><right>0</right></margins>" +
     "<mouse><dragThreshold>4</dragThreshold><doubleClickTime>300</doubleClickTime>" +
     press("Client") +
     '<context name="Titlebar"><mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind><mousebind button="Left" action="Drag"><action name="Move"/></mousebind></context>' +
@@ -1103,21 +1106,6 @@ function openboxConfig() {
     "</applications></openbox_config>\n"
   );
 }
-
-// Rounded corners and a soft shadow under each window; the desktop page
-// itself stays flat, edge to edge.
-const PICOM = `backend = "xrender";
-vsync = false;
-fading = false;
-corner-radius = 12;
-rounded-corners-exclude = [ "name = 'Yarrow desktop'", "class_g = 'YarrowDesktop'", "window_type = 'tooltip'", "window_type = 'menu'", "window_type = 'dropdown_menu'", "window_type = 'popup_menu'" ];
-shadow = true;
-shadow-radius = 36;
-shadow-opacity = 0.34;
-shadow-offset-x = -36;
-shadow-offset-y = -26;
-shadow-exclude = [ "name = 'Yarrow desktop'", "class_g = 'YarrowDesktop'" ];
-`;
 
 // Inter for the interface, a programmer's font in the terminal; the
 // sandbox's own fonts after them.
@@ -1176,22 +1164,20 @@ const GLOBE =
 const PROMPT =
   '<svg viewBox="0 0 54 54"><defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2f36"/><stop offset="1" stop-color="#15171a"/></linearGradient></defs><rect width="54" height="54" rx="13" fill="url(#t)"/><rect x=".5" y=".5" width="53" height="53" rx="12.5" fill="none" stroke="rgba(255,255,255,.14)"/><path d="M15 19l8 7-8 7" fill="none" stroke="#e8e9ec" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M27 34h12" stroke="#f2b544" stroke-width="3" stroke-linecap="round"/></svg>';
 
-/** Where the dock and its icons are on the screen. */
+/** Where the dock and its icons are on the screen: the strip, its icons in the middle. */
 function dockLayout() {
   const count = DOCK_APPS.length;
-  const width = DOCK.icon + 2 * DOCK.pad;
-  const height = count * DOCK.icon + (count - 1) * DOCK.gap + 2 * DOCK.pad;
-  const left = DOCK.edge;
-  const top = Math.round((SCREEN.height - height) / 2);
+  const group = count * DOCK.icon + (count - 1) * DOCK.gap;
+  const top = Math.round((SCREEN.height - group) / 2);
   return {
-    left,
-    top,
-    width,
-    height,
+    left: 0,
+    top: 0,
+    width: DOCK_WIDTH,
+    height: SCREEN.height,
     icons: DOCK_APPS.map((app, i) => ({
       app,
-      x: left + DOCK.pad,
-      y: top + DOCK.pad + i * (DOCK.icon + DOCK.gap),
+      x: DOCK.pad,
+      y: top + i * (DOCK.icon + DOCK.gap),
       size: DOCK.icon,
     })),
   };
@@ -1233,18 +1219,18 @@ function desktopPage() {
     dock.width +
     "px;height:" +
     dock.height +
-    "px;border-radius:22px;background:rgba(34,36,42,.5);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 12px 32px rgba(0,0,0,.4);backdrop-filter:blur(24px) saturate(140%)}" +
+    "px;background:#121317;box-shadow:inset -1px 0 0 rgba(255,255,255,.07)}" +
     ".app{position:absolute;width:" +
     DOCK.icon +
     "px;height:" +
     DOCK.icon +
     "px;padding:0;border:0;background:none;cursor:default}" +
-    ".app svg{display:block;width:100%;height:100%;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));transition:transform .15s ease,filter .1s}" +
-    ".app:hover svg{transform:translateX(2px)}.app:active svg{filter:brightness(.8)}" +
-    ".app i{position:absolute;top:50%;left:-7px;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:rgba(255,255,255,.8);opacity:0;transition:opacity .3s}" +
+    ".app svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));transition:transform .15s ease,filter .1s}" +
+    ".app:hover svg{transform:translateX(1px)}.app:active svg{filter:brightness(.8)}" +
+    ".app i{position:absolute;top:50%;left:-6px;width:3px;height:3px;margin-top:-1.5px;border-radius:50%;background:rgba(255,255,255,.8);opacity:0;transition:opacity .3s}" +
     ".app.on i{opacity:1}" +
     ".app.hop svg{animation:hop .55s cubic-bezier(.3,.7,.4,1)}" +
-    "@keyframes hop{35%{transform:translateX(10px)}65%{transform:none}82%{transform:translateX(3px)}}" +
+    "@keyframes hop{35%{transform:translateX(4px)}65%{transform:none}82%{transform:translateX(1px)}}" +
     '</style></head><body><div class="dock">' +
     icons +
     "</div><script>" +
@@ -1290,6 +1276,7 @@ class Desktop {
     this.known = new Set();
     this.typed = false;
     this.cwd = null;
+    this.focused = 0;
   }
 
   spawn(name, command, args, options = {}) {
@@ -1363,16 +1350,64 @@ class Desktop {
     }
   }
 
+  /**
+   * How the window manager sizes it: its frame's edges (openbox's title bar,
+   * a border: left, right, top, bottom) and the steps it grows by (a
+   * terminal grows a character at a time).
+   */
+  sizing(id) {
+    const found = { frame: [0, 0, 0, 0], step: [1, 1] };
+    try {
+      const listing = this.x("xprop", [
+        "-id",
+        "0x" + id.toString(16),
+        "_NET_FRAME_EXTENTS",
+        "WM_NORMAL_HINTS",
+      ]);
+      const edges = listing.match(/=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)/);
+      if (edges) found.frame = edges.slice(1).map(Number);
+      const step = listing.match(/resize increment: (\d+) by (\d+)/);
+      if (step) found.step = step.slice(1).map((n) => Math.max(1, Number(n)));
+    } catch {
+      // Not framed yet.
+    }
+    return found;
+  }
+
+  /**
+   * The window and its frame in the box (wmctrl sizes the window alone). A
+   * window that grows by steps (a terminal, a character at a time) would be
+   * rounded down, the window behind showing in the gap: it is maximized
+   * instead, into the screen beside the dock (openbox's margins).
+   */
   place(id, box) {
     const hex = "0x" + id.toString(16);
+    const { frame, step } = this.sizing(id);
+    const [left, right, top, bottom] = frame;
     try {
-      this.x("wmctrl", [
-        "-i",
-        "-r",
-        hex,
-        "-e",
-        "0," + box.x + "," + box.y + "," + box.width + "," + box.height,
-      ]);
+      if (step[0] > 1 || step[1] > 1)
+        this.x("wmctrl", [
+          "-i",
+          "-r",
+          hex,
+          "-b",
+          "add,maximized_vert,maximized_horz",
+        ]);
+      else
+        this.x("wmctrl", [
+          "-i",
+          "-r",
+          hex,
+          "-e",
+          "0," +
+            box.x +
+            "," +
+            box.y +
+            "," +
+            (box.width - left - right) +
+            "," +
+            (box.height - top - bottom),
+        ]);
     } catch {
       // openbox's rule placed it already.
     }
@@ -1449,21 +1484,6 @@ class Desktop {
         XDG_DATA_HOME: path.join(home, ".local/share"),
       },
     });
-    if (has("picom")) {
-      const picom = path.join(home, ".config/picom.conf");
-      fs.writeFileSync(picom, PICOM);
-      // The legacy xrender backend: the new one paints the cut corners of
-      // an opaque window (the terminal) black. A picom without it runs
-      // the new one.
-      const legacy = this.spawn("picom", "picom", [
-        "--legacy-backends",
-        "--config",
-        picom,
-      ]);
-      await sleep(600);
-      if (legacy.exitCode !== null)
-        this.spawn("picom", "picom", ["--config", picom]);
-    }
     await sleep(600);
 
     // The desktop page, and the dock's way to raise an app.
@@ -1650,7 +1670,8 @@ class Desktop {
         if (this.zero === null || zero < this.zero) this.zero = zero;
       }
     });
-    if (!(await until(() => this.zero !== null, 10000)))
+    // A busy sandbox can take more than ten seconds (seen once).
+    if (!(await until(() => this.zero !== null, 20000)))
       throw new Error("ffmpeg did not start filming");
   }
 
@@ -1744,12 +1765,19 @@ class Desktop {
     if (!spot) return;
     const at = { ...this.pointer };
     const aim = await this.screenOf(page, spot[0], spot[1]);
+    // The window's tabs share the spot: two clicks there in half a second
+    // made a double click, and the page showed text selected on film.
+    await sleep(Math.max(0, this.focused + 600 - Date.now()));
     this.x("xdotool", [
       "mousemove",
       String(Math.round(aim.x)),
       String(Math.round(aim.y)),
     ]);
     await this.click();
+    this.focused = Date.now();
+    await page
+      .evaluate(() => window.getSelection()?.removeAllRanges())
+      .catch(() => {});
     this.x("xdotool", ["mousemove", String(at.x), String(at.y)]);
     await sleep(150);
   }

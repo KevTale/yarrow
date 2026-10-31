@@ -15,11 +15,18 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
-import { proofLabel, splitNote, spottedTicket } from "@/core/pull-notes";
+import { splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
@@ -195,6 +202,23 @@ export function PullPanel({
     return () => clearInterval(timer);
   }, [busy, refresh]);
 
+  // Cinema: the film fills the window beside the conversation, the page
+  // under it held where it was. The draft is the same in both.
+  const [cinema, setCinema] = useState(false);
+  const [slot, setSlot] = useState(0);
+  const [draft, setDraft] = useState("");
+  const theater = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => {
+    const dialog = theater.current;
+    if (!dialog) return;
+    if (cinema && !dialog.open) dialog.showModal();
+    if (!cinema && dialog.open) dialog.close();
+  }, [cinema]);
+  const flipCinema = () => {
+    if (!cinema) setSlot(theater.current?.offsetHeight ?? 0);
+    setCinema(!cinema);
+  };
+
   if (panel === undefined) return <PanelSkeleton />;
   if (panel === null)
     return <p className="pp pp-none muted">Nothing to show for this ticket</p>;
@@ -207,64 +231,95 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
+  const thread = (
+    <>
+      {panel.implementation && (
+        <Summary
+          implementation={panel.implementation}
+          screens={panel.screens}
+        />
+      )}
+
+      <Review
+        implementation={panel.implementation}
+        review={panel.review}
+        legacyRisks={live?.risks ?? []}
+      />
+
+      {panel.corrections.length > 0 && (
+        <ChangesAsked
+          // A new change asked opens alone, the others shut.
+          key={panel.corrections.length}
+          corrections={panel.corrections}
+          working={workingText(panel)}
+        />
+      )}
+    </>
+  );
+  const composer = open && pullRequest && (
+    <Composer
+      projectId={projectId}
+      rowKey={rowKey}
+      text={draft}
+      onText={setDraft}
+      onSending={(instruction) =>
+        setPanel((shown) =>
+          shown
+            ? {
+                ...shown,
+                corrections: [
+                  ...shown.corrections,
+                  {
+                    instruction,
+                    requestedBy: "You",
+                    askedAt: new Date().toISOString(),
+                    status: "queued",
+                    summary: null,
+                    approved: null,
+                  },
+                ],
+              }
+            : shown,
+        )
+      }
+      onSent={() => {
+        void refresh();
+        onChanged();
+      }}
+      onFailed={() => void refresh()}
+    />
+  );
   return (
     <div className="pp">
       <div className="pp-grid">
         <div className="pp-main">
-          {presentation && <Presentation artifact={presentation} />}
-          {panel.implementation && (
-            <Summary
-              implementation={panel.implementation}
-              screens={panel.screens}
-            />
+          {presentation && (
+            <>
+              {cinema && <div style={{ height: slot }} />}
+              <dialog
+                ref={theater}
+                className="pp-stage"
+                aria-label="Cinema mode"
+                onClose={() => setCinema(false)}
+              >
+                <div className="pp-film">
+                  <Presentation
+                    artifact={presentation}
+                    cinema={cinema}
+                    onCinema={flipCinema}
+                  />
+                </div>
+                {cinema && (
+                  <aside className="pp-talk">
+                    <div className="pp-thread">{thread}</div>
+                    {composer}
+                  </aside>
+                )}
+              </dialog>
+            </>
           )}
-
-          <Review
-            implementation={panel.implementation}
-            review={panel.review}
-            legacyRisks={live?.risks ?? []}
-          />
-
-          {panel.corrections.length > 0 && (
-            <ChangesAsked
-              // A new change asked opens alone, the others shut.
-              key={panel.corrections.length}
-              corrections={panel.corrections}
-              working={workingText(panel)}
-            />
-          )}
-
-          {open && pullRequest && (
-            <Composer
-              projectId={projectId}
-              rowKey={rowKey}
-              onSending={(instruction) =>
-                setPanel((shown) =>
-                  shown
-                    ? {
-                        ...shown,
-                        corrections: [
-                          ...shown.corrections,
-                          {
-                            instruction,
-                            requestedBy: "You",
-                            askedAt: new Date().toISOString(),
-                            status: "queued",
-                            summary: null,
-                            approved: null,
-                          },
-                        ],
-                      }
-                    : shown,
-                )
-              }
-              onSent={() => {
-                void refresh();
-                onChanged();
-              }}
-              onFailed={() => void refresh()}
-            />
-          )}
+          {thread}
+          {composer}
         </div>
 
         <aside className="pp-aside">
@@ -468,7 +523,6 @@ function Review({
       {criteria.length + checks.length > 0 && (
         <ul className="pp-list pp-checked">
           {criteria.map((item) => {
-            const proof = item.status === "met" ? proofLabel(item.proof) : "";
             return (
               <li key={`a${item.criterion}`}>
                 {item.status === "met" ? (
@@ -487,7 +541,6 @@ function Review({
                     </small>
                   )}
                 </span>
-                {proof && <span className="pp-proof">{proof}</span>}
               </li>
             );
           })}
@@ -794,19 +847,22 @@ function ChangesAsked({
 function Composer({
   projectId,
   rowKey,
+  text,
+  onText: setText,
   onSending,
   onSent,
   onFailed,
 }: {
   projectId: string;
   rowKey: string;
+  text: string;
+  onText: (text: string) => void;
   /** The change shows in the thread before GitHub answers. */
   onSending: (instruction: string) => void;
   onSent: () => void;
   onFailed: () => void;
 }) {
   const send = useServerFn(requestChangeFn);
-  const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
