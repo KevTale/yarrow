@@ -220,9 +220,7 @@ export function PullPanel({
         <div className="pp-main">
           {presentation && <Presentation artifact={presentation} />}
           {panel.implementation && (
-            <Implementation
-              projectId={projectId}
-              pullRequestUrl={pullRequest?.url ?? null}
+            <Summary
               implementation={panel.implementation}
               legacyRisks={live?.risks ?? []}
               screens={panel.screens}
@@ -232,7 +230,7 @@ export function PullPanel({
           {panel.review && (
             <section className="pp-section">
               <h3>
-                Review <span>by {panel.review.by}</span>
+                Review
                 <em className={panel.review.approved ? "ok" : "warn"}>
                   {panel.review.approved ? "Approved" : "Changes requested"}
                 </em>
@@ -345,6 +343,20 @@ export function PullPanel({
               }
             />
           )}
+
+          {panel.implementation &&
+            panel.implementation.verification.length > 0 && (
+              <Checks lines={panel.implementation.verification} />
+            )}
+
+          {panel.implementation && panel.implementation.spotted.length > 0 && (
+            <Suggested
+              projectId={projectId}
+              pullRequestUrl={pullRequest?.url ?? null}
+              by={panel.implementation.by}
+              lines={panel.implementation.spotted}
+            />
+          )}
         </aside>
       </div>
 
@@ -427,26 +439,21 @@ function workingText(panel: Panel): string | null {
 
 /**
  * What the pull request does now, in the implementer's words, read by a
- * product manager as well as a developer: the summary, the checks folded
- * into one line, what could not run and what the owner must act on, then
- * what it noticed outside the ticket, each a ticket in one click. Each note
- * shows its everyday words; the technical pointer sits under them.
+ * product manager as well as a developer: the summary, then what could not
+ * run and what the owner must act on, each note's everyday words with its
+ * technical pointer under them. The checks and the suggested tickets sit in
+ * the sidebar.
  */
-function Implementation({
-  projectId,
-  pullRequestUrl,
+function Summary({
   implementation,
   legacyRisks,
   screens,
 }: {
-  projectId: string;
-  pullRequestUrl: string | null;
   implementation: NonNullable<Panel["implementation"]>;
   /** Pull requests delivered before these were apart: their Risks. */
   legacyRisks: string[];
   screens: Panel["screens"];
 }) {
-  const draft = useContext(DraftTicket);
   const notes = implementation.legacy ? legacyRisks : [];
   const watch = [
     ...implementation.notVerified.map((line) => ({ kind: "n", line })),
@@ -455,9 +462,7 @@ function Implementation({
   ];
   return (
     <section className="pp-section">
-      <h3>
-        Implementation <span>by {implementation.by}</span>
-      </h3>
+      <h3>Summary</h3>
       <p className="pp-text">
         <Rich text={implementation.summary} />
       </p>
@@ -465,9 +470,6 @@ function Implementation({
         <Screens
           screens={screens.filter((screen) => screen.kind !== "presentation")}
         />
-      )}
-      {implementation.verification.length > 0 && (
-        <Checks lines={implementation.verification} />
       )}
       {watch.length > 0 && (
         <ul className="pp-list">
@@ -488,39 +490,51 @@ function Implementation({
           ))}
         </ul>
       )}
-      {implementation.spotted.length > 0 && (
-        <div className="pp-spotted">
-          <h4>Noticed along the way</h4>
-          <ul className="pp-list">
-            {implementation.spotted.map((line) => (
-              <li key={line}>
-                <ScanSearch size={15} aria-hidden="true" />
-                <Note line={line}>
-                  {draft && (
-                    <button
-                      type="button"
-                      className="pp-make"
-                      onClick={() =>
-                        draft(
-                          projectId,
-                          spottedTicket(
-                            line,
-                            implementation.by,
-                            pullRequestUrl,
-                          ),
-                        )
-                      }
-                    >
-                      <Plus size={13} aria-hidden="true" /> Make it a ticket
-                    </button>
-                  )}
-                </Note>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
+  );
+}
+
+/**
+ * What the agents noticed outside the ticket and left alone, in the
+ * sidebar: each a ticket to write in one click, its words drafted.
+ */
+function Suggested({
+  projectId,
+  pullRequestUrl,
+  by,
+  lines,
+}: {
+  projectId: string;
+  pullRequestUrl: string | null;
+  /** The implementer, named in the drafted ticket. */
+  by: string;
+  lines: string[];
+}) {
+  const draft = useContext(DraftTicket);
+  return (
+    <div className="pp-suggested">
+      <h4>{lines.length === 1 ? "Suggested ticket" : "Suggested tickets"}</h4>
+      <ul className="pp-list">
+        {lines.map((line) => (
+          <li key={line}>
+            <ScanSearch size={15} aria-hidden="true" />
+            <Note line={line}>
+              {draft && (
+                <button
+                  type="button"
+                  className="pp-make"
+                  onClick={() =>
+                    draft(projectId, spottedTicket(line, by, pullRequestUrl))
+                  }
+                >
+                  <Plus size={13} aria-hidden="true" /> Make it a ticket
+                </button>
+              )}
+            </Note>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

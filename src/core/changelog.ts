@@ -23,7 +23,7 @@ export const changelog: ChangelogEntry[] = [
     title: "Pull requests in plain words",
     new: [
       builders(
-        'What the agents noticed outside a ticket shows under "Noticed along the way", each with Make it a ticket: the new ticket opens written, ready to send.',
+        "What the agents noticed outside a ticket shows as a suggested ticket beside its pull request, with Make it a ticket: the new ticket opens written, ready to send.",
       ),
     ],
     improved: [

@@ -8500,12 +8500,12 @@ body:has(.sb-dialog[open]) {
 .pp-list li.pp-risk {
   color: var(--text);
 }
-.pp-spotted {
+/* The sidebar's foot: what was noticed outside the ticket, as tickets. */
+.pp-suggested {
   display: grid;
   gap: 8px;
-  margin-top: 4px;
 }
-.pp-spotted h4 {
+.pp-suggested h4 {
   margin: 0;
   font:
     500 13px var(--font-geist-sans),
@@ -9152,12 +9152,10 @@ a.pp-sponsor:focus-visible {
   .pp {
     padding: 4px 4px 22px;
   }
+  /* One column: what the change does first, the sidebar after it. */
   .pp-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
-  }
-  .pp-aside {
-    order: -1;
   }
 }
 
