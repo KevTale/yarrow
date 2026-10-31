@@ -109,6 +109,27 @@ const reduced = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** A row's place in the page from the layout alone: a slide under way is left out. */
+function layoutTop(element: HTMLElement): number {
+  let top = 0;
+  for (
+    let node: HTMLElement | null = element;
+    node;
+    node = node.offsetParent as HTMLElement | null
+  )
+    top += node.offsetTop;
+  return top;
+}
+
+/** Where each row stands in the list, by its key. */
+function positions(root: HTMLElement): Map<string, number> {
+  const base = layoutTop(root);
+  const tops = new Map<string, number>();
+  for (const row of root.querySelectorAll<HTMLElement>("[data-flip]"))
+    tops.set(row.dataset.flip!, layoutTop(row) - base);
+  return tops;
+}
+
 /**
  * Animates rows when the data moves: a row that changes place slides to it,
  * a new row fades in, a row whose value changed flashes. Rows carry
@@ -118,30 +139,39 @@ const reduced = () =>
  */
 export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
   const ref = useRef<T>(null);
-  const tops = useRef<Map<string, number> | null>(null);
   const values = useRef(new Map<string, string>());
   const seen = useRef<unknown>(data);
   const seenScope = useRef(scope);
+  // Where the rows stand right before new data lands, read while the page
+  // still shows them. Read at the last render instead, a ticket opened
+  // since (its panel loading), a font or a logo arriving had moved rows
+  // the list never saw move, and the next refresh slid them all.
+  const before = useRef<Map<string, number> | null>(null);
+  /* eslint-disable react-hooks/refs -- FLIP's first step: the layout before this commit */
+  if (ref.current && seen.current !== data && seenScope.current === scope)
+    before.current = positions(ref.current);
+  /* eslint-enable react-hooks/refs */
   useLayoutEffect(() => {
     const root = ref.current;
+    const from = before.current;
+    before.current = null;
     if (!root) return;
     const sameScope = seenScope.current === scope;
     if (!sameScope) values.current.clear();
-    const before = seen.current === data || !sameScope ? null : tops.current;
+    const moved = seen.current !== data && sameScope ? from : null;
     seen.current = data;
     seenScope.current = scope;
-    const now = new Map<string, number>();
     const motion = !reduced();
+    const now = positions(root);
     for (const row of root.querySelectorAll<HTMLElement>("[data-flip]")) {
       const key = row.dataset.flip!;
-      const top = row.offsetTop;
-      now.set(key, top);
+      const top = now.get(key)!;
       const value = row.dataset.flipValue;
       const previous = values.current.get(key);
       if (value !== undefined) values.current.set(key, value);
-      if (!before || !motion) continue;
-      const from = before.get(key);
-      if (from === undefined)
+      if (!moved || !motion) continue;
+      const was = moved.get(key);
+      if (was === undefined)
         row.animate(
           [
             { opacity: 0, transform: "translateY(-6px)" },
@@ -149,9 +179,9 @@ export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
           ],
           { duration: 450, easing: "ease-out" },
         );
-      else if (from !== top)
+      else if (was !== top)
         row.animate(
-          [{ transform: `translateY(${from - top}px)` }, { transform: "none" }],
+          [{ transform: `translateY(${was - top}px)` }, { transform: "none" }],
           { duration: 500, easing: "cubic-bezier(.2,.8,.2,1)" },
         );
       if (previous !== undefined && value !== undefined && previous !== value)
@@ -160,7 +190,6 @@ export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
           { duration: 1800, easing: "ease-out" },
         );
     }
-    tops.current = now;
   });
   return ref;
 }
