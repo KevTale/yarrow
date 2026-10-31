@@ -519,6 +519,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             details: {
               pullRequestSummary:
                 run.kind === "correction" ? snapshot.pr_summary : undefined,
+              criteria: snapshot.criteria,
               notVerified: snapshot.not_verified,
               risks: snapshot.risks,
               spotted: snapshot.spotted,

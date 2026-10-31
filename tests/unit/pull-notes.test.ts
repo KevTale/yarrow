@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
-  checkLabel,
-  splitCheck,
+  criterionMarkdown,
+  proofLabel,
   splitNote,
   spottedTicket,
 } from "../../src/core/pull-notes";
+import { implementationResultSchema } from "../../src/runner/prompts";
 
 describe("pull request notes", () => {
   it("splits a note's everyday words from its pointer", () => {
@@ -24,46 +25,52 @@ describe("pull request notes", () => {
     });
   });
 
-  it("reads a check's label, never a command", () => {
+  it("ticks a criterion in the description with how it was shown", () => {
     expect(
-      checkLabel(
-        "Reload keeps the filter: Playwright, reload on /?status=doing → Doing still selected",
-      ),
-    ).toBe("Reload keeps the filter");
-    // Seen on the bench (2026-10-22): a label a little past a few words.
+      criterionMarkdown({
+        criterion: "A reload keeps the filter",
+        status: "met",
+        proof: "app",
+      }),
+    ).toBe("- ✅ A reload keeps the filter _(in the app)_");
     expect(
-      checkLabel(
-        "Counts, filtering and the fallback to All are covered by tests: npm test → 7 passed",
-      ),
-    ).toBe("Counts, filtering and the fallback to All are covered by tests");
-    expect(checkLabel("npm test → 6 tests pass, 0 fail")).toBeNull();
-    expect(
-      checkLabel("curl /?status=doing: shows the 2 Doing tasks"),
-    ).toBeNull();
-    expect(
-      checkLabel(
-        `${"A label far too long to be a few words of plain English".repeat(2)}: x`,
-      ),
-    ).toBeNull();
+      criterionMarkdown({
+        criterion: "Works on a phone",
+        status: "unchecked",
+        proof: "none",
+        note: "no phone browser here",
+      }),
+    ).toBe("- ⬜ Works on a phone _(not checked: no phone browser here)_");
+    expect(proofLabel("none")).toBe("");
   });
 
-  it("lists a check by its label, the check as it ran under it", () => {
+  it("reads the agent's criteria without ever costing the run", () => {
+    const base = { status: "done", summary: "s" };
+    const parsed = implementationResultSchema.parse({
+      ...base,
+      criteria: [
+        { criterion: "Filters above the list", status: "met", proof: "app" },
+        // "met" with nothing shown is only unchecked.
+        { criterion: "All is the default", status: "met" },
+        { criterion: "Odd statuses", status: "maybe", proof: "eyes" },
+        { status: "met" },
+        "not an object",
+      ],
+    });
+    expect(parsed.criteria).toEqual([
+      { criterion: "Filters above the list", status: "met", proof: "app" },
+      { criterion: "All is the default", status: "unchecked", proof: "none" },
+      { criterion: "Odd statuses", status: "unchecked", proof: "none" },
+    ]);
     expect(
-      splitCheck("Reload keeps the filter: Playwright → Doing selected"),
-    ).toEqual({
-      label: "Reload keeps the filter",
-      detail: "Playwright → Doing selected",
-    });
-    // Written before checks had labels: listed as it was.
-    expect(splitCheck("npm test → 6 pass")).toEqual({
-      label: "npm test → 6 pass",
-      detail: "",
-    });
+      implementationResultSchema.parse({ ...base, criteria: "oops" }).criteria,
+    ).toEqual([]);
+    expect(implementationResultSchema.parse(base).criteria).toEqual([]);
   });
 
-  it("drafts a ticket from what was noticed, the pointer kept in its body", () => {
+  it("drafts a ticket from what was noticed, its first sentence the title", () => {
     const line =
-      "Adding a task brings you back to All. — `POST /tasks` redirects to `/`";
+      "Adding a task brings you back to All. Someone working through Doing loses their place. — `POST /tasks` redirects to `/`";
     expect(
       spottedTicket(
         line,

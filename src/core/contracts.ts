@@ -57,13 +57,28 @@ const artifactSchema = z.object({
 });
 
 /**
+ * One thing the ticket asks, as a product manager would tick it: met,
+ * unmet, or not checked here; how it was shown (seen in the running app,
+ * by an automated test, by a real request); why, when it is not met.
+ */
+export const criterionSchema = z.object({
+  criterion: z.string().min(1),
+  status: z.enum(["met", "unmet", "unchecked"]),
+  proof: z.enum(["app", "test", "request", "none"]).default("none"),
+  note: z.string().optional(),
+});
+export type Criterion = z.infer<typeof criterionSchema>;
+
+/**
  * What the implementer reported besides its summary, each in its place in
- * the builder's row: the checks it could not run, what the owner must act
- * on, what it saw outside the ticket. After a correction, the summary of
- * the whole pull request as it stands.
+ * the builder's row: the ticket's acceptance criteria, the checks it could
+ * not run, what the owner must act on, what it saw outside the ticket.
+ * After a correction, the summary of the whole pull request as it stands.
  */
 export const resultDetailsSchema = z.object({
   pullRequestSummary: z.string().optional(),
+  /** Absent on runs delivered before acceptance criteria (2026-10-22). */
+  criteria: z.array(criterionSchema).optional(),
   notVerified: z.array(z.string()).default([]),
   risks: z.array(z.string()).default([]),
   spotted: z.array(z.string()).default([]),

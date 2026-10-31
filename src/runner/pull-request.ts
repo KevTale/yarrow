@@ -3,7 +3,9 @@ import {
   pullRequestFooter,
   type RunSponsor,
 } from "../core/attribution";
+import type { Criterion } from "../core/contracts";
 import { correctionHint } from "../core/corrections";
+import { criterionMarkdown } from "../core/pull-notes";
 import { modelDisplayName, type PipelineRoles } from "../core/pipeline";
 import type { StoredReview } from "../core/review";
 
@@ -32,6 +34,8 @@ export function reviewSection(review: StoredReview): string {
 export interface PullRequestInput {
   ticket: { title: string; url: string; source: string; number?: number };
   summary: string;
+  /** What the ticket asks, ticked; none before acceptance criteria. */
+  criteria?: Criterion[];
   verification: string[];
   notVerified: string[];
   /** What the owner must act on: usually none. */
@@ -105,6 +109,11 @@ export function pullRequestBlock(
             : `**${item.label}**\n\n![${item.label}](${item.url})`,
         )
         .join("\n\n")}`,
+    );
+  const criteria = input.criteria ?? [];
+  if (criteria.length > 0)
+    sections.push(
+      `## Acceptance criteria\n\n${criteria.map(criterionMarkdown).join("\n")}`,
     );
   const shots = input.evidenceInYarrow;
   const verified = [

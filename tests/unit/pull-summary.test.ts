@@ -43,6 +43,32 @@ describe("the pull request's summary", () => {
     );
   });
 
+  it("ticks the acceptance criteria before how it was verified", () => {
+    const block = pullRequestBlock({
+      ...input,
+      criteria: [
+        {
+          criterion: "truncate cuts at the length",
+          status: "met",
+          proof: "test",
+        },
+        {
+          criterion: "Works with emoji",
+          status: "unchecked",
+          proof: "none",
+          note: "no emoji in the fixtures",
+        },
+      ],
+    });
+    expect(block).toContain(
+      "## Acceptance criteria\n\n- ✅ truncate cuts at the length _(by a test)_\n- ⬜ Works with emoji _(not checked: no emoji in the fixtures)_",
+    );
+    expect(block.indexOf("## Acceptance criteria")).toBeLessThan(
+      block.indexOf("## How it was verified"),
+    );
+    expect(pullRequestBlock(input)).not.toContain("## Acceptance criteria");
+  });
+
   it("shows a public project's screenshots, and only counts a private one's", () => {
     const shot = {
       kind: "screenshot" as const,

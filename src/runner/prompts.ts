@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { appRecipeSchema, type AppRecipe } from "../core/contracts";
+import {
+  appRecipeSchema,
+  type AppRecipe,
+  type Criterion,
+} from "../core/contracts";
 import { reviewSchema, type Review } from "../core/review";
 import { RECORDER_PATH } from "./presentation";
 import type { FileChange } from "../server/github/delivery";
@@ -39,14 +43,15 @@ PY`;
  * Sent with every task, so it applies without re-registering the agent.
  */
 export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". Its shape:
-{"status": "done" | "unclear" | "cannot_do", "summary": "...", "pr_summary": "...", "questions": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
+{"status": "done" | "unclear" | "cannot_do", "summary": "...", "pr_summary": "...", "questions": [], "criteria": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
 - summary: one to three short sentences on what changed and why, including any choice the ticket left open and why you made it: what people using the app will see or can now do. Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried.
-- verification: at most three items, only for checks run on the final change, each on one line: what the check shows in six everyday words at most, a colon, then the check as "command → result". Example: "Reload keeps the filter: Playwright, reload on /?status=doing → Doing still selected".
-- not_verified: a check that matters but could not run here (a missing tool, no network), one line each, at most three: what is unknown in everyday words, then " — " and the technical reason. Empty when what matters ran.
+- criteria: the ticket's acceptance criteria, as the product manager would tick them: one per thing the ticket asks, at most six, each {"criterion": "...", "status": "met" | "unmet" | "unchecked", "proof": "app" | "test" | "request" | "none", "note": "..."}. criterion is the behavior in everyday words ("A reload keeps the filter"), never a command. proof is how you saw it hold on the final change: "app" seen working in the running app (the presentation shows it), "test" an automated test checks it, "request" a real request shows it. "unchecked" when you could not check it here, with proof "none"; never "met" without a proof. note only when unchecked or unmet: why, in everyday words. Empty only when the ticket asks for no behavior (a refactor, a dependency bump).
+- verification: the automated checks run on the final change (tests, type check, build, lint), at most three, each "command → result" on one line. What the ticket asks goes in criteria, not here.
+- not_verified: a check that matters, is not one of the criteria and could not run here (a missing tool, no network), one line each, at most three: what is unknown in everyday words, then " — " and the technical reason. Empty when what matters ran.
 - risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each, in everyday words, then " — " and the technical pointer when it helps.
-- spotted: existing problems outside the ticket that you saw and left alone, one line each, at most three. Each may become a ticket of its own, so it stands alone: what people would notice, in everyday words, then " — " and where it comes from in the code. Example: "Adding a task brings you back to All, even with a filter picked — POST /tasks redirects to /". Empty when none.
+- spotted: existing problems outside the ticket that you saw and left alone, at most three, each one string. Each is offered to the owner as a ticket of its own, so it stands alone: two or three short sentences in everyday words, what happens, when, and why it matters to people using the app, the first sentence able to stand as the ticket's title; then " — " and where it comes from in the code, kept in the ticket for whoever takes it. Example: "Adding a task brings you back to All, even with a filter picked. Someone working through their Doing tasks loses their place each time they add one. — POST /tasks redirects to / without the status". Empty when none.
 - Say each thing once, in one field. Do not restate the ticket. Empty lists are normal.
-- For a correction: summary is only what this correction changed, one or two sentences. pr_summary is the whole pull request as it stands now, written as if it had been delivered at once, with no history of corrections. verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
+- For a correction: summary is only what this correction changed, one or two sentences. pr_summary is the whole pull request as it stands now, written as if it had been delivered at once, with no history of corrections. criteria, verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
 
 /**
  * What proves a change, and how the app gets running for it. Sent with every
@@ -257,6 +262,7 @@ Be pragmatic, not pedantic:
 - "suggestion": real improvements that are not required.
 - "nit": style and naming.
 Do not invent problems. A clean change gets an approving summary and no blocking comment.
+The implementer lists the ticket's acceptance criteria with how each was shown: a criterion marked met that the change does not deliver is blocking.
 
 The summary goes in the pull request under "Review by" your name: one or two short sentences, your verdict and why, in everyday words a product manager who does not read code understands. Do not restate the change or list what you could not run. Keep comments to what matters; at most three suggestions.
 
@@ -266,14 +272,20 @@ Answer with JSON only, no prose and no code fence:
 export function reviewTask(input: {
   ticket: TaskContext["ticket"];
   implementerSummary: string;
+  criteria?: Criterion[];
   verification: string[];
 }): string {
+  const criteria = (input.criteria ?? [])
+    .map((item) => `- ${item.criterion}: ${item.status}, ${item.proof}`)
+    .join("\n");
   return `Ticket: ${input.ticket.url}
 Title: ${input.ticket.title}
 
 ${input.ticket.body || "(no description)"}
 
 Implementer's summary: ${input.implementerSummary}
+Implementer's acceptance criteria (status, proof):
+${criteria || "(none reported)"}
 Implementer's verification: ${input.verification.join("; ") || "(none reported)"}
 
 Review the staged change and answer with the JSON format from your instructions.`;
@@ -325,11 +337,42 @@ const fewLines = z
       .slice(0, 3),
   );
 
+/**
+ * The ticket's acceptance criteria, at most six. A criterion that does not
+ * parse is dropped and a stray status or proof read as unchecked or none,
+ * so a malformed list never costs the run its change; "met" needs a proof.
+ */
+const criteria = z
+  .array(z.unknown())
+  .catch([])
+  .default([])
+  .transform((items) =>
+    items
+      .map((item) =>
+        z
+          .object({
+            criterion: z.string().trim().min(1),
+            status: z.enum(["met", "unmet", "unchecked"]).catch("unchecked"),
+            proof: z.enum(["app", "test", "request", "none"]).catch("none"),
+            note: z.string().trim().min(1).optional().catch(undefined),
+          })
+          .safeParse(item),
+      )
+      .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+      .map((item) =>
+        item.status === "met" && item.proof === "none"
+          ? { ...item, status: "unchecked" as const }
+          : item,
+      )
+      .slice(0, 6),
+  );
+
 export const implementationResultSchema = z.object({
   status: z.enum(["done", "unclear", "cannot_do"]),
   summary: z.string().default(""),
   pr_summary: z.string().trim().optional(),
   questions: z.array(z.string()).default([]),
+  criteria,
   verification: fewLines,
   not_verified: fewLines,
   risks: fewLines,

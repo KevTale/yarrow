@@ -23,15 +23,15 @@ export const changelog: ChangelogEntry[] = [
     title: "Pull requests in plain words",
     new: [
       builders(
-        "What the agents noticed outside a ticket shows as a suggested ticket beside its pull request, with Make it a ticket: the new ticket opens written, ready to send.",
+        "Every pull request lists the ticket's acceptance criteria, each ticked with how it was shown: in the app, by a test or by a request.",
+      ),
+      builders(
+        "What the agents noticed outside a ticket shows as a suggested ticket beside its pull request: one click and the new ticket opens written, ready to send.",
       ),
     ],
     improved: [
       builders(
-        "A pull request's summary and notes are written for whoever owns the product, the technical detail under each, smaller.",
-      ),
-      builders(
-        'The checks fold into one line, "Verified" and what they show; open it for each check as it ran.',
+        "A pull request's summary and notes are written for whoever owns the product; the automated checks sit under the review.",
       ),
     ],
     fixed: [

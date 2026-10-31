@@ -1,5 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
-import type { ResultDetails } from "../core/contracts";
+import type { Criterion, ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
 import {
   blockingComments,
@@ -41,6 +41,8 @@ export interface PanelCorrection {
 /** The pull request as it stands, after the corrections delivered so far. */
 export interface PullRequestNow {
   summary: string;
+  /** What the ticket asks, ticked; none before acceptance criteria. */
+  criteria: Criterion[];
   verification: string[];
   notVerified: string[];
   risks: string[];
@@ -72,6 +74,7 @@ export function pullRequestNow(runs: DeliveredRun[]): PullRequestNow | null {
     if (!summary || (run.kind === "correction" && !now)) continue;
     now = {
       summary,
+      criteria: run.details?.criteria ?? [],
       verification: run.evidence ?? [],
       notVerified: run.details?.notVerified ?? [],
       risks: run.details?.risks ?? [],
@@ -307,8 +310,7 @@ export async function pullPanel(
     screens:
       ([...runs]
         .reverse()
-        .find(
-          (run) => run.outcome === "pull_request" && run.artifacts?.length,
-        )?.artifacts as StoredArtifact[] | undefined) ?? [],
+        .find((run) => run.outcome === "pull_request" && run.artifacts?.length)
+        ?.artifacts as StoredArtifact[] | undefined) ?? [],
   };
 }

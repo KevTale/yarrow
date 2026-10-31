@@ -19,7 +19,8 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
-import { splitCheck, splitNote, spottedTicket } from "@/core/pull-notes";
+import type { Criterion } from "@/core/contracts";
+import { proofLabel, splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
@@ -220,7 +221,11 @@ export function PullPanel({
             />
           )}
 
-          {panel.review && (
+          {panel.implementation && panel.implementation.criteria.length > 0 && (
+            <Criteria items={panel.implementation.criteria} />
+          )}
+
+          {panel.review ? (
             <section className="pp-section">
               <h3>
                 Review
@@ -231,6 +236,7 @@ export function PullPanel({
               <p className="pp-text">
                 <Rich text={panel.review.summary} />
               </p>
+              <ChecksRun lines={panel.implementation?.verification ?? []} />
               {panel.review.suggestions.length > 0 && (
                 <ul className="pp-list">
                   {panel.review.suggestions.map((suggestion, i) => (
@@ -250,6 +256,13 @@ export function PullPanel({
                 </ul>
               )}
             </section>
+          ) : (
+            panel.implementation &&
+            panel.implementation.verification.length > 0 && (
+              <section className="pp-section">
+                <ChecksRun lines={panel.implementation.verification} />
+              </section>
+            )
           )}
 
           {panel.corrections.length > 0 && (
@@ -336,11 +349,6 @@ export function PullPanel({
               }
             />
           )}
-
-          {panel.implementation &&
-            panel.implementation.verification.length > 0 && (
-              <Checks lines={panel.implementation.verification} />
-            )}
 
           {panel.implementation && panel.implementation.spotted.length > 0 && (
             <Suggested
@@ -489,7 +497,8 @@ function Summary({
 
 /**
  * What the agents noticed outside the ticket and left alone, in the
- * sidebar: each a ticket to write in one click, its words drafted.
+ * sidebar: a row each in everyday words, the whole row a ticket to write,
+ * its words drafted (its technical pointer goes in the ticket, not here).
  */
 function Suggested({
   projectId,
@@ -513,31 +522,31 @@ function Suggested({
       </p>
       <ul className="pf-files">
         {lines.map((line) => {
-          const { plain, detail } = splitNote(line);
+          const { plain } = splitNote(line);
+          const ticket = spottedTicket(line, by, pullRequestUrl);
           return (
-            <li key={line} className="pf-note">
-              <span className="pf-row">
-                <ScanSearch size={13} aria-hidden="true" />
-                <span>
-                  <Rich text={plain} />
-                  {detail && (
-                    <small className="pp-detail">
-                      <Rich text={detail} />
-                    </small>
-                  )}
-                </span>
-              </span>
-              {draft && (
+            <li key={line}>
+              {draft ? (
                 <button
                   type="button"
-                  className="pf-file pf-more"
-                  onClick={() =>
-                    draft(projectId, spottedTicket(line, by, pullRequestUrl))
-                  }
+                  className="pf-row pf-suggest"
+                  aria-label={`Make it a ticket: ${ticket.title}`}
+                  data-tip="Make it a ticket"
+                  onClick={() => draft(projectId, ticket)}
                 >
-                  <Plus size={13} aria-hidden="true" />
-                  Make it a ticket
+                  <ScanSearch size={13} aria-hidden="true" />
+                  <span>
+                    <Rich text={plain} />
+                  </span>
+                  <Plus size={14} className="pf-add" aria-hidden="true" />
                 </button>
+              ) : (
+                <span className="pf-row pf-suggest">
+                  <ScanSearch size={13} aria-hidden="true" />
+                  <span>
+                    <Rich text={plain} />
+                  </span>
+                </span>
               )}
             </li>
           );
@@ -563,62 +572,64 @@ function Note({ line }: { line: string }) {
 }
 
 /**
- * The checks run on the change, in the sidebar as the files are: how many
- * passed over one line each, by what it shows; a line opens to the check
- * as it ran.
+ * What the ticket asks, as the product manager ticks it: met with how it
+ * was shown on the right (in the app, by a test, by a request), or not
+ * met, or not checked here, with why.
  */
-function Checks({ lines }: { lines: string[] }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set());
-  const checks = lines.map(splitCheck);
+function Criteria({ items }: { items: Criterion[] }) {
   return (
-    <section className="pf" aria-label="Verifications">
-      <p className="pf-head">
-        Verifications
-        <span className="pp-count">
-          <span className="add">{lines.length} passed</span>
-        </span>
-      </p>
-      <ul className="pf-files">
-        {checks.map((check) => {
-          const shown = open.has(check.label);
-          const content = (
-            <>
-              <Check size={13} className="pf-ok" aria-hidden="true" />
-              <span>
-                <Rich text={check.label} />
-                {shown && (
+    <section className="pp-section">
+      <h3>Acceptance criteria</h3>
+      <ul className="pp-list pp-criteria">
+        {items.map((item) => {
+          const proof = item.status === "met" ? proofLabel(item.proof) : "";
+          return (
+            <li key={item.criterion}>
+              {item.status === "met" ? (
+                <Check size={15} className="ok" aria-label="Met" />
+              ) : item.status === "unmet" ? (
+                <X size={15} className="bad" aria-label="Not met" />
+              ) : (
+                <CircleDashed size={15} aria-label="Not checked" />
+              )}
+              <span className="pp-note">
+                <Rich text={item.criterion} />
+                {item.status !== "met" && (
                   <small className="pp-detail">
-                    <Rich text={check.detail} />
+                    {item.status === "unmet" ? "Not met" : "Not checked"}
+                    {item.note ? `: ${item.note}` : ""}
                   </small>
                 )}
               </span>
-            </>
-          );
-          return (
-            <li key={check.label}>
-              {check.detail ? (
-                <button
-                  type="button"
-                  className="pf-row"
-                  aria-expanded={shown}
-                  onClick={() =>
-                    setOpen((set) => {
-                      const next = new Set(set);
-                      if (!next.delete(check.label)) next.add(check.label);
-                      return next;
-                    })
-                  }
-                >
-                  {content}
-                </button>
-              ) : (
-                <span className="pf-row">{content}</span>
-              )}
+              {proof && <span className="pp-proof">{proof}</span>}
             </li>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * The automated checks run on the change (tests, build), under the review:
+ * the developer's part, as the agent ran them.
+ */
+function ChecksRun({ lines }: { lines: string[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="pp-runs">
+      <h4>Checks run</h4>
+      <ul>
+        {lines.map((line) => (
+          <li key={line}>
+            <Check size={13} aria-hidden="true" />
+            <span>
+              <Rich text={line} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

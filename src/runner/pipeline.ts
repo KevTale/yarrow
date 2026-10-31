@@ -532,6 +532,7 @@ export class RunPipeline {
       task: reviewTask({
         ticket: run.ticket,
         implementerSummary: snapshot.summary,
+        criteria: snapshot.criteria,
         verification: snapshot.verification,
       }),
       repository: {
@@ -827,6 +828,7 @@ export class RunPipeline {
           pullRequestBlock({
             ticket: run.ticket,
             summary: snapshot.pr_summary,
+            criteria: snapshot.criteria,
             verification: snapshot.verification,
             notVerified: snapshot.not_verified,
             risks: snapshot.risks,
@@ -848,6 +850,7 @@ export class RunPipeline {
         body: pullRequestBody({
           ticket: run.ticket,
           summary: snapshot.summary,
+          criteria: snapshot.criteria,
           verification: snapshot.verification,
           notVerified: snapshot.not_verified,
           risks: snapshot.risks,

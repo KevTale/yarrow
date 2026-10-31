@@ -1,10 +1,12 @@
 /**
  * How a pull request's notes read for a product manager and a developer at
  * once. The agents write each note in everyday words first, then, after
- * " — ", where it comes from for a developer; a check reads "what it shows:
- * the check itself". Notes written before (one technical line) still read.
+ * " — ", where it comes from for a developer; what the ticket asks comes
+ * as acceptance criteria, ticked with how each was shown. Notes written
+ * before (one technical line) still read.
  */
 
+import type { Criterion } from "./contracts";
 import { TITLE_MAX } from "./new-ticket";
 
 /** A note's everyday words, and its technical pointer when it has one. */
@@ -17,25 +19,37 @@ export function splitNote(line: string): { plain: string; detail: string } {
   };
 }
 
-/** A label is a few words, not a command: "Reload keeps the filter". */
-const LABEL_MAX = 80;
-
-/** What a check shows, in everyday words, or null when it has no label. */
-export function checkLabel(line: string): string | null {
-  const at = line.indexOf(": ");
-  if (at <= 0 || at > LABEL_MAX) return null;
-  const label = line.slice(0, at).trim();
-  return /[→`/=]/.test(label) ? null : label;
+/** How a criterion was shown, as its tag reads: "in the app". */
+export function proofLabel(proof: Criterion["proof"]): string {
+  switch (proof) {
+    case "app":
+      return "in the app";
+    case "test":
+      return "by a test";
+    case "request":
+      return "by a request";
+    default:
+      return "";
+  }
 }
 
-/**
- * A check as the sidebar lists it: what it shows, and the check as it ran
- * under it once unfolded. One without a label lists as it was written.
- */
-export function splitCheck(line: string): { label: string; detail: string } {
-  const label = checkLabel(line);
-  if (label === null) return { label: line.trim(), detail: "" };
-  return { label, detail: line.slice(line.indexOf(": ") + 2).trim() };
+/** A criterion in the pull request's description, ticked as in Yarrow. */
+export function criterionMarkdown(item: Criterion): string {
+  const mark =
+    item.status === "met" ? "✅" : item.status === "unmet" ? "❌" : "⬜";
+  const how =
+    item.status === "met"
+      ? proofLabel(item.proof)
+      : item.status === "unmet"
+        ? `not met${item.note ? `: ${item.note}` : ""}`
+        : `not checked${item.note ? `: ${item.note}` : ""}`;
+  return `- ${mark} ${item.criterion}${how ? ` _(${how})_` : ""}`;
+}
+
+/** A suggestion's first sentence, the title of the ticket made from it. */
+function firstSentence(text: string): string {
+  const end = text.search(/[.!?](\s|$)/);
+  return (end === -1 ? text : text.slice(0, end)).trim();
 }
 
 /** A ticket drafted from what the agents noticed outside theirs. */
@@ -44,11 +58,11 @@ export function spottedTicket(
   by: string,
   pullRequestUrl: string | null,
 ): { title: string; body: string } {
-  const { plain } = splitNote(line);
+  const sentence = firstSentence(splitNote(line).plain);
   const title =
-    plain.length > TITLE_MAX
-      ? `${plain.slice(0, TITLE_MAX - 1).trimEnd()}…`
-      : plain.replace(/\.$/, "");
+    sentence.length > TITLE_MAX
+      ? `${sentence.slice(0, TITLE_MAX - 1).trimEnd()}…`
+      : sentence;
   const where = pullRequestUrl ? ` while working on ${pullRequestUrl}` : "";
   return { title, body: `${line}\n\nNoticed by ${by}${where}.` };
 }
