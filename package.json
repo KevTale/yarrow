@@ -31,6 +31,7 @@
     "recorder:embed": "tsx scripts/embed-recorder.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/jost": "^5.3.0",

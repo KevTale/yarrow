@@ -30,6 +30,7 @@ export interface PanelModel {
 }
 
 export interface PanelCorrection {
+  id: string;
   instruction: string;
   requestedBy: string;
   askedAt: string;
@@ -283,6 +284,7 @@ export async function pullPanel(
           (candidate) => candidate.id === request.agentRunId,
         );
         return {
+          id: request.id,
           instruction: request.instruction,
           requestedBy: request.requestedBy,
           askedAt: new Date(request.queuedAt).toISOString(),

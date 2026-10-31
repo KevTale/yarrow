@@ -19,6 +19,20 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-24",
+    title: "Ask the agent",
+    new: [
+      builders(
+        "A pull request's conversation, under the review and beside the film in cinema mode: ask the agent about the change, the code or the project's tickets. It reads the code to answer, points to moments of the presentation, and proposes a change you make in one click.",
+      ),
+    ],
+    improved: [
+      builders(
+        "The changes asked on GitHub show in the conversation, where they fall.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-23",
     title: "Cinema mode",
     new: [

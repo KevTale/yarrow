@@ -11,12 +11,15 @@ import {
   FileText,
   GitCommitHorizontal,
   Info,
+  Pencil,
+  Play,
   Plus,
   ScanSearch,
   TriangleAlert,
   X,
 } from "lucide-react";
 import {
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -24,12 +27,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { chatParts } from "@/core/chat";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
 import { splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
+  askChatFn,
   getPullFilesFn,
   getPullPanelFn,
   requestChangeFn,
@@ -39,7 +44,6 @@ import { Logo } from "@/components/boards";
 import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "@/components/run-activity";
-import { timeAgo } from "@/components/ui";
 import { DraftTicket } from "./new-ticket";
 import { SponsorLink } from "./paid-by";
 import { shortSite } from "@/core/pr-card";
@@ -190,19 +194,24 @@ export function PullPanel({
     void loadFiles(projectId, rowKey).catch(() => {});
   }, [refresh, projectId, rowKey]);
 
-  // A correction on its way: follow it until its commit lands.
+  // A correction on its way: follow it until its commit lands. An answer
+  // being written, sooner.
+  const answering = panel?.messages.some(
+    (message) => message.status === "pending",
+  );
   const busy =
     panel &&
-    (panel.working !== null ||
+    (answering ||
+      panel.working !== null ||
       panel.corrections.some(
         (correction) =>
           correction.status === "queued" || correction.status === "working",
       ));
   useEffect(() => {
     if (!busy) return;
-    const timer = setInterval(() => void refresh(), 5_000);
+    const timer = setInterval(() => void refresh(), answering ? 3_000 : 5_000);
     return () => clearInterval(timer);
-  }, [busy, refresh]);
+  }, [busy, answering, refresh]);
 
   // Cinema: the film fills the window beside the conversation, the page
   // under it held where it was. The draft is the same in both.
@@ -210,6 +219,7 @@ export function PullPanel({
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
   const theater = useRef<HTMLDialogElement>(null);
+  const seek = useRef<((ms: number) => void) | null>(null);
   useLayoutEffect(() => {
     const dialog = theater.current;
     if (!dialog) return;
@@ -233,45 +243,44 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  // The conversation: the changes asked, then the box to ask for another.
-  const thread = panel.corrections.length > 0 && (
-    <ChangesAsked
-      // A new change asked opens alone, the others shut.
-      key={panel.corrections.length}
-      corrections={panel.corrections}
-      working={workingText(panel)}
+  // The conversation: questions, answers, the changes asked, then the box
+  // to ask the next question.
+  const thread = (follow: boolean) => (
+    <Thread
+      panel={panel}
+      projectId={projectId}
+      rowKey={rowKey}
+      open={open}
+      follow={follow}
+      onSeek={presentation ? (ms) => seek.current?.(ms) : null}
+      onMade={() => {
+        void refresh();
+        onChanged();
+      }}
     />
   );
-  const composer = open && pullRequest && (
-    <Composer
+  const ask = pullRequest && (
+    <Ask
       projectId={projectId}
       rowKey={rowKey}
       text={draft}
       onText={setDraft}
-      onSending={(instruction) =>
-        setPanel((shown) =>
-          shown
-            ? {
-                ...shown,
-                corrections: [
-                  ...shown.corrections,
-                  {
-                    instruction,
-                    requestedBy: "You",
-                    askedAt: new Date().toISOString(),
-                    status: "queued",
-                    summary: null,
-                  },
-                ],
-              }
-            : shown,
-        )
+      waiting={Boolean(answering)}
+      onSending={(question) =>
+        setPanel((shown) => {
+          if (!shown) return shown;
+          const at = Date.now();
+          return {
+            ...shown,
+            messages: [
+              ...shown.messages,
+              local(`q${at}`, "builder", question, at),
+              local(`a${at}`, "agent", "", at + 1),
+            ],
+          };
+        })
       }
-      onSent={() => {
-        void refresh();
-        onChanged();
-      }}
-      onFailed={() => void refresh()}
+      onSettled={() => void refresh()}
     />
   );
   return (
@@ -302,12 +311,13 @@ export function PullPanel({
                     artifact={presentation}
                     cinema={cinema}
                     onCinema={flipCinema}
+                    seekRef={seek}
                   />
                 </div>
                 {cinema && (
                   <aside className="pp-talk">
-                    <div className="pp-talk-thread">{thread}</div>
-                    {composer}
+                    <div className="pp-talk-thread">{thread(true)}</div>
+                    {ask}
                   </aside>
                 )}
               </dialog>
@@ -326,8 +336,13 @@ export function PullPanel({
             legacyRisks={live?.risks ?? []}
           />
 
-          {thread}
-          {composer}
+          {pullRequest && (
+            <section className="pp-section pp-conversation">
+              <h3>Conversation</h3>
+              {thread(false)}
+              {ask}
+            </section>
+          )}
         </div>
 
         <aside className="pp-aside">
@@ -781,125 +796,254 @@ function Screens({ screens }: { screens: Panel["screens"] }) {
   );
 }
 
+type Message = Panel["messages"][number];
+type Correction = Panel["corrections"][number];
+
+/** A question shown at once, and its answer's place, before the brain has them. */
+const local = (
+  id: string,
+  author: Message["author"],
+  body: string,
+  at: number,
+): Message => ({
+  id,
+  author,
+  body,
+  status: author === "agent" ? "pending" : "done",
+  change: null,
+  correctionRequestId: null,
+  createdAt: new Date(at).toISOString(),
+});
+
 /**
- * Every change asked since the pull request opened, oldest first, above
- * the composer that adds the next one. The latest is open; the others fold
- * to one line and open on a click.
+ * The conversation, oldest first: the questions and their answers, and the
+ * changes asked elsewhere (on GitHub, before the conversation) where they
+ * fall. A change made from an answer's card shows under that answer.
  */
-function ChangesAsked({
-  corrections,
-  working,
+type Line =
+  | { kind: "message"; at: string; message: Message }
+  | { kind: "correction"; at: string; correction: Correction };
+
+function lines(panel: Panel): Line[] {
+  const made = new Set(panel.messages.map((m) => m.correctionRequestId));
+  return [
+    ...panel.messages.map((message) => ({
+      kind: "message" as const,
+      at: message.createdAt,
+      message,
+    })),
+    ...panel.corrections
+      .filter((correction) => !made.has(correction.id))
+      .map((correction) => ({
+        kind: "correction" as const,
+        at: correction.askedAt,
+        correction,
+      })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** The builder's words in a bubble on the right, the agent's as text on the left. */
+function Thread({
+  panel,
+  projectId,
+  rowKey,
+  open,
+  follow,
+  onSeek,
+  onMade,
 }: {
-  corrections: Panel["corrections"];
-  working: string | null;
+  panel: Panel;
+  projectId: string;
+  rowKey: string;
+  /** The pull request can still change. */
+  open: boolean;
+  /** Keep the latest in view: the conversation beside the film. */
+  follow: boolean;
+  /** Plays the film from a moment; null without a film. */
+  onSeek: ((ms: number) => void) | null;
+  onMade: () => void;
 }) {
-  const last = corrections.length - 1;
-  // The ones the builder flipped: the latest starts open, the others shut.
-  const [flipped, setFlipped] = useState<Set<number>>(() => new Set());
+  const shown = lines(panel);
+  const working = workingText(panel);
+  const list = useRef<HTMLOListElement>(null);
+  const last = shown.at(-1);
+  const latest = `${shown.length}:${last?.kind === "message" ? last.message.status : ""}`;
+  useEffect(() => {
+    if (follow)
+      list.current?.lastElementChild?.scrollIntoView({ block: "end" });
+  }, [follow, latest]);
+  if (shown.length === 0) return null;
   return (
-    <section className="pp-section">
-      <h3>
-        Changes asked <span className="pp-num">{corrections.length}</span>
-      </h3>
-      <ol className="pp-thread">
-        {corrections.map((correction, i) => {
-          const isOpen = (i === last) !== flipped.has(i);
-          const state =
-            correction.status === "queued" ? (
-              <span className="pp-state">Queued</span>
-            ) : correction.status === "working" ? (
-              <span className="pp-state live">
-                <TextShimmer>{working ?? "Working on it"}</TextShimmer>
-              </span>
-            ) : correction.status === "stopped" ? (
-              <span className="pp-state stopped">Stopped</span>
-            ) : null;
-          const live =
-            correction.status === "queued" || correction.status === "working";
-          return (
-            <li key={i} className={live ? "live" : ""}>
-              <span className="pp-node" aria-hidden="true">
-                {correction.requestedBy.slice(0, 1).toUpperCase()}
-              </span>
-              <div className="pp-change">
-                <button
-                  type="button"
-                  className="pp-change-head"
-                  aria-expanded={isOpen}
-                  onClick={() =>
-                    setFlipped((current) => {
-                      const next = new Set(current);
-                      if (next.has(i)) next.delete(i);
-                      else next.add(i);
-                      return next;
-                    })
-                  }
-                >
-                  <b>{correction.requestedBy}</b>
-                  {isOpen ? (
-                    <span className="pp-grow" />
-                  ) : (
-                    <span className="pp-ask-line">
-                      {correction.instruction}
-                    </span>
-                  )}
-                  <time dateTime={correction.askedAt}>
-                    {timeAgo(correction.askedAt)}
-                  </time>
-                  {isOpen ? (
-                    <ChevronDown size={14} aria-hidden="true" />
-                  ) : (
-                    <ChevronRight size={14} aria-hidden="true" />
-                  )}
-                </button>
-                {isOpen && (
-                  <>
-                    <p className="pp-ask">{correction.instruction}</p>
-                    {state}
-                    {correction.status === "done" && correction.summary && (
-                      <p className="pp-done">
-                        <GitCommitHorizontal
-                          size={15}
-                          className="ok"
-                          aria-hidden="true"
-                        />
-                        <span>
-                          <Rich text={correction.summary} />
-                        </span>
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
+    <ol className="pp-chat" ref={list}>
+      {shown.map((line) =>
+        line.kind === "correction" ? (
+          <Fragment key={line.correction.id}>
+            <li className="pp-me">
+              <p className="pp-bubble">{line.correction.instruction}</p>
             </li>
-          );
-        })}
-      </ol>
-    </section>
+            <li className="pp-it">
+              <ChangeState correction={line.correction} working={working} />
+            </li>
+          </Fragment>
+        ) : line.message.author === "builder" ? (
+          <li key={line.message.id} className="pp-me">
+            <p className="pp-bubble">{line.message.body}</p>
+          </li>
+        ) : (
+          <li key={line.message.id} className="pp-it">
+            <Answer
+              message={line.message}
+              correction={panel.corrections.find(
+                (correction) =>
+                  correction.id === line.message.correctionRequestId,
+              )}
+              working={working}
+              open={open}
+              projectId={projectId}
+              rowKey={rowKey}
+              onSeek={onSeek}
+              onMade={onMade}
+            />
+          </li>
+        ),
+      )}
+    </ol>
   );
 }
 
-/** Ask for another change: written on the PR, then taken by Claude. */
-function Composer({
+function Answer({
+  message,
+  correction,
+  working,
+  open,
   projectId,
   rowKey,
-  text,
-  onText: setText,
-  onSending,
-  onSent,
-  onFailed,
+  onSeek,
+  onMade,
 }: {
+  message: Message;
+  correction: Correction | undefined;
+  working: string | null;
+  open: boolean;
   projectId: string;
   rowKey: string;
-  text: string;
-  onText: (text: string) => void;
-  /** The change shows in the thread before GitHub answers. */
-  onSending: (instruction: string) => void;
-  onSent: () => void;
-  onFailed: () => void;
+  onSeek: ((ms: number) => void) | null;
+  onMade: () => void;
 }) {
-  const send = useServerFn(requestChangeFn);
+  if (message.status === "pending")
+    return (
+      <p className="pp-say">
+        <TextShimmer>Thinking</TextShimmer>
+      </p>
+    );
+  if (message.status === "failed")
+    return <p className="pp-say muted">No answer this time.</p>;
+  return (
+    <>
+      {message.body.split(/\n{2,}/).map((paragraph, i) => (
+        <p key={i} className="pp-say">
+          {chatParts(paragraph).map((part, j) =>
+            part.kind === "text" ? (
+              <Rich key={j} text={part.text} />
+            ) : onSeek ? (
+              <button
+                key={j}
+                type="button"
+                className="pp-at"
+                aria-label={`Play from ${part.label}`}
+                onClick={() => onSeek(part.ms)}
+              >
+                <Play size={9} fill="currentColor" aria-hidden="true" />
+                {part.label}
+              </button>
+            ) : (
+              part.label
+            ),
+          )}
+        </p>
+      ))}
+      {message.change &&
+        (message.correctionRequestId ? (
+          <ChangeState correction={correction} working={working} />
+        ) : (
+          <Proposal
+            message={message}
+            open={open}
+            projectId={projectId}
+            rowKey={rowKey}
+            onMade={onMade}
+          />
+        ))}
+    </>
+  );
+}
+
+/** Where a change asked stands: queued, being written, made, stopped. */
+function ChangeState({
+  correction,
+  working,
+}: {
+  correction: Correction | undefined;
+  working: string | null;
+}) {
+  switch (correction?.status) {
+    case undefined:
+    case "queued":
+      return (
+        <div className="pp-meta">
+          <CircleDashed size={14} aria-hidden="true" />
+          Queued
+        </div>
+      );
+    case "working":
+      return (
+        <div className="pp-meta live">
+          <TextShimmer>{working ?? "Writing the change"}</TextShimmer>
+        </div>
+      );
+    case "stopped":
+      return (
+        <div className="pp-meta stopped">
+          <X size={14} aria-hidden="true" />
+          Stopped
+        </div>
+      );
+    case "done":
+      return (
+        <>
+          <div className="pp-meta">
+            <GitCommitHorizontal size={14} className="ok" aria-hidden="true" />
+            Changed
+          </div>
+          {correction.summary && (
+            <p className="pp-say">
+              <Rich text={correction.summary} />
+            </p>
+          )}
+        </>
+      );
+  }
+}
+
+/** A change the agent proposes: made from here, as written or edited. */
+function Proposal({
+  message,
+  open,
+  projectId,
+  rowKey,
+  onMade,
+}: {
+  message: Message;
+  open: boolean;
+  projectId: string;
+  rowKey: string;
+  onMade: () => void;
+}) {
+  const make = useServerFn(requestChangeFn);
+  const [text, setText] = useState(message.change ?? "");
+  const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
+  const [made, setMade] = useState(false);
   const [error, setError] = useState("");
 
   async function submit() {
@@ -907,64 +1051,176 @@ function Composer({
     if (!instruction || pending) return;
     setError("");
     setPending(true);
-    setText("");
-    onSending(instruction);
     try {
-      const result = await send({
-        data: { projectId, key: rowKey, instruction },
+      const result = await make({
+        data: { projectId, key: rowKey, instruction, messageId: message.id },
       });
-      if (result.ok) onSent();
-      else {
-        setText(instruction);
-        setError(result.error);
-        onFailed();
-      }
+      if (result.ok) {
+        setMade(true);
+        onMade();
+      } else setError(result.error);
     } catch {
-      setText(instruction);
       setError("That did not go through. Try again.");
-      onFailed();
     } finally {
       setPending(false);
     }
   }
 
+  if (made) return <ChangeState correction={undefined} working={null} />;
   return (
-    <form
-      className="pp-composer"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
-      <textarea
-        aria-label="Ask for a change"
-        placeholder="Ask for a change…"
-        rows={3}
-        value={text}
-        maxLength={4000}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            void submit();
-          }
-        }}
-      />
-      <div className="pp-composer-foot">
-        {error && (
-          <span className="pp-error" role="alert">
-            {error}
-          </span>
-        )}
-        <button
-          type="submit"
-          className="pp-send"
-          aria-disabled={!text.trim() || pending}
-        >
-          Send {pending ? <Spinner /> : <ArrowUp size={15} strokeWidth={2.2} />}
-        </button>
+    <div className="pp-proposal">
+      <div className="pp-proposal-head">
+        <GitCommitHorizontal size={15} aria-hidden="true" />
+        Change
       </div>
-    </form>
+      {editing ? (
+        <textarea
+          aria-label="The change"
+          value={text}
+          rows={3}
+          maxLength={4000}
+          autoFocus
+          onChange={(event) => setText(event.target.value)}
+        />
+      ) : (
+        <p>{text}</p>
+      )}
+      {open && (
+        <div className="pp-proposal-foot">
+          <button
+            type="button"
+            className="pp-send"
+            aria-disabled={!text.trim() || pending}
+            onClick={() => void submit()}
+          >
+            Make this change {pending && <Spinner />}
+          </button>
+          {!editing && (
+            <button
+              type="button"
+              className="pp-ghost"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={14} aria-hidden="true" />
+              Edit
+            </button>
+          )}
+          {error && (
+            <span className="pp-error" role="alert">
+              {error}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The question box, one line as in any chat, growing with what is typed:
+ * Enter sends, Shift+Enter goes to the next line. Send shows once there is
+ * something to send.
+ */
+function Ask({
+  projectId,
+  rowKey,
+  text,
+  onText: setText,
+  waiting,
+  onSending,
+  onSettled,
+}: {
+  projectId: string;
+  rowKey: string;
+  text: string;
+  onText: (text: string) => void;
+  /** An answer is being written: the next question waits for it. */
+  waiting: boolean;
+  /** The question shows in the thread before the brain has it. */
+  onSending: (question: string) => void;
+  onSettled: () => void;
+}) {
+  const ask = useServerFn(askChatFn);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const box = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const area = box.current;
+    if (!area) return;
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight}px`;
+  }, [text]);
+  const blocked = pending || waiting;
+
+  async function submit() {
+    const question = text.trim();
+    if (!question || blocked) return;
+    setError("");
+    setPending(true);
+    setText("");
+    onSending(question);
+    try {
+      const result = await ask({
+        data: { projectId, key: rowKey, text: question },
+      });
+      if (!result.ok) {
+        setText(question);
+        setError(result.error);
+      }
+    } catch {
+      setText(question);
+      setError("That did not go through. Try again.");
+    } finally {
+      setPending(false);
+      onSettled();
+    }
+  }
+
+  return (
+    <div className="pp-asking">
+      <form
+        className="pp-input"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <textarea
+          ref={box}
+          aria-label="Ask about this pull request"
+          placeholder="Ask about this pull request…"
+          rows={1}
+          value={text}
+          maxLength={4000}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        {text.trim() && (
+          <button
+            type="submit"
+            className="pp-go"
+            aria-label="Send"
+            aria-disabled={blocked}
+          >
+            {pending ? <Spinner /> : <ArrowUp size={17} strokeWidth={2.2} />}
+          </button>
+        )}
+      </form>
+      {error && (
+        <p className="pp-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

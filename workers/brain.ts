@@ -4,6 +4,7 @@ import {
   type WorkflowEvent,
   type WorkflowStep,
 } from "cloudflare:workers";
+import Anthropic from "@anthropic-ai/sdk";
 import { NonRetryableError } from "cloudflare:workflows";
 import {
   runRequestSchema,
@@ -22,6 +23,7 @@ import {
   INITIAL_RESERVATION_CENTS,
 } from "../src/core/pipeline";
 import { planDispatch, PER_ACCOUNT_CONCURRENCY } from "../src/core/queue";
+import { presentationSchema } from "../src/core/presentation";
 import {
   blockingComments,
   reviewedCriteria,
@@ -30,6 +32,14 @@ import {
 } from "../src/core/review";
 import { eq, sql } from "drizzle-orm";
 import type { FundingStart } from "../src/core/daily-funding";
+import {
+  askQuestion,
+  chatContext,
+  failAnswer,
+  ticketForChat,
+  ticketsForChat,
+  saveAnswer,
+} from "../src/db/chat";
 import { connectDatabase, type Database } from "../src/db/client";
 import {
   computeSummary,
@@ -61,6 +71,7 @@ import {
   closePullRequest,
   closeTicket,
 } from "../src/server/github/ticket-actions";
+import { repoReader } from "../src/server/github/repo-reads";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -73,6 +84,7 @@ import {
 } from "../src/server/trackers/index";
 import { ensureJiraWebhooks } from "../src/server/trackers/jira-webhooks";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
+import { answerQuestion, type ChatAnswer } from "../src/runner/chat";
 import { AgentsClient, defaultReviewerRates } from "../src/runner/openai";
 import {
   RunPipeline,
@@ -84,6 +96,8 @@ import { sendOutOfCreditAlert } from "./alerts";
 
 export interface BrainEnv {
   WORKFLOW: Workflow<RunRequest>;
+  /** One answer in a pull request's conversation per instance. */
+  CHAT: Workflow<ChatRequest>;
   /** Optional until R2 is enabled on the account. */
   EVIDENCE?: R2Bucket;
   APP_URL: string;
@@ -608,6 +622,84 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
 }
 
 /** Moves more sponsor money onto the run when it cost more than reserved. */
+interface ChatRequest {
+  answerId: string;
+}
+
+/**
+ * One answer in a pull request's conversation: the agent reads what it needs
+ * (the pull request, the code, the tickets) and writes it. A workflow, since
+ * reading can outlast a request.
+ */
+export class ChatWorkflow extends WorkflowEntrypoint<BrainEnv, ChatRequest> {
+  async run(event: WorkflowEvent<ChatRequest>, step: WorkflowStep) {
+    const { answerId } = event.payload;
+    const env = this.env;
+    let answer: ChatAnswer;
+    try {
+      answer = await step.do(
+        "answer",
+        { retries: { limit: 1, delay: "5 seconds" }, timeout: "5 minutes" },
+        () => answerChat(env, answerId),
+      );
+    } catch (error) {
+      console.warn("chat", describe(error));
+      await step.do("fail", () =>
+        withDb(env, (db) => failAnswer(db, answerId)),
+      );
+      return;
+    }
+    await step.do("save", () =>
+      withDb(env, (db) => saveAnswer(db, answerId, answer)),
+    );
+  }
+}
+
+async function answerChat(
+  env: BrainEnv,
+  answerId: string,
+): Promise<ChatAnswer> {
+  if (!env.ANTHROPIC_API_KEY)
+    throw new NonRetryableError("ANTHROPIC_API_KEY is not configured");
+  return withDb(env, async (db) => {
+    const context = await chatContext(db, answerId);
+    if (!context) throw new NonRetryableError("No such question");
+    const { project } = context;
+    const film = context.panel?.screens.find(
+      (screen) => screen.kind === "presentation",
+    );
+    const [presentation, reader] = await Promise.all([
+      film && env.EVIDENCE
+        ? env.EVIDENCE.get(film.key)
+            .then(async (object) =>
+              object ? presentationSchema.safeParse(await object.json()) : null,
+            )
+            .then((parsed) => (parsed?.success ? parsed.data : null))
+            .catch(() => null)
+        : null,
+      env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY
+        ? repoReader(
+            {
+              appId: env.GITHUB_APP_ID,
+              privateKey: env.GITHUB_APP_PRIVATE_KEY,
+            },
+            project,
+          ).catch(() => null)
+        : null,
+    ]);
+    return answerQuestion({
+      client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
+      context,
+      presentation,
+      sources: {
+        reader,
+        tickets: () => ticketsForChat(db, project.id),
+        ticket: (key) => ticketForChat(db, project.id, key),
+      },
+    });
+  });
+}
+
 async function topUp(
   ledger: PostgresLedger,
   db: Database,
@@ -945,6 +1037,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     workUnitId: string;
     instruction: string;
     login: string;
+    chatMessageId?: string;
   }): Promise<ActionResult> {
     const credentials = this.credentials();
     if (!credentials) return { ok: false, error: "GitHub is not configured." };
@@ -958,6 +1051,34 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
         ),
       );
     return result;
+  }
+
+  /** A question in a pull request's conversation: answered in the background. */
+  async askChat(input: {
+    workUnitId: string;
+    userId: string;
+    text: string;
+  }): Promise<ActionResult> {
+    const asked = await withDb(this.env, (db) => askQuestion(db, input));
+    if (!asked.ok)
+      return {
+        ok: false,
+        error:
+          asked.reason === "busy"
+            ? "One question at a time."
+            : "That's all the questions for today.",
+      };
+    try {
+      await this.env.CHAT.create({
+        id: asked.answerId,
+        params: { answerId: asked.answerId },
+      });
+    } catch (error) {
+      await withDb(this.env, (db) => failAnswer(db, asked.answerId));
+      console.warn("chat", describe(error));
+      return { ok: false, error: "The agent cannot answer right now." };
+    }
+    return { ok: true };
   }
 }
 

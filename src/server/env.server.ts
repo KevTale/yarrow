@@ -51,6 +51,13 @@ export interface AppEnv {
       workUnitId: string;
       instruction: string;
       login: string;
+      chatMessageId?: string;
+    }): Promise<ActionResult>;
+    /** A question in the pull request's conversation, answered in the background. */
+    askChat(input: {
+      workUnitId: string;
+      userId: string;
+      text: string;
     }): Promise<ActionResult>;
     createIssue(input: {
       projectId: string;

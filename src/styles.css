@@ -8392,7 +8392,7 @@ html:has(.pp-stage:modal) {
   padding: 22px 22px 26px;
   overflow-y: auto;
 }
-.pp-talk > .pp-composer {
+.pp-talk > .pp-asking {
   margin: 0 18px 18px;
 }
 @media (max-width: 1100px) {
@@ -8427,7 +8427,7 @@ html:has(.pp-stage:modal) {
   .pp-talk-thread {
     padding: 18px 14px 22px;
   }
-  .pp-talk > .pp-composer {
+  .pp-talk > .pp-asking {
     margin: 0 10px 10px;
   }
 }
@@ -8605,19 +8605,6 @@ html:has(.pp-stage:modal) {
   border-radius: 5px;
   padding: 0 5px;
 }
-.pp-state {
-  justify-self: start;
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.pp-state.live {
-  color: var(--amber);
-}
-.pp-state.stopped {
-  color: var(--red);
-}
 .pp-list li.pp-risk {
   color: var(--text);
 }
@@ -8634,129 +8621,6 @@ html:has(.pp-stage:modal) {
 }
 .pp-num {
   font-family: var(--font-geist-mono), monospace !important;
-}
-.pp-thread {
-  position: relative;
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pp-thread::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 18px;
-  bottom: 18px;
-  width: 1px;
-  background: var(--line);
-}
-.pp-thread > li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 12px;
-}
-.pp-node {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 23px;
-  height: 23px;
-  margin-top: 6px;
-  border: 1px solid #2c3037;
-  border-radius: 50%;
-  background: var(--elevated);
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--secondary);
-}
-.pp-thread > li.live .pp-node {
-  border-color: #d9775780;
-  color: #d97757;
-}
-.pp-change {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  padding-bottom: 8px;
-}
-.pp-change-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-  padding: 8px 0 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.pp-change-head b {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--text);
-  white-space: nowrap;
-}
-.pp-change-head time {
-  font:
-    11.5px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.pp-change-head svg {
-  flex: none;
-  color: var(--muted);
-}
-.pp-grow {
-  flex: 1;
-}
-.pp-ask-line {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13.5px;
-  color: var(--secondary);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.pp-change-head:hover .pp-ask-line {
-  color: var(--text);
-}
-.pp-ask {
-  margin: 0;
-  max-width: 72ch;
-  padding: 10px 13px;
-  border: 1px solid #1f2227;
-  border-radius: 10px;
-  background: var(--elevated);
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.pp-done {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  max-width: 72ch;
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--secondary);
-}
-.pp-done svg {
-  flex: none;
-  margin-top: 4px;
-}
-.pp-done svg.ok {
-  color: var(--green);
 }
 .pp-composer {
   display: grid;
@@ -8813,6 +8677,223 @@ html:has(.pp-stage:modal) {
   margin: 0;
   font-size: 12.5px;
   color: var(--red);
+}
+/* The pull request's conversation, apart as a comment zone is: a line and
+   its title under the review, the column's line beside the film. As in any
+   chat, the builder's words in a bubble on the right, the agent's as text. */
+.pp-conversation {
+  gap: 16px;
+  margin-top: 6px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+.pp-chat {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pp-me {
+  display: grid;
+  justify-items: end;
+}
+.pp-bubble {
+  max-width: 82%;
+  margin: 0;
+  padding: 9px 15px;
+  border-radius: 18px;
+  background: #2a2d34;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pp-it {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+.pp-say {
+  max-width: 68ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pp-say.muted {
+  color: var(--muted);
+}
+/* A moment of the film: plays it from there. */
+.pp-at {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  margin: 0 1px;
+  padding: 0 9px 0 7px;
+  border: 0;
+  border-radius: 999px;
+  background: #272a31;
+  color: var(--text);
+  font:
+    500 12.5px var(--font-geist-sans),
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  vertical-align: 1px;
+  cursor: pointer;
+}
+.pp-at:hover {
+  background: #31353d;
+}
+.pp-at svg {
+  color: var(--amber);
+}
+/* Where a change stands, on one line. */
+.pp-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font:
+    13px var(--font-geist-sans),
+    sans-serif;
+  color: var(--muted);
+}
+.pp-meta .ok {
+  color: var(--green);
+}
+.pp-meta.live {
+  color: var(--amber);
+}
+.pp-meta.stopped {
+  color: var(--red);
+}
+/* A change the agent proposes: the one card, since it acts. */
+.pp-proposal {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 68ch);
+  padding: 13px 15px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #1d1f24;
+}
+.pp-proposal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.pp-proposal p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pp-proposal textarea {
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.55 var(--font-geist-sans),
+    sans-serif;
+}
+.pp-proposal textarea:focus {
+  border-color: #f2b54480;
+}
+.pp-proposal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pp-proposal .pp-send {
+  margin-left: 0;
+  padding: 7px 13px;
+}
+.pp-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: none;
+  color: var(--secondary);
+  font:
+    500 13.5px var(--font-geist-sans),
+    sans-serif;
+  cursor: pointer;
+}
+.pp-ghost:hover {
+  color: var(--text);
+}
+/* The question box: one line, growing with what is typed. */
+.pp-asking {
+  display: grid;
+  gap: 6px;
+}
+.pp-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 6px 6px 18px;
+  border: 1px solid var(--line);
+  border-radius: 23px;
+  background: #1d1f24;
+  transition: border-color 0.15s;
+}
+.pp-input:focus-within {
+  border-color: #f2b54480;
+}
+.pp-input textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 200px;
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font:
+    14px/20px var(--font-geist-sans),
+    sans-serif;
+}
+.pp-input textarea::placeholder {
+  color: var(--muted);
+}
+.pp-go {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--amber);
+  color: #141714;
+  cursor: pointer;
+}
+.pp-go[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+.pp-asking > .pp-error {
+  padding-left: 18px;
 }
 .pp-aside {
   display: grid;

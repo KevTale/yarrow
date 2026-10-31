@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
 } from "react";
 import {
   chapterMs,
@@ -123,11 +124,14 @@ export function Presentation({
   artifact,
   cinema = false,
   onCinema,
+  seekRef,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
   cinema?: boolean;
   onCinema?: () => void;
+  /** Set to play the film from a moment: the conversation's `0:56`. */
+  seekRef?: RefObject<((ms: number) => void) | null>;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -146,6 +150,7 @@ export function Presentation({
       poster={artifact.poster ? evidence(artifact.poster) : null}
       cinema={cinema}
       onCinema={onCinema}
+      seekRef={seekRef}
     />
   );
 }
@@ -155,11 +160,13 @@ function Player({
   poster,
   cinema,
   onCinema,
+  seekRef,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
   cinema: boolean;
   onCinema?: () => void;
+  seekRef?: RefObject<((ms: number) => void) | null>;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -427,19 +434,29 @@ function Player({
   const played =
     lengths.slice(0, index).reduce((sum, ms) => sum + ms, 0) +
     (finished ? length : Math.min(elapsed, length));
-  // Across chapters, playing or paused as it was.
-  const skip = (ms: number) => {
+  // A moment of the whole film: its chapter, and where in it.
+  const go = (ms: number, play: boolean) => {
     if (!timeline || !lengths.length) return;
-    let rest = Math.max(0, Math.min(total - 1, played + ms));
+    let rest = Math.max(0, Math.min(total - 1, ms));
     let to = 0;
     while (to < lengths.length - 1 && rest >= lengths[to]!) {
       rest -= lengths[to]!;
       to++;
     }
-    jump(to, rest, playing);
+    jump(to, rest, play);
   };
+  // Across chapters, playing or paused as it was.
+  const skip = (ms: number) => go(played + ms, playing);
   useEffect(() => {
     skipping.current = skip;
+    if (seekRef)
+      seekRef.current = (ms) => {
+        go(ms, true);
+        screen.current?.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      };
   });
   const idle = playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.

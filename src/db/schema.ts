@@ -14,6 +14,7 @@ import {
   primaryKey,
   customType,
 } from "drizzle-orm/pg-core";
+import type { ChatUsage } from "../core/chat";
 import type { AppRecipe, ResultDetails } from "../core/contracts";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { TicketMoves } from "../core/tracker-moves";
@@ -714,4 +715,43 @@ export const runModels = pgTable(
     createdAt: createdAt(),
   },
   (t) => [unique("run_model_role").on(t.agentRunId, t.role)],
+).enableRLS();
+
+export const chatAuthorEnum = pgEnum("chat_author", ["builder", "agent"]);
+export const chatStatusEnum = pgEnum("chat_status", [
+  "pending",
+  "done",
+  "failed",
+]);
+
+/**
+ * A pull request's conversation on the dashboard: what a member asks, what
+ * the agent answers (pending while it reads), oldest first. Yarrow pays for
+ * the answers: no ledger entry, the tokens kept to know what it costs.
+ */
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workUnitId: uuid("work_unit_id")
+      .notNull()
+      .references(() => workUnits.id),
+    author: chatAuthorEnum("author").notNull(),
+    // Who asked: on an answer too, the person it answers.
+    userId: uuid("user_id"), // Supabase auth user ID.
+    body: text("body").default("").notNull(),
+    status: chatStatusEnum("status").default("done").notNull(),
+    // A change the agent proposes, made only from its card.
+    change: text("change"),
+    // Once made: the correction it queued.
+    correctionRequestId: uuid("correction_request_id").references(
+      () => correctionRequests.id,
+    ),
+    usage: jsonb("usage").$type<ChatUsage | null>(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("chat_messages_unit").on(t.workUnitId, t.createdAt),
+    index("chat_messages_user").on(t.userId, t.createdAt),
+  ],
 ).enableRLS();

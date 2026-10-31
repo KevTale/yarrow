@@ -14,6 +14,11 @@
       "binding": "WORKFLOW",
       "class_name": "AgentWorkWorkflow",
     },
+    {
+      "name": "yarrow-chat-local",
+      "binding": "CHAT",
+      "class_name": "ChatWorkflow",
+    },
   ],
   // Every minute: dispatch. Every 5 minutes: Linear, Jira and Trello sync.
   "triggers": { "crons": ["* * * * *"] },
@@ -43,6 +48,11 @@
           "binding": "WORKFLOW",
           "class_name": "AgentWorkWorkflow",
         },
+        {
+          "name": "yarrow-chat-dev",
+          "binding": "CHAT",
+          "class_name": "ChatWorkflow",
+        },
       ],
       "triggers": { "crons": ["* * * * *"] },
       "vars": {
@@ -68,6 +78,11 @@
           "name": "yarrow-run",
           "binding": "WORKFLOW",
           "class_name": "AgentWorkWorkflow",
+        },
+        {
+          "name": "yarrow-chat",
+          "binding": "CHAT",
+          "class_name": "ChatWorkflow",
         },
       ],
       "triggers": { "crons": ["* * * * *"] },

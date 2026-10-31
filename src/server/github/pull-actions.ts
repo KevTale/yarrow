@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { linkChange, proposalOpen } from "../../db/chat";
 import type { Database } from "../../db/client";
 import { PostgresLedger } from "../../db/ledger";
 import { projects, pullRequests, workUnits } from "../../db/schema";
@@ -156,13 +157,28 @@ export const askedFromYarrow = (login: string, instruction: string) =>
 export async function requestCorrection(
   db: Database,
   credentials: AppCredentials,
-  input: { workUnitId: string; instruction: string; login: string },
+  input: {
+    workUnitId: string;
+    instruction: string;
+    login: string;
+    /** The agent's message that proposed it, in the conversation. */
+    chatMessageId?: string;
+  },
   fetcher?: Fetch,
 ): Promise<ActionResult> {
   const row = await target(db, input.workUnitId);
   if (!row) return { ok: false, error: "This pull request is not Yarrow's." };
   if (row.pull.state !== "open")
     return { ok: false, error: "This pull request is already closed." };
+  const { chatMessageId } = input;
+  if (
+    chatMessageId &&
+    !(await proposalOpen(db, {
+      messageId: chatMessageId,
+      workUnitId: input.workUnitId,
+    }))
+  )
+    return { ok: false, error: "This change was already made." };
   const { owner, repo } = splitRepository(row.project.repository);
   try {
     const client = await writeClient(credentials, row.project, fetcher);
@@ -177,9 +193,15 @@ export async function requestCorrection(
       requestedBy: input.login,
       externalCommentId: String(comment.id),
     });
-    return queued
-      ? { ok: true }
-      : { ok: false, error: "This pull request is already closed." };
+    if (!queued)
+      return { ok: false, error: "This pull request is already closed." };
+    if (chatMessageId)
+      await linkChange(db, {
+        messageId: chatMessageId,
+        workUnitId: input.workUnitId,
+        correctionRequestId: queued,
+      });
+    return { ok: true };
   } catch (error) {
     return { ok: false, error: reason(error) };
   }

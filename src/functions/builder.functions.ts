@@ -17,6 +17,7 @@ import { requestGithubTask } from "@/db/github-tasks";
 import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
 import { projects as projectsTable, workUnits } from "@/db/schema";
+import { threadMessages } from "@/db/chat";
 import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
@@ -145,7 +146,12 @@ export const getPullPanelFn = createServerFn({ method: "GET" })
           number === null ? null : livePull(project, number),
         ),
       ]);
-      return panel ? { ...panel, live } : null;
+      if (!panel) return null;
+      return {
+        ...panel,
+        live,
+        messages: await threadMessages(db, panel.workUnitId),
+      };
     });
   });
 
@@ -247,7 +253,11 @@ export const pullRequestActionFn = createServerFn({ method: "POST" })
  */
 export const requestChangeFn = createServerFn({ method: "POST" })
   .validator(
-    ticketRef.extend({ instruction: z.string().trim().min(1).max(4000) }),
+    ticketRef.extend({
+      instruction: z.string().trim().min(1).max(4000),
+      /** The agent's message that proposed it, made from its card. */
+      messageId: z.uuid().optional(),
+    }),
   )
   .handler(async ({ data }) => {
     const { viewer, panel } = await memberPanel(data.projectId, data.key);
@@ -257,6 +267,24 @@ export const requestChangeFn = createServerFn({ method: "POST" })
       workUnitId: panel.workUnitId,
       instruction: data.instruction,
       login: viewer.githubLogin ?? viewer.name ?? "A maintainer",
+      chatMessageId: data.messageId,
+    });
+  });
+
+/**
+ * A question in the pull request's conversation: the agent answers in the
+ * background, the opened row polls until it has.
+ */
+export const askChatFn = createServerFn({ method: "POST" })
+  .validator(ticketRef.extend({ text: z.string().trim().min(1).max(4000) }))
+  .handler(async ({ data }) => {
+    const { viewer, panel } = await memberPanel(data.projectId, data.key);
+    const brain = appEnv().BRAIN;
+    if (!panel?.pullRequest || !brain) return unavailable;
+    return brain.askChat({
+      workUnitId: panel.workUnitId,
+      userId: viewer.userId,
+      text: data.text,
     });
   });
 
