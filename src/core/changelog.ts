@@ -31,6 +31,9 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "In a presentation the dock is a thin strip and each app takes the rest of the screen, with square corners.",
       ),
+      builders(
+        "A presentation's controls sit on rounded glass, readable over any page, and the film carries no Before or After label nor amber outline: the voice and the agent's pointer say it.",
+      ),
     ],
     fixed: [
       builders(

@@ -300,7 +300,8 @@ async function ensureVideo(browser, { cli }) {
 // ---------- What the agent points with ----------
 
 /**
- * Runs in every page: the agent's cursor and the ring around what it shows.
+ * Runs in every page: the agent's cursor and its clicks. Nothing is drawn
+ * around what it shows: the pointer goes there, as on a shared screen.
  * On the desktop the pointer is real: the page only notes where it is on
  * the screen, from the pointer's own events.
  */
@@ -337,11 +338,6 @@ function overlay(options) {
       "position:fixed;inset:0;pointer-events:none;z-index:2147483647",
     );
     root.id = "__yarrow";
-    const ring = css(
-      document.createElement("div"),
-      "position:fixed;border:3px solid #f2b544;border-radius:12px;box-shadow:0 0 0 5px rgba(242,181,68,.18);opacity:0;transition:opacity .25s ease",
-    );
-    ring.id = "__yarrow_ring";
     const ripple = css(
       document.createElement("div"),
       "position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(242,181,68,.45);opacity:0;transform:scale(.3)",
@@ -371,7 +367,7 @@ function overlay(options) {
     arrow.setAttribute("stroke-width", "1.5");
     arrow.setAttribute("stroke-linejoin", "round");
     cursor.appendChild(arrow);
-    root.append(ring, ripple);
+    root.append(ripple);
     if (!real) root.append(cursor);
     document.documentElement.appendChild(root);
   };
@@ -387,17 +383,6 @@ function overlay(options) {
       cursor.style.transitionDuration = ms + "ms";
       cursor.style.left = x + "px";
       cursor.style.top = y + "px";
-    },
-    ring(box) {
-      const ring = get("__yarrow_ring");
-      ring.style.left = box.x - 7 + "px";
-      ring.style.top = box.y - 7 + "px";
-      ring.style.width = box.width + 8 + "px";
-      ring.style.height = box.height + 8 + "px";
-      ring.style.opacity = "1";
-    },
-    unring() {
-      get("__yarrow_ring").style.opacity = "0";
     },
     // Along points, at the frame rate: a loop drawn by hand.
     path(points, ms) {
@@ -550,9 +535,7 @@ async function act(page, base, action, marks, clock) {
   const at = clock();
   if (kind === "point" || kind === "hover") {
     marks.push({ atMs: at, kind: "point", box: shown });
-    await page.evaluate((b) => window.__yarrow?.ring(b), shown);
     await page.waitForTimeout(Math.min(Number(action.ms) || 1600, 6000));
-    await page.evaluate(() => window.__yarrow?.unring());
     return;
   }
   await page.evaluate(([cx, cy]) => window.__yarrow?.tap(cx, cy), [x, y]);
@@ -640,7 +623,6 @@ function terminalPage(cwd) {
       ";s.appendChild(p);var c=document.createElement('span');s.appendChild(c);return c};" +
       "window.type_=async function(text){var c=window.prompt_();var step=Math.max(12,Math.min(45,2200/Math.max(text.length,1)));for(var ch of text){c.textContent+=ch;await new Promise(function(r){setTimeout(r,step)})}};" +
       "window.print_=async function(lines,total){var step=Math.max(8,Math.min(90,total/Math.max(lines.length,1)));for(var l of lines){line(l.cls,l.text);await new Promise(function(r){setTimeout(r,step)})}};" +
-      "window.mark_=function(pattern){if(!pattern)return;for(var el of t.children){if(!el.classList.contains('cmd')&&el.textContent.toLowerCase().indexOf(pattern.toLowerCase())>=0)el.classList.add('hl')}};" +
       "</script>",
     "pre{box-sizing:border-box;margin:0;height:100%;padding:48px 56px;overflow:hidden;background:#0f1013;color:#c9ccd2;font:22px/1.65 'Geist Mono',ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}" +
       ".cmd b{font-weight:400;color:" +
@@ -652,9 +634,6 @@ function terminalPage(cwd) {
       COLORS.red +
       "}.ok{color:" +
       COLORS.green +
-      "}" +
-      ".hl{margin:0 -10px;padding:0 10px;border-radius:8px;box-shadow:inset 0 0 0 3px " +
-      COLORS.amber +
       "}",
   );
 }
@@ -792,7 +771,6 @@ async function record(browser, plan, chapter, index, take, state) {
       ([l, total]) => window.print_(l, total),
       [lines, Math.min(2500, Math.max(600, target * 0.3))],
     );
-    await page.evaluate((p) => window.mark_(p), chapter.highlight || "");
   }
 
   await page.waitForTimeout(Math.max(target, clock() + 1000) - clock());
@@ -2156,9 +2134,7 @@ class Desktop {
     const at = clock();
     if (kind === "point" || kind === "hover") {
       marks.push({ atMs: at, kind: "point", box: shown });
-      await page.evaluate((b) => window.__yarrow?.ring(b), shown);
       await sleep(Math.min(Number(action.ms) || 1600, 6000));
-      await page.evaluate(() => window.__yarrow?.unring());
       return;
     }
     await page.evaluate(([cx, cy]) => window.__yarrow?.tap(cx, cy), [x, y]);

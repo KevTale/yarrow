@@ -454,15 +454,6 @@ function Player({
   const loads = started
     ? (framed?.urls.filter((step) => step.atMs <= at).length ?? 0)
     : 0;
-  // Right after the app as it was (its tab clicked, on the desktop),
-  // "After" for a moment: the switch is seen.
-  const switched = framed?.beforeMs ?? 0;
-  const stage =
-    framed?.before || (started && elapsed < switched)
-      ? "Before"
-      : started && chapters[index - 1]?.before && elapsed < switched + 2800
-        ? "After"
-        : null;
 
   return (
     <div className="pv">
@@ -499,9 +490,6 @@ function Player({
                 ) : (
                   <span className="pv-name">Terminal</span>
                 )}
-                {stage && (
-                  <em className={stage === "After" ? "after" : ""}>{stage}</em>
-                )}
               </div>
             )}
             <div className="pv-glass">
@@ -509,14 +497,6 @@ function Player({
               {!started && poster && <img src={poster} alt="" />}
             </div>
           </div>
-          {desktop && (
-            <em
-              className={`pv-before ${stage ? "on" : ""} ${stage === "Before" ? "" : "after"}`}
-              aria-hidden={!stage}
-            >
-              {stage ?? "After"}
-            </em>
-          )}
           <audio ref={audio} preload="auto" />
           <button
             type="button"
@@ -592,10 +572,11 @@ function Player({
                     </button>
                   ))}
                 </div>
+                {/* On rounded glass, readable over any page, as in YouTube's player. */}
                 <div className="pv-bar">
                   <button
                     type="button"
-                    className="pv-icon"
+                    className="pv-icon pv-glass-pill pv-play"
                     onClick={toggle}
                     aria-label={
                       finished ? "Play again" : playing ? "Pause" : "Play"
@@ -609,66 +590,70 @@ function Player({
                       <Play size={18} aria-hidden="true" />
                     )}
                   </button>
-                  <span className="pv-time">
-                    {clockTime(played)} / {clockTime(total)}
-                  </span>
-                  {/* Before it starts the poster shows a later chapter: no title over it. */}
-                  <span className="pv-now">
-                    {started ? chapter?.title : ""}
-                  </span>
-                  <button
-                    type="button"
-                    className="pv-icon"
-                    onClick={flipCaptions}
-                    aria-pressed={captions}
-                    aria-label="Captions"
-                  >
-                    {captions ? (
-                      <Captions size={18} aria-hidden="true" />
-                    ) : (
-                      <CaptionsOff size={18} aria-hidden="true" />
+                  <span className="pv-glass-pill pv-clock">
+                    <span className="pv-time">
+                      {clockTime(played)} / {clockTime(total)}
+                    </span>
+                    {/* Before it starts the poster shows a later chapter: no title over it. */}
+                    {started && chapter?.title && (
+                      <span className="pv-now">{chapter.title}</span>
                     )}
-                  </button>
-                  {chapters.some((item) => item.audio) && (
+                  </span>
+                  <span className="pv-glass-pill pv-tools">
                     <button
                       type="button"
                       className="pv-icon"
-                      onClick={flipVoice}
-                      aria-pressed={voice}
-                      aria-label="Sound"
+                      onClick={flipCaptions}
+                      aria-pressed={captions}
+                      aria-label="Captions"
                     >
-                      {voice ? (
-                        <Volume2 size={18} aria-hidden="true" />
+                      {captions ? (
+                        <Captions size={18} aria-hidden="true" />
                       ) : (
-                        <VolumeX size={18} aria-hidden="true" />
+                        <CaptionsOff size={18} aria-hidden="true" />
                       )}
                     </button>
-                  )}
-                  {onCinema && !full && (
-                    <button
-                      type="button"
-                      className="pv-icon"
-                      onClick={onCinema}
-                      aria-pressed={cinema}
-                      aria-label={cinema ? "Exit cinema mode" : "Cinema mode"}
-                    >
-                      <RectangleHorizontal size={18} aria-hidden="true" />
-                    </button>
-                  )}
-                  {document.fullscreenEnabled && (
-                    <button
-                      type="button"
-                      className="pv-icon"
-                      onClick={flipFull}
-                      aria-label={full ? "Exit full screen" : "Full screen"}
-                    >
-                      {full ? (
-                        <Minimize size={18} aria-hidden="true" />
-                      ) : (
-                        <Maximize size={18} aria-hidden="true" />
-                      )}
-                    </button>
-                  )}
+                    {chapters.some((item) => item.audio) && (
+                      <button
+                        type="button"
+                        className="pv-icon"
+                        onClick={flipVoice}
+                        aria-pressed={voice}
+                        aria-label="Sound"
+                      >
+                        {voice ? (
+                          <Volume2 size={18} aria-hidden="true" />
+                        ) : (
+                          <VolumeX size={18} aria-hidden="true" />
+                        )}
+                      </button>
+                    )}
+                    {onCinema && !full && (
+                      <button
+                        type="button"
+                        className="pv-icon"
+                        onClick={onCinema}
+                        aria-pressed={cinema}
+                        aria-label={cinema ? "Exit cinema mode" : "Cinema mode"}
+                      >
+                        <RectangleHorizontal size={18} aria-hidden="true" />
+                      </button>
+                    )}
+                    {document.fullscreenEnabled && (
+                      <button
+                        type="button"
+                        className="pv-icon"
+                        onClick={flipFull}
+                        aria-label={full ? "Exit full screen" : "Full screen"}
+                      >
+                        {full ? (
+                          <Minimize size={18} aria-hidden="true" />
+                        ) : (
+                          <Maximize size={18} aria-hidden="true" />
+                        )}
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
             )}

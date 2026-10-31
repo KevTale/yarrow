@@ -7892,7 +7892,7 @@ body:has(.sb-dialog[open]) {
 }
 /* The stage: the agent's window on it, as screen recordings are shown. */
 .pv-view {
-  --pv-controls: 56px;
+  --pv-controls: 62px;
   --pv-bar: clamp(16px, 3.2cqw, 38px);
   position: relative;
   display: grid;
@@ -7929,36 +7929,6 @@ body:has(.sb-dialog[open]) {
   margin: 0;
   border-radius: 0;
   box-shadow: none;
-}
-/* Over the browser's tab strip, right of its tabs, where nothing is. */
-.pv-before {
-  position: absolute;
-  top: 1.2cqh;
-  left: 58%;
-  padding: 0.25cqw 1cqw;
-  border-radius: clamp(4px, 0.6cqw, 8px);
-  background: rgba(24, 19, 9, 0.82);
-  box-shadow: inset 0 0 0 1px rgba(242, 181, 68, 0.35);
-  color: var(--amber);
-  font-size: clamp(9px, 1.25cqw, 16px);
-  font-style: normal;
-  font-weight: 500;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateX(-50%);
-  transition:
-    opacity 0.45s ease-out,
-    color 0.3s,
-    background 0.3s,
-    box-shadow 0.3s;
-}
-.pv-before.on {
-  opacity: 1;
-}
-.pv-before.after {
-  background: rgba(9, 24, 17, 0.82);
-  box-shadow: inset 0 0 0 1px rgba(92, 203, 149, 0.35);
-  color: var(--green);
 }
 .pv-chrome {
   position: relative;
@@ -8047,20 +8017,6 @@ body:has(.sb-dialog[open]) {
 .pv-name {
   color: #a3a7af;
   font-weight: 500;
-}
-.pv-chrome em {
-  margin-left: auto;
-  padding: 0.15cqw 0.8cqw;
-  border-radius: clamp(4px, 0.5cqw, 7px);
-  background: rgba(242, 181, 68, 0.2);
-  color: var(--amber);
-  font-size: clamp(8px, 1.1cqw, 14px);
-  font-style: normal;
-  font-weight: 500;
-}
-.pv-chrome em.after {
-  background: rgba(92, 203, 149, 0.2);
-  color: var(--green);
 }
 .pv-glass {
   position: relative;
@@ -8178,15 +8134,15 @@ body:has(.sb-dialog[open]) {
   pointer-events: auto;
   transition: opacity 0.25s ease-out;
 }
-/* Dark enough under the controls for a white page. */
+/* A light shade under the controls; their glass does the rest. */
 .pv-controls::before {
   position: absolute;
   inset: -56px 0 0;
   z-index: -1;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.82),
-    rgba(0, 0, 0, 0.5) 45%,
+    rgba(0, 0, 0, 0.5),
+    rgba(0, 0, 0, 0.22) 45%,
     rgba(0, 0, 0, 0)
   );
   content: "";
@@ -8263,8 +8219,33 @@ body:has(.sb-dialog[open]) {
 .pv-bar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 40px;
+  gap: 8px;
+  height: 44px;
+}
+/* Rounded glass under the buttons and the time, as in YouTube's player:
+   they read over a white page as over a dark one. */
+.pv-glass-pill {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(16, 17, 20, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.pv-play {
+  width: 38px;
+}
+.pv-clock {
+  flex-shrink: 1;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 14px;
+}
+.pv-tools {
+  margin-left: auto;
+  padding: 0 2px;
 }
 .pv-icon {
   display: grid;
@@ -8274,20 +8255,22 @@ body:has(.sb-dialog[open]) {
   height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: #fff;
   cursor: pointer;
 }
-.pv-icon svg {
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+.pv-icon.pv-play {
+  width: 38px;
+  height: 38px;
+  background: rgba(16, 17, 20, 0.55);
 }
-.pv-icon:hover {
-  background: rgba(255, 255, 255, 0.14);
+.pv-icon:hover,
+.pv-icon.pv-play:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 .pv-time {
-  margin-left: 6px;
-  color: rgba(255, 255, 255, 0.86);
+  color: #fff;
   font:
     12.5px var(--font-geist-mono),
     monospace;
@@ -8295,14 +8278,17 @@ body:has(.sb-dialog[open]) {
   white-space: nowrap;
 }
 .pv-now {
-  flex: 1;
   min-width: 0;
-  margin-left: 10px;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.86);
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pv-now::before {
+  margin-right: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  content: "•";
 }
 .pv-screen:fullscreen {
   display: flex;
@@ -8410,7 +8396,7 @@ html:has(.pp-stage:modal) {
 }
 @media (max-width: 760px) {
   .pv-view {
-    --pv-controls: 50px;
+    --pv-controls: 54px;
   }
   .pv-window {
     width: min(92cqw, calc((90cqh - var(--pv-bar)) * var(--ratio)));
@@ -8419,11 +8405,23 @@ html:has(.pp-stage:modal) {
     width: min(92cqw, calc(90cqh * var(--ratio)));
   }
   .pv-bar {
-    height: 34px;
+    gap: 6px;
+    height: 36px;
+  }
+  .pv-glass-pill,
+  .pv-icon.pv-play {
+    height: 32px;
+  }
+  .pv-play,
+  .pv-icon.pv-play {
+    width: 32px;
+  }
+  .pv-clock {
+    padding: 0 10px;
   }
   .pv-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
   }
   .pv-big {
     width: 52px;
