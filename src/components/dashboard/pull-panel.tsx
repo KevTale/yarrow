@@ -4,7 +4,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleCheck,
   CircleDashed,
   Eye,
   ChevronsUpDown,
@@ -506,39 +505,44 @@ function Suggested({
 }) {
   const draft = useContext(DraftTicket);
   return (
-    <section className="pf pp-suggested" aria-label="Suggested tickets">
+    <section className="pf" aria-label="Suggested tickets">
       <p className="pf-head">
         {lines.length === 1
-          ? "Suggested ticket"
+          ? "1 suggested ticket"
           : `${lines.length} suggested tickets`}
       </p>
-      {lines.map((line) => {
-        const { plain, detail } = splitNote(line);
-        return (
-          <div key={line} className="pp-suggest">
-            <p>
-              <ScanSearch size={14} aria-hidden="true" />
-              <Rich text={plain} />
-            </p>
-            {detail && (
-              <small className="pp-detail">
-                <Rich text={detail} />
-              </small>
-            )}
-            {draft && (
-              <button
-                type="button"
-                className="pp-make"
-                onClick={() =>
-                  draft(projectId, spottedTicket(line, by, pullRequestUrl))
-                }
-              >
-                <Plus size={13} aria-hidden="true" /> Make it a ticket
-              </button>
-            )}
-          </div>
-        );
-      })}
+      <ul className="pf-files">
+        {lines.map((line) => {
+          const { plain, detail } = splitNote(line);
+          return (
+            <li key={line} className="pf-note">
+              <span className="pf-row">
+                <ScanSearch size={13} aria-hidden="true" />
+                <span>
+                  <Rich text={plain} />
+                  {detail && (
+                    <small className="pp-detail">
+                      <Rich text={detail} />
+                    </small>
+                  )}
+                </span>
+              </span>
+              {draft && (
+                <button
+                  type="button"
+                  className="pf-file pf-more"
+                  onClick={() =>
+                    draft(projectId, spottedTicket(line, by, pullRequestUrl))
+                  }
+                >
+                  <Plus size={13} aria-hidden="true" />
+                  Make it a ticket
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -559,47 +563,60 @@ function Note({ line }: { line: string }) {
 }
 
 /**
- * The checks run on the change, in the sidebar as the files are: "Verified"
- * and their count, each check by what it shows; unfolded, each as it ran.
+ * The checks run on the change, in the sidebar as the files are: how many
+ * passed over one line each, by what it shows; a line opens to the check
+ * as it ran.
  */
 function Checks({ lines }: { lines: string[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   const checks = lines.map(splitCheck);
-  const unfolds = checks.some((check) => check.detail);
   return (
-    <section className="pf pp-checks" aria-label="Checks">
-      <button
-        type="button"
-        className="pf-ghead"
-        aria-expanded={open}
-        disabled={!unfolds}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <b>Verified</b>
-        <span className="pf-n">{lines.length}</span>
-        {unfolds && (
-          <ChevronRight
-            size={13}
-            className={`pf-chev ${open ? "open" : ""}`}
-            aria-hidden="true"
-          />
-        )}
-        <CircleCheck size={14} className="pp-checks-ok" aria-label="Passed" />
-      </button>
-      <ul className="pp-checks-list">
-        {checks.map((check) => (
-          <li key={check.label}>
-            <Check size={13} aria-hidden="true" />
-            <span>
-              <Rich text={check.label} />
-              {open && check.detail && (
-                <small className="pp-detail">
-                  <Rich text={check.detail} />
-                </small>
+    <section className="pf" aria-label="Verifications">
+      <p className="pf-head">
+        Verifications
+        <span className="pp-count">
+          <span className="add">{lines.length} passed</span>
+        </span>
+      </p>
+      <ul className="pf-files">
+        {checks.map((check) => {
+          const shown = open.has(check.label);
+          const content = (
+            <>
+              <Check size={13} className="pf-ok" aria-hidden="true" />
+              <span>
+                <Rich text={check.label} />
+                {shown && (
+                  <small className="pp-detail">
+                    <Rich text={check.detail} />
+                  </small>
+                )}
+              </span>
+            </>
+          );
+          return (
+            <li key={check.label}>
+              {check.detail ? (
+                <button
+                  type="button"
+                  className="pf-row"
+                  aria-expanded={shown}
+                  onClick={() =>
+                    setOpen((set) => {
+                      const next = new Set(set);
+                      if (!next.delete(check.label)) next.add(check.label);
+                      return next;
+                    })
+                  }
+                >
+                  {content}
+                </button>
+              ) : (
+                <span className="pf-row">{content}</span>
               )}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -871,9 +888,10 @@ function Composer({
 }
 
 /**
- * The files a pull request changed, in the sidebar the way a builder reads
- * them: the code, its tests, its documentation, what tools generated, the
- * assets. The code opens first; picking a file shows its changes below.
+ * The files a pull request changed, in the sidebar: how many and their
+ * lines over one list, in the order a builder reads them (the code, its
+ * tests, its documentation, what tools generated, the assets), six then
+ * the rest on demand. Picking a file shows its changes below.
  */
 function ChangedFiles({
   projectId,
@@ -891,10 +909,7 @@ function ChangedFiles({
   onOpen: (path: string) => void;
 }) {
   const files = usePullFiles(projectId, rowKey, size);
-  const [unfolded, setUnfolded] = useState<Set<string>>(
-    () => new Set(["implementation"]),
-  );
-  const [whole, setWhole] = useState<Set<string>>(() => new Set());
+  const [whole, setWhole] = useState(false);
   if (files === undefined)
     return (
       <div className="pf" aria-busy="true" aria-label="Loading the changes">
@@ -911,89 +926,67 @@ function ChangedFiles({
         </a>
       </p>
     );
-  const groups = groupFiles(files);
-  const flip = (set: Set<string>, value: string) => {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    return next;
-  };
+  // One list, the code first: the groups' order without their names.
+  const ordered = groupFiles(files).flatMap((group) => group.files);
+  const additions = files.reduce((sum, file) => sum + file.additions, 0);
+  const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+  const shown = whole ? ordered : ordered.slice(0, FILES_SHOWN);
+  const more = ordered.length - FILES_SHOWN;
   return (
     <section className="pf" aria-label="Files changed">
       <p className="pf-head">
         {files.length} {files.length === 1 ? "file" : "files"} changed
+        <span className="pp-count">
+          <span className="add">+{additions}</span>
+          {deletions > 0 && (
+            <>
+              {" "}
+              <span className="del">−{deletions}</span>
+            </>
+          )}
+        </span>
       </p>
-      {groups.map((group) => {
-        const open = unfolded.has(group.kind);
-        const shown = whole.has(group.kind)
-          ? group.files
-          : group.files.slice(0, 6);
-        const more = group.files.length - shown.length;
-        return (
-          <div key={group.kind} className="pf-group">
+      <ul className="pf-files">
+        {shown.map((file) => {
+          const slash = file.path.lastIndexOf("/");
+          return (
+            <li key={file.path}>
+              <button
+                type="button"
+                className="pf-file"
+                aria-pressed={focus === file.path}
+                title={file.path}
+                onClick={() => onOpen(file.path)}
+              >
+                <FileText size={13} aria-hidden="true" />
+                <b>{file.path.slice(slash + 1)}</b>
+                {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
+              </button>
+            </li>
+          );
+        })}
+        {more > 0 && (
+          <li>
             <button
               type="button"
-              className="pf-ghead"
-              aria-expanded={open}
-              onClick={() => setUnfolded((set) => flip(set, group.kind))}
+              className="pf-file pf-more"
+              aria-expanded={whole}
+              onClick={() => setWhole((value) => !value)}
             >
-              <b>{group.label}</b>
-              <span className="pf-n">{group.files.length}</span>
-              <ChevronRight
-                size={13}
-                className={`pf-chev ${open ? "open" : ""}`}
-                aria-hidden="true"
-              />
-              <span className="pp-count">
-                <span className="add">+{group.additions}</span>
-                {group.deletions > 0 && (
-                  <>
-                    {" "}
-                    <span className="del">−{group.deletions}</span>
-                  </>
-                )}
-              </span>
+              <ChevronsUpDown size={13} aria-hidden="true" />
+              {whole
+                ? "Show fewer"
+                : `Show ${more} more ${more === 1 ? "file" : "files"}`}
             </button>
-            {open && (
-              <ul className="pf-files">
-                {shown.map((file) => {
-                  const slash = file.path.lastIndexOf("/");
-                  return (
-                    <li key={file.path}>
-                      <button
-                        type="button"
-                        className="pf-file"
-                        aria-pressed={focus === file.path}
-                        title={file.path}
-                        onClick={() => onOpen(file.path)}
-                      >
-                        <FileText size={13} aria-hidden="true" />
-                        <b>{file.path.slice(slash + 1)}</b>
-                        {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-                {more > 0 && (
-                  <li>
-                    <button
-                      type="button"
-                      className="pf-file pf-more"
-                      onClick={() => setWhole((set) => flip(set, group.kind))}
-                    >
-                      <ChevronsUpDown size={13} aria-hidden="true" />
-                      {more} more {more === 1 ? "file" : "files"}
-                    </button>
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-        );
-      })}
+          </li>
+        )}
+      </ul>
     </section>
   );
 }
+
+/** Files listed before "Show N more". */
+const FILES_SHOWN = 6;
 
 /**
  * The changes, under the panel: every file, the one picked in the sidebar

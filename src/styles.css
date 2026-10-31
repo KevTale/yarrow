@@ -8511,105 +8511,6 @@ body:has(.sb-dialog[open]) {
   font-size: 12.5px;
   color: var(--muted);
 }
-/* The checks, listed in the sidebar as the files are: what each shows,
-   green; unfolded, each as it ran, in the code's type. */
-.pp-checks .pf-ghead:disabled {
-  cursor: default;
-}
-.pp-checks-ok {
-  flex: none;
-  margin-left: auto;
-  color: var(--green);
-}
-.pp-checks-list {
-  display: grid;
-  margin: 0 0 4px;
-  padding: 0;
-  list-style: none;
-}
-.pp-checks-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 4px 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text);
-}
-.pp-checks-list svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--green);
-}
-.pp-checks-list span {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-.pp-checks-list .pp-detail,
-.pp-suggest .pp-detail {
-  font:
-    11.5px/1.5 var(--font-geist-mono),
-    monospace;
-  overflow-wrap: anywhere;
-}
-/* What was noticed outside the ticket: a card each, to make a ticket of. */
-.pp-suggested {
-  gap: 8px;
-}
-.pp-suggested .pf-head {
-  margin: 0;
-}
-.pp-suggest {
-  display: grid;
-  justify-items: start;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.pp-suggest p {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text);
-}
-.pp-suggest p svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--muted);
-}
-.pp-suggest .pp-detail {
-  padding-left: 22px;
-}
-.pp-make {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  margin: 6px 0 0 22px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: none;
-  color: var(--secondary);
-  font-size: 12.5px;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
-}
-.pp-make:hover,
-.pp-make:focus-visible {
-  border-color: #3a3e46;
-  color: var(--text);
-  background: var(--hover);
-}
 .pp-num {
   font-family: var(--font-geist-mono), monospace !important;
 }
@@ -8842,41 +8743,17 @@ body:has(.sb-dialog[open]) {
   margin: 0;
   font-size: 13px;
 }
+/* Each block of the sidebar under Paid by: what it is and how many, its
+   count on the right (the lines changed, the checks passed), then rows. */
 .pf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   margin: 0 0 4px;
   font-size: 12.5px;
   line-height: 1.4;
   color: var(--muted);
-}
-.pf-ghead {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 4px 0;
-  line-height: 1.4;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-.pf-ghead b {
-  font-weight: 500;
-}
-.pf-n {
-  color: var(--muted);
-}
-.pf-chev {
-  color: var(--muted);
-  transition: transform 0.2s var(--ease-standard);
-}
-.pf-chev.open {
-  transform: rotate(90deg);
-}
-.pf-ghead .pp-count {
-  margin-left: auto;
 }
 .pf-files {
   display: grid;
@@ -8924,6 +8801,54 @@ body:has(.sb-dialog[open]) {
 }
 .pf-file.pf-more {
   color: var(--muted);
+}
+.pf-file.pf-more:hover {
+  color: var(--text);
+}
+/* A row that wraps: a check by what it shows, a suggested ticket by its
+   everyday words; the check as it ran or the pointer under it, in the
+   code's type. A check with more to show opens on a click. */
+.pf-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 4px 6px 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+}
+button.pf-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button.pf-row:hover,
+button.pf-row[aria-expanded="true"] {
+  background: var(--hover);
+}
+.pf-row svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.pf-row svg.pf-ok {
+  color: var(--green);
+}
+.pf-row > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.pf-row .pp-detail {
+  font:
+    11.5px/1.5 var(--font-geist-mono),
+    monospace;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .pp-files-head {
   display: flex;
