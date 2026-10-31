@@ -7865,11 +7865,6 @@ body:has(.sb-dialog[open]) {
   border-radius: 999px;
   padding: 2px 9px;
 }
-.pp-section h3 em.ok {
-  color: var(--green);
-  border: 1px solid #5ccb9550;
-  background: #5ccb9512;
-}
 .pp-section h3 em.warn {
   color: var(--amber);
   border: 1px solid #f2b54450;
@@ -8601,11 +8596,6 @@ body:has(.sb-dialog[open]) {
   padding: 1px 8px;
   white-space: nowrap;
 }
-.pp-change-head em.ok {
-  color: var(--green);
-  border: 1px solid #5ccb9550;
-  background: #5ccb9512;
-}
 .pp-change-head em.warn {
   color: var(--amber);
   border: 1px solid #f2b54450;
@@ -8859,9 +8849,10 @@ button.pf-row:focus-visible .pf-add {
 .pf-suggest[data-tip]:focus-visible::after {
   transform: none;
 }
-/* The ticket's acceptance criteria: ticked, how each was shown on the
-   right, why under one not met or not checked. */
-.pp-criteria li {
+/* What the review found working: the ticket's acceptance criteria, how
+   each was shown on the right (why under one not met or not checked),
+   then the automated checks in everyday words. */
+.pp-checked li {
   color: var(--text);
 }
 .pp-list svg.bad {
@@ -8875,41 +8866,6 @@ button.pf-row:focus-visible .pf-add {
   line-height: 21px;
   color: var(--muted);
   white-space: nowrap;
-}
-/* Under the review: the automated checks as they ran, the developer's. */
-.pp-runs {
-  display: grid;
-  gap: 6px;
-  margin-top: 2px;
-}
-.pp-runs h4 {
-  margin: 0;
-  font:
-    500 12.5px var(--font-geist-sans),
-    sans-serif;
-  color: var(--muted);
-}
-.pp-runs ul {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pp-runs li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font:
-    12px/1.55 var(--font-geist-mono),
-    monospace;
-  color: var(--secondary);
-  overflow-wrap: anywhere;
-}
-.pp-runs svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--green);
 }
 .pp-files-head {
   display: flex;

@@ -18,6 +18,7 @@ import { BackArrow } from "@/components/back-arrow";
 import { Presentation } from "@/components/presentation";
 import { Rich, RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
+import { splitNote } from "@/core/pull-notes";
 
 export const Route = createFileRoute("/runs/$runId")({
   loader: ({ params }) => getRunFn({ data: { runId: params.runId } }),
@@ -131,12 +132,16 @@ function RunPage() {
               </p>
               {run.evidence.length > 0 && (
                 <ul className="rp-checks">
-                  {run.evidence.map((line) => (
-                    <li key={line}>
-                      <CircleCheck size={14} aria-hidden="true" />
-                      <span>{line}</span>
-                    </li>
-                  ))}
+                  {run.evidence.map((line) => {
+                    // Everyday words; the command behind them on hover.
+                    const { plain, detail } = splitNote(line);
+                    return (
+                      <li key={line}>
+                        <CircleCheck size={14} aria-hidden="true" />
+                        <span title={detail || undefined}>{plain}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>

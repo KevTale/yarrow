@@ -19,7 +19,6 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
-import type { Criterion } from "@/core/contracts";
 import { proofLabel, splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
@@ -216,54 +215,15 @@ export function PullPanel({
           {panel.implementation && (
             <Summary
               implementation={panel.implementation}
-              legacyRisks={live?.risks ?? []}
               screens={panel.screens}
             />
           )}
 
-          {panel.implementation && panel.implementation.criteria.length > 0 && (
-            <Criteria items={panel.implementation.criteria} />
-          )}
-
-          {panel.review ? (
-            <section className="pp-section">
-              <h3>
-                Review
-                <em className={panel.review.approved ? "ok" : "warn"}>
-                  {panel.review.approved ? "Approved" : "Changes requested"}
-                </em>
-              </h3>
-              <p className="pp-text">
-                <Rich text={panel.review.summary} />
-              </p>
-              <ChecksRun lines={panel.implementation?.verification ?? []} />
-              {panel.review.suggestions.length > 0 && (
-                <ul className="pp-list">
-                  {panel.review.suggestions.map((suggestion, i) => (
-                    <li key={i}>
-                      <ChevronRight size={15} aria-hidden="true" />
-                      <span>
-                        {suggestion.path && (
-                          <code>
-                            {suggestion.path}
-                            {suggestion.line ? `:${suggestion.line}` : ""}
-                          </code>
-                        )}{" "}
-                        <Rich text={suggestion.body} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          ) : (
-            panel.implementation &&
-            panel.implementation.verification.length > 0 && (
-              <section className="pp-section">
-                <ChecksRun lines={panel.implementation.verification} />
-              </section>
-            )
-          )}
+          <Review
+            implementation={panel.implementation}
+            review={panel.review}
+            legacyRisks={live?.risks ?? []}
+          />
 
           {panel.corrections.length > 0 && (
             <ChangesAsked
@@ -440,39 +400,106 @@ function workingText(panel: Panel): string | null {
 
 /**
  * What the pull request does now, in the implementer's words, read by a
- * product manager as well as a developer: the summary, then what could not
- * run and what the owner must act on, each note's everyday words with its
- * technical pointer under them. The checks and the suggested tickets sit in
- * the sidebar.
+ * product manager as well as a developer: what the ticket asked, then
+ * what was done. What was checked and what to watch sit in the review.
  */
 function Summary({
   implementation,
-  legacyRisks,
   screens,
 }: {
   implementation: NonNullable<Panel["implementation"]>;
-  /** Pull requests delivered before these were apart: their Risks. */
-  legacyRisks: string[];
   screens: Panel["screens"];
 }) {
-  const notes = implementation.legacy ? legacyRisks : [];
-  const watch = [
-    ...implementation.notVerified.map((line) => ({ kind: "n", line })),
-    ...notes.map((line) => ({ kind: "l", line })),
-    ...implementation.risks.map((line) => ({ kind: "r", line })),
-  ];
+  const shots = screens.filter((screen) => screen.kind !== "presentation");
   return (
     <section className="pp-section">
       <h3>Summary</h3>
       <p className="pp-text">
         <Rich text={implementation.summary} />
       </p>
-      {screens.some((screen) => screen.kind !== "presentation") && (
-        <Screens
-          screens={screens.filter((screen) => screen.kind !== "presentation")}
-        />
+      {shots.length > 0 && <Screens screens={shots} />}
+    </section>
+  );
+}
+
+/**
+ * The review, said as a colleague would: the reviewer's words, then what
+ * works, each ticked (the ticket's acceptance criteria with how each was
+ * shown, then the automated checks in everyday words), then what to keep
+ * an eye on: what could not run, what to do before merging, the
+ * reviewer's suggestions. A verdict shows only when changes are asked.
+ */
+function Review({
+  implementation,
+  review,
+  legacyRisks,
+}: {
+  implementation: Panel["implementation"];
+  review: Panel["review"];
+  /** Pull requests delivered before notes were apart: their Risks. */
+  legacyRisks: string[];
+}) {
+  const criteria = implementation?.criteria ?? [];
+  const checks = implementation?.verification ?? [];
+  const watch = [
+    ...(implementation?.notVerified ?? []).map((line) => ({ kind: "n", line })),
+    ...(implementation?.legacy ? legacyRisks : []).map((line) => ({
+      kind: "l",
+      line,
+    })),
+    ...(implementation?.risks ?? []).map((line) => ({ kind: "r", line })),
+  ];
+  const suggestions = review?.suggestions ?? [];
+  if (!review && criteria.length + checks.length + watch.length === 0)
+    return null;
+  return (
+    <section className="pp-section">
+      <h3>
+        {review ? "Review" : "Checked"}
+        {review && !review.approved && (
+          <em className="warn">Changes requested</em>
+        )}
+      </h3>
+      {review && (
+        <p className="pp-text">
+          <Rich text={review.summary} />
+        </p>
       )}
-      {watch.length > 0 && (
+      {criteria.length + checks.length > 0 && (
+        <ul className="pp-list pp-checked">
+          {criteria.map((item) => {
+            const proof = item.status === "met" ? proofLabel(item.proof) : "";
+            return (
+              <li key={`a${item.criterion}`}>
+                {item.status === "met" ? (
+                  <Check size={15} className="ok" aria-label="Met" />
+                ) : item.status === "unmet" ? (
+                  <X size={15} className="bad" aria-label="Not met" />
+                ) : (
+                  <CircleDashed size={15} aria-label="Not checked" />
+                )}
+                <span className="pp-note">
+                  <Rich text={item.criterion} />
+                  {item.status !== "met" && (
+                    <small className="pp-detail">
+                      {item.status === "unmet" ? "Not met" : "Not checked"}
+                      {item.note ? `: ${item.note}` : ""}
+                    </small>
+                  )}
+                </span>
+                {proof && <span className="pp-proof">{proof}</span>}
+              </li>
+            );
+          })}
+          {checks.map((line) => (
+            <li key={`c${line}`}>
+              <Check size={15} className="ok" aria-hidden="true" />
+              <Note line={line} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {watch.length + suggestions.length > 0 && (
         <ul className="pp-list">
           {watch.map(({ kind, line }) => (
             <li
@@ -487,6 +514,19 @@ function Summary({
                 <TriangleAlert size={15} className="warn" aria-hidden="true" />
               )}
               <Note line={line} />
+            </li>
+          ))}
+          {suggestions.map((suggestion, i) => (
+            <li key={`s${i}`}>
+              <ChevronRight size={15} aria-hidden="true" />
+              <Note
+                line={suggestion.body}
+                where={
+                  suggestion.path
+                    ? `${suggestion.path}${suggestion.line ? `:${suggestion.line}` : ""}`
+                    : null
+                }
+              />
             </li>
           ))}
         </ul>
@@ -557,79 +597,19 @@ function Suggested({
 }
 
 /** A note's everyday words, then, smaller, where it comes from in the code. */
-function Note({ line }: { line: string }) {
+function Note({ line, where = null }: { line: string; where?: string | null }) {
   const { plain, detail } = splitNote(line);
   return (
     <span className="pp-note">
       <Rich text={plain} />
-      {detail && (
+      {(detail || where) && (
         <small className="pp-detail">
-          <Rich text={detail} />
+          {where && <code>{where}</code>}
+          {where && detail ? " " : ""}
+          {detail && <Rich text={detail} />}
         </small>
       )}
     </span>
-  );
-}
-
-/**
- * What the ticket asks, as the product manager ticks it: met with how it
- * was shown on the right (in the app, by a test, by a request), or not
- * met, or not checked here, with why.
- */
-function Criteria({ items }: { items: Criterion[] }) {
-  return (
-    <section className="pp-section">
-      <h3>Acceptance criteria</h3>
-      <ul className="pp-list pp-criteria">
-        {items.map((item) => {
-          const proof = item.status === "met" ? proofLabel(item.proof) : "";
-          return (
-            <li key={item.criterion}>
-              {item.status === "met" ? (
-                <Check size={15} className="ok" aria-label="Met" />
-              ) : item.status === "unmet" ? (
-                <X size={15} className="bad" aria-label="Not met" />
-              ) : (
-                <CircleDashed size={15} aria-label="Not checked" />
-              )}
-              <span className="pp-note">
-                <Rich text={item.criterion} />
-                {item.status !== "met" && (
-                  <small className="pp-detail">
-                    {item.status === "unmet" ? "Not met" : "Not checked"}
-                    {item.note ? `: ${item.note}` : ""}
-                  </small>
-                )}
-              </span>
-              {proof && <span className="pp-proof">{proof}</span>}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * The automated checks run on the change (tests, build), under the review:
- * the developer's part, as the agent ran them.
- */
-function ChecksRun({ lines }: { lines: string[] }) {
-  if (lines.length === 0) return null;
-  return (
-    <div className="pp-runs">
-      <h4>Checks run</h4>
-      <ul>
-        {lines.map((line) => (
-          <li key={line}>
-            <Check size={13} aria-hidden="true" />
-            <span>
-              <Rich text={line} />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -741,10 +721,8 @@ function ChangesAsked({
               <span className="pp-state stopped">Stopped</span>
             ) : null;
           const verdict =
-            correction.status === "done" && correction.approved !== null ? (
-              <em className={correction.approved ? "ok" : "warn"}>
-                {correction.approved ? "Approved" : "Changes requested"}
-              </em>
+            correction.status === "done" && correction.approved === false ? (
+              <em className="warn">Changes requested</em>
             ) : null;
           const live =
             correction.status === "queued" || correction.status === "working";

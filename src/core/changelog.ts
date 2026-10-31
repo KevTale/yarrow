@@ -31,12 +31,18 @@ export const changelog: ChangelogEntry[] = [
     ],
     improved: [
       builders(
-        "A pull request's summary and notes are written for whoever owns the product; the automated checks sit under the review.",
+        "A pull request's summary says what the ticket asked, then what was done. Its review reads like a colleague's: what the reviewer checked, then everything that works, the ticket's criteria and the tests in plain words, then what to keep an eye on.",
+      ),
+      builders(
+        "In a pull request's presentation the app fills the screen and reads larger, the dock no longer looks like the player's buttons, and each chapter ends with its words instead of a silence.",
       ),
     ],
     fixed: [
       builders(
         "On a phone, tickets keep their line and scroll sideways, and an opened ticket's text no longer runs past the screen.",
+      ),
+      builders(
+        "The ticket list no longer slides by itself on a refresh after a ticket was opened.",
       ),
     ],
   },
