@@ -6,8 +6,12 @@ import { z } from "zod";
  * each chapter and stores this timeline; the player reads it.
  */
 
-/** Speech rate the recorder pads each chapter to before the voice exists. */
-const WORDS_PER_SECOND = 2.6;
+/**
+ * Speech rate the recorder pads each chapter to before the voice exists:
+ * the voice speaks about 3.3 words a second (measured on the first desktop
+ * presentations), a little slower here so the film rarely runs short.
+ */
+const WORDS_PER_SECOND = 3.1;
 
 export function estimateSpeechMs(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -108,13 +112,27 @@ export const presentationSchema = z.object({
 });
 export type Presentation = z.infer<typeof presentationSchema>;
 
-/** A chapter lasts as long as its clip or its voice, whichever is longer. */
+/** After the last word, before the next chapter. */
+const PAUSE_MS = 450;
+/** What the last click or command shows, given time to show. */
+const SETTLE_MS = 1500;
+
+/**
+ * A chapter lasts as long as its voice, and its clip until the last thing
+ * done has shown: the clip was filmed to a guess at how long the words
+ * take, and the seconds past them were silence. Without a voice, the
+ * longer of the clip and the guess.
+ */
 export function chapterMs(chapter: PresentationChapter): number {
-  const media = Math.max(
-    chapter.video?.durationMs ?? 0,
-    chapter.audio?.durationMs ?? 0,
+  const clip = chapter.video?.durationMs ?? 0;
+  const voice = chapter.audio?.durationMs ?? 0;
+  if (!voice) return clip || estimateSpeechMs(chapter.say);
+  const last = chapter.marks.at(-1)?.atMs;
+  const shown = Math.max(
+    voice + PAUSE_MS,
+    last === undefined ? 0 : last + SETTLE_MS,
   );
-  return media || estimateSpeechMs(chapter.say);
+  return Math.max(voice, Math.min(clip, shown));
 }
 
 /** What the address bar shows at `ms`: the page loaded, then where it went. */

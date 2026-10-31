@@ -146,7 +146,7 @@ describe("chapter length", () => {
     marks: [],
     urls: [],
   };
-  it("is the longer of the clip and the voice", () => {
+  it("ends with its voice once the last thing done has shown", () => {
     const video = {
       key: "k",
       startMs: 0,
@@ -155,12 +155,29 @@ describe("chapter length", () => {
       height: 720,
     };
     expect(chapterMs({ ...base, video, audio: null })).toBe(5000);
+    // A voice longer than the clip: the clip holds its last frame.
     expect(
       chapterMs({ ...base, video, audio: { key: "a", durationMs: 6200 } }),
     ).toBe(6200);
     expect(chapterMs({ ...base, video: null, audio: null })).toBe(
       estimateSpeechMs(base.say),
     );
+    // Filmed to a guess at the words, 22.5 s, said in 17.3: the silence goes.
+    const long = { ...video, durationMs: 22525 };
+    const click = (atMs: number) => ({
+      atMs,
+      kind: "click" as const,
+      box: { x: 0, y: 0, width: 10, height: 10 },
+    });
+    const voiced = {
+      ...base,
+      video: long,
+      audio: { key: "a", durationMs: 17290 },
+    };
+    expect(chapterMs({ ...voiced, marks: [click(8160)] })).toBe(17740);
+    // A click right at the end still shows what it did, within the clip.
+    expect(chapterMs({ ...voiced, marks: [click(16900)] })).toBe(18400);
+    expect(chapterMs({ ...voiced, marks: [click(22000)] })).toBe(22525);
   });
 });
 

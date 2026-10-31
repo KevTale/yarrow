@@ -544,7 +544,10 @@ function Player({
                   <span className="pv-time">
                     {clockTime(played)} / {clockTime(total)}
                   </span>
-                  <span className="pv-now">{chapter?.title}</span>
+                  {/* Before it starts the poster shows a later chapter: no title over it. */}
+                  <span className="pv-now">
+                    {started ? chapter?.title : ""}
+                  </span>
                   <button
                     type="button"
                     className="pv-icon"
