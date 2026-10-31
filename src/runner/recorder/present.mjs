@@ -23,7 +23,9 @@ import process from "node:process";
 const OUTPUTS = process.env.YARROW_OUTPUTS || "/mnt/session/outputs";
 const DIR = path.join(OUTPUTS, "presentation");
 // As estimateSpeechMs in src/core/presentation.ts.
-const WORDS_PER_SECOND = 2.6;
+// The voice says about 3.3 words a second; a little slower here, so the
+// film rarely runs short of the words (the player ends a chapter with them).
+const WORDS_PER_SECOND = 3.1;
 // The player shows it in a browser window on a 16:10 stage.
 const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 390, height: 844 };
@@ -845,13 +847,25 @@ async function record(browser, plan, chapter, index, take, state) {
 // screen; each chapter is cut from that film, its waits taken out.
 
 const SCREEN = { width: 1440, height: 900 };
-const WINDOWS = {
-  browser: { x: 56, y: 20, width: 1328, height: 786 },
-  terminal: { x: 168, y: 60, width: 1104, height: 704 },
-};
 const DOCK_APPS = ["browser", "terminal"];
-const DOCK = { icon: 54, gap: 14, pad: 10, bottom: 10 };
-// Chromium's toolbar, from the window's top left: the address, the reload button.
+// Upright on the left edge: at the bottom, under the player's controls,
+// its icons read as the player's buttons.
+const DOCK = { icon: 54, gap: 14, pad: 10, edge: 12 };
+// Each app fills the screen beside the dock, so it reads large on film.
+const BESIDE_DOCK = DOCK.edge + DOCK.icon + 2 * DOCK.pad + 12;
+const FULL = {
+  x: BESIDE_DOCK,
+  y: 10,
+  width: SCREEN.width - BESIDE_DOCK - 10,
+  height: SCREEN.height - 20,
+};
+const WINDOWS = { browser: FULL, terminal: FULL };
+// The browser and its pages a quarter larger, as a zoomed screen share:
+// what the app shows reads in a player a third of the film's width. The
+// page and its window count in these units, the pointer in the screen's.
+const ZOOM = 1.25;
+// Chromium's toolbar, from the window's top left in the window's units (ZOOM
+// turns them into the screen's): the address, the reload button.
 const TOOLBAR = { y: 63, reload: 98 };
 // Chromium's tabs, from the window's corner: where the first starts, how
 // wide each is (two fit at full width), the strip's middle.
@@ -1165,10 +1179,10 @@ const PROMPT =
 /** Where the dock and its icons are on the screen. */
 function dockLayout() {
   const count = DOCK_APPS.length;
-  const width = count * DOCK.icon + (count - 1) * DOCK.gap + 2 * DOCK.pad;
-  const height = DOCK.icon + 2 * DOCK.pad;
-  const left = Math.round((SCREEN.width - width) / 2);
-  const top = SCREEN.height - DOCK.bottom - height;
+  const width = DOCK.icon + 2 * DOCK.pad;
+  const height = count * DOCK.icon + (count - 1) * DOCK.gap + 2 * DOCK.pad;
+  const left = DOCK.edge;
+  const top = Math.round((SCREEN.height - height) / 2);
   return {
     left,
     top,
@@ -1176,8 +1190,8 @@ function dockLayout() {
     height,
     icons: DOCK_APPS.map((app, i) => ({
       app,
-      x: left + DOCK.pad + i * (DOCK.icon + DOCK.gap),
-      y: top + DOCK.pad,
+      x: left + DOCK.pad,
+      y: top + DOCK.pad + i * (DOCK.icon + DOCK.gap),
       size: DOCK.icon,
     })),
   };
@@ -1226,11 +1240,11 @@ function desktopPage() {
     DOCK.icon +
     "px;padding:0;border:0;background:none;cursor:default}" +
     ".app svg{display:block;width:100%;height:100%;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));transition:transform .15s ease,filter .1s}" +
-    ".app:hover svg{transform:translateY(-2px)}.app:active svg{filter:brightness(.8)}" +
-    ".app i{position:absolute;left:50%;bottom:-7px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(255,255,255,.8);opacity:0;transition:opacity .3s}" +
+    ".app:hover svg{transform:translateX(2px)}.app:active svg{filter:brightness(.8)}" +
+    ".app i{position:absolute;top:50%;left:-7px;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:rgba(255,255,255,.8);opacity:0;transition:opacity .3s}" +
     ".app.on i{opacity:1}" +
     ".app.hop svg{animation:hop .55s cubic-bezier(.3,.7,.4,1)}" +
-    "@keyframes hop{35%{transform:translateY(-10px)}65%{transform:none}82%{transform:translateY(-3px)}}" +
+    "@keyframes hop{35%{transform:translateX(10px)}65%{transform:none}82%{transform:translateX(3px)}}" +
     '</style></head><body><div class="dock">' +
     icons +
     "</div><script>" +
@@ -1483,8 +1497,15 @@ class Desktop {
       ignoreDefaultArgs: ["--enable-automation"],
       args: [
         "--class=YarrowBrowser",
-        "--window-position=" + box.x + "," + box.y,
-        "--window-size=" + box.width + "," + box.height,
+        "--force-device-scale-factor=" + ZOOM,
+        "--window-position=" +
+          Math.round(box.x / ZOOM) +
+          "," +
+          Math.round(box.y / ZOOM),
+        "--window-size=" +
+          Math.round(box.width / ZOOM) +
+          "," +
+          Math.round(box.height / ZOOM),
         "--force-dark-mode",
         "--no-first-run",
         "--no-default-browser-check",
@@ -1563,7 +1584,7 @@ class Desktop {
     ];
     this.spawn("xterm", "xterm", [
       ...flags(
-        "-class YarrowTerm -T Terminal -n Terminal -fa monospace -fs 13",
+        "-class YarrowTerm -T Terminal -n Terminal -fa monospace -fs 16",
       ),
       ...flags(
         "-bg #0f1013 -fg #d5d7dc -cr #f2b544 -b 20 +sb -geometry 100x28",
@@ -1733,7 +1754,7 @@ class Desktop {
     await sleep(150);
   }
 
-  /** Where a point of the page is on the screen. */
+  /** Where a point of the page is on the screen, in the screen's pixels. */
   async screenOf(page, x, y) {
     const [left, top] = await page.evaluate(
       () =>
@@ -1745,7 +1766,7 @@ class Desktop {
             (window.outerWidth - window.innerWidth) / 2,
         ],
     );
-    return { x: left + x, y: top + y };
+    return { x: (left + x) * ZOOM, y: (top + y) * ZOOM };
   }
 
   /** The pointer onto a point of the page, corrected once the page saw it. */
@@ -1761,7 +1782,12 @@ class Desktop {
   /** The real pointer's loop around a box of the page. */
   async circle(page, box) {
     const corner = await this.screenOf(page, box.x, box.y);
-    const { points, ms } = loop({ ...box, x: corner.x, y: corner.y });
+    const { points, ms } = loop({
+      x: corner.x,
+      y: corner.y,
+      width: box.width * ZOOM,
+      height: box.height * ZOOM,
+    });
     await this.glide(points[0][0], points[0][1], 700);
     for (const [x, y] of points) {
       this.x("xdotool", ["mousemove", String(x), String(y)]);
@@ -2019,15 +2045,16 @@ class Desktop {
       x: window.screenX,
       y: window.screenY,
     }));
-    const left = frame.x + TABS.left + TABS.width * TWINS.indexOf(which);
+    const tab = TABS.width * ZOOM;
+    const left = (frame.x + TABS.left) * ZOOM + tab * TWINS.indexOf(which);
     // Its title's side, away from its close button.
-    const spot = { x: left + TABS.width * 0.35, y: frame.y + TABS.y };
+    const spot = { x: left + tab * 0.35, y: (frame.y + TABS.y) * ZOOM };
     await this.glide(spot.x, spot.y, 800);
     await sleep(150);
     marks.push({
       atMs: clock(),
       kind: "click",
-      box: { x: left, y: spot.y - 14, width: TABS.width, height: 28 },
+      box: { x: left, y: spot.y - 14, width: tab, height: 28 },
     });
     const at = clock();
     await this.click();
@@ -2133,8 +2160,8 @@ class Desktop {
       width: window.outerWidth,
     }));
     const bar = {
-      x: frame.x + Math.round(frame.width * 0.4),
-      y: frame.y + TOOLBAR.y,
+      x: (frame.x + Math.round(frame.width * 0.4)) * ZOOM,
+      y: (frame.y + TOOLBAR.y) * ZOOM,
     };
     await this.glide(bar.x, bar.y, 750);
     marks.push({
@@ -2170,7 +2197,10 @@ class Desktop {
       x: window.screenX,
       y: window.screenY,
     }));
-    const button = { x: frame.x + TOOLBAR.reload, y: frame.y + TOOLBAR.y };
+    const button = {
+      x: (frame.x + TOOLBAR.reload) * ZOOM,
+      y: (frame.y + TOOLBAR.y) * ZOOM,
+    };
     await this.glide(button.x, button.y, 700);
     marks.push({
       atMs: clock(),
@@ -2217,6 +2247,13 @@ class Desktop {
     this.x("xdotool", ["type", "--delay", String(delay), text]);
     await sleep(250);
     log("running: " + chapter.command);
+    // Its output shows from here (a long run is cut): the chapter keeps it.
+    const box = WINDOWS.terminal;
+    marks.push({
+      atMs: clock(),
+      kind: "type",
+      box: { x: box.x, y: box.y, width: box.width, height: box.height },
+    });
     this.key("Return");
     this.typed = true;
     this.cwd = cwd;
