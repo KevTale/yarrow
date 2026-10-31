@@ -269,7 +269,7 @@ describe("the builder's decisions on a pull request", () => {
       },
       review: {
         by: "GPT Astra",
-        approved: true,
+        blocking: [],
         suggestions: [{ path: "a.cs", line: null, body: "Clamp" }],
       },
       corrections: [
@@ -277,7 +277,6 @@ describe("the builder's decisions on a pull request", () => {
           instruction: "Also the title",
           requestedBy: "marie",
           status: "queued",
-          approved: null,
         },
       ],
       working: null,

@@ -4,7 +4,7 @@ import {
   type AppRecipe,
   type Criterion,
 } from "../core/contracts";
-import { reviewSchema, type Review } from "../core/review";
+import { blockingComments, reviewSchema, type Review } from "../core/review";
 import { RECORDER_PATH } from "./presentation";
 import type { FileChange } from "../server/github/delivery";
 
@@ -250,7 +250,7 @@ ${blocking
 
 Reviewer summary: ${review.summary}
 
-Then run the tests again, the export script, and write result.json again.
+Then run the tests again, the export script, and write result.json again, as if your change had been right the first time: the fix is part of it, not news. The summary keeps the shape your task asked for: the whole pull request (what the ticket asked, then what was done), or, for a correction, what the correction changed, with pr_summary the whole pull request.
 
 ${RESULT_STYLE}`;
 }
@@ -262,22 +262,33 @@ Be pragmatic, not pedantic:
 - "suggestion": real improvements that are not required.
 - "nit": style and naming.
 Do not invent problems. A clean change gets an approving summary and no blocking comment.
-The implementer lists the ticket's acceptance criteria with how each was shown: a criterion marked met that the change does not deliver is blocking.
+The implementer lists the ticket's acceptance criteria with how each was shown: a criterion marked met that the change does not deliver is blocking, and goes in unmet, copied exactly as listed.
 
-The summary goes in the pull request under "Review by" your name, and in Yarrow right above the implementer's acceptance criteria and checks: one or two short sentences in the first person, in everyday words a product manager who does not read code understands. Say what you checked yourself and what you found ("I tried an unknown status and a repeated one in the address: both fall back to All."), or, when you ask for changes, what is wrong. Never open with a bare verdict word ("Approved."), and do not restate the change, the criteria or the test results: they are listed under your words. Do not list what you could not run. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
+The summary goes in the pull request under "Review by" your name, and in Yarrow right above the implementer's acceptance criteria and checks: one or two short sentences in the first person, in everyday words a product manager who does not read code understands. Say what you checked yourself and what you found ("I tried an unknown status and a repeated one in the address: both fall back to All."), or, when you ask for changes, what is wrong, naming the cases that fail. Never open with a bare verdict word ("Approved."), and do not restate the change, the criteria or the test results: they are listed under your words. Do not list what you could not run. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
 
 Answer with JSON only, no prose and no code fence:
-{"summary": "one or two sentences for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}]}`;
+{"summary": "one or two sentences for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}], "unmet": ["an acceptance criterion the change does not deliver"]}`;
 
 export function reviewTask(input: {
   ticket: TaskContext["ticket"];
   implementerSummary: string;
   criteria?: Criterion[];
   verification: string[];
+  /** The first review, on a second look after the fix round. */
+  earlier?: Review;
 }): string {
   const criteria = (input.criteria ?? [])
     .map((item) => `- ${item.criterion}: ${item.status}, ${item.proof}`)
     .join("\n");
+  const earlier = input.earlier
+    ? `
+
+This is your second look. Your first review sent the change back for these:
+${blockingComments(input.earlier)
+  .map((comment) => `- ${comment.body}`)
+  .join("\n")}
+Check each yourself, then review the whole change as usual. Your summary tells it in two or three short sentences: what you checked, what you found at first and that it is fixed now ("I tried damaged saves on import: at first some replaced the game, I sent it back and they are now refused."), or what is still wrong.`
+    : "";
   return `Ticket: ${input.ticket.url}
 Title: ${input.ticket.title}
 
@@ -286,7 +297,7 @@ ${input.ticket.body || "(no description)"}
 Implementer's summary: ${input.implementerSummary}
 Implementer's acceptance criteria (status, proof):
 ${criteria || "(none reported)"}
-Implementer's verification: ${input.verification.join("; ") || "(none reported)"}
+Implementer's verification: ${input.verification.join("; ") || "(none reported)"}${earlier}
 
 Review the staged change and answer with the JSON format from your instructions.`;
 }

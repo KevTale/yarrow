@@ -28,7 +28,13 @@ import {
   settleBreakdown,
 } from "../../src/core/pricing";
 import { planDispatch, type DispatchCandidate } from "../../src/core/queue";
-import { blockingComments } from "../../src/core/review";
+import type { Criterion } from "../../src/core/contracts";
+import {
+  blockingComments,
+  reviewedCriteria,
+  reviewSchema,
+} from "../../src/core/review";
+import { fixTask, reviewTask } from "../../src/runner/prompts";
 import { reviewSection } from "../../src/runner/pull-request";
 
 describe("pricing", () => {
@@ -407,8 +413,69 @@ describe("review", () => {
       ],
     });
     expect(section).toBe(
-      "## Review by GPT Astra\n\nSolid change. _After one fix round._\n\n- `b.ts:8`: Cache it",
+      "## Review by GPT Astra\n\nSolid change.\n\n**Still to fix**\n\n- `a.ts:3`: Null check\n\n- `b.ts:8`: Cache it",
     );
+    // Fixed after one round: the reviewer's words tell it, nothing is left.
+    expect(
+      reviewSection({
+        ...review,
+        summary:
+          "I tried damaged saves: at first some replaced the game, I sent it back and they are now refused.",
+        comments: [],
+      }),
+    ).toBe(
+      "## Review by GPT Astra\n\nI tried damaged saves: at first some replaced the game, I sent it back and they are now refused.",
+    );
+  });
+
+  it("unticks a criterion the final review finds not delivered", () => {
+    const criteria: Criterion[] = [
+      {
+        criterion: "Damaged text leaves the game untouched",
+        status: "met",
+        proof: "app",
+      },
+      { criterion: "Export copies the save", status: "met", proof: "app" },
+    ];
+    expect(
+      reviewedCriteria(criteria, {
+        ...review,
+        unmet: ["damaged text leaves the game untouched."],
+      }),
+    ).toEqual([{ ...criteria[0], status: "unmet" }, criteria[1]]);
+    expect(reviewedCriteria(criteria, review)).toEqual(criteria);
+  });
+
+  it("reads an unmet list it cannot use as none", () => {
+    expect(
+      reviewSchema.parse({ summary: "Ok.", comments: [], unmet: [{ x: 1 }] })
+        .unmet,
+    ).toBeUndefined();
+  });
+
+  it("shows the reviewer its first review on the second look", () => {
+    const ticket = {
+      url: "https://github.com/a/b/issues/3",
+      title: "Export a save",
+      body: "",
+      source: "github",
+    };
+    const first = reviewTask({
+      ticket,
+      implementerSummary: "Done.",
+      verification: [],
+    });
+    expect(first).not.toContain("second look");
+    const second = reviewTask({
+      ticket,
+      implementerSummary: "Done.",
+      verification: [],
+      earlier: review,
+    });
+    expect(second).toContain("This is your second look");
+    expect(second).toContain("- Null check");
+    expect(second).not.toContain("Typo in the title");
+    expect(fixTask(review)).toContain("the whole pull request");
   });
 });
 

@@ -34,8 +34,14 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "A presentation's controls sit on a light rounded shade, readable over any page, each with its tip, and the film carries no Before or After label nor amber outline: the voice and the agent's pointer say it.",
       ),
+      builders(
+        "A pull request's lint, tests and build fold into one line, Technical checks pass, that opens on each of them. The review drops its Changes requested tag: its words say it.",
+      ),
     ],
     fixed: [
+      builders(
+        "After the reviewer sends a change back, a pull request's summary still tells the whole ticket, and the review says what it found first and that it was fixed, or names what still fails.",
+      ),
       builders(
         "A presentation no longer shows a page's text selected after the agent's first click.",
       ),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Criterion } from "./contracts";
 
 /** Only `blocking` comments trigger the implementer's fix round. */
 export const severitySchema = z.enum(["blocking", "suggestion", "nit"]);
@@ -15,6 +16,9 @@ export type ReviewComment = z.infer<typeof reviewCommentSchema>;
 export const reviewSchema = z.object({
   summary: z.string().min(1).max(8000),
   comments: z.array(reviewCommentSchema).max(50),
+  // Acceptance criteria the implementer ticked that the change does not
+  // deliver, as it listed them. Not understood, it is dropped.
+  unmet: z.array(z.string().min(1)).max(10).optional().catch(undefined),
 });
 export type Review = z.infer<typeof reviewSchema>;
 
@@ -38,4 +42,26 @@ export interface StoredArtifact {
 
 export function blockingComments(review: Review): ReviewComment[] {
   return review.comments.filter((comment) => comment.severity === "blocking");
+}
+
+const sameCriterion = (text: string) =>
+  text
+    .trim()
+    .toLowerCase()
+    .replace(/[.!\s]+$/, "");
+
+/**
+ * The implementer's criteria as the final review leaves them: one the
+ * reviewer found not delivered is not met, whatever the implementer said.
+ */
+export function reviewedCriteria(
+  criteria: Criterion[],
+  review: Review,
+): Criterion[] {
+  const unmet = new Set((review.unmet ?? []).map(sameCriterion));
+  return criteria.map((item) =>
+    unmet.has(sameCriterion(item.criterion))
+      ? { ...item, status: "unmet" }
+      : item,
+  );
 }

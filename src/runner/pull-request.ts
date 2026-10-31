@@ -7,26 +7,31 @@ import type { Criterion } from "../core/contracts";
 import { correctionHint } from "../core/corrections";
 import { criterionMarkdown } from "../core/pull-notes";
 import { modelDisplayName, type PipelineRoles } from "../core/pipeline";
-import type { StoredReview } from "../core/review";
+import {
+  blockingComments,
+  type ReviewComment,
+  type StoredReview,
+} from "../core/review";
 
 /**
- * The review where the owner reads it, in the pull request: the verdict,
- * then at most three suggestions (blocking ones were fixed, nits are noise).
+ * The review where the owner reads it, in the pull request: the reviewer's
+ * words (after a fix round, what it found first and that it is fixed),
+ * what is still to fix when the fix round was not enough, then at most
+ * three suggestions (nits are noise).
  */
 export function reviewSection(review: StoredReview): string {
+  const line = (comment: ReviewComment) =>
+    `- ${comment.path ? `\`${comment.path}${comment.line ? `:${comment.line}` : ""}\`: ` : ""}${comment.body}`;
+  const blocking = blockingComments(review).map(line);
   const suggestions = review.comments
     .filter((comment) => comment.severity === "suggestion")
     .slice(0, 3)
-    .map(
-      (comment) =>
-        `- ${comment.path ? `\`${comment.path}${comment.line ? `:${comment.line}` : ""}\`: ` : ""}${comment.body}`,
-    );
+    .map(line);
   return [
     `## Review by ${modelDisplayName(review.reviewer)}`,
     "",
-    review.rounds > 1
-      ? `${review.summary} _After one fix round._`
-      : review.summary,
+    review.summary,
+    ...(blocking.length ? ["", "**Still to fix**", "", ...blocking] : []),
     ...(suggestions.length ? ["", ...suggestions] : []),
   ].join("\n");
 }

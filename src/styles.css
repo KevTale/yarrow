@@ -7857,19 +7857,6 @@ body:has(.sb-dialog[open]) {
     sans-serif;
   color: var(--muted);
 }
-.pp-section h3 em {
-  font:
-    500 12px var(--font-geist-sans),
-    sans-serif;
-  font-style: normal;
-  border-radius: 999px;
-  padding: 2px 9px;
-}
-.pp-section h3 em.warn {
-  color: var(--amber);
-  border: 1px solid #f2b54450;
-  background: #f2b54412;
-}
 .pp-text {
   margin: 0;
   max-width: 72ch;
@@ -8726,20 +8713,6 @@ html:has(.pp-stage:modal) {
   flex: none;
   color: var(--muted);
 }
-.pp-change-head em {
-  font:
-    500 11.5px var(--font-geist-sans),
-    sans-serif;
-  font-style: normal;
-  border-radius: 999px;
-  padding: 1px 8px;
-  white-space: nowrap;
-}
-.pp-change-head em.warn {
-  color: var(--amber);
-  border: 1px solid #f2b54450;
-  background: #f2b54412;
-}
 .pp-grow {
   flex: 1;
 }
@@ -8993,6 +8966,36 @@ button.pf-row:focus-visible .pf-add {
    everyday words. */
 .pp-checked li {
   color: var(--text);
+}
+/* Lint, tests, build: one line that opens on its checks, indented. */
+.pp-tech-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.pp-tech-head .pp-num {
+  font-size: 12px;
+  color: var(--muted);
+}
+.pp-tech-head svg {
+  margin-top: 0;
+}
+.pp-tech-head:hover svg {
+  color: var(--text);
+}
+.pp-tech-list {
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.pp-tech-list li {
+  color: var(--secondary);
 }
 .pp-list svg.bad {
   color: var(--red);

@@ -511,10 +511,12 @@ export class RunPipeline {
     return session.id;
   }
 
+  /** `earlier` is the first review, on the second look after a fix round. */
   async startReview(
     run: PreparedRun,
     implementerSessionId: string,
     snapshot: ImplementationSnapshot,
+    earlier?: Review,
   ): Promise<string> {
     const files = await this.changes(implementerSessionId);
     const bundle = {
@@ -534,6 +536,7 @@ export class RunPipeline {
         implementerSummary: snapshot.summary,
         criteria: snapshot.criteria,
         verification: snapshot.verification,
+        earlier,
       }),
       repository: {
         owner,

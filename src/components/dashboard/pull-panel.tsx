@@ -45,6 +45,7 @@ import { SponsorLink } from "./paid-by";
 import { shortSite } from "@/core/pr-card";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
+type PanelComment = NonNullable<Panel["review"]>["suggestions"][number];
 type Files = NonNullable<Awaited<ReturnType<typeof getPullFilesFn>>>;
 
 /**
@@ -260,7 +261,6 @@ export function PullPanel({
                     askedAt: new Date().toISOString(),
                     status: "queued",
                     summary: null,
-                    approved: null,
                   },
                 ],
               }
@@ -487,10 +487,10 @@ function Summary({
 
 /**
  * The review, said as a colleague would: the reviewer's words, then what
- * works, each ticked (the ticket's acceptance criteria with how each was
- * shown, then the automated checks in everyday words), then what to keep
- * an eye on: what could not run, what to do before merging, the
- * reviewer's suggestions. A verdict shows only when changes are asked.
+ * works, each ticked (the ticket's acceptance criteria, then the technical
+ * checks folded into one line), then what to keep an eye on: what the fix
+ * round left broken, what could not run, what to do before merging, the
+ * reviewer's suggestions. No verdict tag: the words say it.
  */
 function Review({
   implementation,
@@ -512,17 +512,13 @@ function Review({
     })),
     ...(implementation?.risks ?? []).map((line) => ({ kind: "r", line })),
   ];
+  const blocking = review?.blocking ?? [];
   const suggestions = review?.suggestions ?? [];
   if (!review && criteria.length + checks.length + watch.length === 0)
     return null;
   return (
     <section className="pp-section">
-      <h3>
-        {review ? "Review" : "Checked"}
-        {review && !review.approved && (
-          <em className="warn">Changes requested</em>
-        )}
-      </h3>
+      <h3>{review ? "Review" : "Checked"}</h3>
       {review && (
         <p className="pp-text">
           <Rich text={review.summary} />
@@ -552,16 +548,17 @@ function Review({
               </li>
             );
           })}
-          {checks.map((line) => (
-            <li key={`c${line}`}>
-              <Check size={15} className="ok" aria-hidden="true" />
-              <Note line={line} />
-            </li>
-          ))}
+          {checks.length > 0 && <TechnicalChecks checks={checks} />}
         </ul>
       )}
-      {watch.length + suggestions.length > 0 && (
+      {blocking.length + watch.length + suggestions.length > 0 && (
         <ul className="pp-list">
+          {blocking.map((comment, i) => (
+            <li key={`b${i}`} className="pp-risk">
+              <TriangleAlert size={15} className="warn" aria-hidden="true" />
+              <Note line={comment.body} where={commentPlace(comment)} />
+            </li>
+          ))}
           {watch.map(({ kind, line }) => (
             <li
               key={`${kind}${line}`}
@@ -580,19 +577,55 @@ function Review({
           {suggestions.map((suggestion, i) => (
             <li key={`s${i}`}>
               <ChevronRight size={15} aria-hidden="true" />
-              <Note
-                line={suggestion.body}
-                where={
-                  suggestion.path
-                    ? `${suggestion.path}${suggestion.line ? `:${suggestion.line}` : ""}`
-                    : null
-                }
-              />
+              <Note line={suggestion.body} where={commentPlace(suggestion)} />
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+const commentPlace = (comment: PanelComment) =>
+  comment.path
+    ? `${comment.path}${comment.line ? `:${comment.line}` : ""}`
+    : null;
+
+/**
+ * Lint, tests, build and the like in one ticked line, closed: opened, each
+ * check in everyday words with its command under it.
+ */
+function TechnicalChecks({ checks }: { checks: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="pp-tech">
+      <Check size={15} className="ok" aria-hidden="true" />
+      <div className="pp-note">
+        <button
+          type="button"
+          className="pp-tech-head"
+          aria-expanded={open}
+          onClick={() => setOpen((was) => !was)}
+        >
+          Technical checks pass
+          <span className="pp-num">{checks.length}</span>
+          {open ? (
+            <ChevronDown size={14} aria-hidden="true" />
+          ) : (
+            <ChevronRight size={14} aria-hidden="true" />
+          )}
+        </button>
+        {open && (
+          <ul className="pp-list pp-tech-list">
+            {checks.map((line) => (
+              <li key={line}>
+                <Note line={line} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -781,10 +814,6 @@ function ChangesAsked({
             ) : correction.status === "stopped" ? (
               <span className="pp-state stopped">Stopped</span>
             ) : null;
-          const verdict =
-            correction.status === "done" && correction.approved === false ? (
-              <em className="warn">Changes requested</em>
-            ) : null;
           const live =
             correction.status === "queued" || correction.status === "working";
           return (
@@ -814,7 +843,6 @@ function ChangesAsked({
                       {correction.instruction}
                     </span>
                   )}
-                  {verdict}
                   <time dateTime={correction.askedAt}>
                     {timeAgo(correction.askedAt)}
                   </time>

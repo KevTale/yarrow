@@ -24,6 +24,7 @@ import {
 import { planDispatch, PER_ACCOUNT_CONCURRENCY } from "../src/core/queue";
 import {
   blockingComments,
+  reviewedCriteria,
   type Review,
   type StoredReview,
 } from "../src/core/review";
@@ -388,7 +389,10 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         );
 
       // Review by the other lab, then at most one fix round on blocking comments.
-      const review = async (round: number): Promise<Review> => {
+      const review = async (
+        round: number,
+        earlier?: Review,
+      ): Promise<Review> => {
         await phase(round === 1 ? "reviewing" : "re-reviewing");
         const started = await now(`review:${round}:started`);
         const reviewerId = await step.do(`review:${round}:start`, () =>
@@ -397,6 +401,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               run,
               implementerId,
               snapshot,
+              earlier,
             );
             await clearPause(db, "openai");
             return id;
@@ -447,9 +452,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             "The fix round did not finish.",
           );
         snapshot = await readImplementation("implementer:read:fix");
-        finalReview = await review(2);
+        finalReview = await review(2, firstReview);
         rounds = 2;
       }
+      snapshot = {
+        ...snapshot,
+        criteria: reviewedCriteria(snapshot.criteria, finalReview),
+      };
       const stored: StoredReview = {
         ...finalReview,
         reviewer: defaultPipelineRoles.reviewer,

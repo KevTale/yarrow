@@ -3,6 +3,7 @@ import type { Criterion, ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
 import {
   blockingComments,
+  type ReviewComment,
   type StoredArtifact,
   type StoredReview,
 } from "../core/review";
@@ -34,9 +35,20 @@ export interface PanelCorrection {
   askedAt: string;
   status: "queued" | "working" | "done" | "stopped";
   summary: string | null;
-  /** Its own review's verdict; null before it is reviewed. */
-  approved: boolean | null;
 }
+
+/** A reviewer's comment, where it points in the code when it does. */
+export interface PanelComment {
+  path: string | null;
+  line: number | null;
+  body: string;
+}
+
+const panelComment = (comment: ReviewComment): PanelComment => ({
+  path: comment.path ?? null,
+  line: comment.line ?? null,
+  body: comment.body,
+});
 
 /** The pull request as it stands, after the corrections delivered so far. */
 export interface PullRequestNow {
@@ -140,8 +152,9 @@ export interface PanelData {
   review: {
     by: string;
     summary: string;
-    approved: boolean;
-    suggestions: { path: string | null; line: number | null; body: string }[];
+    /** What the fix round left broken: usually none. */
+    blocking: PanelComment[];
+    suggestions: PanelComment[];
   } | null;
   corrections: PanelCorrection[];
   /** A run at work now: what it does, as the table words it. */
@@ -256,15 +269,11 @@ export async function pullPanel(
       ? {
           by: modelDisplayName(review.reviewer),
           summary: review.summary,
-          approved: blockingComments(review).length === 0,
+          blocking: blockingComments(review).map(panelComment),
           suggestions: review.comments
             .filter((comment) => comment.severity === "suggestion")
             .slice(0, 3)
-            .map((comment) => ({
-              path: comment.path ?? null,
-              line: comment.line ?? null,
-              body: comment.body,
-            })),
+            .map(panelComment),
         }
       : null,
     corrections: requests
@@ -273,12 +282,10 @@ export async function pullPanel(
         const run = runs.find(
           (candidate) => candidate.id === request.agentRunId,
         );
-        const own = run?.review as StoredReview | null | undefined;
         return {
           instruction: request.instruction,
           requestedBy: request.requestedBy,
           askedAt: new Date(request.queuedAt).toISOString(),
-          approved: own ? blockingComments(own).length === 0 : null,
           status: !run
             ? "queued"
             : run.status === "running"
