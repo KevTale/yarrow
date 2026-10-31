@@ -30,6 +30,12 @@ describe("pull request notes", () => {
         "Reload keeps the filter: Playwright, reload on /?status=doing → Doing still selected",
       ),
     ).toBe("Reload keeps the filter");
+    // Seen on the bench (2026-10-22): a label a little past a few words.
+    expect(
+      checkLabel(
+        "Counts, filtering and the fallback to All are covered by tests: npm test → 7 passed",
+      ),
+    ).toBe("Counts, filtering and the fallback to All are covered by tests");
     expect(checkLabel("npm test → 6 tests pass, 0 fail")).toBeNull();
     expect(
       checkLabel("curl /?status=doing: shows the 2 Doing tasks"),

@@ -18,7 +18,7 @@ export function splitNote(line: string): { plain: string; detail: string } {
 }
 
 /** A label is a few words, not a command: "Reload keeps the filter". */
-const LABEL_MAX = 60;
+const LABEL_MAX = 80;
 
 /** What a check shows, in everyday words, or null when it has no label. */
 export function checkLabel(line: string): string | null {
