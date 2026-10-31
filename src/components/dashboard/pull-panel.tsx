@@ -1,6 +1,7 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowUp,
+  Check,
   ChevronDown,
   ChevronRight,
   CircleCheck,
@@ -15,18 +16,11 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
-import { checksLine, splitNote, spottedTicket } from "@/core/pull-notes";
+import { splitCheck, splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   getPullFilesFn,
@@ -512,34 +506,45 @@ function Suggested({
 }) {
   const draft = useContext(DraftTicket);
   return (
-    <div className="pp-suggested">
-      <h4>{lines.length === 1 ? "Suggested ticket" : "Suggested tickets"}</h4>
-      <ul className="pp-list">
-        {lines.map((line) => (
-          <li key={line}>
-            <ScanSearch size={15} aria-hidden="true" />
-            <Note line={line}>
-              {draft && (
-                <button
-                  type="button"
-                  className="pp-make"
-                  onClick={() =>
-                    draft(projectId, spottedTicket(line, by, pullRequestUrl))
-                  }
-                >
-                  <Plus size={13} aria-hidden="true" /> Make it a ticket
-                </button>
-              )}
-            </Note>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="pf pp-suggested" aria-label="Suggested tickets">
+      <p className="pf-head">
+        {lines.length === 1
+          ? "Suggested ticket"
+          : `${lines.length} suggested tickets`}
+      </p>
+      {lines.map((line) => {
+        const { plain, detail } = splitNote(line);
+        return (
+          <div key={line} className="pp-suggest">
+            <p>
+              <ScanSearch size={14} aria-hidden="true" />
+              <Rich text={plain} />
+            </p>
+            {detail && (
+              <small className="pp-detail">
+                <Rich text={detail} />
+              </small>
+            )}
+            {draft && (
+              <button
+                type="button"
+                className="pp-make"
+                onClick={() =>
+                  draft(projectId, spottedTicket(line, by, pullRequestUrl))
+                }
+              >
+                <Plus size={13} aria-hidden="true" /> Make it a ticket
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
 /** A note's everyday words, then, smaller, where it comes from in the code. */
-function Note({ line, children }: { line: string; children?: ReactNode }) {
+function Note({ line }: { line: string }) {
   const { plain, detail } = splitNote(line);
   return (
     <span className="pp-note">
@@ -549,43 +554,54 @@ function Note({ line, children }: { line: string; children?: ReactNode }) {
           <Rich text={detail} />
         </small>
       )}
-      {children}
     </span>
   );
 }
 
 /**
- * The checks run on the change, folded into one line ("Verified", then
- * what they show); unfolded, each check as the agent ran it.
+ * The checks run on the change, in the sidebar as the files are: "Verified"
+ * and their count, each check by what it shows; unfolded, each as it ran.
  */
 function Checks({ lines }: { lines: string[] }) {
   const [open, setOpen] = useState(false);
+  const checks = lines.map(splitCheck);
+  const unfolds = checks.some((check) => check.detail);
   return (
-    <div className="pp-checks">
+    <section className="pf pp-checks" aria-label="Checks">
       <button
         type="button"
-        className="pp-checks-btn"
+        className="pf-ghead"
         aria-expanded={open}
+        disabled={!unfolds}
         onClick={() => setOpen((value) => !value)}
       >
-        <CircleCheck size={15} className="ok" aria-hidden="true" />
-        <span>
-          <strong>Verified</strong> {checksLine(lines)}
-        </span>
-        <ChevronRight size={14} className="pp-checks-chev" aria-hidden="true" />
+        <b>Verified</b>
+        <span className="pf-n">{lines.length}</span>
+        {unfolds && (
+          <ChevronRight
+            size={13}
+            className={`pf-chev ${open ? "open" : ""}`}
+            aria-hidden="true"
+          />
+        )}
+        <CircleCheck size={14} className="pp-checks-ok" aria-label="Passed" />
       </button>
-      {open && (
-        <ul className="pp-list pp-checks-list">
-          {lines.map((line) => (
-            <li key={line}>
-              <span>
-                <Rich text={line} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <ul className="pp-checks-list">
+        {checks.map((check) => (
+          <li key={check.label}>
+            <Check size={13} aria-hidden="true" />
+            <span>
+              <Rich text={check.label} />
+              {open && check.detail && (
+                <small className="pp-detail">
+                  <Rich text={check.detail} />
+                </small>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -28,14 +28,14 @@ export function checkLabel(line: string): string | null {
   return /[→`/=]/.test(label) ? null : label;
 }
 
-/** The folded line over the checks: their labels when all have one. */
-export function checksLine(lines: string[]): string {
-  const labels = lines.map(checkLabel);
-  if (labels.every((label): label is string => label !== null))
-    return labels.join(" · ");
-  return lines.length === 1
-    ? "1 check passed"
-    : `${lines.length} checks passed`;
+/**
+ * A check as the sidebar lists it: what it shows, and the check as it ran
+ * under it once unfolded. One without a label lists as it was written.
+ */
+export function splitCheck(line: string): { label: string; detail: string } {
+  const label = checkLabel(line);
+  if (label === null) return { label: line.trim(), detail: "" };
+  return { label, detail: line.slice(line.indexOf(": ") + 2).trim() };
 }
 
 /** A ticket drafted from what the agents noticed outside theirs. */

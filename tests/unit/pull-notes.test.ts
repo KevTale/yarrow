@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
   checkLabel,
-  checksLine,
+  splitCheck,
   splitNote,
   spottedTicket,
 } from "../../src/core/pull-notes";
@@ -47,17 +47,18 @@ describe("pull request notes", () => {
     ).toBeNull();
   });
 
-  it("folds the checks into their labels, or counts them", () => {
+  it("lists a check by its label, the check as it ran under it", () => {
     expect(
-      checksLine([
-        "Tests pass: npm test → 6 pass",
-        "Reload keeps the filter: Playwright → Doing selected",
-      ]),
-    ).toBe("Tests pass · Reload keeps the filter");
-    expect(checksLine(["Tests pass: npm test → 6 pass", "curl / → 200"])).toBe(
-      "2 checks passed",
-    );
-    expect(checksLine(["npm test → 6 pass"])).toBe("1 check passed");
+      splitCheck("Reload keeps the filter: Playwright → Doing selected"),
+    ).toEqual({
+      label: "Reload keeps the filter",
+      detail: "Playwright → Doing selected",
+    });
+    // Written before checks had labels: listed as it was.
+    expect(splitCheck("npm test → 6 pass")).toEqual({
+      label: "npm test → 6 pass",
+      detail: "",
+    });
   });
 
   it("drafts a ticket from what was noticed, the pointer kept in its body", () => {

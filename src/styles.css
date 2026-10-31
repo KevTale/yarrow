@@ -8500,18 +8500,6 @@ body:has(.sb-dialog[open]) {
 .pp-list li.pp-risk {
   color: var(--text);
 }
-/* The sidebar's foot: what was noticed outside the ticket, as tickets. */
-.pp-suggested {
-  display: grid;
-  gap: 8px;
-}
-.pp-suggested h4 {
-  margin: 0;
-  font:
-    500 13px var(--font-geist-sans),
-    sans-serif;
-  color: var(--muted);
-}
 /* A note in everyday words, its pointer for developers under it, smaller. */
 .pp-note {
   display: grid;
@@ -8523,67 +8511,104 @@ body:has(.sb-dialog[open]) {
   font-size: 12.5px;
   color: var(--muted);
 }
-/* What was noticed outside the ticket, as a ticket of its own. */
+/* The checks, listed in the sidebar as the files are: what each shows,
+   green; unfolded, each as it ran, in the code's type. */
+.pp-checks .pf-ghead:disabled {
+  cursor: default;
+}
+.pp-checks-ok {
+  flex: none;
+  margin-left: auto;
+  color: var(--green);
+}
+.pp-checks-list {
+  display: grid;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.pp-checks-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.pp-checks-list svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--green);
+}
+.pp-checks-list span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.pp-checks-list .pp-detail,
+.pp-suggest .pp-detail {
+  font:
+    11.5px/1.5 var(--font-geist-mono),
+    monospace;
+  overflow-wrap: anywhere;
+}
+/* What was noticed outside the ticket: a card each, to make a ticket of. */
+.pp-suggested {
+  gap: 8px;
+}
+.pp-suggested .pf-head {
+  margin: 0;
+}
+.pp-suggest {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.pp-suggest p {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.pp-suggest p svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.pp-suggest .pp-detail {
+  padding-left: 22px;
+}
 .pp-make {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
-  margin-top: 6px;
-  padding: 0 9px;
+  height: 26px;
+  margin: 6px 0 0 22px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: none;
   color: var(--secondary);
-  font-size: 12px;
+  font-size: 12.5px;
   cursor: pointer;
   transition:
     color 0.15s,
-    background 0.15s;
+    background 0.15s,
+    border-color 0.15s;
 }
 .pp-make:hover,
 .pp-make:focus-visible {
+  border-color: #3a3e46;
   color: var(--text);
   background: var(--hover);
-}
-/* The checks in one line; unfolded, each as it ran. */
-.pp-checks-btn {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--secondary);
-  font-size: 13.5px;
-  line-height: 1.55;
-  text-align: left;
-  cursor: pointer;
-}
-.pp-checks-btn svg {
-  flex: none;
-  margin-top: 3px;
-}
-.pp-checks-btn svg.ok {
-  color: var(--green);
-}
-.pp-checks-btn strong {
-  font-weight: 500;
-  color: var(--text);
-}
-.pp-checks-chev {
-  color: var(--muted);
-  transition: transform 0.2s var(--ease-standard);
-}
-.pp-checks-btn[aria-expanded="true"] .pp-checks-chev {
-  transform: rotate(90deg);
-}
-.pp-checks-btn:hover .pp-checks-chev {
-  color: var(--text);
-}
-.pp-checks-list {
-  margin-top: 8px;
-  padding-left: 25px;
 }
 .pp-num {
   font-family: var(--font-geist-mono), monospace !important;
