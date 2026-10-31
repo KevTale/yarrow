@@ -8222,17 +8222,15 @@ body:has(.sb-dialog[open]) {
   gap: 8px;
   height: 44px;
 }
-/* Rounded glass under the buttons and the time, as in YouTube's player:
-   they read over a white page as over a dark one. */
+/* A light, rounded shade under the buttons and the time, as in YouTube's
+   player: they read over a white page as over a dark one. */
 .pv-glass-pill {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   height: 38px;
   border-radius: 999px;
-  background: rgba(16, 17, 20, 0.55);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.36);
 }
 .pv-play {
   width: 38px;
@@ -8248,6 +8246,7 @@ body:has(.sb-dialog[open]) {
   padding: 0 2px;
 }
 .pv-icon {
+  position: relative;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -8263,11 +8262,36 @@ body:has(.sb-dialog[open]) {
 .pv-icon.pv-play {
   width: 38px;
   height: 38px;
-  background: rgba(16, 17, 20, 0.55);
+  background: rgba(0, 0, 0, 0.36);
 }
 .pv-icon:hover,
 .pv-icon.pv-play:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
+}
+/* The buttons' tips, above them, inside the film (the film clips what
+   passes its edges): the first and the last line up with their edge. */
+.pv-bar [data-tip]::after {
+  top: auto;
+  bottom: calc(100% + 10px);
+  border: 0;
+  background: rgba(15, 16, 19, 0.92);
+  color: #fff;
+  text-shadow: none;
+}
+.pv-bar .pv-play[data-tip]::after {
+  left: 0;
+  transform: translateY(2px);
+}
+.pv-bar .pv-tools [data-tip]:last-child::after {
+  right: 0;
+  left: auto;
+  transform: translateY(2px);
+}
+.pv-bar .pv-play[data-tip]:hover::after,
+.pv-bar .pv-play[data-tip]:focus-visible::after,
+.pv-bar .pv-tools [data-tip]:last-child:hover::after,
+.pv-bar .pv-tools [data-tip]:last-child:focus-visible::after {
+  transform: none;
 }
 .pv-time {
   color: #fff;
@@ -8333,11 +8357,33 @@ body:has(.sb-dialog[open]) {
 html:has(.pp-stage:modal) {
   overflow: hidden;
 }
+/* Back to the panel, in plain sight (the player's own button is small). */
+.pp-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pp-back:hover {
+  background: var(--hover);
+}
 .pp-stage:modal .pp-film {
   display: grid;
   place-items: center;
   min-width: 0;
-  padding: 20px;
+  padding: 66px 20px;
   container-type: size;
 }
 .pp-stage:modal .pv {
@@ -8374,8 +8420,12 @@ html:has(.pp-stage:modal) {
     grid-template-rows: auto minmax(0, 1fr);
   }
   .pp-stage:modal .pp-film {
-    padding: 0;
+    padding: 58px 0 0;
     container-type: normal;
+  }
+  .pp-back {
+    top: 12px;
+    left: 12px;
   }
   .pp-stage:modal .pv {
     width: 100%;

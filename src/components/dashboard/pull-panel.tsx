@@ -1,5 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ArrowLeft,
   ArrowUp,
   Check,
   ChevronDown,
@@ -286,6 +287,16 @@ export function PullPanel({
                 aria-label="Cinema mode"
                 onClose={() => setCinema(false)}
               >
+                {cinema && (
+                  <button
+                    type="button"
+                    className="pp-back"
+                    onClick={flipCinema}
+                  >
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Back
+                  </button>
+                )}
                 <div className="pp-film">
                   <Presentation
                     artifact={presentation}

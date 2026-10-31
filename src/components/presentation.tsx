@@ -581,6 +581,9 @@ function Player({
                     aria-label={
                       finished ? "Play again" : playing ? "Pause" : "Play"
                     }
+                    data-tip={
+                      finished ? "Play again" : playing ? "Pause" : "Play"
+                    }
                   >
                     {finished ? (
                       <RotateCcw size={18} aria-hidden="true" />
@@ -606,6 +609,7 @@ function Player({
                       onClick={flipCaptions}
                       aria-pressed={captions}
                       aria-label="Captions"
+                      data-tip={captions ? "Hide captions" : "Show captions"}
                     >
                       {captions ? (
                         <Captions size={18} aria-hidden="true" />
@@ -620,6 +624,7 @@ function Player({
                         onClick={flipVoice}
                         aria-pressed={voice}
                         aria-label="Sound"
+                        data-tip={voice ? "Mute" : "Unmute"}
                       >
                         {voice ? (
                           <Volume2 size={18} aria-hidden="true" />
@@ -635,6 +640,7 @@ function Player({
                         onClick={onCinema}
                         aria-pressed={cinema}
                         aria-label={cinema ? "Exit cinema mode" : "Cinema mode"}
+                        data-tip={cinema ? "Exit cinema mode" : "Cinema mode"}
                       >
                         <RectangleHorizontal size={18} aria-hidden="true" />
                       </button>
@@ -645,6 +651,7 @@ function Player({
                         className="pv-icon"
                         onClick={flipFull}
                         aria-label={full ? "Exit full screen" : "Full screen"}
+                        data-tip={full ? "Exit full screen" : "Full screen"}
                       >
                         {full ? (
                           <Minimize size={18} aria-hidden="true" />

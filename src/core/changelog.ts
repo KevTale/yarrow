@@ -23,7 +23,7 @@ export const changelog: ChangelogEntry[] = [
     title: "Cinema mode",
     new: [
       builders(
-        "Cinema mode: a pull request's presentation fills the window beside the conversation, the changes asked and the box to ask for one.",
+        "Cinema mode: a pull request's presentation fills the window beside the conversation, the changes asked and the box to ask for one; Back returns to the pull request.",
       ),
       builders("The arrow keys move a presentation three seconds back or on."),
     ],
@@ -32,7 +32,7 @@ export const changelog: ChangelogEntry[] = [
         "In a presentation the dock is a thin strip and each app takes the rest of the screen, with square corners.",
       ),
       builders(
-        "A presentation's controls sit on rounded glass, readable over any page, and the film carries no Before or After label nor amber outline: the voice and the agent's pointer say it.",
+        "A presentation's controls sit on a light rounded shade, readable over any page, each with its tip, and the film carries no Before or After label nor amber outline: the voice and the agent's pointer say it.",
       ),
     ],
     fixed: [
