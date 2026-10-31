@@ -1077,13 +1077,15 @@ function Proposal({
         <textarea
           aria-label="The change"
           value={text}
-          rows={3}
+          rows={6}
           maxLength={4000}
           autoFocus
           onChange={(event) => setText(event.target.value)}
         />
       ) : (
-        <p>{text}</p>
+        <p>
+          <Rich text={text} />
+        </p>
       )}
       {open && (
         <div className="pp-proposal-foot">
