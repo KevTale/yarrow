@@ -159,13 +159,13 @@ export async function threadMessages(
   }));
 }
 
-/** Whether the agent's proposed change is still there to make. */
-export async function proposalOpen(
+/** The change the agent proposed, while it is still there to make. */
+export async function openProposal(
   db: Database,
   input: { messageId: string; workUnitId: string },
-): Promise<boolean> {
+): Promise<string | null> {
   const [row] = await db
-    .select({ id: chatMessages.id })
+    .select({ change: chatMessages.change })
     .from(chatMessages)
     .where(
       and(
@@ -175,7 +175,7 @@ export async function proposalOpen(
         isNull(chatMessages.correctionRequestId),
       ),
     );
-  return Boolean(row);
+  return row?.change ?? null;
 }
 
 /** A proposed change made from its card: the correction it queued. */

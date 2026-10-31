@@ -247,25 +247,18 @@ export const pullRequestActionFn = createServerFn({ method: "POST" })
   });
 
 /**
- * A change asked from the opened row: the App writes it on the pull request
- * under the builder's GitHub name, then Claude takes it like an
- * `@yarrow-run` comment.
+ * A change the agent proposed in the conversation, made from its card: the
+ * App writes it on the pull request under the builder's GitHub name, then
+ * Claude takes it like an `@yarrow-run` comment.
  */
 export const requestChangeFn = createServerFn({ method: "POST" })
-  .validator(
-    ticketRef.extend({
-      instruction: z.string().trim().min(1).max(4000),
-      /** The agent's message that proposed it, made from its card. */
-      messageId: z.uuid().optional(),
-    }),
-  )
+  .validator(ticketRef.extend({ messageId: z.uuid() }))
   .handler(async ({ data }) => {
     const { viewer, panel } = await memberPanel(data.projectId, data.key);
     const brain = appEnv().BRAIN;
     if (!panel?.pullRequest || !brain) return unavailable;
     return brain.requestCorrection({
       workUnitId: panel.workUnitId,
-      instruction: data.instruction,
       login: viewer.githubLogin ?? viewer.name ?? "A maintainer",
       chatMessageId: data.messageId,
     });

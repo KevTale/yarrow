@@ -29,9 +29,7 @@ export interface ChatSources {
       pullRequest: { number: number; state: string } | null;
     }[]
   >;
-  ticket(
-    key: string,
-  ): Promise<{
+  ticket(key: string): Promise<{
     source: string;
     title: string;
     body: string;
@@ -56,7 +54,8 @@ How you answer:
 - When a moment of the film shows what you talk about, point to it with its time written exactly like [at 0:56] (the times are below). At most two per answer, only where they help.
 
 Changes:
-- You never change code yourself. When the member asks for a change to this pull request, or says yes to one you suggested, call propose_change with the instruction the implementer will follow. The member sees it as a card and makes it with one click; your text then says in one short sentence what you proposed, without repeating the card.
+- You never change code yourself. When the member asks for a change to this pull request, or says yes to one you suggested, call propose_change. The member sees it as a card and updates the pull request with one click; your text is then one short sentence at most, without repeating the card.
+- The card says what will change for the people using the app, in plain words: what they will see or be able to do. No code, file, function, class or style names: the member is not always a developer, and the implementer reads the code itself.
 - Do not propose a change they did not ask for: suggest it in words and let them ask.
 - A closed or merged pull request can no longer change: say so.`;
 
@@ -124,17 +123,17 @@ const TOOLS: Tool[] = [
   {
     name: "propose_change",
     description:
-      "Propose a change to this pull request. The member sees it as a card and decides; nothing changes until they make it.",
+      "Propose a change to this pull request. The member sees it as a card and decides; nothing changes until they make it. The implementer then works from the card's words.",
     input_schema: {
       type: "object",
       properties: {
-        instruction: {
+        change: {
           type: "string",
           description:
-            "What to change, as the implementer will read it: precise, self-contained, in English.",
+            "What will change, as the people using the app will notice it: one to three plain sentences in the conversation's language, precise about what they will see (where, when, what it says). No code, file, function, class or CSS names.",
         },
       },
-      required: ["instruction"],
+      required: ["change"],
       additionalProperties: false,
     },
   },
@@ -153,7 +152,7 @@ const inputs = {
   search_code: z.object({ query: z.string().min(1) }),
   list_tickets: z.object({}),
   read_ticket: z.object({ key: z.string().min(1) }),
-  propose_change: z.object({ instruction: z.string().min(1).max(4000) }),
+  propose_change: z.object({ change: z.string().min(1).max(4000) }),
 };
 
 const clip = (text: string, max: number) =>
@@ -381,8 +380,8 @@ async function runTool(
         };
       const input = parsed.data as z.infer<typeof inputs.propose_change>;
       return {
-        text: "Shown to the member as a card. Say in one short sentence what you proposed.",
-        change: input.instruction.trim(),
+        text: "Shown to the member as a card. Do not repeat it: one short sentence at most.",
+        change: input.change.trim(),
       };
     }
     default:

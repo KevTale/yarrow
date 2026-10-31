@@ -47,12 +47,11 @@ export interface AppEnv {
       workUnitId: string;
       action: PullRequestAction;
     }): Promise<ActionResult>;
-    requestCorrection(input: {
-      workUnitId: string;
-      instruction: string;
-      login: string;
-      chatMessageId?: string;
-    }): Promise<ActionResult>;
+    requestCorrection(
+      input: { workUnitId: string; login: string } & (
+        { instruction: string } | { chatMessageId: string }
+      ),
+    ): Promise<ActionResult>;
     /** A question in the pull request's conversation, answered in the background. */
     askChat(input: {
       workUnitId: string;

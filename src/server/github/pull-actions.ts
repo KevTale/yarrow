@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { linkChange, proposalOpen } from "../../db/chat";
+import { linkChange, openProposal } from "../../db/chat";
 import type { Database } from "../../db/client";
 import { PostgresLedger } from "../../db/ledger";
 import { projects, pullRequests, workUnits } from "../../db/schema";
@@ -152,32 +152,31 @@ export const askedFromYarrow = (login: string, instruction: string) =>
 /**
  * A change asked from the dashboard: the App writes it on the pull request
  * (who asked, what), then it is queued like an `@yarrow-run` comment, the
- * comment's id keeping it from being queued twice.
+ * comment's id keeping it from being queued twice. From the conversation,
+ * it is the change the agent proposed, as it stands in the database.
  */
 export async function requestCorrection(
   db: Database,
   credentials: AppCredentials,
-  input: {
-    workUnitId: string;
-    instruction: string;
-    login: string;
+  input: { workUnitId: string; login: string } & (
+    | { instruction: string }
     /** The agent's message that proposed it, in the conversation. */
-    chatMessageId?: string;
-  },
+    | { chatMessageId: string }
+  ),
   fetcher?: Fetch,
 ): Promise<ActionResult> {
   const row = await target(db, input.workUnitId);
   if (!row) return { ok: false, error: "This pull request is not Yarrow's." };
   if (row.pull.state !== "open")
     return { ok: false, error: "This pull request is already closed." };
-  const { chatMessageId } = input;
-  if (
-    chatMessageId &&
-    !(await proposalOpen(db, {
-      messageId: chatMessageId,
-      workUnitId: input.workUnitId,
-    }))
-  )
+  const chatMessageId = "chatMessageId" in input ? input.chatMessageId : null;
+  const instruction = chatMessageId
+    ? await openProposal(db, {
+        messageId: chatMessageId,
+        workUnitId: input.workUnitId,
+      })
+    : (input as { instruction: string }).instruction;
+  if (!instruction)
     return { ok: false, error: "This change was already made." };
   const { owner, repo } = splitRepository(row.project.repository);
   try {
@@ -185,11 +184,11 @@ export async function requestCorrection(
     const comment = await client.request<{ id: number }>(
       "POST",
       `/repos/${owner}/${repo}/issues/${row.pull.number}/comments`,
-      { body: askedFromYarrow(input.login, input.instruction) },
+      { body: askedFromYarrow(input.login, instruction) },
     );
     const queued = await queueCorrection(db, {
       pullRequestUrl: row.pull.url,
-      instruction: input.instruction,
+      instruction,
       requestedBy: input.login,
       externalCommentId: String(comment.id),
     });

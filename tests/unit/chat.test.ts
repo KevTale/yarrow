@@ -236,13 +236,15 @@ describe("questions and answers", () => {
       change: "Move the filters onto the title's line.",
       usage: null,
     });
-    const fetcher = (async (url: string) =>
-      url.endsWith("/access_tokens")
-        ? Response.json({ token: "t", expires_at: "x" }, { status: 201 })
-        : Response.json({ id: 77 }, { status: 201 })) as typeof fetch;
+    const posted: string[] = [];
+    const fetcher = (async (url: string, init: RequestInit) => {
+      if (url.endsWith("/access_tokens"))
+        return Response.json({ token: "t", expires_at: "x" }, { status: 201 });
+      posted.push(JSON.parse(String(init.body)).body);
+      return Response.json({ id: 77 }, { status: 201 });
+    }) as typeof fetch;
     const input = {
       workUnitId,
-      instruction: "Move the filters onto the title's line, to the right.",
       login: "Marie",
       chatMessageId: asked.answerId,
     };
@@ -253,11 +255,16 @@ describe("questions and answers", () => {
       ok: false,
       error: "This change was already made.",
     });
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toContain("Move the filters onto the title's line.");
     const [answer] = (await threadMessages(db, workUnitId)).filter(
       (m) => m.author === "agent",
     );
     const panel = await pullPanel(db, (await projectId()) ?? "", "3");
     expect(panel!.corrections).toHaveLength(1);
+    expect(panel!.corrections[0]!.instruction).toBe(
+      "Move the filters onto the title's line.",
+    );
     expect(answer!.correctionRequestId).toBe(panel!.corrections[0]!.id);
   });
 });
@@ -384,7 +391,9 @@ describe("the agent that answers", () => {
               type: "tool_use",
               id: "t2",
               name: "propose_change",
-              input: { instruction: "Move the filters to the right." },
+              input: {
+                change: "The filters sit on the title's line, to the right.",
+              },
             },
           ],
         };
@@ -401,7 +410,9 @@ describe("the agent that answers", () => {
       presentation: null,
     });
     expect(answer.body).toBe("I proposed it [at 0:12].");
-    expect(answer.change).toBe("Move the filters to the right.");
+    expect(answer.change).toBe(
+      "The filters sit on the title's line, to the right.",
+    );
     expect(answer.usage).toMatchObject({
       input: 300,
       output: 60,
@@ -480,7 +491,7 @@ describe("the agent that answers", () => {
                 type: "tool_use",
                 id: "t1",
                 name: "propose_change",
-                input: { instruction: "Change it." },
+                input: { change: "Change it." },
               },
             ],
           }

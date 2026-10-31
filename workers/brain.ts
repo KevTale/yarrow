@@ -1033,12 +1033,9 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   }
 
   /** A change asked from the dashboard: on the PR, queued, started now. */
-  async requestCorrection(input: {
-    workUnitId: string;
-    instruction: string;
-    login: string;
-    chatMessageId?: string;
-  }): Promise<ActionResult> {
+  async requestCorrection(
+    input: Parameters<typeof requestCorrection>[2],
+  ): Promise<ActionResult> {
     const credentials = this.credentials();
     if (!credentials) return { ok: false, error: "GitHub is not configured." };
     const result = await withDb(this.env, (db) =>

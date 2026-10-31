@@ -8694,6 +8694,14 @@ html:has(.pp-stage:modal) {
   padding: 0;
   list-style: none;
 }
+/* Under the review, a long conversation scrolls in its own box. */
+.pp-conversation .pp-chat {
+  max-height: min(560px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
 .pp-me {
   display: grid;
   justify-items: end;
@@ -8798,21 +8806,6 @@ html:has(.pp-stage:modal) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.pp-proposal textarea {
-  resize: vertical;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  outline: none;
-  background: var(--bg);
-  color: var(--text);
-  font:
-    14px/1.55 var(--font-geist-sans),
-    sans-serif;
-}
-.pp-proposal textarea:focus {
-  border-color: #f2b54480;
-}
 .pp-proposal-foot {
   display: flex;
   flex-wrap: wrap;
@@ -8822,23 +8815,6 @@ html:has(.pp-stage:modal) {
 .pp-proposal .pp-send {
   margin-left: 0;
   padding: 7px 13px;
-}
-.pp-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: none;
-  color: var(--secondary);
-  font:
-    500 13.5px var(--font-geist-sans),
-    sans-serif;
-  cursor: pointer;
-}
-.pp-ghost:hover {
-  color: var(--text);
 }
 /* The question box: one line, growing with what is typed. */
 .pp-asking {

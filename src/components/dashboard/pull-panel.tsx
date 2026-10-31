@@ -11,7 +11,6 @@ import {
   FileText,
   GitCommitHorizontal,
   Info,
-  Pencil,
   Play,
   Plus,
   ScanSearch,
@@ -245,13 +244,13 @@ export function PullPanel({
   );
   // The conversation: questions, answers, the changes asked, then the box
   // to ask the next question.
-  const thread = (follow: boolean) => (
+  const thread = (column: boolean) => (
     <Thread
       panel={panel}
       projectId={projectId}
       rowKey={rowKey}
       open={open}
-      follow={follow}
+      column={column}
       onSeek={presentation ? (ms) => seek.current?.(ms) : null}
       onMade={() => {
         void refresh();
@@ -848,7 +847,7 @@ function Thread({
   projectId,
   rowKey,
   open,
-  follow,
+  column,
   onSeek,
   onMade,
 }: {
@@ -857,8 +856,8 @@ function Thread({
   rowKey: string;
   /** The pull request can still change. */
   open: boolean;
-  /** Keep the latest in view: the conversation beside the film. */
-  follow: boolean;
+  /** Beside the film: the column scrolls, not the thread. */
+  column: boolean;
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
@@ -868,10 +867,11 @@ function Thread({
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
   const latest = `${shown.length}:${last?.kind === "message" ? last.message.status : ""}`;
-  useEffect(() => {
-    if (follow)
-      list.current?.lastElementChild?.scrollIntoView({ block: "end" });
-  }, [follow, latest]);
+  // The latest in view, the page left where it is.
+  useLayoutEffect(() => {
+    const box = column ? list.current?.parentElement : list.current;
+    if (box) box.scrollTop = box.scrollHeight;
+  }, [column, latest]);
   if (shown.length === 0) return null;
   return (
     <ol className="pp-chat" ref={list}>
@@ -1025,7 +1025,11 @@ function ChangeState({
   }
 }
 
-/** A change the agent proposes: made from here, as written or edited. */
+/**
+ * A change the agent proposes, in the words of what the app will do: one
+ * click adds it to this pull request. Something else is asked in the
+ * conversation, and the agent proposes again.
+ */
 function Proposal({
   message,
   open,
@@ -1040,20 +1044,17 @@ function Proposal({
   onMade: () => void;
 }) {
   const make = useServerFn(requestChangeFn);
-  const [text, setText] = useState(message.change ?? "");
-  const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [made, setMade] = useState(false);
   const [error, setError] = useState("");
 
   async function submit() {
-    const instruction = text.trim();
-    if (!instruction || pending) return;
+    if (pending) return;
     setError("");
     setPending(true);
     try {
       const result = await make({
-        data: { projectId, key: rowKey, instruction, messageId: message.id },
+        data: { projectId, key: rowKey, messageId: message.id },
       });
       if (result.ok) {
         setMade(true);
@@ -1073,40 +1074,19 @@ function Proposal({
         <GitCommitHorizontal size={15} aria-hidden="true" />
         Change
       </div>
-      {editing ? (
-        <textarea
-          aria-label="The change"
-          value={text}
-          rows={6}
-          maxLength={4000}
-          autoFocus
-          onChange={(event) => setText(event.target.value)}
-        />
-      ) : (
-        <p>
-          <Rich text={text} />
-        </p>
-      )}
+      <p>
+        <Rich text={message.change ?? ""} />
+      </p>
       {open && (
         <div className="pp-proposal-foot">
           <button
             type="button"
             className="pp-send"
-            aria-disabled={!text.trim() || pending}
+            aria-disabled={pending}
             onClick={() => void submit()}
           >
-            Make this change {pending && <Spinner />}
+            Update the pull request {pending && <Spinner />}
           </button>
-          {!editing && (
-            <button
-              type="button"
-              className="pp-ghost"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil size={14} aria-hidden="true" />
-              Edit
-            </button>
-          )}
           {error && (
             <span className="pp-error" role="alert">
               {error}
