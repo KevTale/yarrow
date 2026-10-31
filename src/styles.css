@@ -3304,6 +3304,17 @@ tbody tr:hover {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+/* A stage's "+" ends its band: its tip lines up with its right edge, so it
+   never reaches past a phone's screen, hidden or shown. */
+.tix-ghead [data-tip]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-2px);
+}
+.tix-ghead [data-tip]:hover::after,
+.tix-ghead [data-tip]:focus-visible::after {
+  transform: none;
+}
 /* uiarc's search field at the stages' height. */
 .bd-search {
   --control-height-md: 38px;
