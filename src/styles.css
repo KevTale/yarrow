@@ -7833,9 +7833,14 @@ body:has(.sb-dialog[open]) {
   align-content: start;
   min-width: 0;
 }
+/* A section is the column's width, never its content's: the screenshots'
+   grid would otherwise lay out three across and push the text past a
+   phone's screen. */
 .pp-section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  min-width: 0;
 }
 .pp-section h3 {
   display: flex;
