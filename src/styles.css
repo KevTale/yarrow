@@ -4251,26 +4251,36 @@ tbody tr:hover {
   margin-right: auto;
 }
 @media (max-width: 760px) {
-  .tix-row {
-    flex-wrap: wrap;
-    gap: 6px 12px;
-    padding-block: 9px;
+  /* On a phone a ticket keeps its line, as on a wide screen, and a group's
+     rows scroll sideways together, as wide as the longest (a title shows up
+     to 300px); the opened ticket and Done's foot stay in view, the screen's
+     width. */
+  .tix-rows {
+    display: grid;
+    grid-template-columns: max-content;
+    overflow-x: auto;
+    overflow-y: hidden;
+    container-type: inline-size;
   }
-  .tix-open {
-    flex-basis: 100%;
+  .tix-item,
+  .tix-older {
+    min-width: 100cqw;
+  }
+  .tix-open,
+  .tix-title {
+    flex: 1 0 auto;
   }
   .tix-title {
-    white-space: normal;
+    max-width: 300px;
   }
-  .tix-meta {
-    margin-left: 24px;
-    gap: 12px;
+  .tix-opened {
+    position: sticky;
+    left: 0;
+    width: 100cqw;
   }
-  .tix-sponsor {
-    width: auto;
-  }
-  .tix-sponsor > span:not(.board-logo, .tix-paid) {
-    display: none;
+  .tix-older button {
+    position: sticky;
+    left: 0;
   }
   .tix-card {
     padding: 8px 14px 20px;
