@@ -22,7 +22,7 @@ export async function createTestDatabase() {
     db: raw as unknown as Database,
     async reset() {
       await raw.execute(
-        sql`TRUNCATE chat_messages, events, daily_fundings, provider_pauses, ledger_entries, results, run_fundings, correction_requests, agent_runs, pull_requests, work_units, tracker_boards, tracker_connections, contributions, sponsor_project_selections, sponsor_profiles, project_secrets, project_run_configs, projects, account_members, accounts CASCADE`,
+        sql`TRUNCATE spotted_tickets, chat_messages, events, daily_fundings, provider_pauses, ledger_entries, results, run_fundings, correction_requests, agent_runs, pull_requests, work_units, tracker_boards, tracker_connections, contributions, sponsor_project_selections, sponsor_profiles, project_secrets, project_run_configs, projects, account_members, accounts CASCADE`,
       );
     },
   };

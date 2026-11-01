@@ -25,6 +25,14 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "A pull request being changed waits in In progress, out of To review's count, and comes back to To review with its commit. An opened row stays where it is until you close it.",
       ),
+      builders(
+        "Summaries, reviews, the agent's answers and ticket descriptions read their Markdown: italics, struck text, emphasis inside emphasis.",
+      ),
+    ],
+    fixed: [
+      builders(
+        "A suggested ticket leaves the pull request's sidebar once you make it a ticket.",
+      ),
     ],
   },
   {

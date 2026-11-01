@@ -114,7 +114,11 @@ function TicketBrief({
         )}
       </section>
       <aside className="pp-aside">
-        {detail?.author && <p className="tp-by">by {detail.author}</p>}
+        {/* An app (Yarrow's own, opening a ticket written here) says nothing:
+            the ticket names who wrote it. */}
+        {detail?.author && !detail.author.endsWith("[bot]") && (
+          <p className="tp-by">by {detail.author}</p>
+        )}
       </aside>
     </div>
   );

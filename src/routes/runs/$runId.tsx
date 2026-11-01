@@ -16,7 +16,8 @@ import { getRunFn } from "@/functions/public.functions";
 import { JiraIcon } from "@/components/brand-icons";
 import { BackArrow } from "@/components/back-arrow";
 import { Presentation } from "@/components/presentation";
-import { Rich, RunFeed, StopReason } from "@/components/run-activity";
+import { Markdown } from "@/components/markdown";
+import { RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
 import { splitNote } from "@/core/pull-notes";
 
@@ -127,9 +128,7 @@ function RunPage() {
                   by {modelDisplayName(run.implementer)}
                 </span>
               </h2>
-              <p>
-                <Rich text={run.summary} />
-              </p>
+              <Markdown source={run.summary} className="rp-text" />
               {run.evidence.length > 0 && (
                 <ul className="rp-checks">
                   {run.evidence.map((line) => {
@@ -157,9 +156,7 @@ function RunPage() {
                   <span className="rp-tag">after one fix round</span>
                 )}
               </h2>
-              <p>
-                <Rich text={run.review.summary} />
-              </p>
+              <Markdown source={run.review.summary} className="rp-text" />
               {run.review.comments.length > 0 && (
                 <ul className="rp-comments">
                   {run.review.comments.map((comment, i) => (

@@ -35,7 +35,7 @@ import {
   trackerTicketDetail,
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
-import { pullNumber, pullPanel } from "@/db/pull-panel";
+import { madeSpottedTicket, pullNumber, pullPanel } from "@/db/pull-panel";
 import { livePull, pullFiles } from "@/server/github/pulls.server";
 import { kickBrain } from "@/server/brain.server";
 
@@ -468,12 +468,31 @@ export const createTicketFn = createServerFn({ method: "POST" })
       title: z.string().trim().min(1).max(TITLE_MAX),
       body: z.string().max(BODY_MAX),
       queue: z.boolean(),
+      // Drafted from a pull request's suggestion: it leaves that list.
+      from: z
+        .object({
+          key: z.string().max(40),
+          note: z.string().min(1).max(BODY_MAX),
+        })
+        .optional(),
     }),
   )
   .handler(
     async ({
       data,
     }): Promise<{ ok: true; key: string } | { ok: false; error: string }> => {
+      const made = async (ticketKey: string) => {
+        const from = data.from;
+        if (!from) return;
+        // The ticket is made either way: a suggestion left listed is the lesser harm.
+        await withDb((db) =>
+          madeSpottedTicket(db, {
+            projectId: data.projectId,
+            ...from,
+            ticketKey,
+          }),
+        ).catch(() => {});
+      };
       const viewer = await requireViewer();
       const body = openedFromYarrow(
         data.body,
@@ -486,12 +505,14 @@ export const createTicketFn = createServerFn({ method: "POST" })
         const brain = appEnv().BRAIN;
         if (!brain) return unavailable;
         // The brain starts it at once when queued.
-        return brain.createIssue({
+        const result = await brain.createIssue({
           projectId: project.id,
           title: data.title,
           body,
           queue: data.queue,
         });
+        if (result.ok) await made(result.key);
+        return result;
       }
       try {
         const key = await withDb((db) =>
@@ -505,6 +526,7 @@ export const createTicketFn = createServerFn({ method: "POST" })
           ),
         );
         if (data.queue) await kickBrain();
+        await made(key);
         return { ok: true, key };
       } catch (error) {
         return { ok: false, error: (error as Error).message };

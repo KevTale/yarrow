@@ -16,7 +16,7 @@ import {
   Search,
   Terminal,
 } from "lucide-react";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   groupActivity,
   milestone,
@@ -32,6 +32,7 @@ import { modelDisplayName } from "@/core/pipeline";
 import type { RunActivity } from "@/db/queries";
 import { getRunActivityFn } from "@/functions/public.functions";
 import { Spinner } from "@/components/navigation-feedback";
+import { Rich } from "./markdown";
 
 const phaseLabel: Record<string, string> = {
   implementing: "Claude Opus is working on it",
@@ -65,52 +66,6 @@ const oneLine = (command: string) => shortCommand(command).split("\n")[0];
 
 function Code({ children }: { children: ReactNode }) {
   return <code className="ra-code">{children}</code>;
-}
-
-const markdownLink = /^\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)$/;
-const bareUrl = /^https?:\/\//;
-
-/** A link the agents wrote, opened in a new tab. */
-function External({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a className="rich-link" href={href} target="_blank" rel="noopener">
-      {children}
-    </a>
-  );
-}
-
-/**
- * The agents write Markdown: `code`, **bold** and [links](https://…) read
- * as such, and a bare https:// address is a link too.
- */
-export function Rich({ text }: { text: string }) {
-  return text
-    .split(
-      /(`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s<>()`]+)/,
-    )
-    .map((part, i) => {
-      if (/^`.+`$/.test(part)) return <code key={i}>{part.slice(1, -1)}</code>;
-      if (/^\*\*.+\*\*$/.test(part))
-        return <strong key={i}>{part.slice(2, -2)}</strong>;
-      const link = markdownLink.exec(part);
-      if (link)
-        return (
-          <External key={i} href={link[2]!}>
-            {link[1]}
-          </External>
-        );
-      if (bareUrl.test(part)) {
-        // A sentence's last stop is not part of the address.
-        const url = part.replace(/[.,;:!?'"]+$/, "");
-        return (
-          <Fragment key={i}>
-            <External href={url}>{url}</External>
-            {part.slice(url.length)}
-          </Fragment>
-        );
-      }
-      return part;
-    });
 }
 
 const image = /\.(png|jpe?g|webp|gif)$/i;

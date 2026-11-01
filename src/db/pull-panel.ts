@@ -15,6 +15,7 @@ import {
   pullRequests,
   results,
   runModels,
+  spottedTickets,
   workUnits,
 } from "./schema";
 import { sponsorsByUnit } from "./tickets";
@@ -182,7 +183,7 @@ export async function pullPanel(
     );
   if (!unit) return null;
   // Independent reads, sent together on the one connection.
-  const [runs, [pull], requests, recorded, paidBy] = await Promise.all([
+  const [runs, [pull], requests, recorded, paidBy, made] = await Promise.all([
     db
       .select({
         id: agentRuns.id,
@@ -223,6 +224,10 @@ export async function pullPanel(
       .innerJoin(agentRuns, eq(agentRuns.id, runModels.agentRunId))
       .where(eq(agentRuns.workUnitId, unit.id)),
     sponsorsByUnit(db, [unit.id]),
+    db
+      .select({ note: spottedTickets.note })
+      .from(spottedTickets)
+      .where(eq(spottedTickets.workUnitId, unit.id)),
   ]);
 
   const delivered = runs.find(
@@ -264,6 +269,10 @@ export async function pullPanel(
         ? {
             by: modelDisplayName(delivered.implementer.split(":")[0]!),
             ...now,
+            // A suggestion made a ticket leaves the list.
+            spotted: now.spotted.filter(
+              (line) => !made.some((row) => row.note === line),
+            ),
           }
         : null,
     review: review
@@ -322,4 +331,29 @@ export async function pullPanel(
         .find((run) => run.outcome === "pull_request" && run.artifacts?.length)
         ?.artifacts as StoredArtifact[] | undefined) ?? [],
   };
+}
+
+/** A suggestion of the pull request's sidebar, made a ticket: it leaves the list. */
+export async function madeSpottedTicket(
+  db: Database,
+  input: { projectId: string; key: string; note: string; ticketKey: string },
+): Promise<void> {
+  const [unit] = await db
+    .select({ id: workUnits.id })
+    .from(workUnits)
+    .where(
+      and(
+        eq(workUnits.projectId, input.projectId),
+        eq(workUnits.externalId, input.key),
+      ),
+    );
+  if (!unit) return;
+  await db
+    .insert(spottedTickets)
+    .values({
+      workUnitId: unit.id,
+      note: input.note,
+      ticketKey: input.ticketKey,
+    })
+    .onConflictDoNothing();
 }

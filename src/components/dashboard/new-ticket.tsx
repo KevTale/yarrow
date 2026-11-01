@@ -9,15 +9,24 @@ import { createTicketFn } from "@/functions/builder.functions";
 
 type Board = { tracker: string; key: string; site: string };
 
-/** A ticket written for the builder, to read, change and send. */
-export type TicketDraft = { title: string; body: string };
+/**
+ * A ticket written for the builder, to read, change and send; from a pull
+ * request's suggestion (its row's key and the note as written), which
+ * leaves that list once the ticket is made.
+ */
+export type TicketDraft = {
+  title: string;
+  body: string;
+  from?: { key: string; note: string };
+};
 
 /**
  * Opens the new ticket dialog in a project, filled in (what the agents
- * noticed outside their ticket). Only the builder's dashboard provides it.
+ * noticed outside their ticket), and says when it is made. Only the
+ * builder's dashboard provides it.
  */
 export const DraftTicket = createContext<
-  ((projectId: string, draft: TicketDraft) => void) | null
+  ((projectId: string, draft: TicketDraft, onMade?: () => void) => void) | null
 >(null);
 
 /** The dialog only opens on a click, so the browser is there to ask. */
@@ -99,6 +108,7 @@ export function NewTicket({
           title: title.trim(),
           body,
           queue: started,
+          from: draft?.from,
         },
       });
       if (result.ok) {

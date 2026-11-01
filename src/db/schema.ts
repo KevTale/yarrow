@@ -755,3 +755,21 @@ export const chatMessages = pgTable(
     index("chat_messages_user").on(t.userId, t.createdAt),
   ],
 ).enableRLS();
+
+/**
+ * What the agents noticed outside their ticket, made a ticket from the pull
+ * request's sidebar: the suggestion leaves the list. The note as the agent
+ * wrote it; the ticket may say it otherwise.
+ */
+export const spottedTickets = pgTable(
+  "spotted_tickets",
+  {
+    workUnitId: uuid("work_unit_id")
+      .notNull()
+      .references(() => workUnits.id),
+    note: text("note").notNull(),
+    ticketKey: text("ticket_key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.workUnitId, t.note] })],
+).enableRLS();

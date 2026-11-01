@@ -42,7 +42,7 @@ import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { Logo } from "@/components/boards";
 import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
-import { Rich } from "@/components/run-activity";
+import { Markdown, Rich } from "@/components/markdown";
 import { DraftTicket } from "./new-ticket";
 import { SponsorLink } from "./paid-by";
 import { shortSite } from "@/core/pr-card";
@@ -390,6 +390,8 @@ export function PullPanel({
           {panel.implementation && panel.implementation.spotted.length > 0 && (
             <Suggested
               projectId={projectId}
+              rowKey={rowKey}
+              onMade={() => void refresh()}
               pullRequestUrl={pullRequest?.url ?? null}
               by={panel.implementation.by}
               lines={panel.implementation.spotted}
@@ -491,9 +493,7 @@ function Summary({
   return (
     <section className="pp-section">
       <h3>Summary</h3>
-      <p className="pp-text">
-        <Rich text={implementation.summary} />
-      </p>
+      <Markdown source={implementation.summary} className="pp-text" />
       {shots.length > 0 && <Screens screens={shots} />}
     </section>
   );
@@ -533,11 +533,7 @@ function Review({
   return (
     <section className="pp-section">
       <h3>{review ? "Review" : "Checked"}</h3>
-      {review && (
-        <p className="pp-text">
-          <Rich text={review.summary} />
-        </p>
-      )}
+      {review && <Markdown source={review.summary} className="pp-text" />}
       {criteria.length + checks.length > 0 && (
         <ul className="pp-list pp-checked">
           {criteria.map((item) => {
@@ -650,17 +646,26 @@ function TechnicalChecks({ checks }: { checks: string[] }) {
  */
 function Suggested({
   projectId,
+  rowKey,
+  onMade,
   pullRequestUrl,
   by,
-  lines,
+  lines: listed,
 }: {
   projectId: string;
+  rowKey: string;
+  /** A suggestion was made a ticket: the panel reads it gone. */
+  onMade: () => void;
   pullRequestUrl: string | null;
   /** The implementer, named in the drafted ticket. */
   by: string;
   lines: string[];
 }) {
   const draft = useContext(DraftTicket);
+  // Gone at once, before the panel is read again.
+  const [made, setMade] = useState<string[]>([]);
+  const lines = listed.filter((line) => !made.includes(line));
+  if (lines.length === 0) return null;
   return (
     <section className="pf" aria-label="Suggested tickets">
       <p className="pf-head">
@@ -680,7 +685,16 @@ function Suggested({
                   className="pf-row pf-suggest"
                   aria-label={`Make it a ticket: ${ticket.title}`}
                   data-tip="Make it a ticket"
-                  onClick={() => draft(projectId, ticket)}
+                  onClick={() =>
+                    draft(
+                      projectId,
+                      { ...ticket, from: { key: rowKey, note: line } },
+                      () => {
+                        setMade((shown) => [...shown, line]);
+                        onMade();
+                      },
+                    )
+                  }
                 >
                   <ScanSearch size={13} aria-hidden="true" />
                   <span>
@@ -940,9 +954,11 @@ function Answer({
     return <p className="pp-say muted">No answer this time.</p>;
   return (
     <>
-      {message.body.split(/\n{2,}/).map((paragraph, i) => (
-        <p key={i} className="pp-say">
-          {chatParts(paragraph).map((part, j) =>
+      <Markdown
+        source={message.body}
+        className="pp-say"
+        inline={(text) =>
+          chatParts(text).map((part, j) =>
             part.kind === "text" ? (
               <Rich key={j} text={part.text} />
             ) : onSeek ? (
@@ -959,9 +975,9 @@ function Answer({
             ) : (
               part.label
             ),
-          )}
-        </p>
-      ))}
+          )
+        }
+      />
       {message.change &&
         (message.correctionRequestId ? (
           <ChangeState correction={correction} working={working} />
@@ -1016,9 +1032,7 @@ function ChangeState({
             Changed
           </div>
           {correction.summary && (
-            <p className="pp-say">
-              <Rich text={correction.summary} />
-            </p>
+            <Markdown source={correction.summary} className="pp-say" />
           )}
         </>
       );

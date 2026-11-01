@@ -1,5 +1,81 @@
-import { Fragment } from "react";
-import { Rich } from "./run-activity";
+import type { ReactNode } from "react";
+
+/**
+ * Markdown within a line: `code`, [links](https://…), a bare https://
+ * address, **bold**, *italics* or _italics_, ~~struck~~; emphasis holds
+ * the others. An underscore inside a word (snake_case) stays one.
+ */
+const inline = new RegExp(
+  [
+    /(`[^`\n]+`)/.source,
+    /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/.source,
+    /(https?:\/\/[^\s<>()`]+)/.source,
+    /\*\*(?=\S)(.+?)(?<=\S)\*\*/.source,
+    /(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)/.source,
+    /~~(?=\S)(.+?)(?<=\S)~~/.source,
+    /\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?!\*)/.source,
+    /(?<!\w)_(?=[^\s_])(.+?)(?<=[^\s_])_(?!\w)/.source,
+  ].join("|"),
+  "g",
+);
+
+/** A link the agents wrote, opened in a new tab. */
+function External({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a className="rich-link" href={href} target="_blank" rel="noopener">
+      {children}
+    </a>
+  );
+}
+
+/** The agents and the tickets write Markdown: a line of it, read as such. */
+export function Rich({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(inline)) {
+    const [whole, code, label, href, address, bold, strong, struck, em, under] =
+      match;
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    last = match.index + whole.length;
+    const key = parts.length;
+    if (code) parts.push(<code key={key}>{code.slice(1, -1)}</code>);
+    else if (label && href)
+      parts.push(
+        <External key={key} href={href}>
+          <Rich text={label} />
+        </External>,
+      );
+    else if (address) {
+      // A sentence's last stop is not part of the address.
+      const url = address.replace(/[.,;:!?'"]+$/, "");
+      parts.push(
+        <External key={key} href={url}>
+          {url}
+        </External>,
+      );
+      last -= address.length - url.length;
+    } else if (struck)
+      parts.push(
+        <s key={key}>
+          <Rich text={struck} />
+        </s>,
+      );
+    else if (bold ?? strong)
+      parts.push(
+        <strong key={key}>
+          <Rich text={(bold ?? strong)!} />
+        </strong>,
+      );
+    else
+      parts.push(
+        <em key={key}>
+          <Rich text={(em ?? under)!} />
+        </em>,
+      );
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
 
 type Block =
   | { kind: "p"; text: string }
@@ -85,16 +161,30 @@ export function markdownBlocks(source: string): Block[] {
   return blocks;
 }
 
-/** A ticket's description, read as Markdown, links and code included. */
-export function Markdown({ source }: { source: string }) {
+const rich = (text: string) => <Rich text={text} />;
+
+/**
+ * A ticket's description, or what the agents wrote, read as Markdown: its
+ * blocks here, each line's Markdown by `inline` (Rich, or the conversation's
+ * own, which plays the film from a moment).
+ */
+export function Markdown({
+  source,
+  className,
+  inline = rich,
+}: {
+  source: string;
+  className?: string;
+  inline?: (text: string) => ReactNode;
+}) {
   return (
-    <div className="md">
+    <div className={className ? `md ${className}` : "md"}>
       {markdownBlocks(source).map((block, i) => {
         switch (block.kind) {
           case "h":
             return (
               <p key={i} className="md-h">
-                <Rich text={block.text} />
+                {inline(block.text)}
               </p>
             );
           case "ul":
@@ -103,29 +193,19 @@ export function Markdown({ source }: { source: string }) {
             return (
               <List key={i}>
                 {block.items.map((item, j) => (
-                  <li key={j}>
-                    <Rich text={item} />
-                  </li>
+                  <li key={j}>{inline(item)}</li>
                 ))}
               </List>
             );
           }
           case "quote":
-            return (
-              <blockquote key={i}>
-                <Rich text={block.text} />
-              </blockquote>
-            );
+            return <blockquote key={i}>{inline(block.text)}</blockquote>;
           case "code":
             return <pre key={i}>{block.text}</pre>;
           case "hr":
             return <hr key={i} />;
           default:
-            return (
-              <p key={i}>
-                {block.text ? <Rich text={block.text} /> : <Fragment />}
-              </p>
-            );
+            return <p key={i}>{inline(block.text)}</p>;
         }
       })}
     </div>

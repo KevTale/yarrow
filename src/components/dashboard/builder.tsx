@@ -203,6 +203,7 @@ export function BuilderView({
     start: boolean;
     projectId?: string;
     draft?: TicketDraft;
+    onMade?: () => void;
   } | null>(null);
   // Done past two weeks, shown on demand.
   const [older, setOlder] = useState(false);
@@ -537,8 +538,8 @@ export function BuilderView({
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
     : project;
-  const draftTicket = (id: string, draft: TicketDraft) => {
-    setComposing({ start: false, projectId: id, draft });
+  const draftTicket = (id: string, draft: TicketDraft, onMade?: () => void) => {
+    setComposing({ start: false, projectId: id, draft, onMade });
     // Not read yet: the dialog opens once it is.
     if (!store[id]) void pull(id);
   };
@@ -715,6 +716,7 @@ export function BuilderView({
             draft={composing.draft}
             onClose={() => setComposing(null)}
             onCreated={(key, started) => {
+              composing.onMade?.();
               setComposing(null);
               setQuery("");
               // Where it now stands, lit like a pasted ticket.

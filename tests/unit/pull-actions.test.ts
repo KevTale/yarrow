@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ensureAccount } from "../../src/db/accounts";
 import { projectsForUser } from "../../src/db/github-tasks";
-import { pullPanel } from "../../src/db/pull-panel";
+import { madeSpottedTicket, pullPanel } from "../../src/db/pull-panel";
 import { reviewCount } from "../../src/db/queries";
 import * as schema from "../../src/db/schema";
 import { upsertTicket } from "../../src/db/workunits";
@@ -296,6 +296,46 @@ describe("the builder's decisions on a pull request", () => {
       }),
     ]);
     expect(await pullPanel(db, projectId, "99")).toBeNull();
+  });
+
+  it("drops a suggestion once it is made a ticket", async () => {
+    const run = crypto.randomUUID();
+    await raw.insert(schema.agentRuns).values({
+      id: run,
+      workUnitId,
+      status: "completed",
+      implementer: "claude-opus-5-5:high",
+      reviewer: "openai-astra",
+    });
+    await raw.insert(schema.results).values({
+      agentRunId: run,
+      outcome: "pull_request",
+      summary: "Life changes in one place.",
+      evidence: ["git diff --check → clean"],
+      pullRequestUrl: pullUrl,
+      details: {
+        notVerified: [],
+        risks: [],
+        spotted: ["Adding a task resets the filter", "The README link moved"],
+      },
+    });
+    const spotted = async () =>
+      (await pullPanel(db, projectId, "3"))!.implementation!.spotted;
+    expect(await spotted()).toHaveLength(2);
+
+    const made = {
+      projectId,
+      key: "3",
+      note: "Adding a task resets the filter",
+      ticketKey: "32",
+    };
+    await madeSpottedTicket(db, made);
+    // Twice (a retried request) is once.
+    await madeSpottedTicket(db, made);
+    expect(await spotted()).toEqual(["The README link moved"]);
+    // A key that is not Yarrow's ticket records nothing.
+    await madeSpottedTicket(db, { ...made, key: "99" });
+    expect(await raw.select().from(schema.spottedTickets)).toHaveLength(1);
   });
 });
 
