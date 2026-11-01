@@ -2,6 +2,8 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   CircleDashed,
   FileText,
   GitCommitHorizontal,
@@ -1022,8 +1024,9 @@ function Ask({
  * The files a pull request changed, last in the panel: how many and their
  * lines, then a quiet line per file in the order a builder reads them (the
  * code, its tests, its documentation, what tools generated, the assets).
- * A file opens on its changes over the page, the arrows going from one
- * file to the next, so the panel and its conversation never move.
+ * A file opens on its changes over the page, its header's arrows and the
+ * keyboard's going from one file to the next, so the panel and its
+ * conversation never move.
  */
 function ChangedFiles({
   projectId,
@@ -1060,6 +1063,13 @@ function ChangedFiles({
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
   const shown = open === null ? null : ordered[open];
+  // The previous or next file, round the list.
+  const go = (step: number) => {
+    if (ordered.length < 2) return;
+    setOpen((at) =>
+      at === null ? at : (at + step + ordered.length) % ordered.length,
+    );
+  };
   return (
     <section className="pp-section">
       <h3>
@@ -1107,10 +1117,9 @@ function ChangedFiles({
           if (event.target === event.currentTarget) dialog.current?.close();
         }}
         onKeyDown={(event) => {
-          if (open === null || ordered.length < 2) return;
           const step =
             event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-          if (step) setOpen((open + step + ordered.length) % ordered.length);
+          if (step) go(step);
         }}
       >
         {shown && (
@@ -1126,7 +1135,23 @@ function ChangedFiles({
               </span>
               {ordered.length > 1 && (
                 <span className="pp-diffs-at">
+                  <button
+                    type="button"
+                    className="tix-icon-btn"
+                    aria-label="Previous file"
+                    onClick={() => go(-1)}
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
                   {open! + 1} / {ordered.length}
+                  <button
+                    type="button"
+                    className="tix-icon-btn"
+                    aria-label="Next file"
+                    onClick={() => go(1)}
+                  >
+                    <ChevronRight size={15} />
+                  </button>
                 </span>
               )}
               <button
