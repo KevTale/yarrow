@@ -22,8 +22,6 @@ export const Route = createFileRoute("/dashboard")({
   validateSearch: z.object({
     tab: z.enum(["builder", "sponsor"]).optional(),
     project: z.uuid().optional(),
-    /** The pull requests waiting for review, across projects. */
-    view: z.enum(["review"]).optional().catch(undefined),
     /** Back from connecting Jira from this project: link the pasted ticket. */
     from: z.enum(["jira"]).optional().catch(undefined),
     checkout: z.enum(["success"]).optional(),
@@ -213,7 +211,6 @@ function DashboardPage() {
           jira={connect.jira}
           waiting={waiting}
           projectId={search.project ?? connect.queued?.projectId}
-          view={search.view}
         />
       ) : (
         <SponsorView data={sponsor} celebrate={celebrate} />

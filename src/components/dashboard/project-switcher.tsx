@@ -1,4 +1,4 @@
-import { Check, ChevronDown, GitPullRequest, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
@@ -7,24 +7,20 @@ import { Logo } from "@/components/boards";
 type Project = { id: string; name: string; logoUrl: string | null };
 
 /**
- * The page's title is the project's name, and opens the way to the others:
- * the pull requests waiting across projects, each project, and adding one.
+ * The page's title is the project's name, and opens the way to the others,
+ * each with how many pull requests wait for its review, and to adding one.
  */
 export function ProjectSwitcher({
   projects,
   current,
-  reviewing,
   toReview,
   onProject,
-  onReview,
 }: {
   projects: Project[];
   current: Project | null;
-  /** Showing the pull requests to review across projects. */
-  reviewing: boolean;
-  toReview: number;
+  /** Pull requests waiting for review, by project id. */
+  toReview: Record<string, number>;
   onProject: (id: string) => void;
-  onReview: () => void;
 }) {
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
@@ -84,7 +80,7 @@ export function ProjectSwitcher({
         aria-expanded={open}
         onClick={() => setOpen((shown) => !shown)}
       >
-        <h2>{reviewing ? "To review" : current?.name}</h2>
+        <h2>{current?.name}</h2>
         <ChevronDown size={18} aria-hidden="true" />
       </button>
       <AnimatePresence>
@@ -105,24 +101,9 @@ export function ProjectSwitcher({
                 : motionTokens.spring.smooth
             }
           >
-            {projects.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={reviewing}
-                  className="ps-item"
-                  onClick={() => pick(onReview)}
-                >
-                  <GitPullRequest size={15} aria-hidden="true" />
-                  To review
-                  {toReview > 0 && <span className="ps-count">{toReview}</span>}
-                </button>
-                <span className="ps-sep" role="separator" />
-              </>
-            )}
             {projects.map((project) => {
-              const chosen = !reviewing && project.id === current?.id;
+              const chosen = project.id === current?.id;
+              const waiting = toReview[project.id] ?? 0;
               return (
                 <button
                   key={project.id}
@@ -138,6 +119,14 @@ export function ProjectSwitcher({
                     size="small"
                   />
                   <span className="ps-name">{project.name}</span>
+                  {waiting > 0 && (
+                    <span
+                      className="ps-count"
+                      aria-label={`${waiting} to review`}
+                    >
+                      {waiting}
+                    </span>
+                  )}
                   {chosen && (
                     <Check size={15} className="ps-check" aria-hidden="true" />
                   )}

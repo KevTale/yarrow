@@ -3701,8 +3701,10 @@ tbody tr:hover {
   background: var(--hover);
 }
 /* Clipped, not hidden: a hidden box would scroll, and hold the opened
-   row's conversation to it instead of to the window. */
+   row's conversation to it instead of to the window. Unlike hidden, clip
+   lets a long title widen the page: no minimum width. */
 .tix-rows {
+  min-width: 0;
   margin: 0;
   padding: 4px 0 0;
   list-style: none;
@@ -3828,15 +3830,6 @@ tbody tr:hover {
   white-space: nowrap;
   font-size: 14px;
 }
-.tix-project {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: none;
-  font-size: 13px;
-  color: var(--secondary);
-}
-.tix-project .board-logo.small,
 .tix-sponsor .board-logo.small {
   width: 20px;
   height: 20px;

@@ -23,7 +23,6 @@ import {
   done,
   toReview,
   workText,
-  type ReviewRow,
   type TicketRow,
 } from "@/core/tickets";
 import {
@@ -34,7 +33,6 @@ import {
   setProjectLogoFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
-import { Logo } from "@/components/boards";
 import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
 import { LogoPicker } from "@/components/logo-picker";
@@ -145,15 +143,13 @@ const ISSUES_TTL = 60_000;
 
 /**
  * Tickets: one project's tickets in groups, from To review to Done, each
- * opening in place; or the pull requests waiting for review across all
- * projects.
+ * opening in place. The switcher counts what waits for review in each.
  */
 export function BuilderView({
   data,
   highlight,
   waiting,
   projectId,
-  view,
   jira = null,
 }: {
   data: BuilderData;
@@ -163,7 +159,6 @@ export function BuilderView({
   waiting: string | null;
   /** The project in the address; the loader's choice otherwise. */
   projectId?: string;
-  view?: "review";
   /** A Jira link waiting for its repository or for Jira itself. */
   jira?: JiraStep | null;
 }) {
@@ -210,18 +205,7 @@ export function BuilderView({
   const [older, setOlder] = useState(false);
   const [source, setSource] = useState({ data, highlight, jira });
   const [jiraStep, setJiraStep] = useState(jira);
-  // The dashboard opens on To review while pull requests wait there.
-  const [landOnReview] = useState(
-    () =>
-      view === undefined &&
-      projectId === undefined &&
-      data.projects.length > 1 &&
-      data.review.some(toReview),
-  );
-  const reviewing =
-    view === "review" ||
-    (landOnReview && view === undefined && projectId === undefined);
-  const currentId = reviewing ? null : (projectId ?? data.project?.id ?? null);
+  const currentId = projectId ?? data.project?.id ?? null;
   const [shownId, setShownId] = useState(currentId);
 
   // New loader data (a new ticket, a refresh) replaces that project's copy.
@@ -262,9 +246,14 @@ export function BuilderView({
   useEffect(() => {
     for (const [id, copy] of Object.entries(store)) cache.set(id, copy);
   }, [store]);
-  // The header's count follows what the page knows.
-  const toReviewCount = meta.review.filter(toReview).length;
+  // The header's count, and each project's in the switcher, follow what
+  // the page knows.
+  const waitingReview = meta.review.filter(toReview);
+  const toReviewCount = waitingReview.length;
   useEffect(() => setReviewCount(toReviewCount), [toReviewCount]);
+  const reviewCounts: Record<string, number> = {};
+  for (const row of waitingReview)
+    reviewCounts[row.project.id] = (reviewCounts[row.project.id] ?? 0) + 1;
 
   const absorb = (next: BuilderData, withIssues: boolean) => {
     const id = next.project?.id;
@@ -338,9 +327,7 @@ export function BuilderView({
   );
   const busy =
     rows.some(moving) || meta.review.some(moving) || waiting !== null;
-  const topics = reviewing
-    ? meta.projects.map((item) => `project:${item.id}`)
-    : [currentId ? `project:${currentId}` : null];
+  const topics = [currentId ? `project:${currentId}` : null];
   useLive(topics, (signals) => {
     const stale = signals
       .filter((signal) => signal.event === "issues")
@@ -359,13 +346,10 @@ export function BuilderView({
     const timer = setTimeout(() => void pull(), busy ? 15_000 : 60_000);
     return () => clearTimeout(timer);
   });
-  const list = useFlip<HTMLDivElement>(
-    reviewing ? meta.review : live,
-    reviewing ? "review" : (currentId ?? ""),
-  );
+  const list = useFlip<HTMLDivElement>(live, currentId ?? "");
 
   // "C" writes a ticket, as in the trackers builders know.
-  const canWrite = Boolean(!reviewing && project?.linked && !composing);
+  const canWrite = Boolean(project?.linked && !composing);
   useEffect(() => {
     if (!canWrite) return;
     const keys = (event: KeyboardEvent) => {
@@ -502,15 +486,6 @@ export function BuilderView({
         ...current,
         tab: "builder" as const,
         project: id,
-        view: undefined,
-      }),
-    });
-  const openReview = () =>
-    navigate({
-      search: (current) => ({
-        ...current,
-        tab: "builder" as const,
-        view: "review" as const,
       }),
     });
   const jiraCard = jiraStep && jiraStep.projects.length > 0 && (
@@ -535,7 +510,7 @@ export function BuilderView({
     opened?.id === id
       ? opened.stage
       : stages.find((stage) => stage.test(row))?.key;
-  // Every linked project loads in the background, To review's included.
+  // Every linked project loads in the background.
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
     : project;
@@ -550,7 +525,7 @@ export function BuilderView({
       <div className="bd">
         {jiraCard}
         <div className="tix-head">
-          {!reviewing && project && (
+          {project && (
             <LogoPicker
               name={project.name}
               value={project.logoUrl}
@@ -562,12 +537,10 @@ export function BuilderView({
           <ProjectSwitcher
             projects={meta.projects}
             current={shownProject}
-            reviewing={reviewing}
-            toReview={toReviewCount}
+            toReview={reviewCounts}
             onProject={choose}
-            onReview={openReview}
           />
-          {!reviewing && shownProject && (
+          {shownProject && (
             <Link
               to="/projects/$projectId"
               params={{ projectId: shownProject.id }}
@@ -578,7 +551,7 @@ export function BuilderView({
               <Settings size={16} />
             </Link>
           )}
-          {!reviewing && project?.linked && (
+          {project?.linked && (
             <SearchField
               fieldClassName="bd-search"
               label="Search tickets"
@@ -589,20 +562,7 @@ export function BuilderView({
             />
           )}
         </div>
-        {reviewing ? (
-          <ReviewList
-            rows={meta.review.filter(
-              (row) =>
-                toReview(row) || opened?.id === `${row.project.id}:${row.key}`,
-            )}
-            list={list}
-            opened={opened?.id ?? null}
-            onOpen={(id) => toggle(id, "review")}
-            onChanged={() => void pull()}
-            folded={folded.includes("review")}
-            onFold={() => fold("review")}
-          />
-        ) : loading ? (
+        {loading ? (
           <BuilderSkeleton />
         ) : (
           project && (
@@ -838,7 +798,6 @@ function TicketGroup({
 function TicketLine({
   row,
   projectId,
-  project,
   open,
   onToggle,
   fresh = false,
@@ -848,8 +807,6 @@ function TicketLine({
 }: {
   row: TicketRow;
   projectId: string;
-  /** In the cross-project review list: whose ticket it is. */
-  project?: ReviewRow["project"];
   open: boolean;
   onToggle: () => void;
   fresh?: boolean;
@@ -879,12 +836,6 @@ function TicketLine({
           onFocus={intent}
         >
           <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
-          {project && (
-            <span className="tix-project">
-              <Logo name={project.name} url={project.logoUrl} size="small" />
-              {project.name}
-            </span>
-          )}
           <TicketRef row={row} />
           <span className="tix-title">{row.title}</span>
         </button>
@@ -1037,68 +988,6 @@ function MergeGo({
         {step === "confirm" ? "Confirm merge?" : "Merge"}
       </button>
     </>
-  );
-}
-
-/** Draft pull requests from every project, newest first. */
-function ReviewList({
-  rows,
-  list,
-  opened,
-  onOpen,
-  onChanged,
-  folded,
-  onFold,
-}: {
-  rows: ReviewRow[];
-  list: React.Ref<HTMLDivElement>;
-  opened: string | null;
-  onOpen: (id: string) => void;
-  onChanged: () => void;
-  folded: boolean;
-  onFold: () => void;
-}) {
-  const firstRows = rows
-    .slice(0, 6)
-    .map((row) => `${row.project.id}:${row.key}`)
-    .join(",");
-  // To review reads its first rows as soon as it shows.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      for (const id of firstRows.split(",").filter(Boolean)) {
-        const [projectId, ...key] = id.split(":");
-        prefetchPullPanel(projectId!, key.join(":"));
-      }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [firstRows]);
-  if (rows.length === 0)
-    return <p className="bd-none muted">Nothing to review</p>;
-  return (
-    <div className="tix-list" ref={list} style={refColumn(rows)}>
-      <TicketGroup
-        stage="review"
-        label="To review"
-        count={rows.length}
-        folded={folded}
-        onFold={onFold}
-      >
-        {rows.map((row) => {
-          const id = `${row.project.id}:${row.key}`;
-          return (
-            <TicketLine
-              key={id}
-              row={row}
-              projectId={row.project.id}
-              project={row.project}
-              open={opened === id}
-              onToggle={() => onOpen(id)}
-              onChanged={onChanged}
-            />
-          );
-        })}
-      </TicketGroup>
-    </div>
   );
 }
 
