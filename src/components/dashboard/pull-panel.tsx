@@ -5,8 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDashed,
-  ChevronsUpDown,
-  FileText,
   GitCommitHorizontal,
   Info,
   Play,
@@ -22,6 +20,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { chatParts } from "@/core/chat";
 import { groupFiles } from "@/core/changed-files";
@@ -36,13 +35,10 @@ import {
   requestChangeFn,
 } from "@/functions/builder.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { Logo } from "@/components/boards";
 import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
 import { DraftTicket } from "./new-ticket";
-import { SponsorLink } from "./paid-by";
-import { shortSite } from "@/core/pr-card";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
 type Files = NonNullable<Awaited<ReturnType<typeof getPullFilesFn>>>;
@@ -155,9 +151,9 @@ export function prefetchPullPanel(projectId: string, key: string): void {
 }
 
 /**
- * A ticket's row, opened: what the agents did and what to watch on the
- * left, the decisions on the right (the changes, merge), who paid and what it cost; a change asked from here goes to
- * the pull request. The changes open under it, on demand.
+ * A ticket's row, opened: what the agents did, what to watch and the files
+ * changed on the left, the conversation on the right; a change asked from
+ * there goes to the pull request. Who paid is on the row's line.
  */
 export function PullPanel({
   projectId,
@@ -173,8 +169,6 @@ export function PullPanel({
   const [panel, setPanel] = useState<Panel | null | undefined>(() =>
     panels.get(id),
   );
-  // The file whose changes show under the panel, picked in the sidebar.
-  const [focus, setFocus] = useState<string | null>(null);
 
   const refresh = useCallback(
     () =>
@@ -208,8 +202,8 @@ export function PullPanel({
     return () => clearInterval(timer);
   }, [busy, answering, refresh]);
 
-  // Cinema: the film fills the window beside the conversation, the page
-  // under it held where it was. The draft is the same in both.
+  // Cinema: the film fills the window beside the conversation, which goes
+  // with it; the page under it held where it was.
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
@@ -218,7 +212,13 @@ export function PullPanel({
   useLayoutEffect(() => {
     const dialog = theater.current;
     if (!dialog) return;
-    if (cinema && !dialog.open) dialog.showModal();
+    if (cinema && !dialog.open) {
+      dialog.showModal();
+      // The column only has its height once the dialog is modal: the
+      // latest message in view again.
+      const thread = dialog.querySelector(".pp-talk-thread");
+      if (thread) thread.scrollTop = thread.scrollHeight;
+    }
     if (!cinema && dialog.open) dialog.close();
   }, [cinema]);
   const flipCinema = () => {
@@ -238,45 +238,46 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  // The conversation: questions, answers, the changes asked, then the box
-  // to ask the next question.
-  const thread = (column: boolean) => (
-    <Thread
-      panel={panel}
-      projectId={projectId}
-      rowKey={rowKey}
-      open={open}
-      column={column}
-      onSeek={presentation ? (ms) => seek.current?.(ms) : null}
-      onMade={() => {
-        void refresh();
-        onChanged();
-      }}
-    />
-  );
-  const ask = pullRequest && (
-    <Ask
-      projectId={projectId}
-      rowKey={rowKey}
-      text={draft}
-      onText={setDraft}
-      waiting={Boolean(answering)}
-      onSending={(question) =>
-        setPanel((shown) => {
-          if (!shown) return shown;
-          const at = Date.now();
-          return {
-            ...shown,
-            messages: [
-              ...shown.messages,
-              local(`q${at}`, "builder", question, at),
-              local(`a${at}`, "agent", "", at + 1),
-            ],
-          };
-        })
-      }
-      onSettled={() => void refresh()}
-    />
+  // The conversation, the panel's right column, beside the film in cinema:
+  // questions, answers, the changes asked, then the box to ask the next one.
+  const talk = pullRequest && (
+    <aside className="pp-talk" aria-label="Conversation">
+      <div className="pp-talk-thread">
+        <Thread
+          panel={panel}
+          projectId={projectId}
+          rowKey={rowKey}
+          open={open}
+          onSeek={presentation ? (ms) => seek.current?.(ms) : null}
+          onMade={() => {
+            void refresh();
+            onChanged();
+          }}
+        />
+      </div>
+      <Ask
+        projectId={projectId}
+        rowKey={rowKey}
+        text={draft}
+        onText={setDraft}
+        waiting={Boolean(answering)}
+        onSending={(question) =>
+          setPanel((shown) => {
+            if (!shown) return shown;
+            const at = Date.now();
+            return {
+              ...shown,
+              messages: [
+                ...shown.messages,
+                local(`q${at}`, "builder", question, at),
+                local(`a${at}`, "agent", "", at + 1),
+              ],
+            };
+          })
+        }
+        onSettled={() => void refresh()}
+      />
+    </aside>
   );
   return (
     <div className="pp">
@@ -309,12 +310,7 @@ export function PullPanel({
                     seekRef={seek}
                   />
                 </div>
-                {cinema && (
-                  <aside className="pp-talk">
-                    <div className="pp-talk-thread">{thread(true)}</div>
-                    {ask}
-                  </aside>
-                )}
+                {cinema && talk}
               </dialog>
             </>
           )}
@@ -322,49 +318,11 @@ export function PullPanel({
             <Summary
               implementation={panel.implementation}
               screens={panel.screens}
+              costs={panel.models.length > 0 && <CostInfo panel={panel} />}
             />
           )}
 
           <Review review={panel.review} />
-
-          {pullRequest && (
-            <section className="pp-section pp-conversation">
-              <h3>Conversation</h3>
-              {thread(false)}
-              {ask}
-            </section>
-          )}
-        </div>
-
-        <aside className="pp-aside">
-          {panel.paidBy.length > 0 ? (
-            <div className="pp-paid">
-              <div className="pp-paid-head">
-                <span className="pp-label">Paid by</span>
-                {panel.models.length > 0 && <CostInfo panel={panel} />}
-              </div>
-              {panel.paidBy.map((sponsor, i) => (
-                <SponsorLink key={i} sponsor={sponsor} className="pp-sponsor">
-                  <Logo
-                    name={sponsor.name}
-                    url={sponsor.logoUrl}
-                    size="small"
-                  />
-                  <span>
-                    <strong>{sponsor.name ?? "Anonymous sponsor"}</strong>
-                    {sponsor.description && <span>{sponsor.description}</span>}
-                    {sponsor.websiteUrl && (
-                      <span className="pp-site">
-                        {shortSite(sponsor.websiteUrl) ?? sponsor.websiteUrl}
-                      </span>
-                    )}
-                  </span>
-                </SponsorLink>
-              ))}
-            </div>
-          ) : (
-            panel.models.length > 0 && <Costs panel={panel} />
-          )}
 
           {pullRequest && (
             <ChangedFiles
@@ -372,10 +330,6 @@ export function PullPanel({
               rowKey={rowKey}
               size={size}
               url={pullRequest.url}
-              focus={focus}
-              onOpen={(path) =>
-                setFocus((shown) => (shown === path ? null : path))
-              }
             />
           )}
 
@@ -389,21 +343,10 @@ export function PullPanel({
               lines={panel.implementation.spotted}
             />
           )}
-        </aside>
-      </div>
+        </div>
 
-      {focus && (
-        <Changes
-          // Each file picked opens alone, scrolled to.
-          key={focus}
-          projectId={projectId}
-          rowKey={rowKey}
-          url={pullRequest?.url}
-          size={size}
-          focus={focus}
-          onClose={() => setFocus(null)}
-        />
-      )}
+        {!cinema && talk}
+      </div>
     </div>
   );
 }
@@ -435,7 +378,7 @@ function Costs({ panel }: { panel: Panel }) {
   );
 }
 
-/** "i" in the Paid by card: the costs show on hover, focus or tap. */
+/** "i" beside the summary's title: the costs show on hover, focus or tap. */
 function CostInfo({ panel }: { panel: Panel }) {
   return (
     <span className="pp-info">
@@ -477,14 +420,20 @@ function workingText(panel: Panel): string | null {
 function Summary({
   implementation,
   screens,
+  costs,
 }: {
   implementation: NonNullable<Panel["implementation"]>;
   screens: Panel["screens"];
+  /** What the models took, behind "i". */
+  costs: ReactNode;
 }) {
   const shots = screens.filter((screen) => screen.kind !== "presentation");
   return (
     <section className="pp-section">
-      <h3>Summary</h3>
+      <h3>
+        Summary
+        {costs}
+      </h3>
       <Markdown source={implementation.summary} className="pp-text" />
       {shots.length > 0 && <Screens screens={shots} />}
     </section>
@@ -507,8 +456,8 @@ function Review({ review }: { review: Panel["review"] }) {
 }
 
 /**
- * What the agents noticed outside the ticket and left alone, in the
- * sidebar: a row each in everyday words, the whole row a ticket to write,
+ * What the agents noticed outside the ticket and left alone, under the
+ * files: a row each in everyday words, the whole row a ticket to write,
  * its words drafted (its technical pointer goes in the ticket, not here).
  */
 function Suggested({
@@ -534,12 +483,12 @@ function Suggested({
   const lines = listed.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
-    <section className="pf" aria-label="Suggested tickets">
-      <p className="pf-head">
+    <section className="pp-section">
+      <h3>
         {lines.length === 1
           ? "1 suggested ticket"
           : `${lines.length} suggested tickets`}
-      </p>
+      </h3>
       <ul className="pf-files">
         {lines.map((line) => {
           const { plain } = splitNote(line);
@@ -711,7 +660,6 @@ function Thread({
   projectId,
   rowKey,
   open,
-  column,
   onSeek,
   onMade,
 }: {
@@ -720,8 +668,6 @@ function Thread({
   rowKey: string;
   /** The pull request can still change. */
   open: boolean;
-  /** Beside the film: the column scrolls, not the thread. */
-  column: boolean;
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
@@ -731,11 +677,11 @@ function Thread({
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
   const latest = `${shown.length}:${last?.kind === "message" ? last.message.status : ""}`;
-  // The latest in view, the page left where it is.
+  // The latest in view, the page left where it is: the column scrolls.
   useLayoutEffect(() => {
-    const box = column ? list.current?.parentElement : list.current;
+    const box = list.current?.parentElement;
     if (box) box.scrollTop = box.scrollHeight;
-  }, [column, latest]);
+  }, [latest]);
   if (shown.length === 0) return null;
   return (
     <ol className="pp-chat" ref={list}>
@@ -1071,53 +1017,44 @@ function Ask({
 }
 
 /**
- * The files a pull request changed, in the sidebar: how many and their
- * lines over one list, in the order a builder reads them (the code, its
- * tests, its documentation, what tools generated, the assets), six then
- * the rest on demand. Picking a file shows its changes below.
+ * The files a pull request changed, under the review: how many and their
+ * lines, then each file folded, in the order a builder reads them (the
+ * code, its tests, its documentation, what tools generated, the assets).
+ * A file opens on its changes.
  */
 function ChangedFiles({
   projectId,
   rowKey,
   size,
   url,
-  focus,
-  onOpen,
 }: {
   projectId: string;
   rowKey: string;
+  /** Lines and files changed: a different size is a new commit. */
   size: string;
   url: string;
-  focus: string | null;
-  onOpen: (path: string) => void;
 }) {
   const files = usePullFiles(projectId, rowKey, size);
-  const [whole, setWhole] = useState(false);
-  if (files === undefined)
-    return (
-      <div className="pf" aria-busy="true" aria-label="Loading the changes">
-        {["46%", "78%", "70%", "62%", "74%"].map((width, i) => (
-          <span key={i} className="sk" style={{ width }} />
-        ))}
-      </div>
-    );
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+
+  if (files === undefined) return <FilesSkeleton />;
   if (files === null)
     return (
-      <p className="pf pf-none">
-        <a href={`${url}/files`} target="_blank" rel="noopener">
-          See the changes on GitHub
-        </a>
-      </p>
+      <section className="pp-section">
+        <p className="pp-none">
+          <a href={`${url}/files`} target="_blank" rel="noopener">
+            See the changes on GitHub
+          </a>
+        </p>
+      </section>
     );
   // One list, the code first: the groups' order without their names.
   const ordered = groupFiles(files).flatMap((group) => group.files);
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
-  const shown = whole ? ordered : ordered.slice(0, FILES_SHOWN);
-  const more = ordered.length - FILES_SHOWN;
   return (
-    <section className="pf" aria-label="Files changed">
-      <p className="pf-head">
+    <section className="pp-section">
+      <h3>
         {files.length} {files.length === 1 ? "file" : "files"} changed
         <span className="pp-count">
           <span className="add">+{additions}</span>
@@ -1128,177 +1065,80 @@ function ChangedFiles({
             </>
           )}
         </span>
-      </p>
-      <ul className="pf-files">
-        {shown.map((file) => {
+      </h3>
+      <div className="pp-files">
+        {ordered.map((file) => {
+          const isOpen = opened.has(file.path);
           const slash = file.path.lastIndexOf("/");
           return (
-            <li key={file.path}>
+            <div key={file.path} className="pp-file">
               <button
                 type="button"
-                className="pf-file"
-                aria-pressed={focus === file.path}
-                title={file.path}
-                onClick={() => onOpen(file.path)}
+                className="pp-file-head"
+                aria-expanded={isOpen}
+                onClick={() =>
+                  setOpened((current) => {
+                    const next = new Set(current);
+                    if (next.has(file.path)) next.delete(file.path);
+                    else next.add(file.path);
+                    return next;
+                  })
+                }
               >
-                <FileText size={13} aria-hidden="true" />
-                <b>{file.path.slice(slash + 1)}</b>
-                {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
+                {isOpen ? (
+                  <ChevronDown size={15} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={15} aria-hidden="true" />
+                )}
+                <span className="pp-path">
+                  {file.path.slice(0, slash + 1)}
+                  <b>{file.path.slice(slash + 1)}</b>
+                </span>
+                <span className="pp-count">
+                  <span className="add">+{file.additions}</span>{" "}
+                  <span className="del">−{file.deletions}</span>
+                </span>
               </button>
-            </li>
+              {isOpen &&
+                (file.lines ? (
+                  <div className="pp-diff" role="table" aria-label={file.path}>
+                    {file.lines.map((line, i) =>
+                      line.kind === "hunk" ? (
+                        <div key={i} className="pp-hunk" role="row">
+                          {line.text}
+                        </div>
+                      ) : (
+                        <div
+                          key={i}
+                          className={`pp-line ${line.kind}`}
+                          role="row"
+                        >
+                          <span className="n">
+                            {line.kind === "add" ? "" : line.old}
+                          </span>
+                          <span className="n">
+                            {line.kind === "del" ? "" : line.new}
+                          </span>
+                          <span className="s">
+                            {line.kind === "add"
+                              ? "+"
+                              : line.kind === "del"
+                                ? "−"
+                                : ""}
+                          </span>
+                          <span className="c">{line.text}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="pp-none muted">No preview for this file</p>
+                ))}
+            </div>
           );
         })}
-        {more > 0 && (
-          <li>
-            <button
-              type="button"
-              className="pf-file pf-more"
-              aria-expanded={whole}
-              onClick={() => setWhole((value) => !value)}
-            >
-              <ChevronsUpDown size={13} aria-hidden="true" />
-              {whole
-                ? "Show fewer"
-                : `Show ${more} more ${more === 1 ? "file" : "files"}`}
-            </button>
-          </li>
-        )}
-      </ul>
-    </section>
-  );
-}
-
-/** Files listed before "Show N more". */
-const FILES_SHOWN = 6;
-
-/**
- * The changes, under the panel: every file, the one picked in the sidebar
- * open and scrolled to, the others folded.
- */
-function Changes({
-  projectId,
-  rowKey,
-  url,
-  size,
-  focus,
-  onClose,
-}: {
-  projectId: string;
-  rowKey: string;
-  url?: string;
-  /** Lines and files changed: a different size is a new commit. */
-  size: string;
-  focus: string;
-  onClose: () => void;
-}) {
-  const files = usePullFiles(projectId, rowKey, size);
-  const [opened, setOpened] = useState<Set<string>>(() => new Set([focus]));
-  const root = useRef<HTMLDivElement>(null);
-  const ready = files !== undefined;
-  useEffect(() => {
-    if (!ready) return;
-    root.current
-      ?.querySelector(`[data-path="${CSS.escape(focus)}"]`)
-      ?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [ready, focus]);
-
-  if (files === undefined) return <FilesSkeleton />;
-  if (files === null)
-    return (
-      <p className="pp-files pp-none muted">
-        GitHub did not answer.{" "}
-        {url && (
-          <a href={`${url}/files`} target="_blank" rel="noopener">
-            See the changes on GitHub
-          </a>
-        )}
-      </p>
-    );
-
-  return (
-    <div className="pp-files" ref={root}>
-      <div className="pp-files-head">
-        <span>Changes</span>
-        <button
-          type="button"
-          className="tix-icon-btn"
-          aria-label="Hide changes"
-          onClick={onClose}
-        >
-          <X size={15} />
-        </button>
       </div>
-      {files.map((file) => {
-        const isOpen = opened.has(file.path);
-        const slash = file.path.lastIndexOf("/");
-        return (
-          <div key={file.path} className="pp-file" data-path={file.path}>
-            <button
-              type="button"
-              className="pp-file-head"
-              aria-expanded={isOpen}
-              onClick={() =>
-                setOpened((current) => {
-                  const next = new Set(current);
-                  if (next.has(file.path)) next.delete(file.path);
-                  else next.add(file.path);
-                  return next;
-                })
-              }
-            >
-              {isOpen ? (
-                <ChevronDown size={15} aria-hidden="true" />
-              ) : (
-                <ChevronRight size={15} aria-hidden="true" />
-              )}
-              <span className="pp-path">
-                {file.path.slice(0, slash + 1)}
-                <b>{file.path.slice(slash + 1)}</b>
-              </span>
-              <span className="pp-count">
-                <span className="add">+{file.additions}</span>{" "}
-                <span className="del">−{file.deletions}</span>
-              </span>
-            </button>
-            {isOpen &&
-              (file.lines ? (
-                <div className="pp-diff" role="table" aria-label={file.path}>
-                  {file.lines.map((line, i) =>
-                    line.kind === "hunk" ? (
-                      <div key={i} className="pp-hunk" role="row">
-                        {line.text}
-                      </div>
-                    ) : (
-                      <div
-                        key={i}
-                        className={`pp-line ${line.kind}`}
-                        role="row"
-                      >
-                        <span className="n">
-                          {line.kind === "add" ? "" : line.old}
-                        </span>
-                        <span className="n">
-                          {line.kind === "del" ? "" : line.new}
-                        </span>
-                        <span className="s">
-                          {line.kind === "add"
-                            ? "+"
-                            : line.kind === "del"
-                              ? "−"
-                              : ""}
-                        </span>
-                        <span className="c">{line.text}</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <p className="pp-none muted">No preview for this file</p>
-              ))}
-          </div>
-        );
-      })}
-    </div>
+    </section>
   );
 }
 
@@ -1323,32 +1163,34 @@ function PanelSkeleton() {
               ))}
             </div>
           ))}
-          <span className="sk sk-composer" />
         </div>
-        <div className="pp-aside">
-          <span className="sk sk-card" />
+        <div className="pp-talk" aria-hidden="true">
+          <div className="pp-talk-thread" />
+          <span className="sk sk-ask" />
         </div>
       </div>
     </div>
   );
 }
 
-/** The changes' shape while GitHub answers. */
+/** The files' shape while GitHub answers: the title, then folded files. */
 function FilesSkeleton() {
   return (
-    <div className="pp-files" aria-busy="true" aria-label="Loading the changes">
-      <div className="pp-file">
-        <div className="pp-file-head">
-          <span className="sk" style={{ width: "36%" }} />
-        </div>
-        <div className="sk-diff">
-          {["58%", "74%", "40%", "66%", "82%", "48%", "70%", "36%"].map(
-            (width, i) => (
-              <span key={i} className="sk" style={{ width }} />
-            ),
-          )}
-        </div>
+    <section
+      className="pp-section"
+      aria-busy="true"
+      aria-label="Loading the changes"
+    >
+      <span className="sk sk-title" style={{ width: "26%" }} />
+      <div className="pp-files">
+        {["36%", "48%", "30%"].map((width, i) => (
+          <div key={i} className="pp-file">
+            <div className="pp-file-head">
+              <span className="sk" style={{ width }} />
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }

@@ -7834,8 +7834,8 @@ body:has(.sb-dialog[open]) {
 }
 .pp-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 40px;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 34%, 420px);
+  gap: 32px;
 }
 .pp-main {
   display: grid;
@@ -7866,6 +7866,16 @@ body:has(.sb-dialog[open]) {
     400 12.5px var(--font-geist-sans),
     sans-serif;
   color: var(--muted);
+}
+.pp-section h3 .pp-count,
+.pp-section h3 .pp-count span {
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+}
+/* The costs' "i", at the title's far end. */
+.pp-section h3 .pp-info {
+  margin-left: auto;
 }
 .pp-text {
   margin: 0;
@@ -8401,6 +8411,28 @@ html:has(.pp-stage:modal) {
 .pp-talk > .pp-asking {
   margin: 0 18px 18px;
 }
+/* In the panel, the same column beside the film and the review: as tall as
+   they are, never taller than the window under the site's header (60px),
+   held in view while the page scrolls past them. */
+.pp-grid > .pp-talk {
+  position: sticky;
+  top: 72px;
+  height: min(100%, calc(100dvh - 84px));
+  min-height: 380px;
+}
+.pp-grid > .pp-talk .pp-talk-thread {
+  padding: 0 6px 24px 22px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.pp-grid > .pp-talk > .pp-asking {
+  margin: 0 0 0 18px;
+}
+.pp .sk-ask {
+  height: 48px;
+  margin-left: 18px;
+  border-radius: 24px;
+}
 @media (max-width: 1100px) {
   .pp-stage:modal {
     grid-template-columns: minmax(0, 1fr) 340px;
@@ -8641,38 +8673,14 @@ html:has(.pp-stage:modal) {
   font-size: 12.5px;
   color: var(--red);
 }
-/* The pull request's conversation, apart as a comment zone is: a line and
-   its title under the review, the column's line beside the film. As in any
-   chat, the builder's words in a bubble on the right, the agent's as text. */
-.pp-conversation {
-  gap: 16px;
-  margin-top: 6px;
-  padding-top: 28px;
-  border-top: 1px solid var(--line);
-}
+/* As in any chat, the builder's words in a bubble on the right, the
+   agent's as text. */
 .pp-chat {
   display: grid;
   gap: 22px;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-/* Under the review, a long conversation scrolls in its own box. */
-.pp-conversation .pp-chat {
-  max-height: min(560px, 65vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-  /* Its scrollbar stands off the bubbles, which keep the box's right edge. */
-  margin-right: -16px;
-  padding-right: 16px;
-}
-@media (max-width: 760px) {
-  .pp-conversation .pp-chat {
-    margin-right: 0;
-    padding-right: 10px;
-  }
 }
 .pp-me {
   display: grid;
@@ -8860,82 +8868,11 @@ html:has(.pp-stage:modal) {
 .pp-count .del {
   color: var(--red);
 }
-/* The files changed, in the sidebar: grouped, the code open first. */
-.pf {
-  display: grid;
-  gap: 0;
-  align-content: start;
-  padding: 0 2px;
-}
-.pf .sk {
-  height: 12px;
-  margin: 6px 0;
-}
-.pf-none {
-  margin: 0;
-  font-size: 13px;
-}
-/* Each block of the sidebar under Paid by: what it is and how many, its
-   count on the right (the lines changed, the checks passed), then rows. */
-.pf-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 4px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--muted);
-}
 .pf-files {
   display: grid;
   margin: 0 0 4px -8px;
   padding: 0;
   list-style: none;
-}
-.pf-file {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  min-width: 0;
-  padding: 4px 6px 4px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  font-size: 12.5px;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.pf-file:hover,
-.pf-file[aria-pressed="true"] {
-  background: var(--hover);
-}
-.pf-file svg {
-  flex: none;
-  color: var(--muted);
-}
-.pf-file b {
-  flex: none;
-  max-width: 70%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-.pf-file span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
-}
-.pf-file.pf-more {
-  color: var(--muted);
-}
-.pf-file.pf-more:hover {
-  color: var(--text);
 }
 /* A row that wraps, as a suggested ticket in everyday words: the whole
    row makes the ticket, its "+" on the right, its tip under it. */
@@ -8991,13 +8928,6 @@ button.pf-row:focus-visible .pf-add {
 .pf-suggest[data-tip]:focus-visible::after {
   transform: none;
 }
-.pp-files-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  font-weight: 500;
-}
 .rich-link {
   color: var(--text);
   text-decoration: underline;
@@ -9007,63 +8937,6 @@ button.pf-row:focus-visible .pf-add {
 }
 .rich-link:hover {
   text-decoration-color: currentColor;
-}
-.pp-label {
-  font:
-    11px var(--font-geist-mono),
-    monospace;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--amber);
-}
-.pp-paid {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-}
-.pp-sponsor {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  color: inherit;
-  text-decoration: none;
-  border-radius: 6px;
-}
-a.pp-sponsor:hover strong {
-  color: var(--amber);
-}
-a.pp-sponsor:focus-visible {
-  outline: 2px solid var(--amber);
-  outline-offset: 3px;
-}
-.pp-sponsor > span {
-  display: grid;
-  gap: 2px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--secondary);
-}
-.pp-sponsor strong {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-}
-.pp-site {
-  font:
-    11.5px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.pp-paid-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 20px;
 }
 /* The costs, behind "i": over the card, on hover, focus or tap. */
 .pp-info {
@@ -9121,9 +8994,6 @@ a.pp-sponsor:focus-visible {
   gap: 9px;
   margin: 0;
 }
-.pp-aside > .pp-facts {
-  padding: 2px 4px 0;
-}
 .pp-facts > div {
   display: flex;
   justify-content: space-between;
@@ -9146,7 +9016,7 @@ a.pp-sponsor:focus-visible {
 }
 .pp-files {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 .pp-file {
   overflow: hidden;
@@ -9243,10 +9113,26 @@ a.pp-sponsor:focus-visible {
   .pp {
     padding: 4px 4px 22px;
   }
-  /* One column: what the change does first, the sidebar after it. */
+  /* One column: what the change does first, the conversation after it. */
   .pp-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
+  }
+  .pp-grid > .pp-talk {
+    position: static;
+    height: auto;
+    min-height: 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .pp-grid > .pp-talk .pp-talk-thread {
+    max-height: 65vh;
+    padding: 0 6px 22px 0;
+  }
+  .pp-grid > .pp-talk > .pp-asking,
+  .pp .sk-ask {
+    margin-left: 0;
   }
 }
 
@@ -9258,30 +9144,14 @@ a.pp-sponsor:focus-visible {
   height: 15px;
   margin-bottom: 4px;
 }
-.pp .sk-composer {
-  width: 100%;
-  height: 98px;
-  border-radius: 12px;
-}
 .pp .sk-button {
   width: 100%;
   height: 40px;
   border-radius: 9px;
 }
-.pp .sk-card {
-  width: 100%;
-  height: 168px;
-  border-radius: 12px;
-}
 .pp-files .sk {
   height: 11px;
 }
-.sk-diff {
-  display: grid;
-  gap: 10px;
-  padding: 14px 14px 18px 106px;
-}
-
 /* The changelog, after x.ai's: the date held on the left, the notes on the right. */
 .changelog {
   max-width: 1000px;
