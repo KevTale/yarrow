@@ -5,11 +5,14 @@ import {
   formatSeconds,
   formatTokens,
   mergeTickets,
+  moving,
   ticketIdentity,
+  toReview,
   type TicketRow,
 } from "../../src/core/tickets";
 import { ensureAccount } from "../../src/db/accounts";
 import { requestGithubTask, projectsForUser } from "../../src/db/github-tasks";
+import { reviewCount } from "../../src/db/queries";
 import { recordRunModels } from "../../src/db/runs";
 import * as schema from "../../src/db/schema";
 import { projectTickets, retryTicket, reviewQueue } from "../../src/db/tickets";
@@ -254,6 +257,63 @@ describe("the builder's ticket table", () => {
     expect(await reviewQueue(db, [])).toEqual([]);
   });
 
+  it("hands a pull request back to Yarrow while a change asked is made", async () => {
+    const shipped = await ticket(3);
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "delivered" })
+      .where(eq(schema.workUnits.id, shipped));
+    await run(shipped, { status: "completed" });
+    await raw.insert(schema.pullRequests).values({
+      workUnitId: shipped,
+      url: "https://github.com/marie/halyard/pull/4",
+      number: 4,
+      branch: "yarrow/3",
+    });
+    const row = async () => byNumber(await projectTickets(db, projectId), 3);
+    expect(await row()).toMatchObject({ status: "pull_request", change: null });
+    expect(toReview(await row())).toBe(true);
+    expect(await reviewCount(db, marie.userId)).toBe(1);
+
+    // Asked, waiting its turn.
+    const [asked] = await raw
+      .insert(schema.correctionRequests)
+      .values({
+        workUnitId: shipped,
+        instruction: "Name the filters as the app does",
+        requestedBy: "marie",
+        externalCommentId: "c1",
+      })
+      .returning();
+    expect(await row()).toMatchObject({
+      status: "pull_request",
+      change: "queued",
+    });
+    expect(toReview(await row())).toBe(false);
+    expect(moving(await row())).toBe(true);
+    expect(await reviewCount(db, marie.userId)).toBe(0);
+
+    // At work on the branch.
+    const correction = await run(shipped, {
+      phase: "implementing",
+      createdAt: new Date(Date.now() + 1000),
+    });
+    await raw
+      .update(schema.correctionRequests)
+      .set({ status: "dispatched", agentRunId: correction })
+      .where(eq(schema.correctionRequests.id, asked!.id));
+    expect((await row()).change).toBe("writing");
+    expect(await reviewCount(db, marie.userId)).toBe(0);
+
+    // Its commit landed: to review again.
+    await raw
+      .update(schema.agentRuns)
+      .set({ status: "completed" })
+      .where(eq(schema.agentRuns.id, correction));
+    expect(await row()).toMatchObject({ status: "pull_request", change: null });
+    expect(await reviewCount(db, marie.userId)).toBe(1);
+  });
+
   it("shows label changes the brain has not made yet", async () => {
     await ticket(1);
     await requestGithubTask(db, {
@@ -335,6 +395,7 @@ describe("merging GitHub's open issues", () => {
       runId: null,
       pending: true,
       pullRequest: null,
+      change: null,
       reason: null,
       summary: null,
       models: [],

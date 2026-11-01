@@ -7,6 +7,7 @@ import {
   inArray,
   isNull,
   ne,
+  notExists,
   sql,
 } from "drizzle-orm";
 import type { RunSponsor } from "../core/attribution";
@@ -462,7 +463,10 @@ export async function projectForOwner(db: Database, projectId: string) {
   };
 }
 
-/** Pull requests waiting for this builder, across their projects: the header's badge. */
+/**
+ * Pull requests waiting for this builder, across their projects: the
+ * header's badge. One with a change asked under way is Yarrow's turn.
+ */
 export async function reviewCount(
   db: Database,
   userId: string,
@@ -478,6 +482,33 @@ export async function reviewCount(
         eq(accountMembers.userId, userId),
       ),
     )
-    .where(eq(workUnits.status, "delivered"));
+    .where(
+      and(
+        eq(workUnits.status, "delivered"),
+        notExists(
+          db
+            .select({ id: correctionRequests.id })
+            .from(correctionRequests)
+            .where(
+              and(
+                eq(correctionRequests.workUnitId, workUnits.id),
+                eq(correctionRequests.status, "queued"),
+              ),
+            ),
+        ),
+        // A delivered ticket's running run is a change being made.
+        notExists(
+          db
+            .select({ id: agentRuns.id })
+            .from(agentRuns)
+            .where(
+              and(
+                eq(agentRuns.workUnitId, workUnits.id),
+                eq(agentRuns.status, "running"),
+              ),
+            ),
+        ),
+      ),
+    );
   return row?.waiting ?? 0;
 }

@@ -19,6 +19,15 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-10-25",
+    title: "A change under way",
+    improved: [
+      builders(
+        "A pull request being changed waits in In progress, out of To review's count, and comes back to To review with its commit. An opened row stays where it is until you close it.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-24",
     title: "Ask the agent",
     new: [

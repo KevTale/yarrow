@@ -21,6 +21,7 @@ import {
   mergeTickets,
   moving,
   done,
+  toReview,
   workText,
   type ReviewRow,
   type TicketRow,
@@ -69,15 +70,16 @@ const stages: {
   {
     key: "review",
     label: "To review",
-    test: (row) => row.status === "pull_request",
+    test: toReview,
   },
   {
     key: "progress",
     label: "In progress",
+    // A pull request with a change under way is Yarrow's turn again.
     test: (row) =>
       inYarrow(row) &&
       !done(row) &&
-      row.status !== "pull_request" &&
+      !toReview(row) &&
       row.status !== "abstained",
     add: "start",
   },
@@ -188,8 +190,12 @@ export function BuilderView({
   );
   const folded = useMemo(() => parseFolded(foldedText), [foldedText]);
   const [fresh, setFresh] = useState<string | null>(highlight);
-  // The row opened in place ("projectId:key"), one at a time.
-  const [opened, setOpened] = useState<string | null>(null);
+  // The row opened in place ("projectId:key"), one at a time, and the
+  // group it was in: it stays there until it is closed, never moving
+  // under the builder (a change asked from it starts, it is merged).
+  const [opened, setOpened] = useState<{ id: string; stage: Stage } | null>(
+    null,
+  );
   const [error, setError] = useState("");
   // The new ticket dialog, and whether it came from In progress; drafted
   // from a pull request's notes, in that pull request's project.
@@ -208,7 +214,7 @@ export function BuilderView({
       view === undefined &&
       projectId === undefined &&
       data.projects.length > 1 &&
-      data.review.length > 0,
+      data.review.some(toReview),
   );
   const reviewing =
     view === "review" ||
@@ -255,7 +261,8 @@ export function BuilderView({
     for (const [id, copy] of Object.entries(store)) cache.set(id, copy);
   }, [store]);
   // The header's count follows what the page knows.
-  useEffect(() => setReviewCount(meta.review.length), [meta.review.length]);
+  const toReviewCount = meta.review.filter(toReview).length;
+  useEffect(() => setReviewCount(toReviewCount), [toReviewCount]);
 
   const absorb = (next: BuilderData, withIssues: boolean) => {
     const id = next.project?.id;
@@ -327,7 +334,8 @@ export function BuilderView({
     () => (live ? mergeTickets(live.tickets, live.issues) : []),
     [live],
   );
-  const busy = rows.some(moving) || waiting !== null;
+  const busy =
+    rows.some(moving) || meta.review.some(moving) || waiting !== null;
   const topics = reviewing
     ? meta.projects.map((item) => `project:${item.id}`)
     : [currentId ? `project:${currentId}` : null];
@@ -519,7 +527,12 @@ export function BuilderView({
   const loading = currentId !== null && !live;
   const shownProject =
     project ?? meta.projects.find((item) => item.id === currentId) ?? null;
-  const toggle = (id: string) => setOpened(opened === id ? null : id);
+  const toggle = (id: string, stage: Stage) =>
+    setOpened(opened?.id === id ? null : { id, stage });
+  const placed = (row: TicketRow, id: string) =>
+    opened?.id === id
+      ? opened.stage
+      : stages.find((stage) => stage.test(row))?.key;
   // Every linked project loads in the background, To review's included.
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
@@ -548,7 +561,7 @@ export function BuilderView({
             projects={meta.projects}
             current={shownProject}
             reviewing={reviewing}
-            toReview={meta.review.length}
+            toReview={toReviewCount}
             onProject={choose}
             onReview={openReview}
           />
@@ -576,10 +589,13 @@ export function BuilderView({
         </div>
         {reviewing ? (
           <ReviewList
-            rows={meta.review}
+            rows={meta.review.filter(
+              (row) =>
+                toReview(row) || opened?.id === `${row.project.id}:${row.key}`,
+            )}
             list={list}
-            opened={opened}
-            onOpen={toggle}
+            opened={opened?.id ?? null}
+            onOpen={(id) => toggle(id, "review")}
             onChanged={() => void pull()}
             folded={folded.includes("review")}
             onFold={() => fold("review")}
@@ -622,7 +638,10 @@ export function BuilderView({
                     style={refColumn(matches)}
                   >
                     {stages.map((stage) => {
-                      const shown = matches.filter(stage.test);
+                      const shown = matches.filter(
+                        (row) =>
+                          placed(row, `${project.id}:${row.key}`) === stage.key,
+                      );
                       // Stopped only when a ticket is there; searching shows
                       // only the groups with a match.
                       if ((stage.key === "stopped" || q) && shown.length === 0)
@@ -656,8 +675,8 @@ export function BuilderView({
                                 key={row.key}
                                 row={row}
                                 projectId={project.id}
-                                open={opened === id}
-                                onToggle={() => toggle(id)}
+                                open={opened?.id === id}
+                                onToggle={() => toggle(id, stage.key)}
                                 fresh={fresh === row.key}
                                 onFreshEnd={() => setFresh(null)}
                                 act={act}
@@ -897,14 +916,9 @@ function TicketLine({
                 <RotateCcw size={12} aria-hidden="true" /> Retry
               </button>
             )}
-            {row.status === "pull_request" &&
-              !workText(row.status, row.models) && (
-                <MergeGo
-                  row={row}
-                  projectId={projectId}
-                  onChanged={onChanged}
-                />
-              )}
+            {row.status === "pull_request" && row.change === null && (
+              <MergeGo row={row} projectId={projectId} onChanged={onChanged} />
+            )}
           </span>
           <Sponsor row={row} />
           <time
@@ -928,7 +942,13 @@ function RowState({ row }: { row: TicketRow }) {
   // The pull request itself is in the opened row; the line says only what
   // is happening to it.
   if (row.pullRequest) {
-    const work = workText(row.status, row.models);
+    // A change asked on it: waiting its turn, then at work on the branch.
+    if (row.change === "queued")
+      return <span className="tix-state waiting">Waiting</span>;
+    const work =
+      row.change === "delivering"
+        ? "Adding the commit"
+        : workText(row.change ?? row.status, row.models);
     if (work)
       return <TextShimmer className="tix-state working">{work}</TextShimmer>;
     return row.status === "pr_closed" ? (

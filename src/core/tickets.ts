@@ -101,6 +101,11 @@ export interface TicketRow extends TicketIdentity {
   /** Waiting for the label to be added or removed on GitHub. */
   pending: boolean;
   pullRequest: { number: number; url: string } | null;
+  /**
+   * A change asked on its pull request, waiting its turn or at work: the
+   * pull request is Yarrow's again until its commit lands.
+   */
+  change: "queued" | "writing" | "reviewing" | "delivering" | null;
   /** Why the agents stopped ("ticket_unclear"), when abstained. */
   reason: string | null;
   /** The agents' own words then: what they found, their questions. */
@@ -141,6 +146,10 @@ export const queueable = (row: TicketRow) => row.status === "none";
 export const removable = (row: TicketRow) => row.status === "queued";
 export const selectable = (row: TicketRow) => queueable(row) || removable(row);
 
+/** Its pull request waits for its builder: no change asked is under way. */
+export const toReview = (row: TicketRow) =>
+  row.status === "pull_request" && row.change === null;
+
 /** Its pull request was merged or closed: nothing left to do here. */
 export const done = (row: TicketRow) =>
   row.status === "merged" || row.status === "pr_closed";
@@ -148,6 +157,7 @@ export const done = (row: TicketRow) =>
 /** Still moving: worth refreshing the table for. */
 export const moving = (row: TicketRow) =>
   row.pending ||
+  row.change !== null ||
   ["queued", "writing", "reviewing", "delivering"].includes(row.status);
 
 const sourceOrder: TicketSourceId[] = ["github", "jira", "linear", "trello"];
@@ -179,6 +189,7 @@ export function mergeTickets(
       runId: null,
       pending: false,
       pullRequest: null,
+      change: null,
       reason: null,
       summary: null,
       models: [],

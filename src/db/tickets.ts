@@ -16,6 +16,7 @@ import { MAX_GITHUB_TASK_ATTEMPTS } from "./github-tasks";
 import {
   agentRuns,
   contributions,
+  correctionRequests,
   githubTasks,
   pullRequests,
   results,
@@ -144,6 +145,19 @@ export async function projectTickets(
         lt(githubTasks.attempts, MAX_GITHUB_TASK_ATTEMPTS),
       ),
     );
+  // Changes asked on a pull request, not started yet.
+  const asked = unitIds.length
+    ? await db
+        .selectDistinct({ workUnitId: correctionRequests.workUnitId })
+        .from(correctionRequests)
+        .where(
+          and(
+            inArray(correctionRequests.workUnitId, unitIds),
+            eq(correctionRequests.status, "queued"),
+          ),
+        )
+    : [];
+  const changeAsked = new Set(asked.map((row) => row.workUnitId));
   const paidBy = await sponsorsByUnit(db, unitIds);
   const pendingLabel = new Map<number, "label_issue" | "unlabel_issue">();
   for (const task of tasks)
@@ -182,12 +196,21 @@ export async function projectTickets(
     const settled = ["none", "queued", "abstained"].includes(status);
     if (settled && pending === "label_issue") status = "queued";
     if (settled && pending === "unlabel_issue") status = "none";
+    // A delivered ticket's running run is a change asked on its pull request.
+    const change: TicketRow["change"] =
+      status !== "pull_request"
+        ? null
+        : run?.status === "running"
+          ? phaseStatus(run.phase)
+          : changeAsked.has(unit.id)
+            ? "queued"
+            : null;
 
     const ticketModels: TicketModel[] = run
       ? runModelsView(
           models.filter((model) => model.agentRunId === run.id),
           run,
-          status,
+          change ?? status,
         )
       : [];
     return {
@@ -195,10 +218,14 @@ export async function projectTickets(
       title: bareTitle(unit.title, unit.externalId),
       url: unit.url,
       status,
-      paidBy: status === "none" || status === "queued" ? [] : (paidBy.get(unit.id) ?? []),
+      paidBy:
+        status === "none" || status === "queued"
+          ? []
+          : (paidBy.get(unit.id) ?? []),
       runId: run?.id ?? null,
       pending: settled && pending !== undefined,
       pullRequest: pull ? { number: pull.number, url: pull.url } : null,
+      change,
       reason: status === "abstained" ? (run?.abstentionReason ?? null) : null,
       summary: status === "abstained" ? (run?.summary ?? null) : null,
       models: status === "none" || status === "queued" ? [] : ticketModels,
@@ -226,6 +253,7 @@ export async function projectTickets(
         runId: null,
         pending: true,
         pullRequest: null,
+        change: null,
         reason: null,
         summary: null,
         models: [],
@@ -304,5 +332,7 @@ export async function signalIssues(
   db: Database,
   projectId: string,
 ): Promise<void> {
-  await db.execute(sql`select yarrow_private.notify_issues(${projectId}::uuid)`);
+  await db.execute(
+    sql`select yarrow_private.notify_issues(${projectId}::uuid)`,
+  );
 }
