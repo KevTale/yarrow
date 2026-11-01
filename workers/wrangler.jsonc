@@ -64,10 +64,10 @@
         "ADMIN_URL": "https://admin-dev.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
-        // Who implements new runs: "meta" (Muse Code + Muse Wonder in the
-        // MUSE containers below, META_API_KEY secret) or "claude". Back to
-        // Claude: "claude" here, pushed; runs under way finish where they began.
-        "IMPLEMENTER": "meta",
+        // Who implements new runs is the IMPLEMENTER secret, not a variable
+        // here, so a deploy keeps it: "meta" (Muse Code + Muse Wonder in the
+        // MUSE containers below, META_API_KEY secret) or "claude", the
+        // default. Switched with pnpm implementer <claude|meta>.
         "META_MODEL": "muse-wonder-1.0",
         "META_EFFORT": "high",
       },
