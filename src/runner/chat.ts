@@ -196,6 +196,7 @@ export function chatContextText(
   else parts.push("No pull request is open for this ticket.");
   const done = panel?.implementation;
   if (done) {
+    if (done.ask) parts.push(`What the ticket asks:\n${done.ask}`);
     parts.push(`What it does (written by ${done.by}):\n${done.summary}`);
     if (done.criteria.length)
       parts.push(

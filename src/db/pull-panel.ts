@@ -54,6 +54,8 @@ const panelComment = (comment: ReviewComment): PanelComment => ({
 
 /** The pull request as it stands, after the corrections delivered so far. */
 export interface PullRequestNow {
+  /** What the ticket asks; none on pull requests delivered before it. */
+  ask: string | null;
   summary: string;
   /** What the ticket asks, ticked; none before acceptance criteria. */
   criteria: Criterion[];
@@ -76,9 +78,11 @@ interface DeliveredRun {
 /**
  * The implementation sets what the pull request does; each correction that
  * rewrote the whole summary replaces it. One without leaves it as it was.
+ * What the ticket asks is the implementation's: a correction keeps it.
  */
 export function pullRequestNow(runs: DeliveredRun[]): PullRequestNow | null {
   let now: PullRequestNow | null = null;
+  let ask: string | null = null;
   for (const run of runs) {
     if (run.outcome !== "pull_request" || !run.summary) continue;
     const summary =
@@ -86,7 +90,9 @@ export function pullRequestNow(runs: DeliveredRun[]): PullRequestNow | null {
         ? run.summary
         : run.details?.pullRequestSummary;
     if (!summary || (run.kind === "correction" && !now)) continue;
+    if (run.kind === "implementation") ask = run.details?.ask ?? null;
     now = {
+      ask,
       summary,
       criteria: run.details?.criteria ?? [],
       verification: run.evidence ?? [],

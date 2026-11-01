@@ -566,6 +566,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
             review: stored,
             artifacts: delivered.artifacts,
             details: {
+              ask: run.kind === "implementation" ? snapshot.ask : undefined,
               pullRequestSummary:
                 run.kind === "correction" ? snapshot.pr_summary : undefined,
               criteria: snapshot.criteria,

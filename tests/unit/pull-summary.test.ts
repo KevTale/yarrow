@@ -143,9 +143,15 @@ describe("the pull request's summary", () => {
       outcome: "pull_request" as const,
       summary: "Adds truncate.",
       evidence: ["npm test → 10 pass"],
-      details: { notVerified: [], risks: [], spotted: ["a"] },
+      details: {
+        ask: "Long titles overflow their card.",
+        notVerified: [],
+        risks: [],
+        spotted: ["a"],
+      },
     };
     expect(pullRequestNow([implementation])).toMatchObject({
+      ask: "Long titles overflow their card.",
       summary: "Adds truncate.",
       spotted: ["a"],
       legacy: false,
@@ -180,7 +186,9 @@ describe("the pull request's summary", () => {
         details: null,
       },
     ]);
+    // What the ticket asks stays the implementation's.
     expect(now).toMatchObject({
+      ask: "Long titles overflow their card.",
       summary: "Adds truncate with an ending.",
       verification: ["npm test → 13 pass"],
       spotted: [],
@@ -194,6 +202,11 @@ describe("the pull request's summary", () => {
       risks: [" a ", "", "b", "c", "d"],
     });
     expect(result.risks).toEqual(["a", "b", "c"]);
+    // A blank ask is no ask: the panel shows no empty section.
+    expect(result.ask).toBeUndefined();
+    expect(
+      implementationResultSchema.parse({ status: "done", ask: "  " }).ask,
+    ).toBeUndefined();
     expect(result.not_verified).toEqual([]);
     expect(result.spotted).toEqual([]);
   });

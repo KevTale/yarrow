@@ -312,14 +312,16 @@ export function PullPanel({
               </dialog>
             </>
           )}
+          {panel.implementation?.ask && (
+            <TicketAsk ask={panel.implementation.ask} />
+          )}
           {panel.implementation && (
-            <Summary
+            <Changed
               implementation={panel.implementation}
+              review={panel.review}
               screens={panel.screens}
             />
           )}
-
-          <Review review={panel.review} />
 
           {panel.implementation && panel.implementation.spotted.length > 0 && (
             <Suggested
@@ -423,38 +425,44 @@ function workingText(panel: Panel): string | null {
 }
 
 /**
- * What the pull request does now, in the implementer's words, read by a
- * product manager as well as a developer, in a few lines: what the ticket
- * asked, then what was done.
+ * What the ticket asks, in the implementer's words for the owner: the need,
+ * never the solution. Pull requests delivered before it have none, their
+ * summary saying it in its first sentence.
  */
-function Summary({
-  implementation,
-  screens,
-}: {
-  implementation: NonNullable<Panel["implementation"]>;
-  screens: Panel["screens"];
-}) {
-  const shots = screens.filter((screen) => screen.kind !== "presentation");
+function TicketAsk({ ask }: { ask: string }) {
   return (
     <section className="pp-section">
-      <h3>Summary</h3>
-      <Markdown source={implementation.summary} className="pp-text" />
-      {shots.length > 0 && <Screens screens={shots} />}
+      <h3>What the ticket asks</h3>
+      <Markdown source={ask} className="pp-text" />
     </section>
   );
 }
 
 /**
- * The review, said as a colleague would, in a few lines: what the reviewer
- * checked and found, what is still wrong or to do before merging. The
- * criteria, the checks and the suggestions are the conversation's to tell.
+ * What the pull request does now, read by a product manager as well as a
+ * developer, in a few lines: what was done and how it was seen working, in
+ * the implementer's words, then the reviewer's reassurance, what it checked
+ * itself or what is still wrong. The criteria, the checks and the
+ * suggestions are the conversation's to tell.
  */
-function Review({ review }: { review: Panel["review"] }) {
-  if (!review) return null;
+function Changed({
+  implementation,
+  review,
+  screens,
+}: {
+  implementation: NonNullable<Panel["implementation"]>;
+  review: Panel["review"];
+  screens: Panel["screens"];
+}) {
+  const shots = screens.filter((screen) => screen.kind !== "presentation");
   return (
     <section className="pp-section">
-      <h3>Review</h3>
-      <Markdown source={review.summary} className="pp-text" />
+      <h3>What changed</h3>
+      <Markdown source={implementation.summary} className="pp-text" />
+      {review && (
+        <Markdown source={review.summary} className="pp-text pp-checked" />
+      )}
+      {shots.length > 0 && <Screens screens={shots} />}
     </section>
   );
 }

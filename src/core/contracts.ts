@@ -76,6 +76,8 @@ export type Criterion = z.infer<typeof criterionSchema>;
  * After a correction, the summary of the whole pull request as it stands.
  */
 export const resultDetailsSchema = z.object({
+  /** What the ticket asks, in the owner's words: the implementation's only. */
+  ask: z.string().optional(),
   pullRequestSummary: z.string().optional(),
   /** Absent on runs delivered before acceptance criteria (2026-10-22). */
   criteria: z.array(criterionSchema).optional(),

@@ -7814,6 +7814,12 @@ body:has(.sb-dialog[open]) {
 .pp-text {
   margin: 0;
 }
+/* The reviewer's words under the implementer's: another voice, set off by
+   a rule rather than a title. */
+.pp-checked {
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
 /* The agent's screen: its tabs, the address, the recording; then the
    chapters and what it says. */
 .pv {
