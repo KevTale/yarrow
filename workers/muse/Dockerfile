@@ -18,6 +18,15 @@ RUN apt-get update \
 
 RUN corepack enable
 
+# What Claude's sandbox already has and a web app's run needs: Chromium for
+# the recorder, with its libraries, where it looks (/opt/pw-browsers), and
+# Postgres. Without them Wonder installs them each run, two minutes lost.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN npm install -g playwright-core@1.63.0 \
+  && playwright-core install --with-deps chromium \
+  && apt-get install -y --no-install-recommends postgresql \
+  && rm -rf /var/lib/apt/lists/*
+
 # Meta's installer, into /usr/local/bin, with no update at run time.
 ENV MUSE_NO_AUTO_UPDATE=1 MUSE_NO_MODIFY_PATH=1 MUSE_INSTALL_DIR=/usr/local/bin
 RUN curl -fsSL https://dev.meta.ai/install.sh | bash && muse --version

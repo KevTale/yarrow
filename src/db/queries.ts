@@ -285,6 +285,7 @@ export async function runActivityFor(
       session: agentRuns.implementerSession,
       readAt: runActivityReads.readAt,
       implementer: agentRuns.implementer,
+      reviewer: agentRuns.reviewer,
     })
     .from(agentRuns)
     .innerJoin(workUnits, eq(workUnits.id, agentRuns.workUnitId))
@@ -302,6 +303,7 @@ export async function runActivityFor(
     status: row.status,
     phase: row.phase,
     implementer: row.implementer,
+    reviewer: row.reviewer,
     createdAt: row.createdAt.toISOString(),
     finishedAt: row.finishedAt?.toISOString() ?? null,
     outcome: row.outcome,

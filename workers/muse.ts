@@ -53,6 +53,8 @@ const BASE_ENV = {
   SSL_CERT_FILE: CA,
   REQUESTS_CA_BUNDLE: CA,
   PIP_CERT: CA,
+  // The image's Chromium (muse/Dockerfile), where Claude's sandbox keeps its own.
+  PLAYWRIGHT_BROWSERS_PATH: "/opt/pw-browsers",
 };
 
 const MUSE_ENV = {

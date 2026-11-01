@@ -28,20 +28,32 @@ import {
   type ActivityLine,
   type Stage,
 } from "@/core/activity";
-import { modelDisplayName } from "@/core/pipeline";
+import { modelDisplayName, modelShortName } from "@/core/pipeline";
 import type { RunActivity } from "@/db/queries";
 import { getRunActivityFn } from "@/functions/public.functions";
 import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "./markdown";
 
-const phaseLabel: Record<string, string> = {
-  implementing: "Claude Opus is working on it",
-  "checking clarity": "GPT Astra checks the ticket",
-  reviewing: "GPT Astra reviews the change",
-  "re-reviewing": "GPT Astra reviews the fixes",
-  fixing: "Claude Opus fixes what the review found",
-  delivering: "Opening the pull request",
-};
+/** The run's two models as the feed names them: "Claude Opus", "GPT Astra". */
+interface Crew {
+  implementer: string;
+  reviewer: string;
+}
+
+const crewOf = (activity: RunActivity): Crew => ({
+  implementer: modelShortName(modelDisplayName(activity.implementer)),
+  reviewer: modelShortName(modelDisplayName(activity.reviewer)),
+});
+
+const phaseLabel = (phase: string, crew: Crew) =>
+  ({
+    implementing: `${crew.implementer} is working on it`,
+    "checking clarity": `${crew.reviewer} checks the ticket`,
+    reviewing: `${crew.reviewer} reviews the change`,
+    "re-reviewing": `${crew.reviewer} reviews the fixes`,
+    fixing: `${crew.implementer} fixes what the review found`,
+    delivering: "Opening the pull request",
+  })[phase] ?? phase;
 
 const icons: Record<ActivityLine["kind"], ReactNode> = {
   read: <FileText size={14} />,
@@ -71,7 +83,15 @@ function Code({ children }: { children: ReactNode }) {
 const image = /\.(png|jpe?g|webp|gif)$/i;
 
 /** One line of the feed, in plain words. */
-function Describe({ group, live }: { group: Group; live: boolean }) {
+function Describe({
+  group,
+  live,
+  crew,
+}: {
+  group: Group;
+  live: boolean;
+  crew: Crew;
+}) {
   const { detail } = group;
   const result =
     detail.ok === undefined ? (
@@ -182,11 +202,11 @@ function Describe({ group, live }: { group: Group; live: boolean }) {
         </span>
       );
     case "phase":
-      return <strong>{phaseLabel[detail.phase ?? ""] ?? detail.phase}</strong>;
+      return <strong>{phaseLabel(detail.phase ?? "", crew)}</strong>;
     case "review":
       return (
         <>
-          GPT Astra reviewed:{" "}
+          {crew.reviewer} reviewed:{" "}
           {detail.failed
             ? `${plural(detail.failed, "point")} to fix`
             : "nothing blocking"}
@@ -214,9 +234,11 @@ function time(at: string) {
 export function ActivityList({
   lines,
   live,
+  crew,
 }: {
   lines: ActivityLine[];
   live: boolean;
+  crew: Crew;
 }) {
   const shown = groupActivity(lines);
   return (
@@ -234,7 +256,11 @@ export function ActivityList({
             )}
           </span>
           <span className="ra-text">
-            <Describe group={group} live={live && i === shown.length - 1} />
+            <Describe
+              group={group}
+              live={live && i === shown.length - 1}
+              crew={crew}
+            />
           </span>
           <time className="ra-time" dateTime={group.at}>
             {time(group.at)}
@@ -464,7 +490,11 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
               {running ? "The agent is starting." : "No activity was recorded."}
             </p>
           ) : (
-            <ActivityList lines={glance(activity, running)} live={running} />
+            <ActivityList
+              lines={glance(activity, running)}
+              live={running}
+              crew={crewOf(activity)}
+            />
           )}
           <Summary activity={activity} />
           {link && (
@@ -500,7 +530,11 @@ export function RunStory({ runId }: { runId: string }) {
       {activity.lines.length === 0 ? (
         <p className="muted">{running ? "Starting" : "No activity"}</p>
       ) : (
-        <ActivityList lines={storyLines(activity.lines)} live={running} />
+        <ActivityList
+          lines={storyLines(activity.lines)}
+          live={running}
+          crew={crewOf(activity)}
+        />
       )}
     </section>
   );
@@ -536,7 +570,11 @@ export function RunFeed({ runId }: { runId: string }) {
             : "No activity was recorded for this run."}
         </p>
       ) : (
-        <ActivityList lines={storyLines(activity.lines)} live={running} />
+        <ActivityList
+          lines={storyLines(activity.lines)}
+          live={running}
+          crew={crewOf(activity)}
+        />
       )}
       {!activity.detailed && (
         <p className="ra-private">
