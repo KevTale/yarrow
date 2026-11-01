@@ -7,7 +7,7 @@ export const company = {
   email: "contact@yarrow.run",
 } as const;
 
-/** The same sentence on the legal pages, the footer, emails and JSON-LD. */
+/** The same sentence on the legal pages, emails and JSON-LD. */
 export const operatorStatement =
   "Yarrow (yarrow.run) is operated by the company Yarrow, founded in September 2026.";
 
