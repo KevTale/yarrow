@@ -20,13 +20,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   groupActivity,
   milestone,
-  reachedStages,
   shortCommand,
-  stages,
   storyLines,
   type ActivityGroup as Group,
   type ActivityLine,
-  type Stage,
 } from "@/core/activity";
 import { modelDisplayName, modelShortName } from "@/core/pipeline";
 import type { RunActivity } from "@/db/queries";
@@ -45,13 +42,17 @@ const crewOf = (activity: RunActivity): Crew => ({
   reviewer: modelShortName(modelDisplayName(activity.reviewer)),
 });
 
+// The implementer's steps (reading, writing, presenting) come from storyLines.
 const phaseLabel = (phase: string, crew: Crew) =>
   ({
     implementing: `${crew.implementer} is working on it`,
-    "checking clarity": `${crew.reviewer} checks the ticket`,
-    reviewing: `${crew.reviewer} reviews the change`,
-    "re-reviewing": `${crew.reviewer} reviews the fixes`,
-    fixing: `${crew.implementer} fixes what the review found`,
+    reading: `${crew.implementer} is reading the code`,
+    writing: `${crew.implementer} is writing the change`,
+    presenting: `${crew.implementer} is recording its presentation`,
+    "checking clarity": `${crew.reviewer} is checking the ticket`,
+    reviewing: `${crew.reviewer} is reviewing the change`,
+    "re-reviewing": `${crew.reviewer} is reviewing the fixes`,
+    fixing: `${crew.implementer} is fixing what the review found`,
     delivering: "Opening the pull request",
   })[phase] ?? phase;
 
@@ -279,37 +280,6 @@ export function ActivityList({
   );
 }
 
-const stageLabel: Record<Stage, string> = {
-  read: "Read",
-  write: "Write",
-  test: "Test",
-  review: "Review",
-  pr: "PR",
-};
-
-/** Read → Write → Test → Review → PR, lit as the run gets there. */
-export function StageBar({ activity }: { activity: RunActivity }) {
-  const reached = reachedStages(
-    activity.lines,
-    activity.phase,
-    activity.outcome === "pull_request" ? "pull_request" : activity.status,
-  );
-  const current = [...stages].reverse().find((stage) => reached.has(stage));
-  const running = activity.status === "running";
-  return (
-    <div className="ra-stages">
-      {stages.map((stage) => (
-        <span
-          key={stage}
-          className={`ra-stage ${reached.has(stage) ? "on" : ""} ${running && stage === current ? "now" : ""}`}
-        >
-          {stageLabel[stage]}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // Runs before questions were stored one per line.
 const legacyUnclear =
   "Implementer and reviewer both found the ticket unclear: ";
@@ -485,7 +455,6 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
         )
       ) : (
         <>
-          <StageBar activity={activity} />
           {activity.outcome === "abstained" && (
             <StopReason
               reason={activity.abstentionReason}
@@ -518,8 +487,8 @@ function RunCard({ runId, link }: { runId: string; link: boolean }) {
 }
 
 /**
- * A run's feed inside an opened ticket, live while it works: the stages,
- * then what the agent did, newest last.
+ * A run's feed inside an opened ticket, live while it works: what the
+ * agents did, newest last.
  */
 export function RunStory({ runId }: { runId: string }) {
   const { activity, failed, running } = useRunActivity(runId);
@@ -534,7 +503,6 @@ export function RunStory({ runId }: { runId: string }) {
     );
   return (
     <section className="ra-story" aria-label="Activity">
-      <StageBar activity={activity} />
       {activity.lines.length === 0 ? (
         <p className="muted">{running ? "Starting" : "No activity"}</p>
       ) : (
@@ -570,7 +538,6 @@ export function RunFeed({ runId }: { runId: string }) {
           </span>
         )}
       </div>
-      <StageBar activity={activity} />
       {activity.lines.length === 0 ? (
         <p className="muted">
           {running

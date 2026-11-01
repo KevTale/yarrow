@@ -326,26 +326,55 @@ export function redactActivity(line: ActivityLine): ActivityLine {
   return { ...line, detail: kept };
 }
 
-/** The stages a run goes through, lit as its lines come in. */
-export const stages = ["read", "write", "test", "review", "pr"] as const;
-export type Stage = (typeof stages)[number];
+/**
+ * What the implementer is at, told from what it does: it reads the code
+ * until its first change to the repository, writes the change until it
+ * turns to its presentation. Its steps only go forward: an agent goes back
+ * and forth between the code and its tests, and the feed would flicker.
+ */
+const sections = ["reading", "writing", "presenting"] as const;
+type Section = (typeof sections)[number];
 
-export function reachedStages(
-  lines: ActivityLine[],
-  phase: string | null,
-  status: string,
-): Set<Stage> {
-  const reached = new Set<Stage>();
+// The session's own files, named as the repository's once made relative.
+const OUTPUTS = /^(result|changes)\.json$/;
+
+function sectionOf(line: ActivityLine): Section | null {
+  const path = line.detail.path ?? "";
+  if (/(^|\/)presentation(\.json$|\/)|poster/.test(path)) return "presenting";
+  if (
+    (line.kind === "edit" || line.kind === "write") &&
+    !path.startsWith("/") &&
+    !OUTPUTS.test(path)
+  )
+    return "writing";
+  return null;
+}
+
+/** The implementer's work under the step it is at, a line naming each. */
+function withSections(lines: ActivityLine[]): ActivityLine[] {
+  const shown: ActivityLine[] = [];
+  let at = -1;
   for (const line of lines) {
-    // Agents often read through the shell (cat, ls): any work reads first.
-    if (line.actor === "implementer") reached.add("read");
-    if (line.kind === "edit" || line.kind === "write") reached.add("write");
-    if (line.kind === "test") reached.add("test");
-    if (line.kind === "review") reached.add("review");
+    if (line.actor === "yarrow") at = -1;
+    if (line.kind === "phase" && line.detail.phase === "implementing") {
+      at = 0;
+      shown.push({ ...line, detail: { phase: "reading" } });
+      continue;
+    }
+    const section = at === -1 ? null : sectionOf(line);
+    if (section && sections.indexOf(section) > at) {
+      at = sections.indexOf(section);
+      shown.push({
+        externalId: `${line.externalId}:${section}`,
+        at: line.at,
+        actor: "yarrow",
+        kind: "phase",
+        detail: { phase: section },
+      });
+    }
+    shown.push(line);
   }
-  if (phase && /review|fix/.test(phase)) reached.add("review");
-  if (phase === "delivering" || status === "pull_request") reached.add("pr");
-  return reached;
+  return shown;
 }
 
 /** Consecutive reads (and searches) read as one line: "Read 14 files". */
@@ -371,17 +400,19 @@ export function groupActivity(lines: ActivityLine[]): ActivityGroup[] {
 }
 
 /**
- * The feed a person reads: what the agents did, not how. Shell commands
- * stay out (tests stay in), and so does the message that ends each of the
- * implementer's turns: it is the run's summary, shown on its own.
+ * The feed a person reads: what the agents did, not how, under the step
+ * each was at. Shell commands stay out (tests stay in), and so does the
+ * message that ends each of the implementer's turns: it is the run's
+ * summary, shown on its own.
  */
 export function storyLines(lines: ActivityLine[]): ActivityLine[] {
-  return lines.filter((line, i) => {
+  const story = lines.filter((line, i) => {
     if (line.kind === "command") return false;
     if (line.kind !== "note" || line.actor !== "implementer") return true;
     const next = lines.slice(i + 1).find((later) => later.kind !== "command");
     return !next || next.actor === "implementer";
   });
+  return withSections(story);
 }
 
 /** Yarrow's steps, the review and the outcome: the run at a glance. */

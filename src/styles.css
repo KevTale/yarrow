@@ -5716,45 +5716,6 @@ a[data-loading]:not(.go)::after {
   align-items: center;
   gap: 8px;
 }
-.ra-stages {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-}
-.ra-stage {
-  display: grid;
-  gap: 6px;
-  font:
-    500 11px var(--font-geist-mono),
-    monospace;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #5d636d;
-}
-.ra-stage::before {
-  content: "";
-  height: 3px;
-  border-radius: 99px;
-  background: #ffffff12;
-}
-.ra-stage.on {
-  color: var(--secondary);
-}
-.ra-stage.on::before {
-  background: var(--green);
-}
-.ra-stage.now {
-  color: var(--amber);
-}
-.ra-stage.now::before {
-  background: var(--amber);
-  animation: ra-pulse 1.4s ease-in-out infinite;
-}
-@keyframes ra-pulse {
-  50% {
-    opacity: 0.45;
-  }
-}
 .ra-stop {
   display: grid;
   gap: 8px;

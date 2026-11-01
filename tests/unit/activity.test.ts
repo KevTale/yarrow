@@ -3,7 +3,6 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   activityFromEvent,
   groupActivity,
-  reachedStages,
   redactActivity,
   storyLines,
   type SessionEvent,
@@ -121,7 +120,7 @@ describe("reading a session into lines", () => {
     expect(redactActivity(note).detail).toEqual({});
   });
 
-  it("groups reads, and lights the stages reached", () => {
+  it("groups reads", () => {
     const lines = [
       tool("a", 1, "read", { file_path: "a.ts" }),
       tool("b", 2, "read", { file_path: "b.ts" }),
@@ -138,10 +137,6 @@ describe("reading a session into lines", () => {
       ["read", 2],
       ["search", 1],
       ["edit", 1],
-    ]);
-    expect([...reachedStages(lines, "implementing", "running")]).toEqual([
-      "read",
-      "write",
     ]);
   });
 });
@@ -186,6 +181,71 @@ describe("the feed a person reads", () => {
       "c",
       "d",
       "e",
+    ]);
+  });
+
+  it("puts the implementer's work under the step it is at", () => {
+    const phase = (id: string, second: number, name: string) => ({
+      externalId: id,
+      at: at(second),
+      actor: "yarrow" as const,
+      kind: "phase" as const,
+      detail: { phase: name },
+    });
+    const lines = [
+      phase("p1", 0, "implementing"),
+      ...[
+        tool("a", 1, "read", { file_path: "/workspace/repo/src/views.js" }),
+        tool("b", 2, "edit", {
+          file_path: "/workspace/repo/test/views.test.js",
+          old_string: "x",
+          new_string: "y",
+        }),
+        tool("c", 3, "bash", { command: "npm test" }),
+        // Back to the code: still writing, never reading again.
+        tool("d", 4, "read", { file_path: "/workspace/repo/src/db.js" }),
+        tool("e", 5, "write", {
+          file_path: "/tmp/presentation.json",
+          content: "{}",
+        }),
+        tool("f", 6, "edit", {
+          file_path: "/workspace/repo/src/views.js",
+          old_string: "x",
+          new_string: "y",
+        }),
+        tool("g", 7, "write", {
+          file_path: "/mnt/session/outputs/result.json",
+          content: "{}",
+        }),
+      ].map((event) => activityFromEvent(event)!),
+      phase("p2", 8, "reviewing"),
+      phase("p3", 9, "fixing"),
+      activityFromEvent(
+        tool("h", 10, "edit", {
+          file_path: "/workspace/repo/src/views.js",
+          old_string: "x",
+          new_string: "y",
+        }),
+      )!,
+    ];
+    expect(
+      storyLines(lines).map((line) =>
+        line.kind === "phase" ? line.detail.phase : line.externalId,
+      ),
+    ).toEqual([
+      "reading",
+      "a",
+      "writing",
+      "b",
+      "c",
+      "d",
+      "presenting",
+      "e",
+      "f",
+      "g",
+      "reviewing",
+      "fixing",
+      "h",
     ]);
   });
 });
