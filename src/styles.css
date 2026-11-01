@@ -4003,8 +4003,8 @@ tbody tr:hover {
 .ra-story {
   display: grid;
   gap: 14px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
 }
 .row-menu-error {
   margin: 4px 9px;
@@ -5890,6 +5890,21 @@ a[data-loading]:not(.go)::after {
 }
 .ra-error {
   color: var(--red);
+}
+/* An agent's steps, under the line naming it: their icons line up with its
+   words, a thread down from its flag. */
+.ra-line.step {
+  position: relative;
+  margin-left: 28px;
+}
+.ra-line.step::before {
+  content: "";
+  position: absolute;
+  left: -15px;
+  top: -2px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-subtle);
 }
 .ra-line.k-phase .ra-icon,
 .ra-line.k-review .ra-icon {

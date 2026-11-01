@@ -253,6 +253,8 @@ export const PACKAGE_HOSTS = [
   "files.pythonhosted.org",
   "deb.debian.org",
   "security.debian.org",
+  // The image's PostgreSQL 16 comes from there: apt-get update reads it too.
+  "apt.postgresql.org",
   "crates.io",
   "index.crates.io",
   "static.crates.io",

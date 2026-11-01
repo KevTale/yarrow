@@ -101,7 +101,6 @@ function TicketBrief({
             <Answer projectId={projectId} row={row} onAnswered={onChanged} />
           </>
         )}
-        {working && row.runId && <RunStory runId={row.runId} />}
         {detail === undefined ? (
           <div className="tp-lines" aria-busy="true" aria-label="Loading">
             <span className="sk" style={{ width: "88%" }} />
@@ -112,6 +111,7 @@ function TicketBrief({
         ) : (
           <p className="tp-empty">No description</p>
         )}
+        {working && row.runId && <RunStory runId={row.runId} />}
       </section>
       <aside className="pp-aside">
         {/* An app (Yarrow's own, opening a ticket written here) says nothing:

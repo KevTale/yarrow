@@ -241,12 +241,20 @@ export function ActivityList({
   crew: Crew;
 }) {
   const shown = groupActivity(lines);
+  // What an agent does sits under the line naming it ("Muse Wonder is
+  // working on it"), as its steps; the outcome stands apart.
+  const first = shown.findIndex((group) => group.kind === "phase");
+  const step = (group: Group, i: number) =>
+    first !== -1 &&
+    i > first &&
+    group.kind !== "phase" &&
+    group.kind !== "outcome";
   return (
     <ol className="ra-list">
       {shown.map((group, i) => (
         <li
           key={group.externalId}
-          className={`ra-line k-${group.kind} ${group.kind === "outcome" && group.detail.phase === "abstained" ? "stopped" : ""}`}
+          className={`ra-line k-${group.kind} ${step(group, i) ? "step" : ""} ${group.kind === "outcome" && group.detail.phase === "abstained" ? "stopped" : ""}`}
         >
           <span className="ra-icon" aria-hidden="true">
             {group.kind === "outcome" && group.detail.phase === "abstained" ? (

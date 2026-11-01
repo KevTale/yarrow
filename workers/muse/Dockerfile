@@ -18,13 +18,20 @@ RUN apt-get update \
 
 RUN corepack enable
 
-# What Claude's sandbox already has and a web app's run needs: Chromium for
-# the recorder, with its libraries, where it looks (/opt/pw-browsers), and
-# Postgres. Without them Wonder installs them each run, two minutes lost.
+# What Claude's sandbox already has and the rules promise (EVIDENCE_GUIDE in
+# src/runner/prompts.ts): Chromium for the recorder, with its libraries,
+# under /opt/pw-browsers, PostgreSQL 16 (PostgreSQL's own repository:
+# Debian 12 has 15) and Redis 7. Without them Wonder installs them each run.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 RUN npm install -g playwright-core@1.63.0 \
   && playwright-core install --with-deps chromium \
-  && apt-get install -y --no-install-recommends postgresql \
+  && install -d /usr/share/postgresql-common/pgdg \
+  && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-16 redis-server \
   && rm -rf /var/lib/apt/lists/*
 
 # Meta's installer, into /usr/local/bin, with no update at run time.

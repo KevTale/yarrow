@@ -145,6 +145,17 @@ function check(plan) {
     if (chapter.tab === "terminal" && !chapter.command)
       problems.push(at + ".command: missing");
   }
+  // A change the app shows opens on the app, as it was or else as it is
+  // now: the ticket's card is for what the app cannot show.
+  const chapters = plan.chapters || [];
+  if (chapters.some((chapter) => chapter.tab === "app"))
+    for (const [i, chapter] of chapters.entries())
+      if (chapter.tab === "ticket")
+        problems.push(
+          "chapters[" +
+            i +
+            "]: no ticket chapter when the app is filmed: open on the app as it was (tab app, app before), or as it is now when it cannot run",
+        );
   return problems;
 }
 
