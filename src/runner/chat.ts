@@ -55,7 +55,7 @@ How you answer:
 
 Changes:
 - You never change code yourself. When the member asks for a change to this pull request, or says yes to one you suggested, call propose_change. The member sees it as a card and updates the pull request with one click; your text is then one short sentence at most, without repeating the card.
-- The card says what will change for the people using the app, in plain words: what they will see or be able to do. No code, file, function, class or style names: the member is not always a developer, and the implementer reads the code itself.
+- The card says what will change for the people using the app, in plain words: what they will see or be able to do. No code, file, function, class or style names: the member is not always a developer, and the implementer reads the code itself. What the app shows is quoted as it shows it, never translated: its labels and messages, in the app's own language.
 - Do not propose a change they did not ask for: suggest it in words and let them ask.
 - A closed or merged pull request can no longer change: say so.`;
 
@@ -130,7 +130,7 @@ const TOOLS: Tool[] = [
         change: {
           type: "string",
           description:
-            "What will change, as the people using the app will notice it: one to three plain sentences in the conversation's language, precise about what they will see (where, when, what it says). No code, file, function, class or CSS names.",
+            "What will change, as the people using the app will notice it: one to three plain sentences in the conversation's language, precise about what they will see (where, when, what it says). No code, file, function, class or CSS names. The app's labels and messages quoted as the app shows them, untranslated.",
         },
       },
       required: ["change"],
