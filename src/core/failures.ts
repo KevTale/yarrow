@@ -23,9 +23,13 @@ export function isGithubRefusal(message: string): boolean {
 
 export type Provider = "anthropic" | "openai";
 
-export const providerName: Record<Provider, string> = {
+/** Meta implements too, but has no pause yet: out of credit, its runs fail. */
+export type ComputeProvider = Provider | "meta";
+
+export const providerName: Record<ComputeProvider, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
+  meta: "Meta",
 };
 
 /**
@@ -85,7 +89,7 @@ export function describeFailure(
       reason: "provider_out_of_credit",
       summary: `Yarrow's ${providerName[unpaid]} account ran out of credit. The ticket is back in the queue and starts again once it is topped up.`,
     };
-  if (/^(Anthropic|OpenAI) /.test(bare(message)))
+  if (/^(Anthropic|OpenAI|Meta) /.test(bare(message)))
     return { reason: "provider_error", summary: bare(message) };
   return {
     reason: "platform_error",

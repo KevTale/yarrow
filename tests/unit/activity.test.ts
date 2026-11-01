@@ -9,7 +9,11 @@ import {
   type SessionEvent,
 } from "../../src/core/activity";
 import { ensureAccount } from "../../src/db/accounts";
-import { recordActivity, syncRunActivity } from "../../src/db/activity";
+import {
+  recordActivity,
+  sessionActivity,
+  syncRunActivity,
+} from "../../src/db/activity";
 import { createProject } from "../../src/db/projects";
 import { runActivityFor } from "../../src/db/queries";
 import * as schema from "../../src/db/schema";
@@ -241,13 +245,13 @@ describe("a run's activity feed", async () => {
       ],
     ];
     const asked: (string | null)[] = [];
-    const sessions = {
+    const sessions = sessionActivity({
       async listEvents(sessionId: string, after: string | null) {
         expect(sessionId).toBe("sesn_1");
         asked.push(after);
         return pages.shift() ?? [];
       },
-    };
+    });
     // Never read yet: even a finished run gets one read when viewed.
     expect((await runActivityFor(db, runId, null))!.unread).toBe(true);
     expect(await syncRunActivity(db, sessions, runId, 0)).toBe(true);

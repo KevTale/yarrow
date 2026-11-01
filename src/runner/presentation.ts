@@ -6,7 +6,7 @@ import {
   type PresentationChapter,
 } from "../core/presentation";
 import type { StoredArtifact } from "../core/review";
-import type { ManagedAgentsClient, SessionFile } from "./anthropic";
+import type { SessionFile } from "./anthropic";
 import type { EvidenceStore } from "./pipeline";
 import type { VoiceProvider } from "./voice/index";
 
@@ -81,8 +81,16 @@ export const recordedSchema = z.object({
 
 const basename = (name: string) => name.split("/").at(-1)!;
 
+export interface SessionFiles {
+  listFiles(sessionId: string): Promise<SessionFile[]>;
+  download(fileId: string): Promise<Uint8Array>;
+}
+
 /** The newest session output with this name, wherever the agent put it. */
-function newest(files: SessionFile[], name: string): SessionFile | undefined {
+export function newest(
+  files: SessionFile[],
+  name: string,
+): SessionFile | undefined {
   const base = basename(name);
   return files
     .filter(
@@ -98,7 +106,8 @@ function newest(files: SessionFile[], name: string): SessionFile | undefined {
  */
 export async function publishPresentation(
   deps: {
-    anthropic: ManagedAgentsClient;
+    /** The implementer session's outputs (Claude's, or Muse's container). */
+    files: SessionFiles;
     evidence: EvidenceStore;
     voice: VoiceProvider | null;
   },
@@ -108,13 +117,11 @@ export async function publishPresentation(
     language?: string;
   },
 ): Promise<StoredArtifact | null> {
-  const files = await deps.anthropic.listFiles(input.sessionId);
+  const files = await deps.files.listFiles(input.sessionId);
   const plan = newest(files, "presentation.json");
   if (!plan) return null;
   const recorded = recordedSchema.parse(
-    JSON.parse(
-      new TextDecoder().decode(await deps.anthropic.download(plan.id)),
-    ),
+    JSON.parse(new TextDecoder().decode(await deps.files.download(plan.id))),
   );
   const language = input.language ?? "en";
   const store = async (name: string, data: Uint8Array, contentType: string) => {
@@ -135,7 +142,7 @@ export async function publishPresentation(
   for (const [index, { chapter, clip }] of recordedChapters.entries()) {
     const videoKey = await store(
       chapter.clip,
-      await deps.anthropic.download(clip.id),
+      await deps.files.download(clip.id),
       chapter.clip.endsWith(".mp4") ? "video/mp4" : "video/webm",
     );
     const say = lines[index]!;
@@ -202,7 +209,7 @@ export async function publishPresentation(
   const poster = posterFile
     ? await store(
         recorded.poster!,
-        await deps.anthropic.download(posterFile.id),
+        await deps.files.download(posterFile.id),
         "image/jpeg",
       )
     : null;

@@ -84,6 +84,7 @@ import {
 } from "../src/server/trackers/index";
 import { ensureJiraWebhooks } from "../src/server/trackers/jira-webhooks";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
+import { isMuseSession, MUSE_EFFORT, MUSE_MODEL } from "../src/runner/muse";
 import { answerQuestion, type ChatAnswer } from "../src/runner/chat";
 import { AgentsClient, defaultReviewerRates } from "../src/runner/openai";
 import {
@@ -93,6 +94,9 @@ import {
 } from "../src/runner/pipeline";
 import { voiceProvider } from "../src/runner/voice/index";
 import { sendOutOfCreditAlert } from "./alerts";
+import { museClient, type MuseSandbox } from "./muse";
+
+export { MuseOutbound, MuseSandbox } from "./muse";
 
 export interface BrainEnv {
   WORKFLOW: Workflow<RunRequest>;
@@ -133,6 +137,16 @@ export interface BrainEnv {
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_VOICE_ID?: string;
   ELEVENLABS_MODEL?: string;
+  /**
+   * Who implements new runs: "meta" (Muse Code running Muse Wonder in a
+   * MUSE container) or "claude", the default. Back to Claude: remove it.
+   */
+  IMPLEMENTER?: string;
+  /** Muse Code's containers (workers/muse.ts); absent on this machine. */
+  MUSE?: DurableObjectNamespace<MuseSandbox>;
+  META_API_KEY?: string;
+  META_MODEL?: string;
+  META_EFFORT?: string;
 }
 
 async function withDb<T>(
@@ -182,6 +196,10 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
     reviewerEffort: env.OPENAI_REVIEW_EFFORT ?? defaultReviewerEffort,
     reviewerRates: defaultReviewerRates,
     appSlug: env.GITHUB_APP_SLUG,
+    implementer: env.IMPLEMENTER === "meta" ? "meta" : "claude",
+    muse: env.MUSE && env.META_API_KEY ? museClient(env.MUSE) : null,
+    museModel: env.META_MODEL ?? MUSE_MODEL,
+    museEffort: env.META_EFFORT ?? MUSE_EFFORT,
   });
 }
 
@@ -262,6 +280,13 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       );
 
     let implementer: string | null = null;
+    // Muse's container stops once the run is settled; Claude's session ends alone.
+    const release = (sessionId: string | null) =>
+      step.do("implementer:release", () =>
+        withDb(env, (db) =>
+          pipeline(env, db).releaseImplementer(sessionId),
+        ).catch((error: Error) => console.warn("release", error.message)),
+      );
     // The files the run changed, to explain a refused write.
     let paths: readonly string[] = [];
     // Reviewer sessions and their wall time, measured between durable steps.
@@ -280,7 +305,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           withDb(env, async (db) => {
             const id = await pipeline(env, db).startImplementation(run);
             // Anthropic took work: any pause for want of credit is over.
-            await clearPause(db, "anthropic");
+            if (!isMuseSession(id)) await clearPause(db, "anthropic");
             return id;
           }),
       );
@@ -312,8 +337,9 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
                 ).catch(() => null),
               )
             : null;
+        const provider = isMuseSession(implementerId) ? "Meta" : "Anthropic";
         return error
-          ? new Error(`Anthropic session error: ${error}`)
+          ? new Error(`${provider} session error: ${error}`)
           : new StopRun("provider_error", fallback);
       };
       const implementerFirst = await implementerDone("implementer:first");
@@ -366,7 +392,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               const runner = pipeline(env, db);
               return runner.commentOnTicket(
                 run,
-                runner.unclearComment(questions),
+                runner.unclearComment(questions, run),
               );
             }),
           );
@@ -550,6 +576,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           });
         }),
       );
+      await release(implementerId);
       return { outcome: "pull_request", url: delivered.url };
     } catch (error) {
       const raw = (error as Error).message ?? "Run failed";
@@ -616,6 +643,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
           console.warn("abstain:after", error.message),
         ),
       );
+      await release(implementerId);
       return { outcome: "abstained", reason: failure.reason };
     }
   }
@@ -825,9 +853,13 @@ async function reviveDeadRun(
     .select({ session: agentRuns.implementerSession })
     .from(agentRuns)
     .where(eq(agentRuns.id, runId));
-  const usage = await pipeline(env, db)
+  const runner = pipeline(env, db);
+  const usage = await runner
     .usage(run?.session ?? null, [])
     .catch(() => ({ costCents: 0, models: [] }));
+  await runner
+    .releaseImplementer(run?.session ?? null)
+    .catch((error: Error) => console.warn("release", error.message));
   const raw = error?.message ?? `The workflow was ${status}.`;
   const failure = describeFailure(raw);
   const ledger = new PostgresLedger(db);

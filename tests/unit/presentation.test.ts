@@ -369,7 +369,7 @@ describe("publishing a presentation", () => {
     const objects = new Map<string, Uint8Array>();
     const artifact = await publishPresentation(
       {
-        anthropic: new ManagedAgentsClient("sk", fetcher),
+        files: new ManagedAgentsClient("sk", fetcher),
         evidence: {
           put: async (key, data) => {
             objects.set(key, data);
@@ -431,7 +431,7 @@ describe("publishing a presentation", () => {
     const objects = new Map<string, Uint8Array>();
     const artifact = await publishPresentation(
       {
-        anthropic: new ManagedAgentsClient("sk", (async (url: string) => {
+        files: new ManagedAgentsClient("sk", (async (url: string) => {
           if (url.includes("/v1/files?scope_id="))
             return new Response(
               JSON.stringify({
@@ -470,7 +470,7 @@ describe("publishing a presentation", () => {
     expect(
       await publishPresentation(
         {
-          anthropic: new ManagedAgentsClient("sk", empty),
+          files: new ManagedAgentsClient("sk", empty),
           evidence: { put: async () => undefined },
           voice: null,
         },

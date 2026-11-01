@@ -38,11 +38,13 @@ const displayNames: Record<string, string> = {
   "claude-opus-5-5": "Claude Opus 5.5",
   "openai-astra": "GPT Astra",
   "gpt-6-astra": "GPT Astra",
+  "muse-wonder-1.0": "Muse Wonder",
 };
 
 /** Factual attribution ("Implemented by Claude Opus 5.5"), never product branding. */
 export function modelDisplayName(id: string): string {
-  return displayNames[id] ?? id;
+  // "muse-wonder-1.0:high": the effort does not change the name.
+  return displayNames[id] ?? displayNames[id.split(":")[0]!] ?? id;
 }
 
 /** "Claude Opus 5.5" → "Claude Opus": the name as the pitch says it. */

@@ -40,7 +40,11 @@ import {
   type TrackerSecrets,
 } from "../server/trackers/index";
 import { moveTrackerTicket } from "../server/trackers/jira-flow";
-import { syncRunActivity } from "../db/activity";
+import {
+  sessionActivity,
+  syncRunActivity,
+  type ActivitySource,
+} from "../db/activity";
 import { agentRuns } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { MoveEvent } from "../core/tracker-moves";
@@ -57,12 +61,21 @@ import {
   type TokenRates,
 } from "./openai";
 import {
+  isMuseSession,
+  MUSE_EFFORT,
+  MUSE_MODEL,
+  museCostCents,
+  museSessionId,
+  type MuseClient,
+} from "./muse";
+import {
   changesSchema,
   CLARITY_INSTRUCTIONS,
   clarifiedTask,
   clarityResultSchema,
   clarityTask,
   fixTask,
+  IMPLEMENTER_SYSTEM,
   implementationResultSchema,
   implementationTask,
   parseJsonMessage,
@@ -73,7 +86,13 @@ import {
   toFileChanges,
   type ImplementationResult,
 } from "./prompts";
-import { publishPresentation, RECORDER_MOUNT } from "./presentation";
+import {
+  newest,
+  publishPresentation,
+  RECORDER_MOUNT,
+  RECORDER_PATH,
+  type SessionFiles,
+} from "./presentation";
 import { RECORDER_SOURCE } from "./recorder/source";
 import type { VoiceProvider } from "./voice/index";
 import {
@@ -120,6 +139,16 @@ export interface PipelineDeps {
   /** The GitHub App's slug, for the correction line of each PR. */
   appSlug?: string;
   fetcher?: Fetch;
+  /**
+   * Who implements the runs prepared from now on: Claude (the default), or
+   * Meta, Muse Code running Muse Wonder in Yarrow's container. A run keeps
+   * the implementer it started with.
+   */
+  implementer?: "claude" | "meta";
+  /** The containers Muse Code works in; Meta implements nothing without them. */
+  muse?: MuseClient | null;
+  museModel?: string;
+  museEffort?: string;
 }
 
 /** Small, serializable facts about the run, safe to keep in Workflow state. */
@@ -157,6 +186,8 @@ export interface PreparedRun {
   recipe: AppRecipe | null;
   projectId: string;
   visibility: "public" | "listed" | "hidden";
+  /** Claude when absent (runs prepared before Meta could implement). */
+  implementer?: "claude" | "meta";
 }
 
 export interface ImplementationSnapshot extends ImplementationResult {
@@ -339,6 +370,12 @@ export class RunPipeline {
       await this.moveTicket(workUnit.id, "started");
     const workBranch =
       pullRequest?.branch ?? branchName(ticket.title, workUnit.id);
+    // Meta's container has no vault yet: a project with secrets stays on
+    // Claude.
+    const meta =
+      this.deps.implementer === "meta" &&
+      Boolean(this.deps.muse) &&
+      context.secrets.length === 0;
     return {
       runId,
       kind: run.kind,
@@ -356,10 +393,12 @@ export class RunPipeline {
           ? pullRequest.branch
           : repository.default_branch,
       workBranch,
-      environmentId: await this.environmentFor(context),
-      vaultIds: context.runConfig?.anthropicVaultId
-        ? [context.runConfig.anthropicVaultId]
-        : [],
+      implementer: meta ? "meta" : "claude",
+      environmentId: meta ? "" : await this.environmentFor(context),
+      vaultIds:
+        !meta && context.runConfig?.anthropicVaultId
+          ? [context.runConfig.anthropicVaultId]
+          : [],
       runConfig: context.runConfig
         ? {
             setupCommand: context.runConfig.setupCommand,
@@ -392,7 +431,55 @@ export class RunPipeline {
     });
   }
 
+  /** Who implements this run, as the commit and the pull request say it. */
+  private rolesFor(run: Pick<PreparedRun, "implementer">): PipelineRoles {
+    if (run.implementer !== "meta") return this.deps.roles;
+    return {
+      ...this.deps.roles,
+      implementer: `${this.deps.museModel ?? MUSE_MODEL}:${this.deps.museEffort ?? MUSE_EFFORT}`,
+    };
+  }
+
+  private muse(): MuseClient {
+    if (!this.deps.muse)
+      throw new Error("Meta session error: this brain has no Muse container");
+    return this.deps.muse;
+  }
+
+  /** Muse Code in a container of its own, with Claude's rules and task. */
+  private async startMuse(run: PreparedRun): Promise<string> {
+    const sessionId = museSessionId(run.runId);
+    const task = implementationTask({
+      kind: run.kind,
+      ticket: run.ticket,
+      instruction: run.instruction,
+      pullRequestSummary: run.pullRequestSummary,
+      baseBranch: run.baseBranch,
+      runConfig: run.runConfig,
+      recipe: run.recipe,
+      presentation: true,
+    });
+    await this.muse().start(sessionId, {
+      repository: run.repository,
+      branch: run.checkoutBranch,
+      token: await this.token(run, "read"),
+      model: this.deps.museModel ?? MUSE_MODEL,
+      effort: this.deps.museEffort ?? MUSE_EFFORT,
+      prompt: `${IMPLEMENTER_SYSTEM}\n\n${task}`,
+      files: [{ path: RECORDER_PATH, content: RECORDER_SOURCE }],
+    });
+    await this.deps.db
+      .update(agentRuns)
+      .set({
+        implementerSession: sessionId,
+        implementer: this.rolesFor(run).implementer,
+      })
+      .where(eq(agentRuns.id, run.runId));
+    return sessionId;
+  }
+
   async startImplementation(run: PreparedRun): Promise<string> {
+    if (run.implementer === "meta") return this.startMuse(run);
     const token = await this.token(run, "read");
     const create = async () => {
       const recorder = await this.recorder();
@@ -436,9 +523,20 @@ export class RunPipeline {
     return session.id;
   }
 
+  /** The implementer session's actions, from Claude or from Muse's container. */
+  private activitySource(): ActivitySource {
+    const claude = sessionActivity(this.deps.anthropic);
+    return {
+      activity: (sessionId, after) =>
+        isMuseSession(sessionId)
+          ? this.muse().activity(sessionId, after)
+          : claude.activity(sessionId, after),
+    };
+  }
+
   /** Brings the implementer session's new actions into the run's feed. */
   async syncActivity(runId: string): Promise<void> {
-    await syncRunActivity(this.deps.db, this.deps.anthropic, runId, 0).catch(
+    await syncRunActivity(this.deps.db, this.activitySource(), runId, 0).catch(
       (error: Error) => console.warn("activity:", error.message),
     );
   }
@@ -452,14 +550,46 @@ export class RunPipeline {
     runId?: string,
   ): Promise<"working" | "done" | "failed"> {
     if (runId) await this.syncActivity(runId);
+    if (isMuseSession(sessionId))
+      return (await this.muse().state(sessionId)).state;
     const session = await this.deps.anthropic.getSession(sessionId);
     if (session.status === "terminated") return "failed";
     return session.status === "idle" ? "done" : "working";
   }
 
   /** Why the implementer session ended, in the provider's words. */
-  implementerError(sessionId: string): Promise<string | null> {
+  async implementerError(sessionId: string): Promise<string | null> {
+    if (isMuseSession(sessionId))
+      return (await this.muse().state(sessionId)).error;
     return this.deps.anthropic.lastError(sessionId);
+  }
+
+  /** The implementer session's outputs, wherever it ran. */
+  private files(sessionId: string): SessionFiles {
+    if (!isMuseSession(sessionId)) return this.deps.anthropic;
+    const muse = this.muse();
+    return {
+      listFiles: () => muse.listFiles(sessionId),
+      download: (fileId) => muse.download(sessionId, fileId),
+    };
+  }
+
+  /** The newest output with this name (result.json, a screenshot). */
+  private async readOutput(
+    sessionId: string,
+    name: string,
+  ): Promise<Uint8Array | null> {
+    if (!isMuseSession(sessionId))
+      return this.deps.anthropic.readOutput(sessionId, name);
+    const files = this.files(sessionId);
+    const file = newest(await files.listFiles(sessionId), name);
+    return file ? files.download(file.id) : null;
+  }
+
+  /** Stops Muse's container once the run is over (Claude's sessions end alone). */
+  async releaseImplementer(sessionId: string | null): Promise<void> {
+    if (sessionId && isMuseSession(sessionId))
+      await this.muse().release(sessionId);
   }
 
   /**
@@ -470,7 +600,7 @@ export class RunPipeline {
     sessionId: string,
     projectId?: string,
   ): Promise<ImplementationSnapshot> {
-    const raw = await this.deps.anthropic.readOutput(sessionId, "result.json");
+    const raw = await this.readOutput(sessionId, "result.json");
     if (!raw) throw new Error("The implementer wrote no result.json");
     const result = implementationResultSchema.parse(
       JSON.parse(new TextDecoder().decode(raw)),
@@ -482,7 +612,7 @@ export class RunPipeline {
   }
 
   private async changes(sessionId: string) {
-    const raw = await this.deps.anthropic.readOutput(sessionId, "changes.json");
+    const raw = await this.readOutput(sessionId, "changes.json");
     if (!raw) return [];
     return toFileChanges(
       changesSchema.parse(JSON.parse(new TextDecoder().decode(raw))),
@@ -490,7 +620,8 @@ export class RunPipeline {
   }
 
   async sendToImplementer(sessionId: string, text: string): Promise<void> {
-    await this.deps.anthropic.sendMessage(sessionId, text);
+    if (isMuseSession(sessionId)) await this.muse().send(sessionId, text);
+    else await this.deps.anthropic.sendMessage(sessionId, text);
   }
 
   clarifiedMessage(reading: string): string {
@@ -602,7 +733,9 @@ export class RunPipeline {
     reviewers: { id: string; seconds: number | null }[],
   ): Promise<{ costCents: number; models: RunModelUsage[] }> {
     const models: RunModelUsage[] = [];
-    if (implementerSessionId) {
+    if (implementerSessionId && isMuseSession(implementerSessionId))
+      models.push(await this.museUsage(implementerSessionId));
+    else if (implementerSessionId) {
       const session =
         await this.deps.anthropic.getSession(implementerSessionId);
       const usage = session.usage ?? {};
@@ -672,6 +805,30 @@ export class RunPipeline {
     };
   }
 
+  /**
+   * Muse Code reports no cost: its tokens, counted by the Worker that relays
+   * them to Meta, at list price, and the container's time.
+   */
+  private async museUsage(sessionId: string): Promise<RunModelUsage> {
+    const usage = await this.muse().usage(sessionId);
+    const totals = Object.values(usage.models);
+    const sum = (key: "input" | "cached" | "output") =>
+      totals.reduce((total, tokens) => total + tokens[key], 0);
+    return {
+      role: "implementer",
+      model: usage.model || (this.deps.museModel ?? MUSE_MODEL),
+      effort: usage.effort || null,
+      sessions: 1,
+      seconds: Math.round(usage.agentSeconds),
+      secondsExact: true,
+      inputTokens: sum("input"),
+      cachedInputTokens: sum("cached"),
+      outputTokens: sum("output"),
+      costCents: museCostCents(usage),
+      costExact: false,
+    };
+  }
+
   private runUrl(runId: string): string {
     return `${this.deps.appUrl}/runs/${runId}`;
   }
@@ -686,10 +843,7 @@ export class RunPipeline {
     const stored: StoredArtifact[] = [];
     for (const artifact of snapshot.artifacts.slice(0, 10)) {
       const name = artifact.file.split("/").at(-1)!;
-      const data = await this.deps.anthropic.readOutput(
-        implementerSessionId,
-        name,
-      );
+      const data = await this.readOutput(implementerSessionId, name);
       if (!data) continue;
       const contentType =
         artifact.kind === "video"
@@ -724,7 +878,7 @@ export class RunPipeline {
     if (!this.deps.evidence) return null;
     return publishPresentation(
       {
-        anthropic: this.deps.anthropic,
+        files: this.files(implementerSessionId),
         evidence: this.deps.evidence,
         voice: this.deps.voice ?? null,
       },
@@ -795,7 +949,7 @@ export class RunPipeline {
         title: run.ticket.title,
         summary: snapshot.summary,
         ticketUrl: run.ticket.url,
-        roles: this.deps.roles,
+        roles: this.rolesFor(run),
         correction: run.instruction,
       }),
     });
@@ -815,7 +969,7 @@ export class RunPipeline {
           summary: snapshot.summary,
           review,
           footer: pullRequestFooter({
-            roles: this.deps.roles,
+            roles: this.rolesFor(run),
             sponsors,
             runUrl: this.runUrl(run.runId),
           }),
@@ -864,7 +1018,7 @@ export class RunPipeline {
           evidence: evidenceLinks,
           evidenceInYarrow,
           presentation: presented,
-          roles: this.deps.roles,
+          roles: this.rolesFor(run),
           sponsors,
           runUrl: this.runUrl(run.runId),
           appSlug: this.deps.appSlug ?? PROD_APP_SLUG,
@@ -937,9 +1091,13 @@ export class RunPipeline {
     );
   }
 
-  unclearComment(questions: string[]): string {
+  unclearComment(
+    questions: string[],
+    run?: Pick<PreparedRun, "implementer">,
+  ): string {
+    const implementer = run?.implementer === "meta" ? "Meta" : "Claude";
     return [
-      "**Yarrow needs a few details before working on this ticket.** Both the implementer (Claude) and the reviewer (OpenAI) found it ambiguous:",
+      `**Yarrow needs a few details before working on this ticket.** Both the implementer (${implementer}) and the reviewer (OpenAI) found it ambiguous:`,
       "",
       ...questions.map((question) => `- ${question}`),
       "",

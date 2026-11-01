@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   // The brain: dispatches queued tickets, runs each run as a durable
-  // Workflow (Claude implements, OpenAI reviews), syncs trackers.
+  // Workflow (Claude or Meta implements, OpenAI reviews), syncs trackers.
   // Top level: `pnpm brain:dev` on this machine. `env.dev` and
   // `env.production` are deployed by .github/workflows/deploy.yml.
   "name": "yarrow-brain-local",
@@ -64,10 +64,31 @@
         "ADMIN_URL": "https://admin-dev.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
+        // Who implements new runs: "meta" (Muse Code + Muse Wonder in the
+        // MUSE containers below, META_API_KEY secret) or "claude". Back to
+        // Claude: "claude" here, pushed; runs under way finish where they began.
+        "IMPLEMENTER": "meta",
+        "META_MODEL": "muse-wonder-1.0",
+        "META_EFFORT": "high",
       },
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },
       ],
+      // One container per Meta run (workers/muse.ts), built from muse/Dockerfile.
+      "durable_objects": {
+        "bindings": [{ "name": "MUSE", "class_name": "MuseSandbox" }],
+      },
+      "containers": [
+        {
+          "class_name": "MuseSandbox",
+          "scheduling_policy": "durable_object",
+          "max_instances": 10,
+          "images": { "muse": { "dockerfile": "./muse/Dockerfile" } },
+        },
+      ],
+      "exports": {
+        "MuseSandbox": { "type": "durable-object", "storage": "sqlite" },
+      },
     },
     // Paired with yarrow.run, deployed on every push to the prod branch.
     "production": {

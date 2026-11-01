@@ -4,7 +4,7 @@ import {
   startsTomorrow,
   type FundingStart,
 } from "../core/daily-funding";
-import type { Provider } from "../core/failures";
+import type { ComputeProvider } from "../core/failures";
 import { dailyFundingSchema, type DailyFundingInput } from "../core/forms";
 import { startOfUtcDay } from "./boards";
 import type { Database } from "./client";
@@ -172,9 +172,9 @@ export async function updateDailyFunding(
 }
 
 export type ProviderCompute = {
-  provider: Provider;
+  provider: ComputeProvider;
   pause: Pick<ProviderPause, "since" | "until" | "message"> | null;
-  /** Compute the provider reported (Anthropic) or Yarrow priced (OpenAI). */
+  /** Compute the provider reported (Anthropic) or Yarrow priced (OpenAI, Meta). */
   todayCents: number;
   weekCents: number;
   monthCents: number;
@@ -191,9 +191,6 @@ export type ComputeSummary = {
 
 const DAY = 86_400_000;
 
-/** Claude implements, OpenAI reviews (and checks clarity). */
-const roleProvider = { implementer: "anthropic", reviewer: "openai" } as const;
-
 /** The admin's view of the compute: spend per provider, pauses, what is owed. */
 export async function computeSummary(
   db: Database,
@@ -203,20 +200,27 @@ export async function computeSummary(
   const day = startOfUtcDay(now);
   const week = new Date(now.getTime() - 7 * DAY);
   const month = new Date(now.getTime() - 30 * DAY);
+  // Claude or Meta implements; OpenAI reviews (and checks clarity).
+  const provider = sql<ComputeProvider>`case when ${runModels.model} like 'muse-%' then 'meta' when ${runModels.role} = 'implementer' then 'anthropic' else 'openai' end`;
   const spent = await db
     .select({
-      role: runModels.role,
+      provider,
       today: sql<number>`coalesce(sum(${runModels.costCents}) filter (where ${runModels.createdAt} >= ${at(day)}), 0)::int`,
       week: sql<number>`coalesce(sum(${runModels.costCents}) filter (where ${runModels.createdAt} >= ${at(week)}), 0)::int`,
       month: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int`,
     })
     .from(runModels)
     .where(gte(runModels.createdAt, month))
-    .groupBy(runModels.role);
+    .groupBy(provider);
   const pauses = await listPauses(db);
-  const providers = (["implementer", "reviewer"] as const).map((role) => {
-    const provider = roleProvider[role];
-    const row = spent.find((line) => line.role === role);
+  // Meta shows once it has implemented in the last 30 days.
+  const shown: ComputeProvider[] = spent.some(
+    (line) => line.provider === "meta",
+  )
+    ? ["anthropic", "meta", "openai"]
+    : ["anthropic", "openai"];
+  const providers = shown.map((provider) => {
+    const row = spent.find((line) => line.provider === provider);
     const pause = pauses.find((line) => line.provider === provider);
     return {
       provider,

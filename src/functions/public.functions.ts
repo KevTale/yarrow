@@ -11,10 +11,11 @@ import {
 import { boardViewer } from "@/db/sponsors";
 import { currentGuest } from "@/server/guest.server";
 import { runActivityFor, runDetail } from "@/db/queries";
-import { syncRunActivity } from "@/db/activity";
+import { sessionActivity, syncRunActivity } from "@/db/activity";
 import { appEnv } from "@/server/env.server";
 import { mention } from "@/core/corrections";
 import { ManagedAgentsClient } from "@/runner/anthropic";
+import { isMuseSession } from "@/runner/muse";
 import { getViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 
@@ -70,9 +71,17 @@ export const getRunActivityFn = createServerFn({ method: "GET" })
       );
       if (!first || !apiKey) return first;
       if (first.status !== "running" && !first.unread) return first;
+      // A Meta run's container answers the brain only, which reads it as
+      // it polls.
+      const claude = sessionActivity(new ManagedAgentsClient(apiKey));
       const read = await syncRunActivity(
         db,
-        new ManagedAgentsClient(apiKey),
+        {
+          activity: (sessionId, after) =>
+            isMuseSession(sessionId)
+              ? Promise.resolve([])
+              : claude.activity(sessionId, after),
+        },
         data.runId,
       ).catch(() => false);
       return read

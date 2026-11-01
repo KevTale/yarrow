@@ -35,7 +35,9 @@ export async function recordActivity(
     const { toolUseId, ...outcome } = result.detail;
     await db
       .update(runActivity)
-      .set({ detail: sql`${runActivity.detail} || ${JSON.stringify(outcome)}::jsonb` })
+      .set({
+        detail: sql`${runActivity.detail} || ${JSON.stringify(outcome)}::jsonb`,
+      })
       .where(
         and(
           eq(runActivity.agentRunId, agentRunId),
@@ -54,15 +56,29 @@ export interface SessionEvents {
   ): Promise<SessionEvent[]>;
 }
 
+/** Where a sync reads the implementer session's actions since `after` (ISO). */
+export interface ActivitySource {
+  activity(sessionId: string, after: string | null): Promise<ActivityLine[]>;
+}
+
+/** A Claude session's events, as feed lines. */
+export const sessionActivity = (sessions: SessionEvents): ActivitySource => ({
+  async activity(sessionId, after) {
+    return (await sessions.listEvents(sessionId, after))
+      .map(activityFromEvent)
+      .filter((line): line is ActivityLine => line !== null);
+  },
+});
+
 /**
- * Reads the implementer session's new events into the run's feed. At most
+ * Reads the implementer session's new actions into the run's feed. At most
  * one read every `every` ms per run, whoever asks (the brain while it
  * waits, a viewer watching the run), so the provider is never hammered.
  * Returns whether a read happened.
  */
 export async function syncRunActivity(
   db: Database,
-  sessions: SessionEvents,
+  source: ActivitySource,
   agentRunId: string,
   every = 8_000,
 ): Promise<boolean> {
@@ -97,11 +113,11 @@ export async function syncRunActivity(
     .limit(1);
   // A second back: results may share the last call's timestamp.
   const after = last ? new Date(last.at.getTime() - 1_000).toISOString() : null;
-  const events = await sessions.listEvents(run.session, after);
-  const lines = events
-    .map(activityFromEvent)
-    .filter((line): line is ActivityLine => line !== null);
-  await recordActivity(db, agentRunId, lines);
+  await recordActivity(
+    db,
+    agentRunId,
+    await source.activity(run.session, after),
+  );
   return true;
 }
 

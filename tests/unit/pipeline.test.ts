@@ -13,6 +13,7 @@ import { saveSponsorFilters } from "../../src/db/sponsors";
 import { upsertTicket } from "../../src/db/workunits";
 import { ManagedAgentsClient } from "../../src/runner/anthropic";
 import { AgentsClient, defaultReviewerRates } from "../../src/runner/openai";
+import type { MuseClient, MuseStart } from "../../src/runner/muse";
 import { RunPipeline } from "../../src/runner/pipeline";
 import { createTestDatabase } from "./helpers/pglite";
 
@@ -220,7 +221,57 @@ function fakeProviders() {
       });
     return json({ message: `unexpected ${url}` }, 500);
   }) as typeof fetch;
-  return { calls, fetcher };
+  return { calls, fetcher, outputs };
+}
+
+/** Muse's containers, played from the same outputs as Claude's session. */
+function fakeMuse(outputs: Record<string, Uint8Array>) {
+  const started: { sessionId: string; spec: MuseStart }[] = [];
+  const sent: string[] = [];
+  const released: string[] = [];
+  const muse: MuseClient = {
+    start: async (sessionId, spec) => {
+      started.push({ sessionId, spec });
+    },
+    send: async (_sessionId, prompt) => {
+      sent.push(prompt);
+    },
+    state: async () => ({ state: "done", error: null }),
+    listFiles: async () =>
+      Object.keys(outputs).map((name) => ({
+        id: `/mnt/session/outputs/${name}`,
+        filename: name,
+      })),
+    download: async (_sessionId, fileId) =>
+      outputs[fileId.replace("/mnt/session/outputs/", "")]!,
+    activity: async () => [
+      {
+        externalId: "call_1",
+        at: "2026-10-26T15:00:00.000Z",
+        actor: "implementer",
+        kind: "test",
+        detail: { command: "pnpm test", ok: true, passed: 42 },
+      },
+    ],
+    usage: async () => ({
+      model: "muse-wonder-1.0",
+      effort: "high",
+      models: {
+        "muse-wonder-1.0": {
+          input: 1_000_000,
+          cached: 800_000,
+          output: 10_000,
+          calls: 20,
+        },
+      },
+      agentSeconds: 420.4,
+      containerSeconds: 600,
+    }),
+    release: async (sessionId) => {
+      released.push(sessionId);
+    },
+  };
+  return { muse, started, sent, released };
 }
 
 describe("run pipeline", async () => {
@@ -229,7 +280,8 @@ describe("run pipeline", async () => {
   afterAll(() => t.pg.close());
   beforeEach(() => t.reset());
 
-  it("implements, reviews and delivers a draft PR with attribution", async () => {
+  /** A public project, its labelled issue #5, a sponsor, and a run reserved on it. */
+  async function seedRun() {
     const owner = {
       userId: crypto.randomUUID(),
       githubLogin: "marie",
@@ -293,6 +345,11 @@ describe("run pipeline", async () => {
       kind: "implementation",
       budgetCents: 100,
     });
+    return { runId, projectId, ledger };
+  }
+
+  it("implements, reviews and delivers a draft PR with attribution", async () => {
+    const { runId, projectId, ledger } = await seedRun();
 
     const { calls, fetcher } = fakeProviders();
     const stored: string[] = [];
@@ -606,5 +663,122 @@ describe("run pipeline", async () => {
       debitedCents: 350,
       uncoveredCents: 0,
     });
+  });
+  it("lets Meta implement in Muse's container, and Claude again on the switch", async () => {
+    const { runId } = await seedRun();
+    const { calls, fetcher, outputs } = fakeProviders();
+    const fake = fakeMuse(outputs);
+    const deps = {
+      db,
+      anthropic: new ManagedAgentsClient("sk-ant", fetcher),
+      openai: new AgentsClient("sk-openai", fetcher),
+      github: { appId: "1", privateKey: pem },
+      trackers: {},
+      evidence: { put: async () => undefined },
+      appUrl: "https://yarrow.run",
+      roles: defaultPipelineRoles,
+      anthropicAgentId: "agent_1",
+      defaultEnvironmentId: "env_1",
+      reviewerModel: "gpt-6-astra",
+      reviewerEffort: "high",
+      reviewerRates: defaultReviewerRates,
+      fetcher,
+    };
+    const runner = new RunPipeline({
+      ...deps,
+      implementer: "meta",
+      muse: fake.muse,
+    });
+
+    const run = await runner.prepare(runId);
+    expect(run).toMatchObject({ implementer: "meta", environmentId: "" });
+    // No Claude environment is touched.
+    expect(calls.some((call) => call.url.includes("/v1/environments"))).toBe(
+      false,
+    );
+
+    const sessionId = await runner.startImplementation(run);
+    expect(sessionId).toBe(`muse_${runId}`);
+    expect(fake.started).toHaveLength(1);
+    const { spec } = fake.started[0]!;
+    expect(spec).toMatchObject({
+      repository: "marie/halyard",
+      branch: "main",
+      token: "ghs_x",
+      model: "muse-wonder-1.0",
+      effort: "high",
+      files: [{ path: "/mnt/session/uploads/yarrow/present.mjs" }],
+    });
+    // Claude's rules and task, word for word.
+    expect(spec.prompt).toMatch(/^You are the implementer of Yarrow/);
+    expect(spec.prompt).toContain("Presentation: every pull request gets one");
+    const [row] = await raw.select().from(schema.agentRuns);
+    expect(row).toMatchObject({
+      implementer: "muse-wonder-1.0:high",
+      implementerSession: sessionId,
+    });
+
+    expect(await runner.implementerState(sessionId, runId)).toBe("done");
+    const feed = await raw.select().from(schema.runActivity);
+    expect(feed.map((line) => line.kind)).toEqual(["test"]);
+
+    const snapshot = await runner.readImplementation(sessionId);
+    expect(snapshot).toMatchObject({
+      status: "done",
+      paths: ["src/export.ts"],
+    });
+    await runner.sendToImplementer(sessionId, "Fix the review's comments.");
+    expect(fake.sent).toEqual(["Fix the review's comments."]);
+    expect(runner.unclearComment(["Which list?"], run)).toContain(
+      "the implementer (Meta)",
+    );
+
+    const reviewerId = await runner.startReview(run, sessionId, snapshot);
+    const review = await runner.readReview(reviewerId);
+    const presentation = await runner.presentation(run, sessionId);
+    expect(presentation).toMatchObject({ kind: "presentation" });
+    await runner.deliver(
+      run,
+      sessionId,
+      snapshot,
+      { ...review, reviewer: defaultPipelineRoles.reviewer, rounds: 1 },
+      presentation,
+    );
+    const pull = calls.find((call) => call.url.endsWith("/pulls"))!;
+    expect((pull.body as { body: string }).body).toContain(
+      "Implemented by Muse Wonder · Reviewed by GPT Astra",
+    );
+    const commit = calls.find((call) => call.url.endsWith("/git/commits"))!;
+    expect((commit.body as { message: string }).message).toContain(
+      "Assisted-by: Muse Wonder, GPT Astra (Yarrow)",
+    );
+
+    // Wonder: 200k fresh × $4 + 800k cached × $0.20 + 10k out × $20 = 116¢,
+    // and the container's 10 minutes, 4¢.
+    const usage = await runner.usage(sessionId, []);
+    expect(usage.models).toEqual([
+      {
+        role: "implementer",
+        model: "muse-wonder-1.0",
+        effort: "high",
+        sessions: 1,
+        seconds: 420,
+        secondsExact: true,
+        inputTokens: 1_000_000,
+        cachedInputTokens: 800_000,
+        outputTokens: 10_000,
+        costCents: 120,
+        costExact: false,
+      },
+    ]);
+    await runner.releaseImplementer(sessionId);
+    expect(fake.released).toEqual([sessionId]);
+
+    // Without a container, or back on Claude, the next run is Claude's.
+    for (const runner of [
+      new RunPipeline({ ...deps, implementer: "meta", muse: null }),
+      new RunPipeline({ ...deps, implementer: "claude", muse: fake.muse }),
+    ])
+      expect((await runner.prepare(runId)).implementer).toBe("claude");
   });
 });

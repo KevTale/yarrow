@@ -81,6 +81,24 @@ const text = (event: SessionEvent) =>
     .join("\n")
     .trim();
 
+/** "12 passed" (Vitest, Jest, pytest), "# pass 12" (node:test, TAP). */
+function testCounts(output: string): { passed?: number; failed?: number } {
+  const count = (word: string) =>
+    new RegExp(
+      `(\\d+) (?:tests? )?${word}ed\\b|^\\s*[#ℹ]\\s*${word} (\\d+)`,
+      "im",
+    )
+      .exec(output)
+      ?.slice(1)
+      .find(Boolean);
+  const passed = count("pass");
+  const failed = count("fail");
+  return {
+    ...(passed ? { passed: Number(passed) } : {}),
+    ...(failed ? { failed: Number(failed) } : {}),
+  };
+}
+
 /**
  * One session event to at most one line. Tool results come back as a patch
  * for their tool call's line (ok, test counts), with `toolUseId` set.
@@ -154,26 +172,14 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
     }
   }
   if (event.type === "agent.tool_result" && event.tool_use_id) {
-    const output = text(event);
-    // "12 passed" (Vitest, Jest, pytest), "# pass 12" (node:test, TAP).
-    const count = (word: string) =>
-      new RegExp(
-        `(\\d+) (?:tests? )?${word}ed\\b|^\\s*[#ℹ]\\s*${word} (\\d+)`,
-        "im",
-      )
-        .exec(output)
-        ?.slice(1)
-        .find(Boolean);
-    const passed = count("pass");
-    const failed = count("fail");
+    const counts = testCounts(text(event));
     return {
       ...base,
       kind: "command",
       detail: {
         toolUseId: event.tool_use_id,
-        ok: !event.is_error && !(failed && Number(failed) > 0),
-        ...(passed ? { passed: Number(passed) } : {}),
-        ...(failed ? { failed: Number(failed) } : {}),
+        ok: !event.is_error && !(counts.failed && counts.failed > 0),
+        ...counts,
       },
     };
   }
@@ -189,6 +195,112 @@ export function activityFromEvent(event: SessionEvent): ActivityLine | null {
       kind: "error",
       detail: {
         text: clip(event.error?.message ?? "The session hit an error", 300),
+      },
+    };
+  return null;
+}
+
+/** A Muse Code event, one line of `muse exec --json`. */
+export interface MuseEvent {
+  payload_type: string;
+  sequence?: number;
+  payload?: {
+    call_id?: string;
+    correlation_facts?: { tool_name?: string; outcome?: string };
+    edit_facts?: { path?: string; added?: number; removed?: number };
+    text?: string | null;
+    reason?: string | null;
+  };
+}
+
+/**
+ * One Muse Code event to at most one line. Muse reports a tool once, done,
+ * so its line has its outcome at once. `turn` tells the session's turns
+ * apart: each one numbers its events from 1 again.
+ */
+export function activityFromMuseEvent(
+  event: MuseEvent,
+  at: string,
+  turn: number,
+): ActivityLine | null {
+  const payload = event.payload ?? {};
+  const base = {
+    externalId: payload.call_id ?? `muse:${turn}:${event.sequence ?? 0}`,
+    at,
+    actor: "implementer" as const,
+  };
+  if (event.payload_type === "tool.result") {
+    const tool = payload.correlation_facts?.tool_name;
+    const ok = payload.correlation_facts?.outcome === "success";
+    if (tool === "read_file") {
+      // "Read text file `src/views.js`.", then the content.
+      const path = /^Read (?:\w+ )?file `([^`]+)`/.exec(
+        payload.text ?? "",
+      )?.[1];
+      return ok && path
+        ? { ...base, kind: "read", detail: { path: relative(path) } }
+        : null;
+    }
+    if (tool === "edit_file" || tool === "write_file") {
+      const facts = payload.edit_facts;
+      if (!ok || !facts?.path) return null;
+      return tool === "write_file"
+        ? {
+            ...base,
+            kind: "write",
+            detail: { path: relative(facts.path), lines: facts.added ?? 0 },
+          }
+        : {
+            ...base,
+            kind: "edit",
+            detail: {
+              path: relative(facts.path),
+              added: facts.added ?? 0,
+              removed: facts.removed ?? 0,
+            },
+          };
+    }
+    if (tool === "bash") {
+      // The result is JSON: the command, its exit code and its output.
+      let result: { command?: unknown; exit_code?: unknown; output?: unknown };
+      try {
+        result = JSON.parse(payload.text ?? "");
+      } catch {
+        return null;
+      }
+      const command = clip(
+        shortCommand(String(result.command ?? "").trim()),
+        300,
+      );
+      if (!command) return null;
+      const counts = testCounts(String(result.output ?? ""));
+      return {
+        ...base,
+        kind: testCommand.test(command) ? "test" : "command",
+        detail: {
+          command,
+          ok: result.exit_code === 0 && !(counts.failed && counts.failed > 0),
+          ...counts,
+        },
+      };
+    }
+    return null;
+  }
+  if (event.payload_type === "run.terminal.completed") {
+    const note = (payload.text ?? "").trim();
+    // The final JSON report is read elsewhere; only prose is a note.
+    if (!note || note.startsWith("{")) return null;
+    return { ...base, kind: "note", detail: { text: clip(note, 600) } };
+  }
+  if (event.payload_type === "run.terminal.failed")
+    return {
+      ...base,
+      kind: "error",
+      detail: {
+        text: clip(
+          payload.reason || payload.text || "The run hit an error",
+          300,
+        ),
       },
     };
   return null;

@@ -275,6 +275,15 @@ describe("admin: compute", () => {
       uncoveredCents: 7,
       finishedAt: now,
     });
+    const metaRunId = crypto.randomUUID();
+    await raw.insert(schema.agentRuns).values({
+      id: metaRunId,
+      workUnitId,
+      status: "completed",
+      implementer: "muse-wonder-1.0:high",
+      reviewer: "openai-astra",
+      finishedAt: now,
+    });
     await raw.insert(schema.runModels).values([
       {
         agentRunId: runId,
@@ -288,6 +297,13 @@ describe("admin: compute", () => {
         role: "reviewer",
         model: "gpt-6-astra",
         costCents: 30,
+      },
+      // A run Meta implemented: its own line.
+      {
+        agentRunId: metaRunId,
+        role: "implementer",
+        model: "muse-wonder-1.0",
+        costCents: 40,
       },
     ]);
     await raw.insert(schema.contributions).values([
@@ -324,6 +340,7 @@ describe("admin: compute", () => {
         monthCents: 80,
         exact: true,
       },
+      { provider: "meta", pause: null, todayCents: 40, exact: false },
       {
         provider: "openai",
         pause: { message: "insufficient_quota" },
