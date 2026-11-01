@@ -145,17 +145,25 @@ function check(plan) {
     if (chapter.tab === "terminal" && !chapter.command)
       problems.push(at + ".command: missing");
   }
-  // A change the app shows opens on the app, as it was or else as it is
-  // now: the ticket's card is for what the app cannot show.
+  // A change the app shows opens on the app as it was, or as it is now with
+  // the reason the plan gives: the ticket's card is for what the app cannot
+  // show.
   const chapters = plan.chapters || [];
-  if (chapters.some((chapter) => chapter.tab === "app"))
+  if (chapters.some((chapter) => chapter.tab === "app")) {
     for (const [i, chapter] of chapters.entries())
       if (chapter.tab === "ticket")
         problems.push(
           "chapters[" +
             i +
-            "]: no ticket chapter when the app is filmed: open on the app as it was (tab app, app before), or as it is now when it cannot run",
+            "]: no ticket chapter when the app is filmed: open on the app as it was",
         );
+    const first = chapters[0];
+    const before = first?.tab === "app" && first.app === "before";
+    if (!before && !String(plan.noBefore || "").trim())
+      problems.push(
+        'chapters[0]: open on the app as it was (tab app, app before, apps.before.url); only when it cannot run, open on the app as it is now and say why in "noBefore"',
+      );
+  }
   return problems;
 }
 
