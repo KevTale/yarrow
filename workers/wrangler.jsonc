@@ -82,7 +82,6 @@
         {
           "class_name": "MuseSandbox",
           "scheduling_policy": "durable_object",
-          "max_instances": 10,
           "images": { "muse": { "dockerfile": "./muse/Dockerfile" } },
         },
       ],
