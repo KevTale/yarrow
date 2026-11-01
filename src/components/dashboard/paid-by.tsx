@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { PaidBy } from "@/core/tickets";
+import type { PaidBy, TicketRow } from "@/core/tickets";
 import { Logo } from "@/components/boards";
 import { shortSite } from "@/core/pr-card";
+import { PullCosts } from "./pull-panel";
 
 /** The sponsor's website, through /out/ so the click counts. */
 export const sponsorHref = (sponsor: PaidBy) =>
@@ -27,21 +28,26 @@ export function SponsorLink({
   );
 }
 
-/** Estimated popover height per sponsor, to open it upward near the bottom. */
-const POP_ROW = 64;
-
 /**
- * Who paid for the ticket: the first sponsor's logo and name, its sentence
- * under it, "+N" for the others, linked to its website. Every sponsor in
- * full on hover or focus, each linked, when a line is cut or there is more
- * than one.
+ * Who paid, on the ticket's line: "Paid by", the first sponsor and "+N".
+ * Hovering or focusing the whole cell shows every sponsor in full, each
+ * linked to its website, then each model's time and cost and the total.
  */
-export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
+export function SponsorCell({
+  row,
+  projectId,
+}: {
+  row: TicketRow;
+  projectId: string;
+}) {
   const cell = useRef<HTMLSpanElement>(null);
-  const text = useRef<HTMLSpanElement>(null);
   const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Fixed coordinates: the popover escapes the table's scrolling box.
-  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  // Fixed coordinates: the card escapes the list's clipped box.
+  const [at, setAt] = useState<{
+    right: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!at) return;
@@ -56,26 +62,26 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
     [],
   );
 
-  const first = sponsors[0];
-  if (!first) return null;
-  const more = sponsors.length - 1;
+  const first = row.paidBy[0];
+  if (!first) return <span className="tix-sponsor" />;
+  const names = row.paidBy.map(
+    (sponsor) => sponsor.name ?? "Anonymous sponsor",
+  );
 
   const show = () => {
     if (leaving.current) clearTimeout(leaving.current);
     if (at) return;
-    const lines = text.current ? [...text.current.children] : [];
-    const cut = lines.some((line) => line.scrollWidth > line.clientWidth);
-    if (!cut && more === 0) return;
     const rect = cell.current?.getBoundingClientRect();
     if (!rect) return;
-    const height = 20 + POP_ROW * sponsors.length;
-    const below = rect.bottom + 6 + height < window.innerHeight;
-    setAt({
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - 300)),
-      top: below ? rect.bottom + 6 : rect.top - 6 - height,
-    });
+    const right = Math.max(8, window.innerWidth - rect.right);
+    // Low in the window, it opens upward.
+    setAt(
+      rect.bottom > window.innerHeight * 0.6
+        ? { right, bottom: window.innerHeight - rect.top + 6 }
+        : { right, top: rect.bottom + 6 },
+    );
   };
-  // A short grace, so the pointer can cross to the popover's links.
+  // A short grace, so the pointer can cross to the card's links.
   const hide = () => {
     leaving.current = setTimeout(() => setAt(null), 160);
   };
@@ -83,27 +89,26 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
   return (
     <span
       ref={cell}
-      className="pb-cell"
+      className="tix-sponsor"
+      tabIndex={0}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
     >
-      <SponsorLink sponsor={first} className="pb-main">
-        <Logo name={first.name} url={first.logoUrl} size="small" />
-        <span ref={text} className="pb-text">
-          <b>{first.name ?? "Anonymous sponsor"}</b>
-          {first.description && <span>{first.description}</span>}
-        </span>
-      </SponsorLink>
-      {more > 0 && <span className="pb-more">+{more}</span>}
+      <span className="tix-paid">Paid by</span>
+      <Logo name={first.name} url={first.logoUrl} size="small" />
+      <span>{names[0]}</span>
+      {names.length > 1 && (
+        <span className="tix-more">+{names.length - 1}</span>
+      )}
       {at && (
         <span
           className="pb-pop"
           role="tooltip"
-          style={{ left: at.left, top: at.top }}
+          style={{ right: at.right, top: at.top, bottom: at.bottom }}
         >
-          {sponsors.map((sponsor, i) => (
+          {row.paidBy.map((sponsor, i) => (
             <SponsorLink key={i} sponsor={sponsor} className="pb-sponsor">
               <Logo name={sponsor.name} url={sponsor.logoUrl} size="small" />
               <span>
@@ -117,6 +122,9 @@ export function PaidByCell({ sponsors }: { sponsors: PaidBy[] }) {
               </span>
             </SponsorLink>
           ))}
+          {row.pullRequest && (
+            <PullCosts projectId={projectId} rowKey={row.key} />
+          )}
         </span>
       )}
     </span>

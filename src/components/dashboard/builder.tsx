@@ -44,6 +44,7 @@ import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
 import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
+import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
@@ -922,7 +923,7 @@ function TicketLine({
               <MergeGo row={row} projectId={projectId} onChanged={onChanged} />
             )}
           </span>
-          <Sponsor row={row} />
+          <SponsorCell row={row} projectId={projectId} />
           <time
             className="tix-date"
             dateTime={row.createdAt}
@@ -1036,25 +1037,6 @@ function MergeGo({
         {step === "confirm" ? "Confirm merge?" : "Merge"}
       </button>
     </>
-  );
-}
-
-/** The first sponsor of the ticket's runs, the others named on hover. */
-function Sponsor({ row }: { row: TicketRow }) {
-  const first = row.paidBy[0];
-  if (!first) return <span className="tix-sponsor" />;
-  const names = row.paidBy.map(
-    (sponsor) => sponsor.name ?? "Anonymous sponsor",
-  );
-  return (
-    <span className="tix-sponsor" title={`Paid by ${names.join(", ")}`}>
-      <span className="tix-paid">Paid by</span>
-      <Logo name={first.name} url={first.logoUrl} size="small" />
-      <span>{names[0]}</span>
-      {names.length > 1 && (
-        <span className="tix-more">+{names.length - 1}</span>
-      )}
-    </span>
   );
 }
 

@@ -3700,11 +3700,13 @@ tbody tr:hover {
   color: var(--text);
   background: var(--hover);
 }
+/* Clipped, not hidden: a hidden box would scroll, and hold the opened
+   row's conversation to it instead of to the window. */
 .tix-rows {
   margin: 0;
   padding: 4px 0 0;
   list-style: none;
-  overflow: hidden;
+  overflow: clip;
 }
 /* A ticket's chevron sits under its group's mark; the gutter before it is
    left for actions on the row. */
@@ -3948,7 +3950,12 @@ tbody tr:hover {
   color: var(--secondary);
   white-space: nowrap;
 }
-.tix-sponsor > span:not(.board-logo) {
+.tix-sponsor:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.tix-sponsor > span:not(.board-logo, .pb-pop) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -3970,7 +3977,7 @@ tbody tr:hover {
 /* The opened ticket, inside its row: the ticket then its pull request,
    lined up with the ticket's number. */
 .tix-opened {
-  overflow: hidden;
+  overflow: clip;
 }
 .tix-card {
   padding: 8px 24px 26px 60px;
@@ -4486,59 +4493,13 @@ a.sd-row:hover {
 .sb {
   scroll-margin-top: 80px;
 }
-/* Paid by: the first sponsor on one line, all of them on hover. */
-.pb-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.pb-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-  border-radius: 6px;
-}
-a.pb-main:hover b,
+/* Paid by's card, over the row: every sponsor in full, then the costs. */
 a.pb-sponsor:hover b {
   color: var(--amber);
 }
-.pb-main:focus-visible,
 .pb-sponsor:focus-visible {
   outline: 2px solid var(--amber);
   outline-offset: 2px;
-}
-.pb-text {
-  display: grid;
-  min-width: 0;
-  line-height: 1.35;
-}
-.pb-text > * {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pb-text b {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-}
-.pb-text span {
-  font-size: 12px;
-  color: var(--muted);
-}
-.pb-more {
-  flex: none;
-  font:
-    11px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0 6px;
 }
 .pb-pop {
   position: fixed;
@@ -4547,6 +4508,8 @@ a.pb-sponsor:hover b {
   display: grid;
   gap: 12px;
   width: 290px;
+  white-space: normal;
+  cursor: auto;
   padding: 12px 14px;
   background: var(--elevated);
   border: 1px solid var(--line);
@@ -7873,10 +7836,7 @@ body:has(.sb-dialog[open]) {
     12px var(--font-geist-mono),
     monospace;
 }
-/* The costs' "i", at the title's far end. */
-.pp-section h3 .pp-info {
-  margin-left: auto;
-}
+
 .pp-text {
   margin: 0;
 }
@@ -8419,18 +8379,18 @@ html:has(.pp-stage:modal) {
   top: 72px;
   height: min(100%, calc(100dvh - 84px));
   min-height: 380px;
+  border-left: 0;
 }
 .pp-grid > .pp-talk .pp-talk-thread {
-  padding: 0 6px 24px 22px;
+  padding: 0 6px 24px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
 .pp-grid > .pp-talk > .pp-asking {
-  margin: 0 0 0 18px;
+  margin: 0;
 }
 .pp .sk-ask {
   height: 48px;
-  margin-left: 18px;
   border-radius: 24px;
 }
 @media (max-width: 1100px) {
@@ -8868,65 +8828,158 @@ html:has(.pp-stage:modal) {
 .pp-count .del {
   color: var(--red);
 }
-.pf-files {
+/* What the agents noticed: small cards side by side, never a full line
+   each; the whole card makes the ticket. */
+.pp-ideas {
   display: grid;
-  margin: 0 0 4px -8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-/* A row that wraps, as a suggested ticket in everyday words: the whole
-   row makes the ticket, its "+" on the right, its tip under it. */
-.pf-row {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  width: 100%;
-  padding: 5px 6px 5px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
+.pp-ideas > li {
+  display: grid;
+}
+.pp-idea {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #16181c;
   color: var(--secondary);
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   text-align: left;
 }
-button.pf-row {
+button.pp-idea {
   cursor: pointer;
   transition:
     background 0.15s,
+    border-color 0.15s,
     color 0.15s;
 }
-button.pf-row:hover,
-button.pf-row:focus-visible {
+button.pp-idea:hover,
+button.pp-idea:focus-visible {
+  border-color: #3a3e46;
   background: var(--hover);
   color: var(--text);
 }
-.pf-row svg {
-  flex: none;
-  margin-top: 3px;
+.pp-idea-go {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
   color: var(--muted);
-}
-.pf-row > span {
-  flex: 1;
-  min-width: 0;
-}
-.pf-row .pf-add {
-  margin-top: 2px;
   transition: color 0.15s;
 }
-button.pf-row:hover .pf-add,
-button.pf-row:focus-visible .pf-add {
+button.pp-idea:hover .pp-idea-go,
+button.pp-idea:focus-visible .pp-idea-go {
+  color: var(--amber);
+}
+/* The files changed: a quiet line each, its changes over the page. */
+.pp-filelist {
+  display: grid;
+  margin: 0 0 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+.pp-fileline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
   color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s;
 }
-.pf-suggest[data-tip]::after {
-  left: auto;
-  right: 0;
-  transform: translateY(-2px);
+.pp-fileline:hover {
+  background: var(--hover);
 }
-.pf-suggest[data-tip]:hover::after,
-.pf-suggest[data-tip]:focus-visible::after {
-  transform: none;
+.pp-fileline svg {
+  flex: none;
+  color: var(--muted);
+}
+.pp-fileline b {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.pp-fileline > span:not(.pp-count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+.pp-fileline .pp-count {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  opacity: 0.8;
+}
+.pp-diffs {
+  width: min(1100px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-floating);
+}
+.pp-diffs[open] {
+  animation: nt-rise 0.22s var(--ease-enter);
+}
+.pp-diffs:focus,
+.pp-diffs:focus-visible {
+  outline: none;
+}
+.pp-diffs::backdrop {
+  background: #05060899;
+  animation: nt-fade 0.16s ease-out;
+}
+.pp-diffs-box {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: calc(100dvh - 50px);
+}
+.pp-diffs-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+}
+.pp-diffs-head .pp-path {
+  flex: 0 1 auto;
+}
+.pp-diffs-at {
+  margin-left: auto;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+}
+.pp-diffs-body {
+  overflow: auto;
+}
+.pp-diffs-body > .pp-none {
+  padding: 18px 16px;
 }
 .rich-link {
   color: var(--text);
@@ -8937,57 +8990,6 @@ button.pf-row:focus-visible .pf-add {
 }
 .rich-link:hover {
   text-decoration-color: currentColor;
-}
-/* The costs, behind "i": over the card, on hover, focus or tap. */
-.pp-info {
-  position: relative;
-  display: inline-flex;
-}
-.pp-info-btn {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin: -2px -4px -2px 0;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--muted);
-  cursor: help;
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-.pp-info:hover .pp-info-btn,
-.pp-info-btn:focus-visible {
-  background: var(--hover);
-  color: var(--text);
-}
-.pp-info-card {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: -6px;
-  z-index: 20;
-  width: 260px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--elevated);
-  box-shadow: var(--shadow-floating);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-3px);
-  transition:
-    opacity 0.14s,
-    transform 0.14s,
-    visibility 0.14s;
-}
-.pp-info:hover .pp-info-card,
-.pp-info:focus-within .pp-info-card {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
 }
 .pp-facts {
   display: grid;
@@ -9010,35 +9012,13 @@ button.pf-row:focus-visible .pf-add {
     monospace;
   color: var(--text);
 }
+.pb-pop .pp-facts {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
 .pp-facts .pp-total {
   padding-top: 9px;
   border-top: 1px solid #1d2025;
-}
-.pp-files {
-  display: grid;
-  gap: 8px;
-}
-.pp-file {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-}
-.pp-file-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 14px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  text-align: left;
-  cursor: pointer;
-}
-.pp-file-head[aria-expanded="false"] {
-  border-bottom: 0;
 }
 .pp-path {
   min-width: 0;
@@ -9052,9 +9032,6 @@ button.pf-row:focus-visible .pf-add {
 .pp-path b {
   font-weight: 400;
   color: var(--text);
-}
-.pp-file .pp-none {
-  padding: 14px;
 }
 .pp-diff {
   overflow-x: auto;
@@ -9130,10 +9107,6 @@ button.pf-row:focus-visible .pf-add {
     max-height: 65vh;
     padding: 0 6px 22px 0;
   }
-  .pp-grid > .pp-talk > .pp-asking,
-  .pp .sk-ask {
-    margin-left: 0;
-  }
 }
 
 /* The opened row and its changes while they load (the dashboard's .sk). */
@@ -9148,9 +9121,6 @@ button.pf-row:focus-visible .pf-add {
   width: 100%;
   height: 40px;
   border-radius: 9px;
-}
-.pp-files .sk {
-  height: 11px;
 }
 /* The changelog, after x.ai's: the date held on the left, the notes on the right. */
 .changelog {

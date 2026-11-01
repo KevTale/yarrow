@@ -2,14 +2,11 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
   ArrowUp,
-  ChevronDown,
-  ChevronRight,
   CircleDashed,
+  FileText,
   GitCommitHorizontal,
-  Info,
   Play,
   Plus,
-  ScanSearch,
   X,
 } from "lucide-react";
 import {
@@ -20,7 +17,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { chatParts } from "@/core/chat";
 import { groupFiles } from "@/core/changed-files";
@@ -318,20 +314,10 @@ export function PullPanel({
             <Summary
               implementation={panel.implementation}
               screens={panel.screens}
-              costs={panel.models.length > 0 && <CostInfo panel={panel} />}
             />
           )}
 
           <Review review={panel.review} />
-
-          {pullRequest && (
-            <ChangedFiles
-              projectId={projectId}
-              rowKey={rowKey}
-              size={size}
-              url={pullRequest.url}
-            />
-          )}
 
           {panel.implementation && panel.implementation.spotted.length > 0 && (
             <Suggested
@@ -341,6 +327,15 @@ export function PullPanel({
               pullRequestUrl={pullRequest?.url ?? null}
               by={panel.implementation.by}
               lines={panel.implementation.spotted}
+            />
+          )}
+
+          {pullRequest && (
+            <ChangedFiles
+              projectId={projectId}
+              rowKey={rowKey}
+              size={size}
+              url={pullRequest.url}
             />
           )}
         </div>
@@ -378,18 +373,31 @@ function Costs({ panel }: { panel: Panel }) {
   );
 }
 
-/** "i" beside the summary's title: the costs show on hover, focus or tap. */
-function CostInfo({ panel }: { panel: Panel }) {
-  return (
-    <span className="pp-info">
-      <button type="button" className="pp-info-btn" aria-label="Costs">
-        <Info size={14} aria-hidden="true" />
-      </button>
-      <span className="pp-info-card" role="tooltip">
-        <Costs panel={panel} />
-      </span>
-    </span>
-  );
+/**
+ * A pull request's costs over all its ticket's runs, for the row's Paid by
+ * card: what is kept shows at once, otherwise read once.
+ */
+export function PullCosts({
+  projectId,
+  rowKey,
+}: {
+  projectId: string;
+  rowKey: string;
+}) {
+  const id = cacheKey(projectId, rowKey);
+  const [panel, setPanel] = useState(() => panels.get(id));
+  useEffect(() => {
+    if (panels.has(id)) return;
+    let live = true;
+    fetchPanel(projectId, rowKey)
+      .then((next) => live && next && setPanel(next))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [id, projectId, rowKey]);
+  if (!panel || panel.models.length === 0) return null;
+  return <Costs panel={panel} />;
 }
 
 /** What a change at work is doing, named after its model. */
@@ -420,20 +428,14 @@ function workingText(panel: Panel): string | null {
 function Summary({
   implementation,
   screens,
-  costs,
 }: {
   implementation: NonNullable<Panel["implementation"]>;
   screens: Panel["screens"];
-  /** What the models took, behind "i". */
-  costs: ReactNode;
 }) {
   const shots = screens.filter((screen) => screen.kind !== "presentation");
   return (
     <section className="pp-section">
-      <h3>
-        Summary
-        {costs}
-      </h3>
+      <h3>Summary</h3>
       <Markdown source={implementation.summary} className="pp-text" />
       {shots.length > 0 && <Screens screens={shots} />}
     </section>
@@ -457,8 +459,8 @@ function Review({ review }: { review: Panel["review"] }) {
 
 /**
  * What the agents noticed outside the ticket and left alone, under the
- * files: a row each in everyday words, the whole row a ticket to write,
- * its words drafted (its technical pointer goes in the ticket, not here).
+ * review: a small card each in everyday words, the whole card a ticket to
+ * write, its words drafted (its technical pointer goes in the ticket).
  */
 function Suggested({
   projectId,
@@ -489,7 +491,7 @@ function Suggested({
           ? "1 suggested ticket"
           : `${lines.length} suggested tickets`}
       </h3>
-      <ul className="pf-files">
+      <ul className="pp-ideas">
         {lines.map((line) => {
           const { plain } = splitNote(line);
           const ticket = spottedTicket(line, by, pullRequestUrl);
@@ -498,9 +500,8 @@ function Suggested({
               {draft ? (
                 <button
                   type="button"
-                  className="pf-row pf-suggest"
+                  className="pp-idea"
                   aria-label={`Make it a ticket: ${ticket.title}`}
-                  data-tip="Make it a ticket"
                   onClick={() =>
                     draft(
                       projectId,
@@ -512,15 +513,16 @@ function Suggested({
                     )
                   }
                 >
-                  <ScanSearch size={13} aria-hidden="true" />
                   <span>
                     <Rich text={plain} />
                   </span>
-                  <Plus size={14} className="pf-add" aria-hidden="true" />
+                  <span className="pp-idea-go">
+                    <Plus size={13} aria-hidden="true" />
+                    Make it a ticket
+                  </span>
                 </button>
               ) : (
-                <span className="pf-row pf-suggest">
-                  <ScanSearch size={13} aria-hidden="true" />
+                <span className="pp-idea">
                   <span>
                     <Rich text={plain} />
                   </span>
@@ -1017,10 +1019,11 @@ function Ask({
 }
 
 /**
- * The files a pull request changed, under the review: how many and their
- * lines, then each file folded, in the order a builder reads them (the
+ * The files a pull request changed, last in the panel: how many and their
+ * lines, then a quiet line per file in the order a builder reads them (the
  * code, its tests, its documentation, what tools generated, the assets).
- * A file opens on its changes.
+ * A file opens on its changes over the page, the arrows going from one
+ * file to the next, so the panel and its conversation never move.
  */
 function ChangedFiles({
   projectId,
@@ -1035,7 +1038,11 @@ function ChangedFiles({
   url: string;
 }) {
   const files = usePullFiles(projectId, rowKey, size);
-  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    if (open !== null && !dialog.current?.open) dialog.current?.showModal();
+  }, [open]);
 
   if (files === undefined) return <FilesSkeleton />;
   if (files === null)
@@ -1052,6 +1059,7 @@ function ChangedFiles({
   const ordered = groupFiles(files).flatMap((group) => group.files);
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
   const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+  const shown = open === null ? null : ordered[open];
   return (
     <section className="pp-section">
       <h3>
@@ -1066,78 +1074,114 @@ function ChangedFiles({
           )}
         </span>
       </h3>
-      <div className="pp-files">
-        {ordered.map((file) => {
-          const isOpen = opened.has(file.path);
+      <ul className="pp-filelist">
+        {ordered.map((file, i) => {
           const slash = file.path.lastIndexOf("/");
           return (
-            <div key={file.path} className="pp-file">
+            <li key={file.path}>
               <button
                 type="button"
-                className="pp-file-head"
-                aria-expanded={isOpen}
-                onClick={() =>
-                  setOpened((current) => {
-                    const next = new Set(current);
-                    if (next.has(file.path)) next.delete(file.path);
-                    else next.add(file.path);
-                    return next;
-                  })
-                }
+                className="pp-fileline"
+                title={file.path}
+                onClick={() => setOpen(i)}
               >
-                {isOpen ? (
-                  <ChevronDown size={15} aria-hidden="true" />
-                ) : (
-                  <ChevronRight size={15} aria-hidden="true" />
-                )}
-                <span className="pp-path">
-                  {file.path.slice(0, slash + 1)}
-                  <b>{file.path.slice(slash + 1)}</b>
-                </span>
+                <FileText size={13} aria-hidden="true" />
+                <b>{file.path.slice(slash + 1)}</b>
+                {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
                 <span className="pp-count">
                   <span className="add">+{file.additions}</span>{" "}
                   <span className="del">−{file.deletions}</span>
                 </span>
               </button>
-              {isOpen &&
-                (file.lines ? (
-                  <div className="pp-diff" role="table" aria-label={file.path}>
-                    {file.lines.map((line, i) =>
-                      line.kind === "hunk" ? (
-                        <div key={i} className="pp-hunk" role="row">
-                          {line.text}
-                        </div>
-                      ) : (
-                        <div
-                          key={i}
-                          className={`pp-line ${line.kind}`}
-                          role="row"
-                        >
-                          <span className="n">
-                            {line.kind === "add" ? "" : line.old}
-                          </span>
-                          <span className="n">
-                            {line.kind === "del" ? "" : line.new}
-                          </span>
-                          <span className="s">
-                            {line.kind === "add"
-                              ? "+"
-                              : line.kind === "del"
-                                ? "−"
-                                : ""}
-                          </span>
-                          <span className="c">{line.text}</span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                ) : (
-                  <p className="pp-none muted">No preview for this file</p>
-                ))}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
+      <dialog
+        ref={dialog}
+        className="pp-diffs"
+        aria-label={shown?.path ?? "Changes"}
+        onClose={() => setOpen(null)}
+        // A click beside the changes closes them.
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+        onKeyDown={(event) => {
+          if (open === null || ordered.length < 2) return;
+          const step =
+            event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+          if (step) setOpen((open + step + ordered.length) % ordered.length);
+        }}
+      >
+        {shown && (
+          <div className="pp-diffs-box">
+            <div className="pp-diffs-head">
+              <span className="pp-path">
+                {shown.path.slice(0, shown.path.lastIndexOf("/") + 1)}
+                <b>{shown.path.slice(shown.path.lastIndexOf("/") + 1)}</b>
+              </span>
+              <span className="pp-count">
+                <span className="add">+{shown.additions}</span>{" "}
+                <span className="del">−{shown.deletions}</span>
+              </span>
+              {ordered.length > 1 && (
+                <span className="pp-diffs-at">
+                  {open! + 1} / {ordered.length}
+                </span>
+              )}
+              <button
+                type="button"
+                className="tix-icon-btn"
+                aria-label="Close"
+                onClick={() => dialog.current?.close()}
+              >
+                <X size={15} />
+              </button>
+            </div>
+            {/* Keyed: each file opens at its top. */}
+            <div key={shown.path} className="pp-diffs-body">
+              {shown.lines ? (
+                <div
+                  className="pp-diff"
+                  role="table"
+                  aria-label={shown.path}
+                >
+                  {shown.lines.map((line, i) =>
+                    line.kind === "hunk" ? (
+                      <div key={i} className="pp-hunk" role="row">
+                        {line.text}
+                      </div>
+                    ) : (
+                      <div
+                        key={i}
+                        className={`pp-line ${line.kind}`}
+                        role="row"
+                      >
+                        <span className="n">
+                          {line.kind === "add" ? "" : line.old}
+                        </span>
+                        <span className="n">
+                          {line.kind === "del" ? "" : line.new}
+                        </span>
+                        <span className="s">
+                          {line.kind === "add"
+                            ? "+"
+                            : line.kind === "del"
+                              ? "−"
+                              : ""}
+                        </span>
+                        <span className="c">{line.text}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <p className="pp-none muted">No preview for this file</p>
+              )}
+            </div>
+          </div>
+        )}
+      </dialog>
     </section>
   );
 }
@@ -1173,7 +1217,7 @@ function PanelSkeleton() {
   );
 }
 
-/** The files' shape while GitHub answers: the title, then folded files. */
+/** The files' shape while GitHub answers: the title, then their lines. */
 function FilesSkeleton() {
   return (
     <section
@@ -1182,15 +1226,9 @@ function FilesSkeleton() {
       aria-label="Loading the changes"
     >
       <span className="sk sk-title" style={{ width: "26%" }} />
-      <div className="pp-files">
-        {["36%", "48%", "30%"].map((width, i) => (
-          <div key={i} className="pp-file">
-            <div className="pp-file-head">
-              <span className="sk" style={{ width }} />
-            </div>
-          </div>
-        ))}
-      </div>
+      {["36%", "48%", "30%"].map((width, i) => (
+        <span key={i} className="sk" style={{ width }} />
+      ))}
     </section>
   );
 }
