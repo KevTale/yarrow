@@ -33,10 +33,9 @@ import {
   setProjectLogoFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
-import { Spinner } from "@/components/navigation-feedback";
 import { JiraIcon } from "@/components/brand-icons";
 import { LogoPicker } from "@/components/logo-picker";
-import { longDate, shortDate } from "@/components/ui";
+import { longDate, useDateTime } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/jira-flow";
 import { JiraCard } from "./jira-card";
@@ -44,6 +43,7 @@ import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
 import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
+import { SlideGo } from "./slide-go";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
 import { setReviewCount } from "@/components/review-count";
@@ -714,6 +714,50 @@ function OlderToggle({
 }
 
 /** A stage: its head folds it, its "+" writes a ticket into it. */
+/** The five petals of Yarrow's flower, around its heart. */
+const PETALS = [0, 1, 2, 3, 4].map((index) => {
+  const angle = ((-90 + index * 72) * Math.PI) / 180;
+  return { cx: 8 + 5.2 * Math.cos(angle), cy: 8 + 5.2 * Math.sin(angle) };
+});
+
+/**
+ * A group's mark, drawn from Yarrow's flower rather than the usual circles:
+ * To do its outline, In progress three petals out of five, To review every
+ * petal, Done the whole flower with its heart; Stopped its outline in red,
+ * a bar at its heart.
+ */
+function StageMark({ stage }: { stage: Stage }) {
+  const filled =
+    stage === "progress" ? 3 : stage === "review" || stage === "done" ? 5 : 0;
+  return (
+    <svg
+      className={`tix-stage ${stage}`}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+    >
+      {PETALS.map((petal, index) => (
+        <circle
+          key={index}
+          {...petal}
+          r={index < filled ? 2.1 : 1.6}
+          className={index < filled ? "full" : "bare"}
+        />
+      ))}
+      {stage === "done" && <circle cx={8} cy={8} r={2.2} className="full" />}
+      {stage === "stopped" && (
+        <rect
+          x={5.6}
+          y={7.25}
+          width={4.8}
+          height={1.5}
+          rx={0.75}
+          className="full"
+        />
+      )}
+    </svg>
+  );
+}
+
 function TicketGroup({
   stage,
   label,
@@ -746,7 +790,7 @@ function TicketGroup({
             className={`tix-gchev ${folded ? "folded" : ""}`}
             aria-hidden="true"
           />
-          <span className={`tix-stage ${stage}`} aria-hidden="true" />
+          <StageMark stage={stage} />
           {label}
           <span className="tix-count">{count}</span>
         </button>
@@ -814,6 +858,7 @@ function TicketLine({
   act?: TicketAct;
   onChanged: () => void;
 }) {
+  const dateTime = useDateTime(row.createdAt);
   const intent = () => {
     prefetchTicket(projectId, row.key);
     if (row.pullRequest) prefetchPullPanel(projectId, row.key);
@@ -843,14 +888,12 @@ function TicketLine({
           <span className="tix-cell">
             <RowState row={row} />
             {act && row.status === "none" && (
-              <button
-                type="button"
-                className="tix-go"
-                disabled={row.pending}
-                onClick={() => act("queue", [row.key])}
-              >
-                <Play size={10} fill="currentColor" aria-hidden="true" /> Start
-              </button>
+              <SlideGo
+                label="Start"
+                icon={<Play size={10} fill="currentColor" aria-hidden="true" />}
+                busy={row.pending}
+                onGo={() => act("queue", [row.key])}
+              />
             )}
             {act && row.status === "queued" && !row.pending && (
               <button
@@ -862,13 +905,11 @@ function TicketLine({
               </button>
             )}
             {act && row.status === "abstained" && (
-              <button
-                type="button"
-                className="tix-go"
-                onClick={() => act("retry", [row.key])}
-              >
-                <RotateCcw size={12} aria-hidden="true" /> Retry
-              </button>
+              <SlideGo
+                label="Retry"
+                icon={<RotateCcw size={12} aria-hidden="true" />}
+                onGo={() => act("retry", [row.key])}
+              />
             )}
             {row.status === "pull_request" && row.change === null && (
               <MergeGo row={row} projectId={projectId} onChanged={onChanged} />
@@ -880,7 +921,7 @@ function TicketLine({
             dateTime={row.createdAt}
             title={longDate(row.createdAt)}
           >
-            {shortDate(row.createdAt)}
+            {dateTime}
           </time>
         </span>
       </div>
@@ -926,9 +967,9 @@ function RowState({ row }: { row: TicketRow }) {
 }
 
 /**
- * Merge, on the line under the pointer like Start and Retry: a second click
- * within a few seconds merges (ready first when it is a draft). Hidden while
- * a change asked is at work, since its commit would be left out.
+ * Merge, on the line under the pointer like Start and Retry: slid to the
+ * end, it merges (ready first when it is a draft). Hidden while a change
+ * asked is at work, since its commit would be left out.
  */
 function MergeGo({
   row,
@@ -940,21 +981,13 @@ function MergeGo({
   onChanged: () => void;
 }) {
   const merge = useServerFn(pullRequestActionFn);
-  const [step, setStep] = useState<"idle" | "confirm" | "merging">("idle");
+  const [merging, setMerging] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => {
-    if (step !== "confirm") return;
-    const timer = setTimeout(() => setStep("idle"), 4_000);
-    return () => clearTimeout(timer);
-  }, [step]);
 
-  async function click() {
-    if (step === "merging") return;
-    if (step === "idle") {
-      setError("");
-      return setStep("confirm");
-    }
-    setStep("merging");
+  async function go() {
+    if (merging) return;
+    setError("");
+    setMerging(true);
     try {
       const result = await merge({
         data: { projectId, key: row.key, action: "merge" },
@@ -964,7 +997,7 @@ function MergeGo({
     } catch {
       setError("That did not go through. Try again.");
     } finally {
-      setStep("idle");
+      setMerging(false);
     }
   }
   return (
@@ -974,19 +1007,13 @@ function MergeGo({
           Not merged
         </span>
       )}
-      <button
-        type="button"
-        className={`tix-go merge ${step !== "idle" ? "armed" : ""}`}
-        aria-busy={step === "merging"}
-        onClick={() => void click()}
-      >
-        {step === "merging" ? (
-          <Spinner />
-        ) : (
-          <GitMerge size={12} aria-hidden="true" />
-        )}
-        {step === "confirm" ? "Confirm merge?" : "Merge"}
-      </button>
+      <SlideGo
+        label="Merge"
+        tone="green"
+        icon={<GitMerge size={12} aria-hidden="true" />}
+        busy={merging}
+        onGo={go}
+      />
     </>
   );
 }

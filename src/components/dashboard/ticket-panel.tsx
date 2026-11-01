@@ -1,9 +1,10 @@
 import { useServerFn } from "@tanstack/react-start";
 import { RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import { Spinner } from "@/components/navigation-feedback";
 import { RunStory, StopReason } from "@/components/run-activity";
+import { ticketText } from "@/core/new-ticket";
 import { workText, type TicketRow } from "@/core/tickets";
 import { answerTicketFn, getTicketFn } from "@/functions/builder.functions";
 import { PullPanel } from "./pull-panel";
@@ -92,34 +93,43 @@ function TicketBrief({
   }, [projectId, row.key, row.updatedAt]);
 
   const working = workText(row.status, row.models) !== null;
+  const stopped = row.status === "abstained";
+  const text = detail ? ticketText(detail.body, row.title) : "";
   return (
     <div className="pp-grid">
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
-        {row.status === "abstained" && (
-          <>
-            <StopReason reason={row.reason} summary={row.summary} />
-            <Answer projectId={projectId} row={row} onAnswered={onChanged} />
-          </>
-        )}
+        {stopped && <StopReason reason={row.reason} summary={row.summary} />}
         {detail === undefined ? (
           <div className="tp-lines" aria-busy="true" aria-label="Loading">
             <span className="sk" style={{ width: "88%" }} />
             <span className="sk" style={{ width: "64%" }} />
           </div>
-        ) : detail?.body.trim() ? (
-          <Markdown source={detail.body} />
+        ) : text ? (
+          <Markdown source={text} />
         ) : (
-          <p className="tp-empty">No description</p>
+          // Stopped, the reason says enough: no "No description" under it.
+          !stopped && <p className="tp-empty">No description</p>
         )}
         {working && row.runId && <RunStory runId={row.runId} />}
       </section>
-      <aside className="pp-aside">
-        {/* An app (Yarrow's own, opening a ticket written here) says nothing:
-            the ticket names who wrote it. */}
-        {detail?.author && !detail.author.endsWith("[bot]") && (
-          <p className="tp-by">by {detail.author}</p>
-        )}
-      </aside>
+      {stopped ? (
+        // Answered as a pull request is talked about: the box at the foot of
+        // the right column.
+        <aside className="pp-talk tp-talk" aria-label="Answer">
+          <p className="tp-talk-note">
+            Your answer goes on the ticket, then it starts again.
+          </p>
+          <Answer projectId={projectId} row={row} onAnswered={onChanged} />
+        </aside>
+      ) : (
+        <aside className="pp-aside">
+          {/* An app (Yarrow's own, opening a ticket written here) says
+              nothing: the ticket names who wrote it. */}
+          {detail?.author && !detail.author.endsWith("[bot]") && (
+            <p className="tp-by">by {detail.author}</p>
+          )}
+        </aside>
+      )}
     </div>
   );
 }
@@ -142,6 +152,14 @@ function Answer({
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  // One line, growing with what is typed, as the pull request's box.
+  const box = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const area = box.current;
+    if (!area) return;
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight}px`;
+  }, [text]);
 
   async function submit() {
     const answer = text.trim();
@@ -164,42 +182,50 @@ function Answer({
   }
 
   return (
-    <form
-      className="pp-composer tp-answer"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
-      <textarea
-        aria-label={`Answer the agents on ${row.ref}`}
-        placeholder="Answer…"
-        rows={3}
-        value={text}
-        maxLength={4000}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            void submit();
-          }
+    <div className="pp-asking">
+      <form
+        className="pp-input"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
         }}
-      />
-      <div className="pp-composer-foot">
-        {error && (
-          <span className="pp-error" role="alert">
-            {error}
-          </span>
+      >
+        <textarea
+          ref={box}
+          aria-label={`Answer the agents on ${row.ref}`}
+          placeholder="Answer the questions…"
+          rows={1}
+          value={text}
+          maxLength={4000}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        {text.trim() && (
+          <button
+            type="submit"
+            className="pp-go"
+            aria-label="Answer and retry"
+            data-tip="Answer and retry"
+            aria-disabled={pending}
+          >
+            {pending ? <Spinner /> : <RotateCcw size={16} strokeWidth={2.2} />}
+          </button>
         )}
-        <button
-          type="submit"
-          className="pp-send"
-          aria-disabled={!text.trim() || pending}
-        >
-          Answer and retry{" "}
-          {pending ? <Spinner /> : <RotateCcw size={14} strokeWidth={2.2} />}
-        </button>
-      </div>
-    </form>
+      </form>
+      {error && (
+        <p className="pp-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

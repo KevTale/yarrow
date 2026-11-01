@@ -15,9 +15,9 @@ import {
 
 /**
  * The review where the owner reads it, in the pull request: the reviewer's
- * words (after a fix round, what it found first and that it is fixed),
- * what is still to fix when the fix round was not enough, then at most
- * three suggestions (nits are noise).
+ * words when it wrote them apart (before it told What changed), what is
+ * still to fix when the fix round was not enough, then at most three
+ * suggestions (nits are noise). Empty when there is nothing left to say.
  */
 export function reviewSection(review: StoredReview): string {
   const line = (comment: ReviewComment) =>
@@ -27,13 +27,15 @@ export function reviewSection(review: StoredReview): string {
     .filter((comment) => comment.severity === "suggestion")
     .slice(0, 3)
     .map(line);
-  return [
-    `## Review by ${modelDisplayName(review.reviewer)}`,
-    "",
-    review.summary,
+  const lines = [
+    ...(review.changed ? [] : ["", review.summary]),
     ...(blocking.length ? ["", "**Still to fix**", "", ...blocking] : []),
     ...(suggestions.length ? ["", ...suggestions] : []),
-  ].join("\n");
+  ];
+  if (lines.length === 0) return "";
+  return [`## Review by ${modelDisplayName(review.reviewer)}`, ...lines].join(
+    "\n",
+  );
 }
 
 export interface PullRequestInput {
@@ -134,7 +136,8 @@ export function pullRequestBlock(
   );
   if (input.notVerified.length > 0)
     sections.push(`## Not verified\n\n${bullets(input.notVerified)}`);
-  if (input.review) sections.push(reviewSection(input.review));
+  const reviewed = input.review && reviewSection(input.review);
+  if (reviewed) sections.push(reviewed);
   if (input.risks.length > 0)
     sections.push(`## Before merging\n\n${bullets(input.risks)}`);
   if (input.spotted.length > 0)
@@ -201,11 +204,12 @@ export function correctionComment(input: {
   review: StoredReview | null;
   footer: string;
 }): string {
+  const reviewed = input.review && reviewSection(input.review);
   return [
     `**Correction applied** for: _${input.instruction.slice(0, 300)}_`,
     "",
     input.summary,
-    ...(input.review ? ["", reviewSection(input.review)] : []),
+    ...(reviewed ? ["", reviewed] : []),
     "",
     input.footer,
   ].join("\n");

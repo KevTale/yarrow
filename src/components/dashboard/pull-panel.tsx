@@ -440,10 +440,10 @@ function TicketAsk({ ask }: { ask: string }) {
 
 /**
  * What the pull request does now, read by a product manager as well as a
- * developer, in a few lines: what was done and how it was seen working, in
- * the implementer's words, then the reviewer's reassurance, what it checked
- * itself or what is still wrong. The criteria, the checks and the
- * suggestions are the conversation's to tell.
+ * developer, in a few lines and one voice: the reviewer tells what it does,
+ * how it is known to work, what to do before merging or what is still
+ * wrong. Before it did, the implementer's words then the reviewer's own.
+ * The criteria, the checks and the suggestions are the conversation's.
  */
 function Changed({
   implementation,
@@ -458,9 +458,13 @@ function Changed({
   return (
     <section className="pp-section">
       <h3>What changed</h3>
-      <Markdown source={implementation.summary} className="pp-text" />
-      {review && (
-        <Markdown source={review.summary} className="pp-text pp-checked" />
+      {review?.changed ? (
+        <Markdown source={review.changed} className="pp-text" />
+      ) : (
+        <>
+          <Markdown source={implementation.summary} className="pp-text" />
+          {review && <Markdown source={review.summary} className="pp-text" />}
+        </>
       )}
       {shots.length > 0 && <Screens screens={shots} />}
     </section>
@@ -1174,11 +1178,7 @@ function ChangedFiles({
             {/* Keyed: each file opens at its top. */}
             <div key={shown.path} className="pp-diffs-body">
               {shown.lines ? (
-                <div
-                  className="pp-diff"
-                  role="table"
-                  aria-label={shown.path}
-                >
+                <div className="pp-diff" role="table" aria-label={shown.path}>
                   {shown.lines.map((line, i) =>
                     line.kind === "hunk" ? (
                       <div key={i} className="pp-hunk" role="row">

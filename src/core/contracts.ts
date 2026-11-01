@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { reviewSchema } from "./review";
+import { storedReviewFields } from "./review";
 
 export const runKindSchema = z.enum(["implementation", "correction"]);
 export type RunKind = z.infer<typeof runKindSchema>;
@@ -44,7 +44,7 @@ export const abstentionReasonSchema = z.enum([
 ]);
 export type AbstentionReason = z.infer<typeof abstentionReasonSchema>;
 
-const storedReviewSchema = reviewSchema.extend({
+const storedReviewSchema = storedReviewFields.extend({
   reviewer: z.string().min(1),
   rounds: z.number().int().min(1).max(2),
 });

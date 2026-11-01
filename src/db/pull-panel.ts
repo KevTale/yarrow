@@ -159,6 +159,8 @@ export interface PanelData {
   implementation: ({ by: string } & PullRequestNow) | null;
   review: {
     by: string;
+    /** The pull request as it stands, told by the reviewer; none before. */
+    changed: string | null;
     summary: string;
     /** What the fix round left broken: usually none. */
     blocking: PanelComment[];
@@ -284,6 +286,7 @@ export async function pullPanel(
     review: review
       ? {
           by: modelDisplayName(review.reviewer),
+          changed: review.changed ?? null,
           summary: review.summary,
           blocking: blockingComments(review).map(panelComment),
           suggestions: review.comments

@@ -149,7 +149,13 @@ async function check(
       what: `Closes the ticket on merge (Closes #${issue})`,
     },
     { ok: body.includes("## What changed"), what: "Says what changed" },
-    { ok: body.includes("## Review by"), what: "Carries the review" },
+    {
+      // The reviewer tells it, in one neutral voice: no "I" in it.
+      ok: !/(^|[.!?:;]\s+)I\s/.test(
+        /## What changed\n\n([\s\S]*?)(\n## |$)/.exec(body)?.[1] ?? "",
+      ),
+      what: "What changed is told in one voice",
+    },
   );
   const files = api<{ filename: string }[]>(
     `repos/${repo}/pulls/${pull.number}/files?per_page=100`,

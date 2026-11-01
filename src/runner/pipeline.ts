@@ -677,6 +677,8 @@ export class RunPipeline {
         notVerified: snapshot.not_verified,
         risks: snapshot.risks,
         earlier,
+        pullRequestSummary:
+          run.kind === "correction" ? snapshot.pr_summary : null,
       }),
       repository: {
         owner,
@@ -984,7 +986,8 @@ export class RunPipeline {
       );
       // The description says what the pull request does now; anything a
       // person wrote outside Yarrow's part stays.
-      if (snapshot.pr_summary) {
+      const now = review?.changed ?? snapshot.pr_summary;
+      if (now) {
         const current = await client.request<{ body: string | null }>(
           "GET",
           `/repos/${repository.owner}/${repository.repo}/pulls/${pull.number}`,
@@ -993,7 +996,7 @@ export class RunPipeline {
           current.body ?? "",
           pullRequestBlock({
             ticket: run.ticket,
-            summary: snapshot.pr_summary,
+            summary: now,
             criteria: snapshot.criteria,
             verification: snapshot.verification,
             notVerified: snapshot.not_verified,
@@ -1015,7 +1018,9 @@ export class RunPipeline {
         title: pullRequestTitle({ ticket: run.ticket }),
         body: pullRequestBody({
           ticket: run.ticket,
-          summary: snapshot.summary,
+          // The reviewer tells the pull request; the implementer's words
+          // stand in when there was no review.
+          summary: review?.changed ?? snapshot.summary,
           criteria: snapshot.criteria,
           verification: snapshot.verification,
           notVerified: snapshot.not_verified,

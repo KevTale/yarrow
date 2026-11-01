@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { sponsorNames, type RunSponsor } from "@/core/attribution";
 
 export function PageHeading({
@@ -147,19 +147,36 @@ export function timeAgo(value: Date | string | null): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-/** "Oct 9", with the year when it is not this one. UTC, as the server says it. */
-export function shortDate(value: Date | string | null): string {
+/**
+ * "Oct 9, 14:03": a row's date with its time, in 24 hours. In the reader's
+ * own time zone once in the browser; UTC while the server draws the page,
+ * so the first paint and the hydration agree.
+ */
+export function useDateTime(value: Date | string | null): string {
+  const local = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
   if (!value) return "";
   const date = new Date(value);
-  return date.toLocaleDateString("en-US", {
+  const timeZone = local ? undefined : "UTC";
+  const day = date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    ...(date.getUTCFullYear() !== new Date().getUTCFullYear()
+    ...(date.getFullYear() !== new Date().getFullYear()
       ? { year: "numeric" as const }
       : {}),
-    timeZone: "UTC",
+    timeZone,
   });
+  const time = date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  });
+  return `${day}, ${time}`;
 }
+const noSubscription = () => () => {};
 
 /** "October 9, 2026 at 14:05 UTC", for a date's tooltip. */
 export function longDate(value: Date | string | null): string {

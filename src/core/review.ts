@@ -13,13 +13,35 @@ export const reviewCommentSchema = z.object({
 });
 export type ReviewComment = z.infer<typeof reviewCommentSchema>;
 
-export const reviewSchema = z.object({
+/**
+ * A review as Yarrow keeps it. `changed` is the pull request as it stands,
+ * told by the reviewer: the one text the owner reads under "What changed"
+ * (decided 2026-10-27). Reviews written before have none, only a summary
+ * in the reviewer's own voice; a new one's summary is its `changed`, so
+ * the fix round, the conversation and the notes read one text either way.
+ */
+export const storedReviewFields = z.object({
+  changed: z.string().min(1).max(8000).optional(),
   summary: z.string().min(1).max(8000),
   comments: z.array(reviewCommentSchema).max(50),
   // Acceptance criteria the implementer ticked that the change does not
   // deliver, as it listed them. Not understood, it is dropped.
   unmet: z.array(z.string().min(1)).max(10).optional().catch(undefined),
 });
+
+/** The reviewer's answer: `changed`, or a summary as before. */
+export const reviewSchema = storedReviewFields
+  .extend({
+    changed: z.string().trim().min(1).max(8000).optional().catch(undefined),
+    summary: z.string().trim().min(1).max(8000).optional(),
+  })
+  .refine((review) => review.changed || review.summary, {
+    message: "The review says nothing",
+  })
+  .transform(({ summary, ...review }) => ({
+    ...review,
+    summary: (summary ?? review.changed)!,
+  }));
 export type Review = z.infer<typeof reviewSchema>;
 
 /** The final review as stored on the result and published on the PR. */

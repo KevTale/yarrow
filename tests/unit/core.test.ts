@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { openedFromYarrow, ticketText } from "../../src/core/new-ticket";
 import {
   assistedByTrailer,
   pullRequestFooter,
@@ -426,6 +427,30 @@ describe("review", () => {
     ).toBe(
       "## Review by GPT Astra\n\nI tried damaged saves: at first some replaced the game, I sent it back and they are now refused.",
     );
+    // Told under What changed: the section keeps only what is left to do,
+    // and is gone when nothing is.
+    const told = reviewSchema.parse({
+      changed: "Damaged saves are now refused. The four tests pass.",
+      comments: [],
+    });
+    expect(told.summary).toBe(told.changed);
+    expect(
+      reviewSection({ ...told, reviewer: review.reviewer, rounds: 1 }),
+    ).toBe("");
+    expect(
+      reviewSection({
+        ...told,
+        reviewer: review.reviewer,
+        rounds: 2,
+        comments: review.comments,
+      }),
+    ).toBe(
+      "## Review by GPT Astra\n\n**Still to fix**\n\n- `a.ts:3`: Null check",
+    );
+  });
+
+  it("refuses a review that says nothing", () => {
+    expect(() => reviewSchema.parse({ comments: [] })).toThrow();
   });
 
   it("unticks a criterion the final review finds not delivered", () => {
@@ -644,5 +669,23 @@ describe("run failures", () => {
       reason: "provider_out_of_credit",
       summary: expect.stringContaining("OpenAI account ran out of credit"),
     });
+  });
+});
+
+describe("a ticket's text in its row", () => {
+  it("leaves out who wrote it here, and a text that is the title again", () => {
+    expect(
+      ticketText(
+        openedFromYarrow("Follow the **system** theme.", "marie"),
+        "Dark mode",
+      ),
+    ).toBe("Follow the **system** theme.");
+    expect(
+      ticketText(openedFromYarrow("do something", "KevTale"), "do something"),
+    ).toBe("");
+    expect(ticketText(openedFromYarrow("", "KevTale"), "Fix it")).toBe("");
+    expect(ticketText("Written in GitHub.", "Fix it")).toBe(
+      "Written in GitHub.",
+    );
   });
 });
