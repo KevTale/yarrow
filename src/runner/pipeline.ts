@@ -376,6 +376,16 @@ export class RunPipeline {
       this.deps.implementer === "meta" &&
       Boolean(this.deps.muse) &&
       context.secrets.length === 0;
+    // The run was reserved under the default implementer: it names Meta's
+    // model now, before the container starts, so the table never shows
+    // Claude at work on a Meta run.
+    if (meta)
+      await this.deps.db
+        .update(agentRuns)
+        .set({
+          implementer: this.rolesFor({ implementer: "meta" }).implementer,
+        })
+        .where(eq(agentRuns.id, runId));
     return {
       runId,
       kind: run.kind,
@@ -470,10 +480,7 @@ export class RunPipeline {
     });
     await this.deps.db
       .update(agentRuns)
-      .set({
-        implementerSession: sessionId,
-        implementer: this.rolesFor(run).implementer,
-      })
+      .set({ implementerSession: sessionId })
       .where(eq(agentRuns.id, run.runId));
     return sessionId;
   }

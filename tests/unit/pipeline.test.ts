@@ -692,6 +692,9 @@ describe("run pipeline", async () => {
 
     const run = await runner.prepare(runId);
     expect(run).toMatchObject({ implementer: "meta", environmentId: "" });
+    // Named before the container starts: the table never says Claude.
+    const [prepared] = await raw.select().from(schema.agentRuns);
+    expect(prepared!.implementer).toBe("muse-wonder-1.0:high");
     // No Claude environment is touched.
     expect(calls.some((call) => call.url.includes("/v1/environments"))).toBe(
       false,
