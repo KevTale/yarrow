@@ -1085,7 +1085,7 @@ function Proposal({
             aria-disabled={pending}
             onClick={() => void submit()}
           >
-            Update the pull request {pending && <Spinner />}
+            Make this change {pending && <Spinner />}
           </button>
           {error && (
             <span className="pp-error" role="alert">

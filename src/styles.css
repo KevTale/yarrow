@@ -8701,6 +8701,15 @@ html:has(.pp-stage:modal) {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
+  /* Its scrollbar stands off the bubbles, which keep the box's right edge. */
+  margin-right: -16px;
+  padding-right: 16px;
+}
+@media (max-width: 760px) {
+  .pp-conversation .pp-chat {
+    margin-right: 0;
+    padding-right: 10px;
+  }
 }
 .pp-me {
   display: grid;
