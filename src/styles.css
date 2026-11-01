@@ -10,6 +10,8 @@
   --text: #edeef0;
   --secondary: #bdc1c9;
   --muted: #8a909b;
+  /* What people read at length: tickets, summaries, the agent's answers. */
+  --reading: #d3d6dc;
   --amber: #f2b544;
   --green: #5ccb95;
   --red: #ee7b6e;
@@ -4050,14 +4052,16 @@ tbody tr:hover {
   font-size: 12.5px;
   color: var(--muted);
 }
-/* A ticket's Markdown, at the panel's reading size. */
+/* Markdown at reading size: a little larger and heavier than the
+   interface, on a line short enough for the eye to come back to. */
 .md {
   display: grid;
   gap: 10px;
-  max-width: 76ch;
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--secondary);
+  max-width: 64ch;
+  font-size: 15px;
+  font-weight: 420;
+  line-height: 1.6;
+  color: var(--reading);
 }
 .md p,
 .md ul,
@@ -7865,10 +7869,6 @@ body:has(.sb-dialog[open]) {
 }
 .pp-text {
   margin: 0;
-  max-width: 72ch;
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--secondary);
 }
 /* The agent's screen: its tabs, the address, the recording; then the
    chapters and what it says. */
@@ -8575,32 +8575,6 @@ html:has(.pp-stage:modal) {
     animation: none;
   }
 }
-.pp-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pp-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--secondary);
-}
-.pp-list svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--muted);
-}
-.pp-list svg.ok {
-  color: var(--green);
-}
-.pp-list svg.warn {
-  color: var(--amber);
-}
 .pp code {
   font:
     12.5px var(--font-geist-mono),
@@ -8610,23 +8584,6 @@ html:has(.pp-stage:modal) {
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 0 5px;
-}
-.pp-list li.pp-risk {
-  color: var(--text);
-}
-/* A note in everyday words, its pointer for developers under it, smaller. */
-.pp-note {
-  display: grid;
-  justify-items: start;
-  gap: 2px;
-  min-width: 0;
-}
-.pp-detail {
-  font-size: 12.5px;
-  color: var(--muted);
-}
-.pp-num {
-  font-family: var(--font-geist-mono), monospace !important;
 }
 .pp-composer {
   display: grid;
@@ -8740,10 +8697,11 @@ html:has(.pp-stage:modal) {
   min-width: 0;
 }
 .pp-say {
-  max-width: 68ch;
+  max-width: 64ch;
   margin: 0;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;
+  font-weight: 420;
+  line-height: 1.6;
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -9032,45 +8990,6 @@ button.pf-row:focus-visible .pf-add {
 .pf-suggest[data-tip]:hover::after,
 .pf-suggest[data-tip]:focus-visible::after {
   transform: none;
-}
-/* What the review found working: the ticket's acceptance criteria (why
-   under one not met or not checked), then the automated checks in
-   everyday words. */
-.pp-checked li {
-  color: var(--text);
-}
-/* Lint, tests, build: one line that opens on its checks, indented. */
-.pp-tech-head {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.pp-tech-head .pp-num {
-  font-size: 12px;
-  color: var(--muted);
-}
-.pp-tech-head svg {
-  margin-top: 0;
-}
-.pp-tech-head:hover svg {
-  color: var(--text);
-}
-.pp-tech-list {
-  margin-top: 6px;
-  padding-left: 14px;
-  border-left: 1px solid var(--line);
-}
-.pp-tech-list li {
-  color: var(--secondary);
-}
-.pp-list svg.bad {
-  color: var(--red);
 }
 .pp-files-head {
   display: flex;

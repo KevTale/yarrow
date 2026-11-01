@@ -1,4 +1,4 @@
-import { parsePatch, pullRequestRisks, type DiffLine } from "../../core/diff";
+import { parsePatch, type DiffLine } from "../../core/diff";
 import { appEnv } from "../env.server";
 import { GitHubClient } from "./app";
 import { forgetReadToken, readToken } from "./issues.server";
@@ -17,8 +17,6 @@ export interface LivePull {
   additions: number;
   deletions: number;
   changedFiles: number;
-  /** What the agents flagged, from the description's "Risks". */
-  risks: string[];
 }
 
 export interface PullFile {
@@ -89,7 +87,6 @@ export function livePull(
       additions: pull.additions,
       deletions: pull.deletions,
       changedFiles: pull.changed_files,
-      risks: pullRequestRisks(pull.body),
     };
   });
 }

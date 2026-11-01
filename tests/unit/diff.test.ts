@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePatch, pullRequestRisks } from "../../src/core/diff";
+import { parsePatch } from "../../src/core/diff";
 
 describe("pull request changes", () => {
   it("numbers each side of a unified diff", () => {
@@ -29,30 +29,5 @@ describe("pull request changes", () => {
       { kind: "add", new: 89, text: "        UpdateCastle(lifeInput);" },
       { kind: "ctx", old: 91, new: 90, text: "    }" },
     ]);
-  });
-
-  it("reads the risks Yarrow wrote in the description", () => {
-    const body = [
-      "Closes #6",
-      "",
-      "## What changed",
-      "",
-      "One place.",
-      "",
-      "## Risks",
-      "",
-      "- Water still calls `LooseOneLifePoint()`.",
-      "- `EndGame()` is still empty.",
-      "",
-      "Need a change? Comment `@yarrow-run` followed by what to change.",
-      "",
-      "Implemented by Claude Opus 5.5 · Reviewed by GPT Astra",
-    ].join("\r\n");
-    expect(pullRequestRisks(body)).toEqual([
-      "Water still calls `LooseOneLifePoint()`.",
-      "`EndGame()` is still empty.",
-    ]);
-    expect(pullRequestRisks("## What changed\n\nNothing risky.")).toEqual([]);
-    expect(pullRequestRisks(null)).toEqual([]);
   });
 });

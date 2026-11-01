@@ -28,6 +28,9 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "Summaries, reviews, the agent's answers and ticket descriptions read their Markdown: italics, struck text, emphasis inside emphasis.",
       ),
+      builders(
+        "A pull request's summary and review say it in a few lines, set larger and easier to read. Ask the conversation for the details.",
+      ),
     ],
     fixed: [
       builders(

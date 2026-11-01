@@ -2,11 +2,9 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
   ArrowUp,
-  Check,
   ChevronDown,
   ChevronRight,
   CircleDashed,
-  Eye,
   ChevronsUpDown,
   FileText,
   GitCommitHorizontal,
@@ -14,7 +12,6 @@ import {
   Play,
   Plus,
   ScanSearch,
-  TriangleAlert,
   X,
 } from "lucide-react";
 import {
@@ -48,7 +45,6 @@ import { SponsorLink } from "./paid-by";
 import { shortSite } from "@/core/pr-card";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
-type PanelComment = NonNullable<Panel["review"]>["suggestions"][number];
 type Files = NonNullable<Awaited<ReturnType<typeof getPullFilesFn>>>;
 
 /**
@@ -329,11 +325,7 @@ export function PullPanel({
             />
           )}
 
-          <Review
-            implementation={panel.implementation}
-            review={panel.review}
-            legacyRisks={live?.risks ?? []}
-          />
+          <Review review={panel.review} />
 
           {pullRequest && (
             <section className="pp-section pp-conversation">
@@ -479,8 +471,8 @@ function workingText(panel: Panel): string | null {
 
 /**
  * What the pull request does now, in the implementer's words, read by a
- * product manager as well as a developer: what the ticket asked, then
- * what was done. What was checked and what to watch sit in the review.
+ * product manager as well as a developer, in a few lines: what the ticket
+ * asked, then what was done.
  */
 function Summary({
   implementation,
@@ -500,142 +492,17 @@ function Summary({
 }
 
 /**
- * The review, said as a colleague would: the reviewer's words, then what
- * works, each ticked (the ticket's acceptance criteria, then the technical
- * checks folded into one line), then what to keep an eye on: what the fix
- * round left broken, what could not run, what to do before merging, the
- * reviewer's suggestions. No verdict tag: the words say it.
+ * The review, said as a colleague would, in a few lines: what the reviewer
+ * checked and found, what is still wrong or to do before merging. The
+ * criteria, the checks and the suggestions are the conversation's to tell.
  */
-function Review({
-  implementation,
-  review,
-  legacyRisks,
-}: {
-  implementation: Panel["implementation"];
-  review: Panel["review"];
-  /** Pull requests delivered before notes were apart: their Risks. */
-  legacyRisks: string[];
-}) {
-  const criteria = implementation?.criteria ?? [];
-  const checks = implementation?.verification ?? [];
-  const watch = [
-    ...(implementation?.notVerified ?? []).map((line) => ({ kind: "n", line })),
-    ...(implementation?.legacy ? legacyRisks : []).map((line) => ({
-      kind: "l",
-      line,
-    })),
-    ...(implementation?.risks ?? []).map((line) => ({ kind: "r", line })),
-  ];
-  const blocking = review?.blocking ?? [];
-  const suggestions = review?.suggestions ?? [];
-  if (!review && criteria.length + checks.length + watch.length === 0)
-    return null;
+function Review({ review }: { review: Panel["review"] }) {
+  if (!review) return null;
   return (
     <section className="pp-section">
-      <h3>{review ? "Review" : "Checked"}</h3>
-      {review && <Markdown source={review.summary} className="pp-text" />}
-      {criteria.length + checks.length > 0 && (
-        <ul className="pp-list pp-checked">
-          {criteria.map((item) => {
-            return (
-              <li key={`a${item.criterion}`}>
-                {item.status === "met" ? (
-                  <Check size={15} className="ok" aria-label="Met" />
-                ) : item.status === "unmet" ? (
-                  <X size={15} className="bad" aria-label="Not met" />
-                ) : (
-                  <CircleDashed size={15} aria-label="Not checked" />
-                )}
-                <span className="pp-note">
-                  <Rich text={item.criterion} />
-                  {item.status !== "met" && (
-                    <small className="pp-detail">
-                      {item.status === "unmet" ? "Not met" : "Not checked"}
-                      {item.note ? `: ${item.note}` : ""}
-                    </small>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-          {checks.length > 0 && <TechnicalChecks checks={checks} />}
-        </ul>
-      )}
-      {blocking.length + watch.length + suggestions.length > 0 && (
-        <ul className="pp-list">
-          {blocking.map((comment, i) => (
-            <li key={`b${i}`} className="pp-risk">
-              <TriangleAlert size={15} className="warn" aria-hidden="true" />
-              <Note line={comment.body} where={commentPlace(comment)} />
-            </li>
-          ))}
-          {watch.map(({ kind, line }) => (
-            <li
-              key={`${kind}${line}`}
-              className={kind === "r" ? "pp-risk" : ""}
-            >
-              {kind === "n" ? (
-                <CircleDashed size={15} aria-label="Not run" />
-              ) : kind === "l" ? (
-                <Eye size={15} aria-hidden="true" />
-              ) : (
-                <TriangleAlert size={15} className="warn" aria-hidden="true" />
-              )}
-              <Note line={line} />
-            </li>
-          ))}
-          {suggestions.map((suggestion, i) => (
-            <li key={`s${i}`}>
-              <ChevronRight size={15} aria-hidden="true" />
-              <Note line={suggestion.body} where={commentPlace(suggestion)} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <h3>Review</h3>
+      <Markdown source={review.summary} className="pp-text" />
     </section>
-  );
-}
-
-const commentPlace = (comment: PanelComment) =>
-  comment.path
-    ? `${comment.path}${comment.line ? `:${comment.line}` : ""}`
-    : null;
-
-/**
- * Lint, tests, build and the like in one ticked line, closed: opened, each
- * check in everyday words with its command under it.
- */
-function TechnicalChecks({ checks }: { checks: string[] }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <li className="pp-tech">
-      <Check size={15} className="ok" aria-hidden="true" />
-      <div className="pp-note">
-        <button
-          type="button"
-          className="pp-tech-head"
-          aria-expanded={open}
-          onClick={() => setOpen((was) => !was)}
-        >
-          Technical checks pass
-          <span className="pp-num">{checks.length}</span>
-          {open ? (
-            <ChevronDown size={14} aria-hidden="true" />
-          ) : (
-            <ChevronRight size={14} aria-hidden="true" />
-          )}
-        </button>
-        {open && (
-          <ul className="pp-list pp-tech-list">
-            {checks.map((line) => (
-              <li key={line}>
-                <Note line={line} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </li>
   );
 }
 
@@ -715,23 +582,6 @@ function Suggested({
         })}
       </ul>
     </section>
-  );
-}
-
-/** A note's everyday words, then, smaller, where it comes from in the code. */
-function Note({ line, where = null }: { line: string; where?: string | null }) {
-  const { plain, detail } = splitNote(line);
-  return (
-    <span className="pp-note">
-      <Rich text={plain} />
-      {(detail || where) && (
-        <small className="pp-detail">
-          {where && <code>{where}</code>}
-          {where && detail ? " " : ""}
-          {detail && <Rich text={detail} />}
-        </small>
-      )}
-    </span>
   );
 }
 

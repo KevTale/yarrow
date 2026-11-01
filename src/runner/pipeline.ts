@@ -536,6 +536,8 @@ export class RunPipeline {
         implementerSummary: snapshot.summary,
         criteria: snapshot.criteria,
         verification: snapshot.verification,
+        notVerified: snapshot.not_verified,
+        risks: snapshot.risks,
         earlier,
       }),
       repository: {

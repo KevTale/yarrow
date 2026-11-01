@@ -33,21 +33,3 @@ export function parsePatch(patch: string): DiffLine[] {
   }
   return lines;
 }
-
-/**
- * The "## Risks" bullets of a Yarrow pull request's description: what the
- * agents flagged for the maintainer to watch. Empty when there are none or
- * the description was rewritten without them.
- */
-export function pullRequestRisks(body: string | null): string[] {
-  if (!body) return [];
-  const section =
-    /(?:^|\n)## Risks\s*\n([\s\S]*?)(?=\n## |\n---|\nNeed a change\?|\nImplemented by |$)/.exec(
-      body.replace(/\r\n/g, "\n"),
-    );
-  if (!section) return [];
-  return section[1]!
-    .split("\n")
-    .map((line) => /^\s*[-*]\s+(.+)$/.exec(line)?.[1]?.trim())
-    .filter((line): line is string => Boolean(line));
-}

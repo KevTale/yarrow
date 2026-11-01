@@ -466,6 +466,14 @@ describe("review", () => {
       verification: [],
     });
     expect(first).not.toContain("second look");
+    expect(first).toContain("Before or after merging: (nothing)");
+    const warned = reviewTask({
+      ticket,
+      implementerSummary: "Done.",
+      verification: [],
+      risks: ["Rotate the leaked key"],
+    });
+    expect(warned).toContain("Before or after merging: Rotate the leaked key");
     const second = reviewTask({
       ticket,
       implementerSummary: "Done.",

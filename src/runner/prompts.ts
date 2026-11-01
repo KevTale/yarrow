@@ -44,14 +44,14 @@ PY`;
  */
 export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". Its shape:
 {"status": "done" | "unclear" | "cannot_do", "summary": "...", "pr_summary": "...", "questions": [], "criteria": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
-- summary: two to four short sentences, as you would tell a teammate: first what the ticket asked, in one sentence of your own ("The ticket asked for a way to filter the task list by status."), then what you did, as what people using the app now see or can do, then any choice the ticket left open and why you made it. Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried.
+- summary: Yarrow shows it in four lines at most, so two or three short sentences, under 300 characters, plain prose with no list, as you would tell a teammate: first what the ticket asked, in one sentence of your own ("The ticket asked for a way to filter the task list by status."), then what you did, as what people using the app now see or can do, then a choice the ticket left open only when people using the app will notice it. Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried: the owner asks for details in Yarrow's conversation.
 - criteria: the ticket's acceptance criteria, as the product manager would tick them: one per thing the ticket asks, at most six, each {"criterion": "...", "status": "met" | "unmet" | "unchecked", "proof": "app" | "test" | "request" | "none", "note": "..."}. criterion is the behavior in everyday words ("A reload keeps the filter"), never a command. proof is how you saw it hold on the final change: "app" seen working in the running app (the presentation shows it), "test" an automated test checks it, "request" a real request shows it. "unchecked" when you could not check it here, with proof "none"; never "met" without a proof. note only when unchecked or unmet: why, in everyday words. Empty only when the ticket asks for no behavior (a refactor, a dependency bump).
 - verification: the automated checks run on the final change (tests, type check, build, lint), at most three, each one line: what it shows in everyday words ("All six tests pass, one of them new for the filters"), then " — " and the command with its result ("npm test → 6 passed"). What the ticket asks goes in criteria, not here.
 - not_verified: a check that matters, is not one of the criteria and could not run here (a missing tool, no network), one line each, at most three: what is unknown in everyday words, then " — " and the technical reason. Empty when what matters ran.
 - risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each, in everyday words, then " — " and the technical pointer when it helps.
 - spotted: existing problems outside the ticket that you saw and left alone, at most three, each one string. Each is offered to the owner as a ticket of its own, so it stands alone: two or three short sentences in everyday words, what happens, when, and why it matters to people using the app, the first sentence able to stand as the ticket's title; then " — " and where it comes from in the code, kept in the ticket for whoever takes it. Example: "Adding a task brings you back to All, even with a filter picked. Someone working through their Doing tasks loses their place each time they add one. — POST /tasks redirects to / without the status". Empty when none.
 - Say each thing once, in one field. Past the summary's first sentence, do not restate the ticket. Empty lists are normal.
-- For a correction: summary is only what this correction changed, one or two sentences. pr_summary is the whole pull request as it stands now, shaped like summary above (what the ticket asked, then what was done), written as if it had been delivered at once, with no history of corrections. criteria, verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
+- For a correction: summary is only what this correction changed, one or two short sentences. pr_summary is the whole pull request as it stands now, shaped like summary above (what the ticket asked, then what was done), written as if it had been delivered at once, with no history of corrections. criteria, verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
 
 /**
  * What proves a change, and how the app gets running for it. Sent with every
@@ -264,7 +264,7 @@ Be pragmatic, not pedantic:
 Do not invent problems. A clean change gets an approving summary and no blocking comment.
 The implementer lists the ticket's acceptance criteria with how each was shown: a criterion marked met that the change does not deliver is blocking, and goes in unmet, copied exactly as listed.
 
-The summary goes in the pull request under "Review by" your name, and in Yarrow right above the implementer's acceptance criteria and checks: one or two short sentences in the first person, in everyday words a product manager who does not read code understands. Say what you checked yourself and what you found ("I tried an unknown status and a repeated one in the address: both fall back to All."), or, when you ask for changes, what is wrong, naming the cases that fail. Never open with a bare verdict word ("Approved."), and do not restate the change, the criteria or the test results: they are listed under your words. Do not list what you could not run. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
+The summary goes in the pull request under "Review by" your name, and it is all Yarrow shows of your review, in four lines at most: one or two short sentences, under 300 characters, plain prose with no list, in the first person, in everyday words a product manager who does not read code understands. Say what you checked yourself and what you found ("I tried an unknown status and a repeated one in the address: both fall back to All."), or, when you ask for changes, what is wrong, naming the cases that fail. What the owner must do before merging (the implementer's risks), or a check that matters and could not run, comes first, in a few words. Never open with a bare verdict word ("Approved."), and do not restate the change or go through the criteria and test results one by one: the pull request lists them, and the owner asks Yarrow's conversation for details. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
 
 Answer with JSON only, no prose and no code fence:
 {"summary": "one or two sentences for the PR", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}], "unmet": ["an acceptance criterion the change does not deliver"]}`;
@@ -274,6 +274,9 @@ export function reviewTask(input: {
   implementerSummary: string;
   criteria?: Criterion[];
   verification: string[];
+  /** Checks that could not run, and what the owner must do around merging. */
+  notVerified?: string[];
+  risks?: string[];
   /** The first review, on a second look after the fix round. */
   earlier?: Review;
 }): string {
@@ -287,7 +290,7 @@ This is your second look. Your first review sent the change back for these:
 ${blockingComments(input.earlier)
   .map((comment) => `- ${comment.body}`)
   .join("\n")}
-Check each yourself, then review the whole change as usual. Your summary tells it in two or three short sentences: what you checked, what you found at first and that it is fixed now ("I tried damaged saves on import: at first some replaced the game, I sent it back and they are now refused."), or what is still wrong.`
+Check each yourself, then review the whole change as usual. Your summary tells it in two or three short sentences, under 300 characters: what you checked, what you found at first and that it is fixed now ("I tried damaged saves on import: at first some replaced the game, I sent it back and they are now refused."), or what is still wrong.`
     : "";
   return `Ticket: ${input.ticket.url}
 Title: ${input.ticket.title}
@@ -297,7 +300,9 @@ ${input.ticket.body || "(no description)"}
 Implementer's summary: ${input.implementerSummary}
 Implementer's acceptance criteria (status, proof):
 ${criteria || "(none reported)"}
-Implementer's verification: ${input.verification.join("; ") || "(none reported)"}${earlier}
+Implementer's verification: ${input.verification.join("; ") || "(none reported)"}
+Could not run: ${input.notVerified?.join("; ") || "(nothing)"}
+Before or after merging: ${input.risks?.join("; ") || "(nothing)"}${earlier}
 
 Review the staged change and answer with the JSON format from your instructions.`;
 }
