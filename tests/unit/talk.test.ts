@@ -4,7 +4,9 @@ import type { StageCueResult, StageHand } from "../../src/core/stage";
 import type { ChatSources } from "../../src/runner/chat";
 import {
   completion,
+  conversationSoFar,
   memberSpoke,
+  memberWords,
   stageNote,
   talkGrantOf,
   talkFiller,
@@ -217,6 +219,8 @@ describe("the live call's turn", () => {
       "Let me show you. Only the done tasks are left. ",
     );
     expect(answer.resume).toBe(false);
+    expect(answer.words).toBe("Let me show you. Only the done tasks are left.");
+    expect(answer.change).toBeNull();
     expect(answer.firstWordMs).not.toBeNull();
     expect(answer.steps.map((step) => step.what)).toEqual([
       "claude",
@@ -241,7 +245,7 @@ describe("the live call's turn", () => {
     });
     const tools = first.body.tools as { name: string }[];
     expect(tools.map((tool) => tool.name)).toContain("act_on_screen");
-    expect(tools.map((tool) => tool.name)).not.toContain("propose_change");
+    expect(tools.map((tool) => tool.name)).toContain("propose_change");
     expect(
       (first.body.messages as { content: string }[])[0]!.content,
     ).toContain('stopped in chapter 2 of 3, "The filter"');
@@ -280,6 +284,66 @@ describe("the live call's turn", () => {
     expect(said.join("").trim()).toBe("Going on.");
     expect(asked).toEqual([]);
     expect(requests).toHaveLength(1);
+  });
+
+  it("proposes a change as a card in the thread, never reading it out", async () => {
+    const proposing = (change: string, then: string) =>
+      claude((body) =>
+        (body.messages as unknown[]).length === 1
+          ? {
+              stop_reason: "tool_use",
+              content: [
+                {
+                  type: "tool_use",
+                  id: "t1",
+                  name: "propose_change",
+                  input: { change },
+                },
+              ],
+            }
+          : {
+              stop_reason: "end_turn",
+              content: [{ type: "text", text: then }],
+            },
+      );
+    const { client, requests } = proposing(
+      "The filter sits on the title's line.",
+      "It's in the conversation.",
+    );
+    const { stage: hands, hands: asked } = stage({});
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Put it on the title's line." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: (text) => said.push(text),
+    });
+    expect(answer.change).toBe("The filter sits on the title's line.");
+    expect(answer.words).toBe("It's in the conversation.");
+    expect(said.join("")).not.toContain("title's line");
+    expect(asked).toEqual([]);
+    const second = requests[1]!.body.messages as {
+      content: { type: string; content?: string }[];
+    }[];
+    expect(second.at(-1)!.content[0]!.content).toContain("as a card");
+
+    // A merged pull request no longer changes.
+    const merged = await talkTurn({
+      client: proposing("Change it.", "It is merged.").client,
+      context: {
+        ...context,
+        pullRequest: { ...context.pullRequest!, state: "merged" },
+      },
+      messages: [{ role: "user", content: "Change it." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    expect(merged.change).toBeNull();
   });
 
   it("tells the agent what failed on the stage, and what it sees", async () => {
@@ -474,6 +538,50 @@ describe("what ElevenLabs sends the brain", () => {
     ).toBe(false);
     expect(asked([{ role: "user", content: " " }])).toBe(false);
     expect(asked([])).toBe(false);
+  });
+
+  it("keeps the member's words of the turn, for the thread", () => {
+    const messages = talkMessages(
+      talkRequestSchema.parse({
+        messages: [
+          { role: "user", content: "Carry on." },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [{ function: { name: "resume_presentation" } }],
+          },
+          { role: "tool", content: "Tool called successfully." },
+          { role: "user", content: "Wait," },
+          { role: "user", content: "click Done." },
+        ],
+      }).messages,
+    );
+    expect(memberWords(messages)).toBe("Wait,\nclick Done.");
+    expect(memberWords(messages.slice(0, 2))).toBe("");
+  });
+
+  it("knows what was written and said before the call", () => {
+    expect(conversationSoFar([])).toBe(
+      "Nothing was written or said before this call.",
+    );
+    const said = conversationSoFar([
+      { author: "builder", body: "Where is the filter?" },
+      { author: "agent", body: "Above the list." },
+      { author: "builder", body: "x".repeat(2000) },
+    ]);
+    expect(said).toContain(
+      "Member: Where is the filter?\nYou: Above the list.",
+    );
+    expect(said).toContain(`Member: ${"x".repeat(1500)} […]`);
+    const long = conversationSoFar(
+      Array.from({ length: 40 }, (_, i) => ({
+        author: "builder" as const,
+        body: `Question ${i}`,
+      })),
+    );
+    expect(long).not.toContain("Question 9\n");
+    expect(long).toContain("Question 10\n");
+    expect(long).toContain("Question 39");
   });
 
   it("says where the presentation stands", () => {

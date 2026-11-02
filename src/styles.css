@@ -9335,6 +9335,30 @@ button.pp-idea:focus-visible .pp-idea-go {
   display: flex;
   gap: 8px;
 }
+/* The stage on the left, the pull request's conversation beside it, as
+   tall as the screen and scrolling inside. */
+.stage-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+}
+.stage-body > .pp-talk {
+  height: calc((100cqw - 360px) * 900 / 1440);
+  min-height: 420px;
+  contain: size;
+  border-left-color: #ffffff0f;
+}
+.stage-body > .pp-talk .pp-talk-thread {
+  padding: 0 6px 24px 22px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.stage-body > .pp-talk > .pp-asking {
+  margin: 0 0 0 18px;
+}
+.stage-page {
+  container-type: inline-size;
+}
 /* The live screen, the voice's words over its foot as on the films. */
 .stage-view {
   position: relative;
@@ -9370,32 +9394,31 @@ button.pp-idea:focus-visible .pp-idea-go {
 .stage-warm {
   color: var(--green);
 }
-/* The call, as heard: the member's words on the right, the agent's on the left. */
-.stage-talk {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 760px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 14.5px;
-  line-height: 1.55;
-}
-.stage-talk li[data-who="member"] {
-  align-self: flex-end;
-  max-width: 80%;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--elevated);
-  color: var(--text);
-}
-.stage-talk li[data-who="agent"] {
-  color: var(--secondary);
-}
 .stage-error {
   margin-top: 12px;
   white-space: pre-wrap;
   color: var(--red);
   font-size: 13px;
+}
+/* A phone: the stage over the conversation. */
+@media (max-width: 760px) {
+  .stage-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .stage-body > .pp-talk {
+    height: auto;
+    min-height: 0;
+    contain: none;
+    padding-top: 22px;
+    border-top: 1px solid #ffffff0f;
+    border-left: 0;
+  }
+  .stage-body > .pp-talk .pp-talk-thread {
+    max-height: 65vh;
+    padding: 0 6px 22px 0;
+  }
+  .stage-body > .pp-talk > .pp-asking {
+    margin-left: 0;
+  }
 }

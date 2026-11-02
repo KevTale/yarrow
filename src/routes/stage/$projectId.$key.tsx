@@ -1,6 +1,11 @@
 import type { Language } from "@elevenlabs/client";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Conversation,
+  usePullPanel,
+  type ThreadMessage,
+} from "@/components/dashboard/pull-panel";
 import { loadPresentation } from "@/components/presentation";
 import {
   cueAt,
@@ -20,8 +25,10 @@ import {
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
  * and its presentation played on it: the voice here, the gestures there.
- * The member talks to the agent over it (src/runner/talk.ts): speaking
- * holds the presentation, the agent answers aloud and shows on the stage.
+ * The member talks to the agent over it (src/runner/talk.ts), or writes
+ * to it in the pull request's conversation beside it: either holds the
+ * presentation, the agent answers and shows on the stage, and the thread
+ * keeps what was said as what was written.
  * Not linked from the dashboard yet: the live review, step by step.
  */
 export const Route = createFileRoute("/stage/$projectId/$key")({
@@ -39,11 +46,14 @@ interface Show {
   spokenMs: number;
 }
 
-/** A line of the call, as it was heard. */
+/** A line of the call, as it was heard, until the thread has it. */
 interface Line {
   who: "member" | "agent";
   text: string;
+  at: number;
 }
+
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 type Cue = Parameters<typeof stageCueFn>[0]["data"]["cue"];
 
@@ -63,6 +73,8 @@ function StagePage() {
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
   const [held, setHeld] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
+  const [draft, setDraft] = useState("");
+  const { panel, setPanel, refresh } = usePullPanel(projectId, key);
   const screen = useRef<HTMLDivElement>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   const stopped = useRef(false);
@@ -81,6 +93,10 @@ function StagePage() {
   const speaking = useRef(false);
   /** The agent asked to go on: once its voice is done. */
   const goOnAsked = useRef(false);
+  /** The thread's length when the call's turn under way began. */
+  const before = useRef<number | null>(null);
+  const known = useRef(0);
+  known.current = panel?.messages.length ?? 0;
 
   const cue = useCallback(
     (data: Cue) =>
@@ -188,6 +204,22 @@ function StagePage() {
     holdNow.release();
   };
 
+  /**
+   * The turn is over: the brain kept it in the thread before it ended.
+   * Read back, its lines go; a turn kept with no words (going on) too.
+   */
+  const settle = useCallback(async () => {
+    const from = before.current ?? known.current;
+    const begun = Date.now();
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const fresh = await refresh();
+      if (fresh && fresh.messages.length > from) break;
+      await sleep(2000);
+    }
+    before.current = null;
+    setLines((now) => now.filter((line) => line.at > begun));
+  }, [refresh]);
+
   /** The call: the member's voice to the agent, the agent's back. */
   const startTalk = async () => {
     if (calling.current) return;
@@ -197,8 +229,8 @@ function StagePage() {
       const language = (navigator.language || "en").slice(0, 2).toLowerCase();
       const pass = await stageTalkFn({ data: { projectId, key, language } });
       if (!pass.ok) throw new Error(pass.reason);
-      const { Conversation } = await import("@elevenlabs/client");
-      conversation.current = await Conversation.startSession({
+      const eleven = await import("@elevenlabs/client");
+      conversation.current = await eleven.Conversation.startSession({
         conversationToken: pass.conversationToken,
         connectionType: "webrtc",
         overrides: { agent: { language: language as Language } },
@@ -207,6 +239,7 @@ function StagePage() {
           resume_presentation: () => {
             goOnAsked.current = true;
             if (!speaking.current) void goOn();
+            void settle();
           },
         },
         // Their first words, still being heard, already hold it.
@@ -225,11 +258,17 @@ function StagePage() {
         onMessage: ({ source, message }) => {
           if (source === "user") hold();
           const text = message.trim();
-          if (text)
-            setLines((now) => [
-              ...now,
-              { who: source === "user" ? "member" : "agent", text },
-            ]);
+          if (!text) return;
+          before.current ??= known.current;
+          setLines((now) => [
+            ...now,
+            {
+              who: source === "user" ? "member" : "agent",
+              text,
+              at: Date.now(),
+            },
+          ]);
+          if (source !== "user") void settle();
         },
         onModeChange: ({ mode }) => {
           speaking.current = mode === "speaking";
@@ -466,57 +505,76 @@ function StagePage() {
           )}
         </div>
       </header>
-      <div className="stage-view">
-        <div
-          className="stage-screen"
-          ref={screen}
-          data-phase={phase ?? "off"}
-        />
-        <p className="pv-caption stage-caption" aria-live="polite">
-          {caption?.text &&
-            (caption.words.length ? (
-              caption.words.map((word, i) => (
-                <span key={i} className={`w ${i < said ? "said" : ""}`}>
-                  {word.text}
-                  {i < caption.words.length - 1 ? " " : ""}
-                </span>
-              ))
-            ) : (
-              <span>{caption.text}</span>
-            ))}
-        </p>
+      <div className="stage-body">
+        <div className="stage-main">
+          <div className="stage-view">
+            <div
+              className="stage-screen"
+              ref={screen}
+              data-phase={phase ?? "off"}
+            />
+            <p className="pv-caption stage-caption" aria-live="polite">
+              {caption?.text &&
+                (caption.words.length ? (
+                  caption.words.map((word, i) => (
+                    <span key={i} className={`w ${i < said ? "said" : ""}`}>
+                      {word.text}
+                      {i < caption.words.length - 1 ? " " : ""}
+                    </span>
+                  ))
+                ) : (
+                  <span>{caption.text}</span>
+                ))}
+            </p>
+          </div>
+          {problems.length > 0 && (
+            <pre className="stage-error">{problems.join("\n")}</pre>
+          )}
+          {notes.length > 0 && (
+            <ol className="stage-events">
+              {notes.map((note, i) => (
+                <li key={i}>{note}</li>
+              ))}
+            </ol>
+          )}
+          {status.events.length > 0 && (
+            <ol className="stage-events">
+              {status.events.map((event, i) => (
+                <li key={i}>
+                  <span>{seconds(event.ms)}</span>
+                  {event.label}
+                </li>
+              ))}
+              {status.warm && <li className="stage-warm">From the snapshot</li>}
+            </ol>
+          )}
+          {status.error && <pre className="stage-error">{status.error}</pre>}
+        </div>
+        {panel && (
+          <Conversation
+            panel={panel}
+            projectId={projectId}
+            rowKey={key}
+            draft={draft}
+            onDraft={setDraft}
+            onPanel={setPanel}
+            onRefresh={refresh}
+            onSeek={null}
+            onMade={() => void refresh()}
+            stage={phase === "ready"}
+            turn={lines.map((line, i): ThreadMessage => ({
+              id: `call${line.at}${i}`,
+              author: line.who === "member" ? "builder" : "agent",
+              body: line.text,
+              status: "done",
+              change: null,
+              correctionRequestId: null,
+              createdAt: new Date(line.at).toISOString(),
+            }))}
+            onAsking={hold}
+          />
+        )}
       </div>
-      {lines.length > 0 && (
-        <ol className="stage-talk" aria-live="polite">
-          {lines.map((line, i) => (
-            <li key={i} data-who={line.who}>
-              {line.text}
-            </li>
-          ))}
-        </ol>
-      )}
-      {problems.length > 0 && (
-        <pre className="stage-error">{problems.join("\n")}</pre>
-      )}
-      {notes.length > 0 && (
-        <ol className="stage-events">
-          {notes.map((note, i) => (
-            <li key={i}>{note}</li>
-          ))}
-        </ol>
-      )}
-      {status.events.length > 0 && (
-        <ol className="stage-events">
-          {status.events.map((event, i) => (
-            <li key={i}>
-              <span>{seconds(event.ms)}</span>
-              {event.label}
-            </li>
-          ))}
-          {status.warm && <li className="stage-warm">From the snapshot</li>}
-        </ol>
-      )}
-      {status.error && <pre className="stage-error">{status.error}</pre>}
     </main>
   );
 }

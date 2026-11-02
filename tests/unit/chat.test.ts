@@ -12,11 +12,14 @@ import {
 } from "../../src/core/chat";
 import { ensureAccount } from "../../src/db/accounts";
 import {
+  askedToday,
   askQuestion,
   chatContext,
   failAnswer,
+  openProposal,
   pullContext,
   saveAnswer,
+  saveSpokenTurn,
   threadMessages,
   type ChatContext,
 } from "../../src/db/chat";
@@ -28,6 +31,7 @@ import { answerQuestion, type ChatSources } from "../../src/runner/chat";
 import { requestCorrection } from "../../src/server/github/pull-actions";
 import type { RepoReader } from "../../src/server/github/repo-reads";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
+import type { StageHand } from "../../src/core/stage";
 import { createTestDatabase } from "./helpers/pglite";
 
 const t = await createTestDatabase();
@@ -212,13 +216,16 @@ describe("questions and answers", () => {
       state: "open",
     });
     expect(context!.project.repository).toBe("marie/halyard");
-    // The live call knows the same pull request, without the thread.
+    // The live call knows the same pull request, and what was answered.
     const pull = await pullContext(db, workUnitId);
     expect(pull).toMatchObject({
       project: context!.project,
       pullRequest: context!.pullRequest,
     });
-    expect(pull).not.toHaveProperty("history");
+    expect(pull!.history).toEqual([
+      { author: "builder", body: "Where is the filter?" },
+      { author: "agent", body: "Above the list." },
+    ]);
     expect(await pullContext(db, crypto.randomUUID())).toBeNull();
     // A lost answer saved late stays lost.
     await saveAnswer(db, first.answerId, {
@@ -231,6 +238,59 @@ describe("questions and answers", () => {
       .from(schema.chatMessages)
       .where(eq(schema.chatMessages.id, first.answerId));
     expect(lost!.status).toBe("failed");
+  });
+
+  it("keeps the live call's turns in the thread, counted as questions", async () => {
+    const at = new Date("2026-10-24T10:00:00Z");
+    const turn = { workUnitId, userId: marie.userId, usage: null };
+    await saveSpokenTurn(
+      db,
+      {
+        ...turn,
+        said: "Click Done.",
+        words: "Only the done tasks are left.",
+        change: null,
+      },
+      at,
+    );
+    await saveSpokenTurn(
+      db,
+      {
+        ...turn,
+        said: "Put it on the title's line.",
+        words: "It's in the conversation.",
+        change: "The filter sits on the title's line.",
+      },
+      new Date(at.getTime() + 30_000),
+    );
+    const thread = await threadMessages(db, workUnitId);
+    expect(thread.map((m) => [m.author, m.body, m.status, m.change])).toEqual([
+      ["builder", "Click Done.", "done", null],
+      ["agent", "Only the done tasks are left.", "done", null],
+      ["builder", "Put it on the title's line.", "done", null],
+      [
+        "agent",
+        "It's in the conversation.",
+        "done",
+        "The filter sits on the title's line.",
+      ],
+    ]);
+    expect(await askedToday(db, marie.userId, at)).toBe(2);
+    expect(
+      await askedToday(db, marie.userId, new Date("2026-10-25T08:00:00Z")),
+    ).toBe(0);
+    // A question written next knows what was said.
+    const asked = await askQuestion(
+      db,
+      { workUnitId, userId: marie.userId, text: "And on mobile?" },
+      new Date(at.getTime() + 60_000),
+    );
+    if (!asked.ok) throw new Error("not asked");
+    expect((await chatContext(db, asked.answerId))!.history).toHaveLength(5);
+    // Its card is made like a written one.
+    expect(
+      await openProposal(db, { messageId: thread[3]!.id, workUnitId }),
+    ).toBe("The filter sits on the title's line.");
   });
 
   it("makes a proposed change once, shown under the answer that proposed it", async () => {
@@ -488,6 +548,100 @@ describe("the agent that answers", () => {
       type: "text",
       text: "Answer now with what you have read.",
     });
+  });
+
+  it("acts on the stage when asked beside it, one move at a time", async () => {
+    const { client, requests } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "act_on_screen",
+                input: { actions: [{ do: "click", target: "e12" }] },
+              },
+              { type: "tool_use", id: "t2", name: "look_at_screen", input: {} },
+              {
+                type: "tool_use",
+                id: "t3",
+                name: "read_file",
+                input: { path: "src/app.js" },
+              },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "Done is on." }],
+          },
+    );
+    const hands: StageHand[] = [];
+    const answer = await answerQuestion({
+      client,
+      context,
+      sources: sources(),
+      presentation: null,
+      stage: {
+        state: {
+          chapter: { index: 1, title: "The filter" },
+          held: true,
+          chapters: 3,
+        },
+        hands: async (hand) => {
+          hands.push(hand);
+          // The click takes longer: the look still waits for it.
+          if (hand.action === "act")
+            await new Promise((done) => setTimeout(done, 20));
+          return { ok: true, problems: [], screen: `after ${hand.action}` };
+        },
+      },
+    });
+    expect(answer.body).toBe("Done is on.");
+    expect(hands).toEqual([
+      { action: "act", actions: [{ do: "click", target: "e12" }] },
+      { action: "look" },
+    ]);
+    const first = requests[0]!.body;
+    expect(JSON.stringify(first.system)).toContain("beside the stage");
+    expect(
+      (first.tools as { name: string }[]).map((tool) => tool.name),
+    ).toEqual(
+      expect.arrayContaining(["act_on_screen", "propose_change", "read_file"]),
+    );
+    expect((first.messages as { content: string }[]).at(-1)!.content).toContain(
+      'stopped in chapter 2 of 3, "The filter"',
+    );
+    const results = (
+      requests[1]!.body.messages as {
+        content: { tool_use_id: string; content: string }[];
+      }[]
+    ).at(-1)!.content;
+    expect(results.map((result) => result.tool_use_id)).toEqual([
+      "t1",
+      "t2",
+      "t3",
+    ]);
+    expect(results[1]!.content).toBe("after look");
+
+    // Away from the stage, no stage tools.
+    const away = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "Above the list." }],
+    }));
+    await answerQuestion({
+      client: away.client,
+      context,
+      sources: sources(),
+      presentation: null,
+    });
+    const tools = (away.requests[0]!.body.tools as { name: string }[]).map(
+      (tool) => tool.name,
+    );
+    expect(tools).not.toContain("act_on_screen");
+    expect(JSON.stringify(away.requests[0]!.body.system)).not.toContain(
+      "beside the stage",
+    );
   });
 
   it("does not propose a change to a merged pull request", async () => {

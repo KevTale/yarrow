@@ -266,10 +266,16 @@ export const requestChangeFn = createServerFn({ method: "POST" })
 
 /**
  * A question in the pull request's conversation: the agent answers in the
- * background, the opened row polls until it has.
+ * background, the opened row polls until it has. Asked beside the stage,
+ * the agent may act on it while it is up.
  */
 export const askChatFn = createServerFn({ method: "POST" })
-  .validator(ticketRef.extend({ text: z.string().trim().min(1).max(4000) }))
+  .validator(
+    ticketRef.extend({
+      text: z.string().trim().min(1).max(4000),
+      stage: z.boolean().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     const { viewer, panel } = await memberPanel(data.projectId, data.key);
     const brain = appEnv().BRAIN;
@@ -278,6 +284,7 @@ export const askChatFn = createServerFn({ method: "POST" })
       workUnitId: panel.workUnitId,
       userId: viewer.userId,
       text: data.text,
+      stage: data.stage,
     });
   });
 

@@ -111,6 +111,62 @@ export async function askQuestion(
   });
 }
 
+/** Questions one person asked today (UTC), every project together. */
+export async function askedToday(
+  db: Database,
+  userId: string,
+  now = new Date(),
+): Promise<number> {
+  const [asked] = await db
+    .select({ n: count() })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.author, "builder"),
+        gte(chatMessages.createdAt, chatDayStart(now)),
+      ),
+    );
+  return asked?.n ?? 0;
+}
+
+/**
+ * A turn of the live call, said then answered aloud: kept in the
+ * conversation as a question and its answer, so the thread holds what was
+ * written and what was said, and the dashboard shows both.
+ */
+export async function saveSpokenTurn(
+  db: Database,
+  input: {
+    workUnitId: string;
+    userId: string;
+    said: string;
+    words: string;
+    change: string | null;
+    usage: ChatUsage | null;
+  },
+  at = new Date(),
+): Promise<void> {
+  await db.insert(chatMessages).values([
+    {
+      workUnitId: input.workUnitId,
+      author: "builder",
+      userId: input.userId,
+      body: input.said,
+      createdAt: at,
+    },
+    {
+      workUnitId: input.workUnitId,
+      author: "agent",
+      userId: input.userId,
+      body: input.words,
+      change: input.change,
+      usage: input.usage,
+      createdAt: new Date(at.getTime() + 1),
+    },
+  ]);
+}
+
 /** The answer as the agent wrote it, unless it was given up as lost. */
 export async function saveAnswer(
   db: Database,
@@ -255,29 +311,55 @@ export async function chatContext(
   return {
     answerId,
     ...about,
-    // A failed answer left its question unanswered: both stay out.
-    history: earlier
-      .filter((message, i) => {
-        if (message.author === "agent")
-          return message.status === "done" && message.body.trim() !== "";
-        const next = earlier[i + 1];
-        return !next || (next.author === "agent" && next.status === "done");
-      })
-      .map(({ author, body }) => ({ author, body })),
+    history: answered(earlier),
   };
 }
 
-/** The pull request alone, for the live call: no question, no history. */
+/** A failed answer left its question unanswered: both stay out. */
+function answered(
+  thread: {
+    author: "builder" | "agent";
+    body: string;
+    status: "pending" | "done" | "failed";
+  }[],
+): ChatContext["history"] {
+  return thread
+    .filter((message, i) => {
+      if (message.author === "agent")
+        return message.status === "done" && message.body.trim() !== "";
+      const next = thread[i + 1];
+      return !next || (next.author === "agent" && next.status === "done");
+    })
+    .map(({ author, body }) => ({ author, body }));
+}
+
+/**
+ * The pull request and its conversation so far, for the live call: what
+ * was written and said before it.
+ */
 export async function pullContext(
   db: Database,
   workUnitId: string,
-): Promise<Omit<ChatContext, "answerId" | "history"> | null> {
+): Promise<Omit<ChatContext, "answerId"> | null> {
   const [row] = await db
     .select({ unit: workUnits, project: projects })
     .from(workUnits)
     .innerJoin(projects, eq(projects.id, workUnits.projectId))
     .where(eq(workUnits.id, workUnitId));
-  return row ? describePull(db, row) : null;
+  if (!row) return null;
+  const [about, thread] = await Promise.all([
+    describePull(db, row),
+    db
+      .select({
+        author: chatMessages.author,
+        body: chatMessages.body,
+        status: chatMessages.status,
+      })
+      .from(chatMessages)
+      .where(eq(chatMessages.workUnitId, workUnitId))
+      .orderBy(asc(chatMessages.createdAt)),
+  ]);
+  return { ...about, history: answered(thread) };
 }
 
 async function describePull(

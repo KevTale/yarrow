@@ -9,8 +9,16 @@ import {
   type ChatUsage,
 } from "../core/chat";
 import { chapterMs, type Presentation } from "../core/presentation";
+import type { StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import type { RepoReader } from "../server/github/repo-reads";
+import {
+  isStageTool,
+  runStageTool,
+  STAGE_TOOLS,
+  stageNote,
+  type StageHands,
+} from "./stage-tools";
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type Tool = Anthropic.Beta.BetaTool;
@@ -58,6 +66,13 @@ Changes:
 - The card says what will change for the people using the app, in plain words: what they will see or be able to do. No code, file, function, class or style names: the member is not always a developer, and the implementer reads the code itself. What the app shows is quoted as it shows it, never translated: its labels and messages, in the app's own language.
 - Do not propose a change they did not ask for: suggest it in words and let them ask.
 - A closed or merged pull request can no longer change: say so.`;
+
+/** When the member writes beside the stage, the app running live. */
+const ON_STAGE = `The stage:
+- The member writes to you beside the stage: the app of the pull request's branch running live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The presentation may play there; it stops while you answer.
+- When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. They see the pointer move and click as you do it. Then say in your answer what you did and what you saw.
+- What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
+- What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
 
 export const CHAT_TOOLS: Tool[] = [
   {
@@ -399,8 +414,10 @@ export async function answerQuestion(input: {
   context: ChatContext;
   sources: ChatSources;
   presentation: Presentation | null;
+  /** Asked beside the stage while it is up: the agent acts on it too. */
+  stage?: { state: StageState | null; hands: StageHands } | null;
 }): Promise<ChatAnswer> {
-  const { client, context, sources } = input;
+  const { client, context, sources, stage } = input;
   const diff =
     sources.reader && context.pullRequest
       ? await sources.reader
@@ -408,7 +425,10 @@ export async function answerQuestion(input: {
           .catch(() => null)
       : null;
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: INSTRUCTIONS },
+    {
+      type: "text",
+      text: stage ? `${INSTRUCTIONS}\n\n${ON_STAGE}` : INSTRUCTIONS,
+    },
     {
       type: "text",
       text: chatContextText(context, {
@@ -418,12 +438,16 @@ export async function answerQuestion(input: {
       cache_control: { type: "ephemeral" },
     },
   ];
+  const tools = stage ? [...CHAT_TOOLS, ...STAGE_TOOLS] : CHAT_TOOLS;
   // Earlier answers come back as their words alone: the context above them
   // may have changed since (a correction landed).
   const messages: MessageParam[] = context.history.map((message) => ({
     role: message.author === "builder" ? "user" : "assistant",
     content: message.body,
   }));
+  const question = messages.at(-1);
+  if (stage && question?.role === "user")
+    question.content = `${question.content as string}\n\n${stageNote(stage.state)}`;
   let usage: ChatUsage = {
     model: CHAT_MODEL,
     input: 0,
@@ -441,7 +465,7 @@ export async function answerQuestion(input: {
       fallbacks: "default",
       output_config: { effort: CHAT_EFFORT },
       system,
-      tools: CHAT_TOOLS,
+      tools,
       tool_choice: last ? { type: "none" } : { type: "auto" },
       cache_control: { type: "ephemeral" },
       messages,
@@ -465,24 +489,30 @@ export async function answerQuestion(input: {
       return { body: text, change, usage };
     }
     messages.push({ role: "assistant", content: response.content });
-    const results: ToolResult[] = await Promise.all(
-      calls.map(async (call) => {
-        const result = await runChatTool(call, context, sources).catch(
-          (error: Error) => ({
-            text: `That failed: ${error.message.slice(0, 200)}`,
-            error: true as const,
-            change: undefined,
-          }),
-        );
-        if (result.change) change = result.change;
-        return {
-          type: "tool_result" as const,
-          tool_use_id: call.id,
-          content: result.text,
-          ...(result.error ? { is_error: true } : {}),
-        };
-      }),
-    );
+    const run = async (call: Anthropic.Beta.BetaToolUseBlock) => {
+      const result: { text: string; error?: boolean; change?: string } = await (
+        stage && isStageTool(call.name)
+          ? runStageTool(call, stage.hands)
+          : runChatTool(call, context, sources)
+      ).catch((error: Error) => ({
+        text: `That failed: ${error.message.slice(0, 200)}`,
+        error: true,
+      }));
+      if (result.change) change = result.change;
+      return {
+        type: "tool_result" as const,
+        tool_use_id: call.id,
+        content: result.text,
+        ...(result.error ? { is_error: true } : {}),
+      };
+    };
+    // Reads at once; moves on the stage one at a time, in the order asked.
+    const results: ToolResult[] = calls.some((call) => isStageTool(call.name))
+      ? await calls.reduce<Promise<ToolResult[]>>(
+          async (done, call) => [...(await done), await run(call)],
+          Promise.resolve([]),
+        )
+      : await Promise.all(calls.map(run));
     const content: Anthropic.Beta.BetaContentBlockParam[] = [...results];
     if (step + 1 >= CHAT_MAX_STEPS)
       content.push({

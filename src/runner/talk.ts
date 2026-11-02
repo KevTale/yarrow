@@ -1,10 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
-import { liveActionSchema } from "../core/presentation";
-import type { StageCueResult, StageHand, StageState } from "../core/stage";
+import type { StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
+import {
+  isStageTool,
+  runStageTool,
+  STAGE_TOOLS,
+  stageNote,
+  stageStepName,
+  type StageHands,
+} from "./stage-tools";
+
+export { stageNote };
 
 /**
  * The live review's agent: a member talks to it over the stage, by voice.
@@ -43,131 +52,42 @@ The stage:
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
 - The presentation goes on only when they want it to: when they say to go on, or agree when you offer once their question is answered, call resume_presentation. Never on your own.
 
-You never change code. When they ask for a change, say in a sentence what would change, and that they can ask for it in the pull request's conversation on the dashboard.`;
+The conversation:
+- Beside the stage, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
+- You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
+- The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
-const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
-  {
-    name: "look_at_screen",
-    description:
-      "What the stage shows now: the window in front (the app as it is, the app as it was, or the terminal), its address, and the page's elements with their refs, or the terminal's last lines.",
-    input_schema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
+/** The page's tool: the presentation goes on. */
+const RESUME: Anthropic.Beta.BetaTool = {
+  name: "resume_presentation",
+  description:
+    "The presentation goes on from where the member stopped it. Only when they want it to.",
+  input_schema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
   },
-  {
-    name: "act_on_screen",
-    description:
-      "Do these on the browser window in front, one after the other, with the pointer the member sees, as a person would. Returns the screen after. Stops at the first that fails.",
-    input_schema: {
-      type: "object",
-      properties: {
-        actions: {
-          type: "array",
-          minItems: 1,
-          maxItems: 12,
-          items: {
-            type: "object",
-            properties: {
-              do: {
-                type: "string",
-                enum: [
-                  "point",
-                  "circle",
-                  "click",
-                  "fill",
-                  "select",
-                  "press",
-                  "scroll",
-                  "goto",
-                  "reload",
-                  "wait",
-                ],
-                description:
-                  "point at or circle an element to show it; click; fill a field with text; select an option's value; press a key; scroll (an element into view, or the page by y pixels); goto a path of the app; reload; wait ms.",
-              },
-              target: {
-                type: "string",
-                description:
-                  "The element: its ref from the latest look (e12, f5e16), else a Playwright selector.",
-              },
-              text: { type: "string", description: "For fill." },
-              value: { type: "string", description: "For select." },
-              key: { type: "string", description: "For press, e.g. Enter." },
-              path: { type: "string", description: "For goto, e.g. /tasks." },
-              y: { type: "number", description: "For scroll without target." },
-              ms: { type: "number", description: "For wait, at most 8000." },
-            },
-            required: ["do"],
-            additionalProperties: false,
-          },
-        },
-      },
-      required: ["actions"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "show_window",
-    description:
-      "Bring a window in front: the app as it is on the branch (after), the app as it was before the change (before, when the stage has it), or the terminal. Returns the screen after.",
-    input_schema: {
-      type: "object",
-      properties: {
-        window: { type: "string", enum: ["after", "before", "terminal"] },
-      },
-      required: ["window"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "run_in_terminal",
-    description:
-      "Type a command in the stage's terminal and run it, as the member watches (the tests, a script). Returns its output. Stopped after two minutes.",
-    input_schema: {
-      type: "object",
-      properties: {
-        command: { type: "string" },
-        cwd: {
-          type: "string",
-          description: "Where to run it; the branch's checkout when absent.",
-        },
-      },
-      required: ["command"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "resume_presentation",
-    description:
-      "The presentation goes on from where the member stopped it. Only when they want it to.",
-    input_schema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-];
+};
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
-  // Reading the code and the tickets, as in the written conversation.
-  ...CHAT_TOOLS.filter((tool) => tool.name !== "propose_change"),
+  // The code, the tickets and the changes, as in the written conversation.
+  ...CHAT_TOOLS,
   ...STAGE_TOOLS,
+  RESUME,
 ].map((tool) => ({ ...tool, eager_input_streaming: true }));
 
-const stageInputs = {
-  look_at_screen: z.object({}),
-  act_on_screen: z.object({
-    actions: z.array(liveActionSchema).min(1).max(12),
-  }),
-  show_window: z.object({ window: z.enum(["after", "before", "terminal"]) }),
-  run_in_terminal: z.object({
-    command: z.string().min(1).max(2000),
-    cwd: z.string().max(500).optional(),
-  }),
-  resume_presentation: z.object({}),
-};
+/** What was written and said before the call, as the agent reads it. */
+export function conversationSoFar(history: ChatContext["history"]): string {
+  if (history.length === 0)
+    return "Nothing was written or said before this call.";
+  const lines = history
+    .slice(-30)
+    .map(
+      (message) =>
+        `${message.author === "builder" ? "Member" : "You"}: ${message.body.length > 1500 ? `${message.body.slice(0, 1500)} […]` : message.body}`,
+    );
+  return `The conversation before this call, written or said:\n${lines.join("\n")}`;
+}
 
 /** One message of the call as ElevenLabs sends it (chat completions). */
 const incomingSchema = z
@@ -292,6 +212,17 @@ export function talkMessages(messages: TalkRequest["messages"]): Said[] {
   return said;
 }
 
+/** What the member just said: their last turn, their words alone. */
+export function memberWords(messages: Said[]): string {
+  const last = messages.at(-1);
+  if (last?.role !== "user") return "";
+  return blocks(last.content)
+    .map((block) => (block.type === "text" ? block.text : ""))
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
 /**
  * Whether ElevenLabs asks because the member spoke. After the page's tool
  * it asks again with the tool's result last: answering the member's words
@@ -302,16 +233,6 @@ export function memberSpoke(request: TalkRequest): boolean {
     request.messages.at(-1)?.role === "user" &&
     talkMessages(request.messages).at(-1)?.role === "user"
   );
-}
-
-/** Where the presentation stands, said to the agent with the member's turn. */
-export function stageNote(state: StageState | null): string {
-  if (!state) return "[The stage does not answer right now.]";
-  if (state.chapter)
-    return `[On the stage: the presentation is ${state.held ? "stopped" : "playing"} in chapter ${state.chapter.index + 1} of ${state.chapters}, "${state.chapter.title}".]`;
-  return state.held
-    ? "[On the stage: the presentation is stopped between two chapters.]"
-    : "[On the stage: the presentation is not playing.]";
 }
 
 /**
@@ -332,6 +253,10 @@ export function talkFiller(language: string, nth: number): string {
 }
 
 export interface TalkAnswer {
+  /** What the agent said, kept in the conversation's thread. */
+  words: string;
+  /** The change it proposed: a card in the thread, made only from there. */
+  change: string | null;
   /** The agent asked for the presentation to go on (a tool of the page). */
   resume: boolean;
   usage: ChatUsage;
@@ -352,18 +277,29 @@ export async function talkTurn(input: {
   messages: Anthropic.Beta.BetaMessageParam[];
   state: StageState | null;
   sources: ChatSources;
-  stage: (hand: StageHand) => Promise<StageCueResult>;
+  stage: StageHands;
   say: (text: string) => void;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
   const started = input.started ?? Date.now();
   let firstWordMs: number | null = null;
+  let words = "";
+  let change: string | null = null;
   const speak = (text: string) => {
     if (!text) return;
     if (firstWordMs === null) firstWordMs = Date.now() - started;
+    words += text;
     say(text);
   };
+  const answer = (resume: boolean): TalkAnswer => ({
+    words: words.trim(),
+    change,
+    resume,
+    usage,
+    firstWordMs,
+    steps,
+  });
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: INSTRUCTIONS },
     { type: "text", text: context.text, cache_control: { type: "ephemeral" } },
@@ -417,21 +353,24 @@ export async function talkTurn(input: {
         block.type === "tool_use",
     );
     if (response.stop_reason !== "tool_use" || calls.length === 0)
-      return { resume: false, usage, firstWordMs, steps };
+      return answer(false);
     if (calls.some((call) => call.name === "resume_presentation"))
-      return { resume: true, usage, firstWordMs, steps };
+      return answer(true);
     messages.push({ role: "assistant", content: response.content });
     // One move on the stage at a time, in the order asked.
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
       const ran = Date.now();
-      const result = await runTalkTool(call, context, sources, stage).catch(
-        (error: Error) => ({
-          text: `That failed: ${error.message.slice(0, 200)}`,
-          error: true,
-        }),
-      );
-      steps.push({ what: stepName(call), ms: Date.now() - ran });
+      const result: { text: string; error?: boolean; change?: string } = await (
+        isStageTool(call.name)
+          ? runStageTool(call, stage)
+          : runChatTool(call, context, sources)
+      ).catch((error: Error) => ({
+        text: `That failed: ${error.message.slice(0, 200)}`,
+        error: true,
+      }));
+      if (result.change) change = result.change;
+      steps.push({ what: stageStepName(call), ms: Date.now() - ran });
       results.push({
         type: "tool_result",
         tool_use_id: call.id,
@@ -444,60 +383,6 @@ export async function talkTurn(input: {
       content.push({ type: "text", text: "Answer now with what you have." });
     messages.push({ role: "user", content });
   }
-}
-
-/** A tool call in the turn's log: its name, and what it did on the stage. */
-function stepName(call: Anthropic.Beta.BetaToolUseBlock): string {
-  const input = call.input as {
-    actions?: { do?: unknown }[];
-    window?: unknown;
-  } | null;
-  if (call.name === "act_on_screen" && Array.isArray(input?.actions))
-    return `${call.name}[${input.actions.map((action) => String(action?.do)).join(" ")}]`;
-  if (call.name === "show_window")
-    return `${call.name}[${String(input?.window)}]`;
-  return call.name;
-}
-
-async function runTalkTool(
-  call: Anthropic.Beta.BetaToolUseBlock,
-  context: TalkContext,
-  sources: ChatSources,
-  stage: (hand: StageHand) => Promise<StageCueResult>,
-): Promise<{ text: string; error?: boolean }> {
-  if (!(call.name in stageInputs)) return runChatTool(call, context, sources);
-  const parsed = stageInputs[call.name as keyof typeof stageInputs].safeParse(
-    call.input,
-  );
-  if (!parsed.success)
-    return { text: `Invalid call to ${call.name}.`, error: true };
-  const hand: StageHand =
-    call.name === "act_on_screen"
-      ? {
-          action: "act",
-          actions: (parsed.data as z.infer<typeof stageInputs.act_on_screen>)
-            .actions,
-        }
-      : call.name === "show_window"
-        ? {
-            action: "window",
-            window: (parsed.data as z.infer<typeof stageInputs.show_window>)
-              .window,
-          }
-        : call.name === "run_in_terminal"
-          ? {
-              action: "run",
-              ...(parsed.data as z.infer<typeof stageInputs.run_in_terminal>),
-            }
-          : { action: "look" };
-  const result = await stage(hand);
-  const problems = result.problems.length
-    ? `Failed: ${result.problems.join("; ")}\n`
-    : "";
-  return {
-    text: `${problems}${result.screen ?? ""}`.trim() || "Done.",
-    error: !result.ok || (result.problems.length > 0 && !result.screen),
-  };
 }
 
 /**

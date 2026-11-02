@@ -58,6 +58,7 @@ export interface AppEnv {
       workUnitId: string;
       userId: string;
       text: string;
+      stage?: boolean;
     }): Promise<ActionResult>;
     createIssue(input: {
       projectId: string;

@@ -149,37 +149,31 @@ export function prefetchPullPanel(projectId: string, key: string): void {
 }
 
 /**
- * A ticket's row, opened: what the agents did, what to watch and the files
- * changed on the left, the conversation on the right; a change asked from
- * there goes to the pull request. Who paid is on the row's line.
+ * A pull request's panel: what it showed last at once, then Yarrow's side
+ * again; followed while an answer is written or a change is on its way.
+ * `refresh` gives what it read, or undefined when it could not.
  */
-export function PullPanel({
-  projectId,
-  rowKey,
-  onChanged,
-}: {
-  projectId: string;
-  rowKey: string;
-  /** The table's row moved (merged, a correction started). */
-  onChanged: () => void;
-}) {
-  const id = cacheKey(projectId, rowKey);
+export function usePullPanel(projectId: string, rowKey: string) {
   const [panel, setPanel] = useState<Panel | null | undefined>(() =>
-    panels.get(id),
+    panels.get(cacheKey(projectId, rowKey)),
   );
-
   const refresh = useCallback(
     () =>
       fetchPanel(projectId, rowKey)
-        .then(setPanel)
+        .then((fresh) => {
+          setPanel(fresh);
+          return fresh;
+        })
         // A failed refresh keeps what is shown.
-        .catch(() => setPanel((shown) => shown ?? null)),
+        .catch(() => {
+          setPanel((shown) => shown ?? null);
+          return undefined;
+        }),
     [projectId, rowKey],
   );
   useEffect(() => {
     void refresh();
-    void loadFiles(projectId, rowKey).catch(() => {});
-  }, [refresh, projectId, rowKey]);
+  }, [refresh]);
 
   // A correction on its way: follow it until its commit lands. An answer
   // being written, sooner.
@@ -199,6 +193,28 @@ export function PullPanel({
     const timer = setInterval(() => void refresh(), answering ? 3_000 : 5_000);
     return () => clearInterval(timer);
   }, [busy, answering, refresh]);
+  return { panel, setPanel, refresh };
+}
+
+/**
+ * A ticket's row, opened: what the agents did, what to watch and the files
+ * changed on the left, the conversation on the right; a change asked from
+ * there goes to the pull request. Who paid is on the row's line.
+ */
+export function PullPanel({
+  projectId,
+  rowKey,
+  onChanged,
+}: {
+  projectId: string;
+  rowKey: string;
+  /** The table's row moved (merged, a correction started). */
+  onChanged: () => void;
+}) {
+  const { panel, setPanel, refresh } = usePullPanel(projectId, rowKey);
+  useEffect(() => {
+    void loadFiles(projectId, rowKey).catch(() => {});
+  }, [projectId, rowKey]);
 
   // Cinema: the film fills the window beside the conversation, which goes
   // with it; the page under it held where it was.
@@ -229,53 +245,28 @@ export function PullPanel({
     return <p className="pp pp-none muted">Nothing to show for this ticket</p>;
 
   const { live, pullRequest } = panel;
-  const open = pullRequest?.state === "open" && live?.open !== false;
   const size = live
     ? `${live.additions}:${live.deletions}:${live.changedFiles}`
     : "";
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  // The conversation, the panel's right column, beside the film in cinema:
-  // questions, answers, the changes asked, then the box to ask the next one.
-  const talk = pullRequest && (
-    <aside className="pp-talk" aria-label="Conversation">
-      <div className="pp-talk-thread">
-        <Thread
-          panel={panel}
-          projectId={projectId}
-          rowKey={rowKey}
-          open={open}
-          onSeek={presentation ? (ms) => seek.current?.(ms) : null}
-          onMade={() => {
-            void refresh();
-            onChanged();
-          }}
-        />
-      </div>
-      <Ask
-        projectId={projectId}
-        rowKey={rowKey}
-        text={draft}
-        onText={setDraft}
-        waiting={Boolean(answering)}
-        onSending={(question) =>
-          setPanel((shown) => {
-            if (!shown) return shown;
-            const at = Date.now();
-            return {
-              ...shown,
-              messages: [
-                ...shown.messages,
-                local(`q${at}`, "builder", question, at),
-                local(`a${at}`, "agent", "", at + 1),
-              ],
-            };
-          })
-        }
-        onSettled={() => void refresh()}
-      />
-    </aside>
+  // The conversation, the panel's right column, beside the film in cinema.
+  const talk = (
+    <Conversation
+      panel={panel}
+      projectId={projectId}
+      rowKey={rowKey}
+      draft={draft}
+      onDraft={setDraft}
+      onPanel={setPanel}
+      onRefresh={refresh}
+      onSeek={presentation ? (ms) => seek.current?.(ms) : null}
+      onMade={() => {
+        void refresh();
+        onChanged();
+      }}
+    />
   );
   return (
     <div className="pp">
@@ -670,6 +661,97 @@ function lines(panel: Panel): Line[] {
   ].sort((a, b) => a.at.localeCompare(b.at));
 }
 
+/** A line of the thread, as the brain keeps it. */
+export type ThreadMessage = Message;
+
+/**
+ * The pull request's conversation: questions, answers, the changes asked,
+ * then the box to ask the next one. Beside the film in the panel; beside
+ * the live stage on its page, where the agent may act on the stage and
+ * `turn` is the live call's turn under way, until the thread has it.
+ */
+export function Conversation({
+  panel,
+  projectId,
+  rowKey,
+  draft,
+  onDraft,
+  onPanel,
+  onRefresh,
+  onSeek,
+  onMade,
+  stage = false,
+  turn = [],
+  onAsking,
+}: {
+  panel: Panel;
+  projectId: string;
+  rowKey: string;
+  draft: string;
+  onDraft: (text: string) => void;
+  onPanel: (
+    update: (shown: Panel | null | undefined) => Panel | null | undefined,
+  ) => void;
+  onRefresh: () => Promise<unknown>;
+  /** Plays the film from a moment; null without a film. */
+  onSeek: ((ms: number) => void) | null;
+  onMade: () => void;
+  /** Asked beside the stage: the agent may act on it. */
+  stage?: boolean;
+  turn?: Message[];
+  /** A question is on its way. */
+  onAsking?: () => void;
+}) {
+  const { live, pullRequest } = panel;
+  if (!pullRequest) return null;
+  const open = pullRequest.state === "open" && live?.open !== false;
+  const answering = panel.messages.some(
+    (message) => message.status === "pending",
+  );
+  return (
+    <aside className="pp-talk" aria-label="Conversation">
+      <div className="pp-talk-thread">
+        <Thread
+          panel={
+            turn.length
+              ? { ...panel, messages: [...panel.messages, ...turn] }
+              : panel
+          }
+          projectId={projectId}
+          rowKey={rowKey}
+          open={open}
+          onSeek={onSeek}
+          onMade={onMade}
+        />
+      </div>
+      <Ask
+        projectId={projectId}
+        rowKey={rowKey}
+        text={draft}
+        onText={onDraft}
+        waiting={answering}
+        stage={stage}
+        onSending={(question) => {
+          onAsking?.();
+          onPanel((shown) => {
+            if (!shown) return shown;
+            const at = Date.now();
+            return {
+              ...shown,
+              messages: [
+                ...shown.messages,
+                local(`q${at}`, "builder", question, at),
+                local(`a${at}`, "agent", "", at + 1),
+              ],
+            };
+          });
+        }}
+        onSettled={() => void onRefresh()}
+      />
+    </aside>
+  );
+}
+
 /** The builder's words in a bubble on the right, the agent's as text on the left. */
 function Thread({
   panel,
@@ -935,6 +1017,7 @@ function Ask({
   text,
   onText: setText,
   waiting,
+  stage,
   onSending,
   onSettled,
 }: {
@@ -944,6 +1027,7 @@ function Ask({
   onText: (text: string) => void;
   /** An answer is being written: the next question waits for it. */
   waiting: boolean;
+  stage: boolean;
   /** The question shows in the thread before the brain has it. */
   onSending: (question: string) => void;
   onSettled: () => void;
@@ -969,7 +1053,12 @@ function Ask({
     onSending(question);
     try {
       const result = await ask({
-        data: { projectId, key: rowKey, text: question },
+        data: {
+          projectId,
+          key: rowKey,
+          text: question,
+          ...(stage ? { stage } : {}),
+        },
       });
       if (!result.ok) {
         setText(question);

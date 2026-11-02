@@ -33,10 +33,12 @@ import {
 import { eq, sql } from "drizzle-orm";
 import type { FundingStart } from "../src/core/daily-funding";
 import {
+  askedToday,
   askQuestion,
   chatContext,
   failAnswer,
   pullContext,
+  saveSpokenTurn,
   ticketForChat,
   ticketsForChat,
   saveAnswer,
@@ -93,7 +95,9 @@ import {
 } from "../src/runner/chat";
 import {
   completion,
+  conversationSoFar,
   memberSpoke,
+  memberWords,
   stageNote,
   TALK_SILENCE_MS,
   talkFiller,
@@ -130,7 +134,7 @@ import {
   type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
-import { chatCostCents } from "../src/core/chat";
+import { CHAT_DAILY_QUESTIONS, chatCostCents } from "../src/core/chat";
 import { stageContext } from "../src/db/stage";
 import { installationToken } from "../src/server/github/app";
 import { RECORDER_SOURCE } from "../src/runner/recorder/source";
@@ -714,6 +718,8 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
 /** Moves more sponsor money onto the run when it cost more than reserved. */
 interface ChatRequest {
   answerId: string;
+  /** Asked beside this work unit's stage: the agent may act on it. */
+  stage?: string;
 }
 
 /**
@@ -723,14 +729,14 @@ interface ChatRequest {
  */
 export class ChatWorkflow extends WorkflowEntrypoint<BrainEnv, ChatRequest> {
   async run(event: WorkflowEvent<ChatRequest>, step: WorkflowStep) {
-    const { answerId } = event.payload;
+    const { answerId, stage } = event.payload;
     const env = this.env;
     let answer: ChatAnswer;
     try {
       answer = await step.do(
         "answer",
         { retries: { limit: 1, delay: "5 seconds" }, timeout: "5 minutes" },
-        () => answerChat(env, answerId),
+        () => answerChat(env, answerId, stage),
       );
     } catch (error) {
       console.warn("chat", describe(error));
@@ -748,6 +754,7 @@ export class ChatWorkflow extends WorkflowEntrypoint<BrainEnv, ChatRequest> {
 async function answerChat(
   env: BrainEnv,
   answerId: string,
+  stageOf?: string,
 ): Promise<ChatAnswer> {
   if (!env.ANTHROPIC_API_KEY)
     throw new NonRetryableError("ANTHROPIC_API_KEY is not configured");
@@ -758,7 +765,9 @@ async function answerChat(
     const film = context.panel?.screens.find(
       (screen) => screen.kind === "presentation",
     );
-    const [presentation, reader] = await Promise.all([
+    // The stage only while it is up: a question never wakes it.
+    const hands = stageOf && env.STAGE ? env.STAGE.getByName(stageOf) : null;
+    const [presentation, reader, state] = await Promise.all([
       film && env.EVIDENCE
         ? env.EVIDENCE.get(film.key)
             .then(async (object) =>
@@ -776,6 +785,12 @@ async function answerChat(
             project,
           ).catch(() => null)
         : null,
+      hands
+        ? hands
+            .present({ action: "state" })
+            .then((result) => (result.ok ? result : null))
+            .catch(() => null)
+        : null,
     ]);
     return answerQuestion({
       client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
@@ -786,6 +801,13 @@ async function answerChat(
         tickets: () => ticketsForChat(db, project.id),
         ticket: (key) => ticketForChat(db, project.id, key),
       },
+      stage:
+        hands && state
+          ? {
+              state: state.state ?? null,
+              hands: (hand) => hands.present(hand),
+            }
+          : null,
     });
   });
 }
@@ -1149,6 +1171,8 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     workUnitId: string;
     userId: string;
     text: string;
+    /** Asked beside the pull request's stage. */
+    stage?: boolean;
   }): Promise<ActionResult> {
     const asked = await withDb(this.env, (db) => askQuestion(db, input));
     if (!asked.ok)
@@ -1162,7 +1186,10 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     try {
       await this.env.CHAT.create({
         id: asked.answerId,
-        params: { answerId: asked.answerId },
+        params: {
+          answerId: asked.answerId,
+          ...(input.stage ? { stage: input.workUnitId } : {}),
+        },
       });
     } catch (error) {
       await withDb(this.env, (db) => failAnswer(db, asked.answerId));
@@ -1234,6 +1261,10 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     )
       return { ok: false, reason: "No live call on this environment." };
     const stage = env.STAGE.getByName(input.workUnitId);
+    // Each turn of the call counts as a question of the day, as if written.
+    const asked = await withDb(env, (db) => askedToday(db, input.userId));
+    if (asked >= CHAT_DAILY_QUESTIONS)
+      return { ok: false, reason: "That's all the questions for today." };
     const [context, token, grant] = await Promise.all([
       talkContext(env, input.workUnitId),
       conversationToken(env.ELEVENLABS_API_KEY, env.ELEVENLABS_AGENT_ID),
@@ -1288,7 +1319,7 @@ async function talkContext(
       : null,
   ]);
   return {
-    text: chatContextText(context, { presentation, diff }),
+    text: `${chatContextText(context, { presentation, diff })}\n\n${conversationSoFar(context.history)}`,
     project: context.project,
     pullRequest: pull,
   };
@@ -1378,6 +1409,23 @@ async function talkRoute(
         stage: (hand) => stage.present(hand),
         say: (text) => void say(text),
       });
+      // In the conversation's thread before the turn ends: the page reads
+      // it back as soon as the voice is done.
+      if (answer.words || answer.change)
+        await withDb(env, (db) =>
+          saveSpokenTurn(
+            db,
+            {
+              workUnitId: grant.workUnitId,
+              userId: grant.userId,
+              said: memberWords(messages),
+              words: answer.words,
+              change: answer.change,
+              usage: answer.usage,
+            },
+            new Date(started),
+          ),
+        ).catch((error) => console.warn("talk:save", describe(error)));
       await write(
         answer.resume
           ? completion.resume(id) + completion.done
