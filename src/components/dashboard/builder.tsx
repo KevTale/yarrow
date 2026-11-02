@@ -12,7 +12,14 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
@@ -817,6 +824,39 @@ function TicketGroup({
  * with it now (Start, Retry), where it stands, its pull request, who paid,
  * and when it was written.
  */
+/** The site's header and a little air above an opened row. */
+const OVER_ROW = 72;
+
+/**
+ * An opened row comes to the middle of the window, or under the header when
+ * it is taller, the whole time it and the page settle (what it holds loads,
+ * the row closing elsewhere folds), until the member scrolls themselves.
+ */
+function useOpenedInView(row: RefObject<HTMLElement | null>, open: boolean) {
+  useEffect(() => {
+    const opened = row.current;
+    if (!open || !opened) return;
+    const settling = new ResizeObserver(() => {
+      const fits = opened.offsetHeight < window.innerHeight - OVER_ROW;
+      opened.scrollIntoView({ block: fits ? "center" : "start" });
+    });
+    settling.observe(opened);
+    settling.observe(document.body);
+    const stop = () => settling.disconnect();
+    const settled = window.setTimeout(stop, 1200);
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchmove", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    return () => {
+      stop();
+      window.clearTimeout(settled);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchmove", stop);
+      window.removeEventListener("keydown", stop);
+    };
+  }, [row, open]);
+}
+
 function TicketLine({
   row,
   projectId,
@@ -837,12 +877,14 @@ function TicketLine({
   onChanged: () => void;
 }) {
   const dateTime = useDateTime(row.createdAt);
+  const item = useRef<HTMLLIElement>(null);
+  useOpenedInView(item, open);
   const intent = () => {
     prefetchTicket(projectId, row.key);
     if (row.pullRequest) prefetchPullPanel(projectId, row.key);
   };
   return (
-    <li className={`tix-item ${open ? "open" : ""}`}>
+    <li ref={item} className={`tix-item ${open ? "open" : ""}`}>
       <div
         data-flip={`${projectId}:${row.key}`}
         data-flip-value={row.status}

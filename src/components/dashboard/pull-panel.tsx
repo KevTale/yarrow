@@ -32,7 +32,12 @@ import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
 import { leadProof } from "@/core/proofs";
-import { agentNotes, splitNote, spottedTicket } from "@/core/pull-notes";
+import {
+  agentNotes,
+  noticedLine,
+  splitNote,
+  spottedTicket,
+} from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   askChatFn,
@@ -400,7 +405,7 @@ export function PullPanel({
           <dialog
             ref={theater}
             className="pp-stage"
-            aria-label="Cinema mode"
+            aria-label="Full screen"
             onClose={() => setCinema(false)}
           >
             {cinema && (
@@ -447,8 +452,8 @@ export function PullPanel({
                             type="button"
                             className="pv-icon"
                             onClick={flipCinema}
-                            aria-label="Cinema mode"
-                            data-tip="Cinema mode"
+                            aria-label="Full screen"
+                            data-tip="Full screen"
                           >
                             <RectangleHorizontal size={18} aria-hidden="true" />
                           </button>
@@ -682,8 +687,8 @@ function Changed({
 
 /**
  * What the agent tells the owner first, before any question: what must be
- * done, what could not be checked, or that all is good; then what it noticed
- * outside the ticket.
+ * done, what could not be checked; then what it noticed outside the ticket.
+ * With nothing to say, it says nothing.
  */
 function Notes({
   panel,
@@ -705,9 +710,9 @@ function Notes({
     notVerified: implementation.notVerified,
     checked: panel.checks?.state === "passed",
   });
+  if (notes.length === 0 && implementation.spotted.length === 0) return null;
   const good =
-    notes.length === 0 &&
-    review &&
+    !!review &&
     !implementation.legacy &&
     !panel.working &&
     pullRequest?.state === "open";
@@ -718,8 +723,8 @@ function Notes({
           <Rich text={line} />
         </p>
       ))}
-      {good && <p className="pp-say">All good on my side.</p>}
       <Suggested
+        said={{ notes: notes.length > 0, good }}
         projectId={projectId}
         rowKey={rowKey}
         onMade={onMade}
@@ -737,6 +742,7 @@ function Notes({
  * write, its words drafted (its technical pointer goes in the ticket).
  */
 function Suggested({
+  said,
   projectId,
   rowKey,
   onMade,
@@ -744,6 +750,8 @@ function Suggested({
   by,
   lines: listed,
 }: {
+  /** What the agent has said before them. */
+  said: { notes: boolean; good: boolean };
   projectId: string;
   rowKey: string;
   /** A suggestion was made a ticket: the panel reads it gone. */
@@ -759,47 +767,50 @@ function Suggested({
   const lines = listed.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
-    <ul className="pp-ideas">
-      {lines.map((line) => {
-        const { plain } = splitNote(line);
-        const ticket = spottedTicket(line, by, pullRequestUrl);
-        return (
-          <li key={line}>
-            {draft ? (
-              <button
-                type="button"
-                className="pp-idea"
-                aria-label={`Make it a ticket: ${ticket.title}`}
-                onClick={() =>
-                  draft(
-                    projectId,
-                    { ...ticket, from: { key: rowKey, note: line } },
-                    () => {
-                      setMade((shown) => [...shown, line]);
-                      onMade();
-                    },
-                  )
-                }
-              >
-                <span>
-                  <Rich text={plain} />
+    <>
+      <p className="pp-say">{noticedLine(lines.length, said)}</p>
+      <ul className="pp-ideas">
+        {lines.map((line) => {
+          const { plain } = splitNote(line);
+          const ticket = spottedTicket(line, by, pullRequestUrl);
+          return (
+            <li key={line}>
+              {draft ? (
+                <button
+                  type="button"
+                  className="pp-idea"
+                  aria-label={`Make it a ticket: ${ticket.title}`}
+                  onClick={() =>
+                    draft(
+                      projectId,
+                      { ...ticket, from: { key: rowKey, note: line } },
+                      () => {
+                        setMade((shown) => [...shown, line]);
+                        onMade();
+                      },
+                    )
+                  }
+                >
+                  <span>
+                    <Rich text={plain} />
+                  </span>
+                  <span className="pp-idea-go">
+                    <Plus size={13} aria-hidden="true" />
+                    Make it a ticket
+                  </span>
+                </button>
+              ) : (
+                <span className="pp-idea">
+                  <span>
+                    <Rich text={plain} />
+                  </span>
                 </span>
-                <span className="pp-idea-go">
-                  <Plus size={13} aria-hidden="true" />
-                  Make it a ticket
-                </span>
-              </button>
-            ) : (
-              <span className="pp-idea">
-                <span>
-                  <Rich text={plain} />
-                </span>
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -1443,8 +1454,9 @@ function Ask({
 
 /**
  * The files a pull request changed, last in the panel: how many and their
- * lines, then a quiet line per file in the order a builder reads them (the
- * code, its tests, its documentation, what tools generated, the assets).
+ * lines, closed; opened, a quiet line per file in the order a builder reads
+ * them (the code, its tests, its documentation, what tools generated, the
+ * assets).
  * A file opens on its changes over the page, its header's arrows and the
  * keyboard's going from one file to the next, so the panel and its
  * conversation never move.
@@ -1463,6 +1475,7 @@ function ChangedFiles({
 }) {
   const files = usePullFiles(projectId, rowKey, size);
   const dialog = useRef<HTMLDialogElement>(null);
+  const [listed, setListed] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
   useEffect(() => {
     if (open !== null && !dialog.current?.open) dialog.current?.showModal();
@@ -1494,40 +1507,50 @@ function ChangedFiles({
   return (
     <section className="pp-section">
       <h3>
-        {files.length} {files.length === 1 ? "file" : "files"} changed
-        <span className="pp-count">
-          <span className="add">+{additions}</span>
-          {deletions > 0 && (
-            <>
-              {" "}
-              <span className="del">−{deletions}</span>
-            </>
-          )}
-        </span>
+        <button
+          type="button"
+          className="pp-files-open"
+          aria-expanded={listed}
+          onClick={() => setListed(!listed)}
+        >
+          {files.length} {files.length === 1 ? "file" : "files"} changed
+          <span className="pp-count">
+            <span className="add">+{additions}</span>
+            {deletions > 0 && (
+              <>
+                {" "}
+                <span className="del">−{deletions}</span>
+              </>
+            )}
+          </span>
+          <ChevronRight size={14} aria-hidden="true" />
+        </button>
       </h3>
-      <ul className="pp-filelist">
-        {ordered.map((file, i) => {
-          const slash = file.path.lastIndexOf("/");
-          return (
-            <li key={file.path}>
-              <button
-                type="button"
-                className="pp-fileline"
-                title={file.path}
-                onClick={() => setOpen(i)}
-              >
-                <FileText size={13} aria-hidden="true" />
-                <b>{file.path.slice(slash + 1)}</b>
-                {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
-                <span className="pp-count">
-                  <span className="add">+{file.additions}</span>{" "}
-                  <span className="del">−{file.deletions}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {listed && (
+        <ul className="pp-filelist">
+          {ordered.map((file, i) => {
+            const slash = file.path.lastIndexOf("/");
+            return (
+              <li key={file.path}>
+                <button
+                  type="button"
+                  className="pp-fileline"
+                  title={file.path}
+                  onClick={() => setOpen(i)}
+                >
+                  <FileText size={13} aria-hidden="true" />
+                  <b>{file.path.slice(slash + 1)}</b>
+                  {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
+                  <span className="pp-count">
+                    <span className="add">+{file.additions}</span>{" "}
+                    <span className="del">−{file.deletions}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <dialog
         ref={dialog}
         className="pp-diffs"

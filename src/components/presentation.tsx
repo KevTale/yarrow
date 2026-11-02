@@ -795,8 +795,8 @@ function Player({
                         className="pv-icon"
                         onClick={onCinema}
                         aria-pressed={cinema}
-                        aria-label={cinema ? "Exit cinema mode" : "Cinema mode"}
-                        data-tip={cinema ? "Exit cinema mode" : "Cinema mode"}
+                        aria-label={cinema ? "Exit full screen" : "Full screen"}
+                        data-tip={cinema ? "Exit full screen" : "Full screen"}
                       >
                         <RectangleHorizontal size={18} aria-hidden="true" />
                       </button>

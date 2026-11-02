@@ -3,6 +3,7 @@ import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
   agentNotes,
   criterionMarkdown,
+  noticedLine,
   splitNote,
   spottedTicket,
 } from "../../src/core/pull-notes";
@@ -120,6 +121,22 @@ describe("pull request notes", () => {
     expect(agentNotes({ ...input, checked: true })).toEqual([
       "Forks get no secrets",
     ]);
+  });
+
+  it("leads to what it noticed as a colleague would", () => {
+    const clean = { notes: false, good: true };
+    expect(noticedLine(1, clean)).toBe(
+      "All good on my side, but I noticed something outside this ticket:",
+    );
+    expect(noticedLine(2, clean)).toBe(
+      "All good on my side, but I noticed two things outside this ticket:",
+    );
+    expect(noticedLine(3, { notes: false, good: false })).toBe(
+      "I noticed a few things outside this ticket:",
+    );
+    expect(noticedLine(1, { notes: true, good: true })).toBe(
+      "I also noticed something outside this ticket:",
+    );
   });
 
   it("drafts a ticket from what was noticed, its first sentence the title", () => {
