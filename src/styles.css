@@ -9344,7 +9344,7 @@ button.pp-idea:focus-visible .pp-idea-go {
 }
 .stage-body > .pp-talk {
   height: calc((100cqw - 360px) * 900 / 1440);
-  min-height: 420px;
+  min-height: 300px;
   contain: size;
   border-left-color: #ffffff0f;
 }
