@@ -489,9 +489,10 @@ export class Stage extends DurableObject<StageEnv> {
         this.#save(saved);
         return;
       }
+      // Kept now, with this look's marks: what follows reads the store.
       saved.served = true;
+      this.#save(saved);
       if (saved.prepare) {
-        this.#save(saved);
         await this.#keep();
         if (prepare()) {
           this.#save({ ...this.#kv.get<Saved>("saved")!, step: "ready" });
