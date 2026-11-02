@@ -39,7 +39,7 @@ How you talk:
 
 The stage:
 - When seeing it helps, show it: look at the screen, then act on it. They see the pointer move and click as you do it.
-- What a look returns names the page's elements with refs (e12): act on them by those refs, from your latest look only.
+- What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
 - The presentation goes on only when they want it to: when they say to go on, or agree when you offer once their question is answered, call resume_presentation. Never on your own.
 
@@ -90,7 +90,7 @@ const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
               target: {
                 type: "string",
                 description:
-                  "The element: its ref from the latest look (e12), else a Playwright selector.",
+                  "The element: its ref from the latest look (e12, f5e16), else a Playwright selector.",
               },
               text: { type: "string", description: "For fill." },
               value: { type: "string", description: "For select." },
@@ -213,26 +213,82 @@ const textOf = (content: z.infer<typeof incomingSchema>["content"]) =>
         .join("")
         .trim();
 
+type Said = Anthropic.Beta.BetaMessageParam;
+
+const blocks = (
+  content: Said["content"],
+): Anthropic.Beta.BetaContentBlockParam[] =>
+  typeof content === "string"
+    ? [{ type: "text", text: content }]
+    : ((content ?? []) as Anthropic.Beta.BetaContentBlockParam[]);
+
+/** ElevenLabs' turn that called the page's tool. */
+const resumed = (message: z.infer<typeof incomingSchema>) =>
+  Array.isArray(message.tool_calls) &&
+  (message.tool_calls as { function?: { name?: unknown } }[]).some(
+    (call) => call?.function?.name === "resume_presentation",
+  );
+
 /**
  * The call so far, as Claude reads it: what the member said and what was
- * said back, the words alone. ElevenLabs' own prompt, tool calls and
- * results stay out: each turn looks at the stage afresh.
+ * said back, the words alone, and each time the presentation went on (else
+ * "go on" then "thanks" read as one turn asking to go on again).
+ * ElevenLabs' own prompt and the stage's tools stay out: each turn looks
+ * at the stage afresh.
  */
-export function talkMessages(
-  messages: TalkRequest["messages"],
-): Anthropic.Beta.BetaMessageParam[] {
-  const said: Anthropic.Beta.BetaMessageParam[] = [];
+export function talkMessages(messages: TalkRequest["messages"]): Said[] {
+  const said: Said[] = [];
+  let resumes = 0;
   for (const message of messages) {
     if (message.role !== "user" && message.role !== "assistant") continue;
     const text = textOf(message.content).trim();
-    if (!text) continue;
     const last = said.at(-1);
-    if (last?.role === message.role)
-      last.content = `${last.content as string}\n${text}`;
+    if (message.role === "assistant" && resumed(message)) {
+      const content: Anthropic.Beta.BetaContentBlockParam[] = [
+        ...(text ? [{ type: "text" as const, text }] : []),
+        {
+          type: "tool_use",
+          id: `resume_${++resumes}`,
+          name: "resume_presentation",
+          input: {},
+        },
+      ];
+      if (last?.role === "assistant")
+        last.content = [...blocks(last.content), ...content];
+      else said.push({ role: "assistant", content });
+      continue;
+    }
+    if (!text) continue;
+    const calls =
+      last?.role === "assistant"
+        ? blocks(last.content).filter((block) => block.type === "tool_use")
+        : [];
+    if (message.role === "user" && calls.length > 0)
+      said.push({
+        role: "user",
+        content: [
+          ...calls.map((call) => ({
+            type: "tool_result" as const,
+            tool_use_id: call.id,
+            content: "The presentation went on.",
+          })),
+          { type: "text", text },
+        ],
+      });
+    else if (last?.role === message.role)
+      last.content =
+        typeof last.content === "string"
+          ? `${last.content}\n${text}`
+          : [...last.content, { type: "text", text }];
     else said.push({ role: message.role, content: text });
   }
   // The call opens with the member: anything said before them goes.
   while (said[0]?.role === "assistant") said.shift();
+  const first = said[0];
+  if (first && typeof first.content !== "string")
+    first.content = blocks(first.content).filter(
+      (block) => block.type !== "tool_result",
+    );
   return said;
 }
 
@@ -315,7 +371,10 @@ export async function talkTurn(input: {
   const messages = input.messages.map((message) => ({ ...message }));
   const last = messages.at(-1);
   if (last?.role === "user")
-    last.content = `${last.content as string}\n\n${stageNote(input.state)}`;
+    last.content =
+      typeof last.content === "string"
+        ? `${last.content}\n\n${stageNote(input.state)}`
+        : [...last.content, { type: "text", text: stageNote(input.state) }];
   const steps: TalkAnswer["steps"] = [];
   let usage: ChatUsage = {
     model: TALK_MODEL,

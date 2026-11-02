@@ -406,6 +406,53 @@ describe("what ElevenLabs sends the brain", () => {
     expect(talkGrantOf(talkRequestSchema.parse({ messages: [] }))).toBeNull();
   });
 
+  it("keeps each time the presentation went on, between two turns", () => {
+    const { messages } = talkRequestSchema.parse({
+      messages: [
+        { role: "user", content: "Carry on." },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "resume_presentation", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", content: "Tool called successfully." },
+        { role: "user", content: "Thanks, that's all." },
+      ],
+    });
+    // Else "carry on" and "thanks" read as one turn asking to go on again.
+    expect(talkMessages(messages)).toEqual([
+      { role: "user", content: "Carry on." },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "resume_1",
+            name: "resume_presentation",
+            input: {},
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "resume_1",
+            content: "The presentation went on.",
+          },
+          { type: "text", text: "Thanks, that's all." },
+        ],
+      },
+    ]);
+  });
+
   it("is answered once the member spoke, not after the page's tool", () => {
     const asked = (messages: unknown[]) =>
       memberSpoke(talkRequestSchema.parse({ messages }));

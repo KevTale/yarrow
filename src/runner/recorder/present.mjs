@@ -2696,9 +2696,10 @@ class Presenter {
     const clock = () => Date.now() - started;
     await page.bringToFront();
     for (const action of actions) {
-      // A ref from the last look: the element it named.
+      // A ref from the last look (e16, or f5e16 in a frame): the element it named.
       const target =
-        typeof action.target === "string" && /^e\d+$/.test(action.target.trim())
+        typeof action.target === "string" &&
+        /^(f\d+)?e\d+$/.test(action.target.trim())
           ? "aria-ref=" + action.target.trim()
           : action.target;
       try {
