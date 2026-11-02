@@ -51,7 +51,7 @@ const BASE_ENV = {
   PLAYWRIGHT_BROWSERS_PATH: "/opt/pw-browsers",
 };
 
-type Step = "boot" | "desktop" | "ready" | "failed";
+type Step = "starting" | "boot" | "desktop" | "ready" | "failed";
 
 interface Saved {
   /** Date.now() when the stage was asked for. */
@@ -86,7 +86,10 @@ export class Stage extends DurableObject<StageEnv> {
     return this.ctx.storage.kv;
   }
 
-  /** Brings the stage up; already up or coming, nothing new. */
+  /**
+   * Brings the stage up; already up or coming, nothing new. Answers at
+   * once: the machine comes up in the background (the alarm).
+   */
   async open(spec: StageSpec, fresh = false): Promise<StageStatus> {
     const saved = this.#kv.get<Saved>("saved");
     if (!fresh && this.#container.running && saved && saved.step !== "failed")
@@ -94,12 +97,17 @@ export class Stage extends DurableObject<StageEnv> {
     await this.ctx.storage.deleteAlarm();
     if (this.#container.running) await this.#container.destroy();
     if (fresh) this.#kv.delete("snapshot");
-    const snapshot = this.#kv.get<ContainerSnapshot>("snapshot");
-    const asked = Date.now();
     this.#kv.put("spec", spec);
+    await this.#start(Date.now());
+    return this.status();
+  }
+
+  async #start(asked: number): Promise<void> {
+    const spec = this.#kv.get<StageSpec>("spec")!;
+    const snapshot = this.#kv.get<ContainerSnapshot>("snapshot");
     this.#save({
       asked,
-      step: "boot",
+      step: "starting",
       warm: Boolean(snapshot),
       events: [],
       error: null,
@@ -120,39 +128,48 @@ export class Stage extends DurableObject<StageEnv> {
     ).MuseOutbound({
       props: { sandbox: this.ctx.id.toString(), token: spec.token },
     });
+    await this.#container.interceptAllOutboundHttp(outbound);
+    await this.#container.interceptOutboundHttps("*", outbound);
+    await this.#container.setInactivityTimeout(IDLE_MS);
+    await this.ctx.storage.setAlarm(Date.now());
+  }
+
+  /** The machine answers: the recipe (or its restart) runs in the background. */
+  async #boot(saved: Saved): Promise<void> {
+    const spec = this.#kv.get<StageSpec>("spec")!;
     try {
-      await this.#container.interceptAllOutboundHttp(outbound);
-      await this.#container.interceptOutboundHttps("*", outbound);
-      await this.#container.setInactivityTimeout(IDLE_MS);
       await this.#must([
         "/bin/sh",
         "-c",
         `cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && mkdir -p ${TASK} && rm -f ${BOOT_LOG} ${READY} ${DESKTOP_EXIT}`,
       ]);
     } catch (error) {
+      if (!saved.warm) throw error;
       // A snapshot of an older image does not start: a fresh boot instead.
-      if (!snapshot) throw error;
-      return this.open(spec, true);
+      this.#kv.delete("snapshot");
+      if (this.#container.running) await this.#container.destroy();
+      await this.#start(saved.asked);
+      return;
     }
+    this.#save({ ...saved, step: "boot" });
     this.#mark("machine up");
     const script = stageScript({
       log: BOOT_LOG,
       output: BOOT_OUTPUT,
       dir: REPO,
-      steps: snapshot ? spec.restart : spec.steps,
+      steps: saved.warm ? spec.restart : spec.steps,
       url: `${spec.url}${spec.path}`,
-      clone: snapshot
+      clone: saved.warm
         ? undefined
         : { repository: spec.repository, branch: spec.branch },
     });
     await this.#files.writeFile(`${TASK}/stage-boot.sh`, script);
     await this.#background(`bash ${TASK}/stage-boot.sh`);
-    await this.ctx.storage.setAlarm(Date.now() + TICK_MS);
-    return this.status();
   }
 
+  /** Where the stage stands; never waits for the machine. */
   async status(): Promise<StageStatus> {
-    await this.#advance();
+    void this.#advance().catch(() => {});
     const saved = this.#kv.get<Saved>("saved");
     if (!saved) return { phase: "off", warm: false, events: [], error: null };
     const phase =
@@ -162,7 +179,7 @@ export class Stage extends DurableObject<StageEnv> {
           ? this.#container.running
             ? "ready"
             : "off"
-          : this.#container.running
+          : this.#container.running || saved.step === "starting"
             ? "booting"
             : "failed";
     return {
@@ -183,9 +200,19 @@ export class Stage extends DurableObject<StageEnv> {
   }
 
   async alarm(): Promise<void> {
-    await this.#advance();
+    try {
+      await this.#advance();
+    } catch (error) {
+      const saved = this.#kv.get<Saved>("saved");
+      if (saved)
+        this.#save({
+          ...saved,
+          step: "failed",
+          error: (error as Error).message,
+        });
+    }
     const step = this.#kv.get<Saved>("saved")?.step;
-    if (this.#container.running && (step === "boot" || step === "desktop"))
+    if (step === "starting" || step === "boot" || step === "desktop")
       await this.ctx.storage.setAlarm(Date.now() + TICK_MS);
   }
 
@@ -212,12 +239,24 @@ export class Stage extends DurableObject<StageEnv> {
         // Closed already.
       }
     };
+    let sent = 0;
     server.addEventListener("message", (event) => {
       const data =
         typeof event.data === "string"
           ? new TextEncoder().encode(event.data)
           : new Uint8Array(event.data);
-      writer.write(data).catch(end);
+      // Spike: why the viewer's bytes do not reach the VNC server.
+      if (sent++ < 4)
+        console.log("stage ws->tcp", typeof event.data, data.length);
+      writer.write(data).then(
+        () => {
+          if (sent <= 4) console.log("stage tcp write ok", data.length);
+        },
+        (error: Error) => {
+          console.log("stage tcp write failed", error.message);
+          end();
+        },
+      );
     });
     server.addEventListener("close", end);
     server.addEventListener("error", end);
@@ -252,7 +291,9 @@ export class Stage extends DurableObject<StageEnv> {
 
   async #step(): Promise<void> {
     const saved = this.#kv.get<Saved>("saved");
-    if (!saved || !this.#container.running) return;
+    if (!saved) return;
+    if (saved.step === "starting") return this.#boot(saved);
+    if (!this.#container.running) return;
     if (saved.step === "boot") {
       const marks = stageLog((await this.#text(BOOT_LOG)) ?? "");
       const known = new Set(saved.events.map((event) => event.label));
