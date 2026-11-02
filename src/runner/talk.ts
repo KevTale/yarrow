@@ -266,9 +266,20 @@ export function memberSpoke(request: TalkRequest): boolean {
  */
 export const TALK_SILENCE_MS = 8000;
 const FILLERS: Record<string, string[]> = {
-  fr: ["Une seconde.", "J'y suis presque.", "Encore un instant."],
-  en: ["One moment.", "Almost there.", "Just a second."],
+  fr: ["Une seconde...", "J'y suis presque...", "Encore un instant..."],
+  en: ["One moment...", "Almost there...", "Just a second..."],
 };
+
+/**
+ * How words said before a tool end: ElevenLabs speaks a sentence once the
+ * words after it come, and at once one that ends in "... " (its "buffer
+ * words"); else "Let me look." waits for the answer after the tool.
+ */
+export function untilTool(words: string): string {
+  const said = words.trimEnd();
+  if (said.endsWith("...") || said.endsWith("…")) return " ";
+  return said.endsWith(".") ? ".. " : "... ";
+}
 
 /** What fills the nth silence of a turn, in the member's language. */
 export function talkFiller(language: string, nth: number): string {
@@ -373,11 +384,11 @@ export async function talkTurn(input: {
       ms: Date.now() - asked,
     });
     usage = addUsage(usage, response.usage);
-    if (wrote) speak(" ");
     const { calls } = response;
+    const resumes = calls.some((call) => call.name === "resume_presentation");
+    if (wrote) speak(response.toolUse && !resumes ? untilTool(words) : " ");
     if (!response.toolUse) return answer(false);
-    if (calls.some((call) => call.name === "resume_presentation"))
-      return answer(true);
+    if (resumes) return answer(true);
     messages.push({ role: "assistant", content: response.content });
     // One move on the stage at a time, in the order asked.
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];

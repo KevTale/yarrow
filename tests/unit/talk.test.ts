@@ -13,6 +13,7 @@ import {
   talkMessages,
   talkRequestSchema,
   talkTurn,
+  untilTool,
   type TalkContext,
 } from "../../src/runner/talk";
 import {
@@ -216,10 +217,12 @@ describe("the live call's turn", () => {
     });
 
     expect(said.join("")).toBe(
-      "Let me show you. Only the done tasks are left. ",
+      "Let me show you... Only the done tasks are left. ",
     );
     expect(answer.resume).toBe(false);
-    expect(answer.words).toBe("Let me show you. Only the done tasks are left.");
+    expect(answer.words).toBe(
+      "Let me show you... Only the done tasks are left.",
+    );
     expect(answer.change).toBeNull();
     expect(answer.firstWordMs).not.toBeNull();
     expect(answer.steps.map((step) => step.what)).toEqual([
@@ -660,11 +663,17 @@ describe("what ElevenLabs sends the brain", () => {
   });
 
   it("hears a few words while the stage works, in the member's language", () => {
-    expect(talkFiller("fr", 0)).toBe("Une seconde. ");
-    expect(talkFiller("fr", 1)).toBe("J'y suis presque. ");
-    expect(talkFiller("fr", 3)).toBe("Une seconde. ");
-    expect(talkFiller("en-GB", 0)).toBe("One moment. ");
-    expect(talkFiller("ja", 2)).toBe("Just a second. ");
+    expect(talkFiller("fr", 0)).toBe("Une seconde... ");
+    expect(talkFiller("fr", 1)).toBe("J'y suis presque... ");
+    expect(talkFiller("fr", 3)).toBe("Une seconde... ");
+    expect(talkFiller("en-GB", 0)).toBe("One moment... ");
+    expect(talkFiller("ja", 2)).toBe("Just a second... ");
+  });
+
+  it("ends the words said before a tool so the voice says them at once", () => {
+    expect(untilTool("Je regarde.")).toBe(".. ");
+    expect(untilTool("Je regarde l'écran")).toBe("... ");
+    expect(untilTool("Une seconde... ")).toBe(" ");
   });
 });
 
