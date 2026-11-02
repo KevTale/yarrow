@@ -66,10 +66,12 @@ interface Call {
 
 /** A voice in the microphone: ElevenLabs' VAD score past this. */
 const VOICED = 0.9;
-/** Heard this long, the presentation's voice pauses before any word. */
+/** Heard this long, the presentation holds before any word. */
 const VOICED_MS = 300;
-/** No word after it: it goes on this long after the voice. */
-const UNVOICED_MS = 1200;
+/** Held for a voice, it still talks while the score is past this. */
+const STILL_VOICED = 0.4;
+/** No word of it, and quiet this long: the presentation goes on. */
+const UNVOICED_MS = 2000;
 
 const voiceMs = (chapter: PresentationChapter) =>
   chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
@@ -153,7 +155,9 @@ export function useLiveStage({
   /** A voice heard over the presentation's, before any word of it. */
   const voiced = useRef<{
     since: number;
-    paused?: ReturnType<typeof setTimeout>;
+    last: number;
+    /** Held for it: let go once quiet, no word heard. */
+    quiet?: ReturnType<typeof setInterval>;
   } | null>(null);
   /** Pauses on a voice no word came of: past a few, the voice's own echo. */
   const unvoiced = useRef(0);
@@ -248,38 +252,56 @@ export function useLiveStage({
   }, [phase, screen, projectId, rowKey, call]);
 
   const unhear = () => {
-    clearTimeout(voiced.current?.paused);
+    clearInterval(voiced.current?.quiet);
     voiced.current = null;
   };
 
   /**
    * A voice in the microphone, before ElevenLabs hears any word of it: the
-   * presentation's voice pauses at once, and goes on if no word comes.
+   * presentation holds at once, its voice and its gestures, while it talks.
    */
   const listen = (score: number) => {
-    if (!showing.current || holding.current || unvoiced.current >= 3) return;
+    if (!showing.current || unvoiced.current >= 3) return;
     const now = performance.now();
     const heard = voiced.current;
+    if (heard?.quiet) {
+      if (score >= STILL_VOICED) heard.last = now;
+      return;
+    }
+    if (holding.current) return;
     if (score < VOICED) {
-      if (heard && !heard.paused) voiced.current = null;
+      voiced.current = null;
       return;
     }
     if (!heard) {
-      voiced.current = { since: now };
+      voiced.current = { since: now, last: now };
       return;
     }
-    if (!heard.paused && now - heard.since < VOICED_MS) return;
-    if (!heard.paused) voiceHold.current?.pause();
-    clearTimeout(heard.paused);
-    heard.paused = setTimeout(() => {
-      voiced.current = null;
-      unvoiced.current += 1;
-      if (!holding.current) voiceHold.current?.resume(false);
-    }, UNVOICED_MS);
+    if (now - heard.since >= VOICED_MS) hold(true);
   };
 
-  /** The member speaks: the presentation waits for them. */
-  const hold = () => {
+  /**
+   * Held for a voice no word came of, quiet now: it goes on, the voice
+   * from where it stopped. Past a few, the voice's own echo: words only.
+   */
+  const letGo = () => {
+    const holdNow = holding.current;
+    unhear();
+    if (!holdNow) return;
+    unvoiced.current += 1;
+    holding.current = null;
+    setHeld(false);
+    void cue({ action: "resume" });
+    voiceHold.current?.resume(false);
+    holdNow.release();
+  };
+
+  /**
+   * The member speaks: the presentation waits for them. For a voice alone
+   * (`byVoice`), until it is quiet; once words of it are heard, until their
+   * turn is said.
+   */
+  const hold = (byVoice = false) => {
     unhear();
     if (!showing.current || holding.current) return;
     let release = () => {};
@@ -288,6 +310,13 @@ export function useLiveStage({
     setHeld(true);
     voiceHold.current?.pause();
     void cue({ action: "pause" });
+    if (!byVoice) return;
+    const now = performance.now();
+    const heard: NonNullable<typeof voiced.current> = { since: now, last: now };
+    heard.quiet = setInterval(() => {
+      if (performance.now() - heard.last > UNVOICED_MS) letGo();
+    }, 200);
+    voiced.current = heard;
   };
 
   /**
@@ -339,13 +368,22 @@ export function useLiveStage({
   const settle = useCallback(async () => {
     const from = before.current ?? known.current;
     const begun = Date.now();
+    let fresh: Awaited<ReturnType<typeof refresh>>;
     for (let attempt = 0; attempt < 6; attempt++) {
-      const fresh = await refresh();
+      fresh = await refresh();
       if (fresh && fresh.messages.length > from) break;
       await sleep(2000);
     }
     before.current = null;
-    setLines((now) => now.filter((line) => line.at > begun));
+    // What the thread has now, a line heard twice included, goes.
+    const kept = new Set(
+      (fresh?.messages ?? []).map((message) =>
+        String((message as { body?: unknown }).body ?? "").trim(),
+      ),
+    );
+    setLines((now) =>
+      now.filter((line) => line.at > begun && !kept.has(line.text)),
+    );
   }, [refresh]);
 
   /** The call: the member's voice to the agent, the agent's back. */
@@ -385,14 +423,13 @@ export function useLiveStage({
           if (!text) return;
           if (source === "user") takeOver();
           before.current ??= known.current;
-          setLines((now) => [
-            ...now,
-            {
-              who: source === "user" ? "member" : "agent",
-              text,
-              at: Date.now(),
-            },
-          ]);
+          const who = source === "user" ? "member" : "agent";
+          setLines((now) =>
+            // ElevenLabs may send the same answer twice.
+            now.at(-1)?.who === who && now.at(-1)?.text === text
+              ? now
+              : [...now, { who, text, at: Date.now() }],
+          );
           if (source !== "user") void settle();
         },
         onDisconnect: () => {
