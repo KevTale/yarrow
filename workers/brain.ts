@@ -1506,6 +1506,7 @@ async function talkRoute(
           }
         },
         say: (text) => void say(text),
+        leadIn: talkFiller(grant.language, fillers++),
       });
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.

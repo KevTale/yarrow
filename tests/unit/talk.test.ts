@@ -262,6 +262,35 @@ describe("the live call's turn", () => {
     });
   });
 
+  it("says a few words itself when the agent goes to the stage without any", async () => {
+    const { client } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              { type: "tool_use", id: "t1", name: "look_at_screen", input: {} },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "Two are done." }],
+          },
+    );
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "How many are done?" }],
+      state: held,
+      sources,
+      stage: stage({}).stage,
+      say: (text) => said.push(text),
+      leadIn: "One moment. ",
+    });
+    expect(said.join("")).toBe("One moment. Two are done. ");
+    expect(answer.words).toBe("One moment. Two are done.");
+  });
+
   it("gives the screen with the member's words, to act without a look", async () => {
     const { client, requests } = claude(() => ({
       stop_reason: "end_turn",

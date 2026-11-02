@@ -296,6 +296,8 @@ export async function talkTurn(input: {
   sources: ChatSources;
   stage: StageHands;
   say: (text: string) => void;
+  /** Said when the agent goes to a tool before any word ("Une seconde. "). */
+  leadIn?: string;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
@@ -358,7 +360,13 @@ export async function talkTurn(input: {
         speak(delta);
       },
       // Words before a tool or thinking end there, and are heard then.
-      onBreak: () => {
+      onBreak: (next) => {
+        // Off to the stage without a word, though told to say some: the
+        // member hears at once that it started.
+        if (!words && input.leadIn && !next.endsWith("thinking")) {
+          speak(input.leadIn);
+          return;
+        }
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
