@@ -89,10 +89,14 @@ export interface StageStatus {
   live: boolean;
 }
 
+/** What the agent says as the member calls from the film, before they speak. */
+export const CALL_GREETING = "Yes? Any question?";
+
 /**
  * What the page asks the presenter: the opening, a chapter over its voice,
  * to hold it while the member talks and go on after, or to end it there
- * (the agent leads the rest, src/runner/talk.ts).
+ * (the agent leads the rest, src/runner/talk.ts). Or, the film paused for
+ * a call, the stage where it was: chapter `index`, `part` of it (0 to 1).
  */
 export type StageCue =
   | { action: "set" }
@@ -100,7 +104,8 @@ export type StageCue =
   | { action: "pause" }
   // `restore`: what the talk changed in the app put back first.
   | { action: "resume"; restore?: boolean }
-  | { action: "stop" };
+  | { action: "stop" }
+  | { action: "reach"; index: number; part: number };
 
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
@@ -116,12 +121,8 @@ export type StageHand =
   | { action: "changes" }
   // The recipe's sign-in, on the window in front.
   | { action: "sign-in" }
-  // A chapter's gestures, without its voice: the agent says it its own way.
-  // `ms`: as long as the agent's words over it; `turn`: the member's turn
-  // it answers, a later one stops it.
-  | { action: "point"; index: number; ms?: number; turn?: string }
   // The member spoke: the presentation ends there, the agent leads.
-  | { action: "stop"; turn?: string };
+  | { action: "stop" };
 
 /** A window as the presentation left it when held, and as it is now. */
 export interface StageChange {
@@ -153,6 +154,8 @@ export interface StageState {
   shown?: number[];
   /** The chapter the talk cut, if one was playing. */
   cut?: number | null;
+  /** The chapter the film was paused in for the call, the stage there. */
+  film?: number | null;
 }
 
 /** A recipe step that leaves something running: a database, a server. */

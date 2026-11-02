@@ -1,14 +1,5 @@
 import type { Language } from "@elevenlabs/client";
-import {
-  Captions,
-  CaptionsOff,
-  Mic,
-  Pause,
-  PhoneOff,
-  Play,
-  RectangleHorizontal,
-  RotateCcw,
-} from "lucide-react";
+import { PhoneOff, Play, RectangleHorizontal } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -18,12 +9,7 @@ import {
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
 import { asCall } from "@/components/call-voice";
-import {
-  CAPTIONS_KEY,
-  loadPresentation,
-  save,
-  saved,
-} from "@/components/presentation";
+import { loadPresentation } from "@/components/presentation";
 import {
   cueAt,
   estimateSpeechMs,
@@ -31,7 +17,7 @@ import {
   type Presentation,
   type PresentationChapter,
 } from "@/core/presentation";
-import type { StageCueResult } from "@/core/stage";
+import { CALL_GREETING, type StageCueResult } from "@/core/stage";
 import {
   stageCueFn,
   stageFn,
@@ -80,13 +66,14 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
 
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
- * and its presentation played on it: the voice here, the gestures there.
- * The member talks to the agent over it (src/runner/talk.ts): their
- * first words hold the presentation, and once said it ends there, the
- * agent leading the rest in its own words. Or they write to it in the pull
- * request's conversation beside it, which holds it until they go on. The
- * thread keeps what was said as what was written. The call and the voice
- * end with the stage, and with the page or the panel.
+ * and the member's call to the agent over it (src/runner/talk.ts). From
+ * the film (`callFrom`): the stage brought to where the film was paused,
+ * the agent greeting them, until it plays the film on (`onResume`). Or the
+ * presentation played live on it, the voice here, the gestures there: their
+ * first words end it there. Or they write to it in the pull request's
+ * conversation beside it. The thread keeps what was said as what was
+ * written. The call and the voice end with the stage, and with the page or
+ * the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
 function brainAsked(): { model?: string; screen?: boolean } {
@@ -106,6 +93,7 @@ export function useLiveStage({
   start = false,
   messages,
   refresh,
+  onResume,
 }: {
   projectId: string;
   rowKey: string;
@@ -117,6 +105,12 @@ export function useLiveStage({
   messages: number;
   /** The thread read again: what it read, or undefined when it could not. */
   refresh: () => Promise<{ messages: readonly unknown[] } | null | undefined>;
+  /**
+   * The agent plays the film on, from a chapter (from 0) or where it was
+   * paused (null), once its voice is done; the call has ended. Without it,
+   * the presentation plays live again from that chapter.
+   */
+  onResume?: (chapter: number | null) => void;
 }) {
   const [status, setStatus] = useState<StageView | null>(initial ?? null);
   const [timeline, setTimeline] = useState<Presentation | null>(null);
@@ -125,6 +119,8 @@ export function useLiveStage({
   const [problems, setProblems] = useState<string[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
+  /** Called from the film: the stage is where the film was paused. */
+  const [reached, setReached] = useState(false);
   const [held, setHeld] = useState(false);
   /** The member spoke: the agent leads; the chapter it was in when they did. */
   const [led, setLed] = useState<number | null>(null);
@@ -152,6 +148,15 @@ export function useLiveStage({
   );
   const conversation = useRef<Call | null>(null);
   const calling = useRef(false);
+  /** The agent's voice is heard now. */
+  const speaking = useRef(false);
+  /** The agent asked for the film, heard once its voice is done. */
+  const resumeAsked = useRef<{ chapter: number | null } | null>(null);
+  /** The call's handlers, made once, reach these as they are now. */
+  const latest = useRef<{
+    onResume?: (chapter: number | null) => void;
+    play: (opened?: (ok: boolean) => void, from?: number) => Promise<void>;
+  }>({ onResume, play: async () => {} });
   /** A voice heard over the presentation's, before any word of it. */
   const voiced = useRef<{
     since: number;
@@ -386,10 +391,26 @@ export function useLiveStage({
     );
   }, [refresh]);
 
-  /** The call: the member's voice to the agent, the agent's back. */
-  const startTalk = async () => {
+  /** The agent asked for the film: the call ends, the film plays on. */
+  const resumeNow = () => {
+    const asked = resumeAsked.current;
+    if (!asked) return;
+    resumeAsked.current = null;
+    endTalk();
+    const { onResume, play } = latest.current;
+    if (onResume) onResume(asked.chapter);
+    else void play(undefined, asked.chapter ?? saying.current);
+  };
+
+  /**
+   * The call: the member's voice to the agent, the agent's back; its
+   * first words `greeting`, when there are some.
+   */
+  const startTalk = async (greeting?: string) => {
     if (calling.current) return;
     calling.current = true;
+    resumeAsked.current = null;
+    speaking.current = false;
     setTalk("starting");
     try {
       const language = (navigator.language || "en").slice(0, 2).toLowerCase();
@@ -401,9 +422,28 @@ export function useLiveStage({
       const session = await eleven.Conversation.startSession({
         conversationToken: pass.conversationToken,
         connectionType: "webrtc",
-        overrides: { agent: { language: language as Language } },
+        overrides: {
+          agent: {
+            language: language as Language,
+            ...(greeting ? { firstMessage: greeting } : {}),
+          },
+        },
         // ?brain=spark&screen=1: another brain, heeded on dev only.
         customLlmExtraBody: { yarrow: pass.grant, brain: brainAsked() },
+        clientTools: {
+          resume_presentation: (parameters: { chapter?: unknown }) => {
+            const chapter = Number(parameters?.chapter);
+            resumeAsked.current = {
+              chapter:
+                Number.isInteger(chapter) && chapter >= 1 ? chapter - 1 : null,
+            };
+            if (!speaking.current) resumeNow();
+          },
+        },
+        onModeChange: ({ mode }) => {
+          speaking.current = mode === "speaking";
+          if (!speaking.current) resumeNow();
+        },
         onVadScore: ({ vadScore }) => listen(vadScore),
         // Their first words, still being heard, already hold it, and show
         // in the box as they come.
@@ -430,12 +470,14 @@ export function useLiveStage({
               ? now
               : [...now, { who, text, at: Date.now() }],
           );
-          if (source !== "user") void settle();
+          // The greeting is the page's own: the thread never has it.
+          if (source !== "user" && text !== greeting) void settle();
         },
         onDisconnect: () => {
           conversation.current = null;
           calling.current = false;
           setHearing("");
+          setReached(false);
           setTalk("off");
         },
         onError: (message) =>
@@ -459,7 +501,25 @@ export function useLiveStage({
     void conversation.current?.endSession();
     conversation.current = null;
     calling.current = false;
+    resumeAsked.current = null;
+    setReached(false);
     setTalk("off");
+  };
+
+  /**
+   * The member calls from the film, paused in chapter `index`, `part` of it
+   * seen: the agent greets them at once, while the stage is brought there;
+   * once it is, the stage takes the film's place.
+   */
+  const callFrom = async (at: { index: number; part: number }) => {
+    const talking = startTalk(CALL_GREETING);
+    if (phase === "ready" && status?.live) {
+      const result = await cue({ action: "reach", ...at });
+      if (result.problems.length)
+        setProblems((now) => [...now, ...result.problems]);
+      if (result.ok && calling.current) setReached(true);
+    }
+    await talking;
   };
 
   /**
@@ -536,7 +596,7 @@ export function useLiveStage({
    * The presentation, live: the opening, then each chapter's gestures over
    * its voice. `opened` hears whether the opening could be made.
    */
-  const play = async (opened?: (ok: boolean) => void) => {
+  const play = async (opened?: (ok: boolean) => void, from = 0) => {
     if (!timeline || showing.current) return;
     stopped.current = false;
     showing.current = true;
@@ -568,6 +628,7 @@ export function useLiveStage({
     const found = [...opening.problems];
     if (opening.ok)
       for (const [index, chapter] of timeline.chapters.entries()) {
+        if (index < from) continue;
         while (holding.current && !stopped.current)
           await holding.current.resumed;
         if (stopped.current) break;
@@ -610,6 +671,7 @@ export function useLiveStage({
   const ending = useRef({ stop, endTalk, hangUpVoice });
   useEffect(() => {
     ending.current = { stop, endTalk, hangUpVoice };
+    latest.current = { onResume, play };
   });
   useEffect(() => {
     if (phase === "ready") return;
@@ -641,6 +703,7 @@ export function useLiveStage({
     held,
     led,
     talk,
+    reached,
     hearing,
     problems,
     notes,
@@ -664,6 +727,7 @@ export function useLiveStage({
     carryOn,
     startTalk,
     endTalk,
+    callFrom,
   };
 }
 
@@ -694,12 +758,11 @@ export function LiveCaption({
 }
 
 /**
- * The stage in the film's place, as its player: play holds and goes on,
- * the call beside it. The chapters show how far it went; a live
- * presentation cannot be skipped through. `onFilm` is the film again, when
- * the opening cannot be made.
+ * The stage in the film's place while the member is on a call from it:
+ * the app live, where the film was paused. Play plays the film on there,
+ * the call ending; hanging up leaves the film paused.
  */
-export function LivePlayer({
+export function LiveCall({
   stage,
   cinema,
   onCinema,
@@ -708,80 +771,14 @@ export function LivePlayer({
   stage: LiveStage;
   cinema: boolean;
   onCinema: () => void;
+  /** The film on, where it was paused. */
   onFilm: () => void;
 }) {
-  const [captions, setCaptions] = useState(() => saved(CAPTIONS_KEY));
-  // The controls hide while it plays and the pointer rests.
-  const [awake, setAwake] = useState(true);
-  const rest = useRef(0);
-  useEffect(() => () => clearTimeout(rest.current), []);
-  const wake = () => {
-    setAwake(true);
-    clearTimeout(rest.current);
-    rest.current = window.setTimeout(() => setAwake(false), 2500);
-  };
-
-  const {
-    timeline,
-    show,
-    chapter,
-    played,
-    presenting,
-    held,
-    led,
-    talk,
-    setScreen,
-  } = stage;
-  const playing = presenting && !held;
-  const idle = playing && !awake;
-  // The agent leads once the member spoke: play asks it to go on.
-  const leading = led !== null && !presenting && talk === "on";
-  const toggle = () => {
-    wake();
-    if (leading) stage.carryOn();
-    else if (!presenting) void stage.play((ok) => ok || onFilm());
-    else if (held) void stage.goOn();
-    else stage.hold();
-  };
-  const flipCaptions = () =>
-    setCaptions((on) => {
-      save(CAPTIONS_KEY, !on);
-      return !on;
-    });
-  const chapters = timeline?.chapters ?? [];
-  // How much of each chapter was said: all of it once played through, up
-  // to where the member spoke once the agent leads.
-  const filled = (i: number) =>
-    !show
-      ? led !== null
-        ? Number(i < led)
-        : Number(played)
-      : i < show.index
-        ? 1
-        : i > show.index
-          ? 0
-          : Math.min(1, show.spokenMs / (voiceMs(chapters[i]!) || 1));
-  const label = presenting
-    ? held
-      ? "Play"
-      : "Pause"
-    : leading
-      ? "Play"
-      : played
-        ? "Play again"
-        : "Play";
-
+  const { setScreen } = stage;
   return (
     <div className="pv">
       <div className="pv-screen">
-        <div
-          className={`pv-view desktop ${idle ? "idle" : ""}`}
-          onPointerMove={(event) => {
-            if (event.pointerType === "mouse") wake();
-          }}
-          onPointerDown={wake}
-          onFocus={wake}
-        >
+        <div className="pv-view desktop">
           <div
             className="pv-window desktop"
             style={{ "--ratio": 1440 / 900 } as CSSProperties}
@@ -790,98 +787,34 @@ export function LivePlayer({
               <div className="pv-live" ref={setScreen} />
             </div>
           </div>
-          <button
-            type="button"
-            className="pv-hit"
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={toggle}
-          />
-          {!played && (
-            <button
-              type="button"
-              className="pv-start"
-              onClick={toggle}
-              aria-label="Play the presentation"
-            >
-              <span className="pv-big">
-                <Play size={26} aria-hidden="true" />
-              </span>
-            </button>
-          )}
           <div className="pv-overlay">
-            {captions ? (
-              <LiveCaption stage={stage} className="pv-caption" />
-            ) : (
-              <p className="pv-caption" />
-            )}
+            <p className="pv-caption" />
             <div className="pv-controls">
-              <div className="pv-chapters">
-                {chapters.map((item, i) => (
-                  <span
-                    key={i}
-                    className="pv-chapter still"
-                    style={{ flexGrow: voiceMs(item) }}
-                    data-title={item.title}
-                  >
-                    <i>
-                      <b style={{ width: `${filled(i) * 100}%` }} />
-                    </i>
-                  </span>
-                ))}
-              </div>
               <div className="pv-bar">
                 <button
                   type="button"
                   className="pv-icon pv-glass-pill pv-play"
-                  onClick={toggle}
-                  aria-label={label}
-                  data-tip={label}
+                  onClick={() => {
+                    stage.endTalk();
+                    onFilm();
+                  }}
+                  aria-label="Play"
+                  data-tip="Play"
                 >
-                  {playing ? (
-                    <Pause size={18} aria-hidden="true" />
-                  ) : played && !presenting && !leading ? (
-                    <RotateCcw size={18} aria-hidden="true" />
-                  ) : (
-                    <Play size={18} aria-hidden="true" />
-                  )}
+                  <Play size={18} aria-hidden="true" />
                 </button>
                 <span className="pv-glass-pill pv-clock">
                   <span className="pv-live-tag">Live</span>
-                  {chapter?.title && (
-                    <span className="pv-now">{chapter.title}</span>
-                  )}
                 </span>
                 <span className="pv-glass-pill pv-tools">
                   <button
                     type="button"
-                    className={`pv-icon ${talk === "off" ? "" : "on"}`}
-                    disabled={talk === "starting"}
-                    onClick={() =>
-                      talk === "off" ? void stage.startTalk() : stage.endTalk()
-                    }
-                    aria-label={talk === "off" ? "Talk" : "Hang up"}
-                    data-tip={talk === "off" ? "Talk" : "Hang up"}
+                    className="pv-icon on"
+                    onClick={() => stage.endTalk()}
+                    aria-label="Hang up"
+                    data-tip="Hang up"
                   >
-                    {talk === "off" ? (
-                      <Mic size={18} aria-hidden="true" />
-                    ) : (
-                      <PhoneOff size={18} aria-hidden="true" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="pv-icon"
-                    onClick={flipCaptions}
-                    aria-pressed={captions}
-                    aria-label="Captions"
-                    data-tip={captions ? "Hide captions" : "Show captions"}
-                  >
-                    {captions ? (
-                      <Captions size={18} aria-hidden="true" />
-                    ) : (
-                      <CaptionsOff size={18} aria-hidden="true" />
-                    )}
+                    <PhoneOff size={18} aria-hidden="true" />
                   </button>
                   <button
                     type="button"

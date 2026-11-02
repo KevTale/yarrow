@@ -84,6 +84,11 @@ export const stageCueFn = createServerFn({ method: "POST" })
           restore: z.boolean().optional(),
         }),
         z.object({ action: z.literal("stop") }),
+        z.object({
+          action: z.literal("reach"),
+          index: z.number().int().min(0).max(11),
+          part: z.number().min(0).max(1),
+        }),
       ]),
     }),
   )

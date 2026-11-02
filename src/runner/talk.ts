@@ -7,7 +7,6 @@ import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
 import {
   isStageTool,
   runStageTool,
-  SHOW_CHAPTER,
   STAGE_TOOLS,
   stageNote,
   stageStepName,
@@ -48,7 +47,7 @@ export interface TalkContext {
 
 const INSTRUCTIONS = `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
 
-They watch the stage with you: the app of the pull request's branch running on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The change's presentation played there first, your recorded voice over live gestures. It stopped for good when they spoke: from then on, you lead it.
+They were watching the change's presentation: a film of the app, your recorded voice over it. They paused it to call you. The film stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the film had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo).
 
 How you talk:
 - Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
@@ -61,22 +60,40 @@ The stage:
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
 
-The presentation, once they spoke:
-- Go on only when they want it to: when they say so, or say yes when you offer once their question is answered. Never on your own.
-- Then carry on from where the talk left things, not from where the recording stopped: one sentence linking to what was just said, then what is left, one chapter at a time with show_chapter. Skip what they already saw, and what the talk already covered.
-- Your words before show_chapter are heard while it plays: say what it shows in your own words, not the recorded ones, and not the gestures. Then the next chapter, or a word on what it showed first if that helps.
-- When nothing is left, say so in a sentence and ask if they have questions.
+The film:
+- It plays on only when they want it to: when they say so, or say yes when you offer once their question is answered. Never on your own. Then a few words to close, and call resume_presentation: the film plays on where they paused it and the call ends; they call again to talk.
+- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the film plays from there, its recorded voice with it. Never play the film's chapters yourself on the stage.
+- On the stage, show what the film does not.
 
 The conversation:
 - Beside the stage, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
 - The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
+/** The page's tool: the film plays on, and the call ends. */
+const RESUME: Anthropic.Beta.BetaTool = {
+  name: "resume_presentation",
+  description:
+    "The film plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
+  input_schema: {
+    type: "object",
+    properties: {
+      chapter: {
+        type: "integer",
+        minimum: 1,
+        description:
+          "From this chapter's start, 1 for the beginning; where they paused it when absent.",
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   // The code, the tickets and the changes, as in the written conversation.
   ...CHAT_TOOLS,
   ...STAGE_TOOLS,
-  SHOW_CHAPTER,
+  RESUME,
 ].map((tool) => ({ ...tool, eager_input_streaming: true }));
 
 /** What was written and said before the call, as the agent reads it. */
@@ -252,14 +269,6 @@ export function untilTool(words: string): string {
   return /[.!?…]$/.test(words.trimEnd()) ? " " : ". ";
 }
 
-/**
- * How long a chapter shown by the agent plays: as long as its words before
- * it take to say (about 15 characters a second), within reason.
- */
-export function pointMs(words: string): number {
-  return Math.round(Math.min(12_000, Math.max(3000, words.length * 65)));
-}
-
 /** What fills the nth silence of a turn, in the member's language. */
 export function talkFiller(language: string, nth: number): string {
   const fillers = FILLERS[language.slice(0, 2)] ?? FILLERS.en!;
@@ -271,6 +280,8 @@ export interface TalkAnswer {
   words: string;
   /** The change it proposed: a card in the thread, made only from there. */
   change: string | null;
+  /** The film plays on (a tool of the page): from a chapter, or where it was. */
+  resume: { chapter: number | null } | null;
   usage: ChatUsage;
   /** The first words, from the request: ms. */
   firstWordMs: number | null;
@@ -312,9 +323,10 @@ export async function talkTurn(input: {
     words += text;
     say(text);
   };
-  const answer = (): TalkAnswer => ({
+  const answer = (resume: TalkAnswer["resume"] = null): TalkAnswer => ({
     words: words.trim(),
     change,
+    resume,
     usage,
     firstWordMs,
     steps,
@@ -345,8 +357,6 @@ export async function talkTurn(input: {
     const asked = Date.now();
     // Spoken as it is written; a space between two runs of words.
     let wrote = false;
-    // This answer's words: a chapter it shows plays as long as they last.
-    let stepWords = "";
     const response = await talkStep({
       model,
       clients: { anthropic: client, meta: input.meta },
@@ -356,14 +366,18 @@ export async function talkTurn(input: {
       last: step >= TALK_MAX_STEPS,
       onText: (delta) => {
         wrote = true;
-        stepWords += delta;
         speak(delta);
       },
       // Words before a tool or thinking end there, and are heard then.
       onBreak: (next) => {
         // Off to the stage without a word, though told to say some: the
         // member hears at once that it started.
-        if (!words && input.leadIn && !next.endsWith("thinking")) {
+        if (
+          !words &&
+          input.leadIn &&
+          !next.endsWith("thinking") &&
+          next !== RESUME.name
+        ) {
           speak(input.leadIn);
           return;
         }
@@ -380,18 +394,26 @@ export async function talkTurn(input: {
     if (wrote) speak(" ");
     const { calls } = response;
     if (!response.toolUse) return answer();
+    const resume = calls.find((call) => call.name === RESUME.name);
+    if (resume) {
+      const chapter = (resume.input as { chapter?: unknown } | null)?.chapter;
+      return answer({
+        chapter:
+          typeof chapter === "number" &&
+          Number.isInteger(chapter) &&
+          chapter >= 1
+            ? chapter
+            : null,
+      });
+    }
     messages.push({ role: "assistant", content: response.content });
     // One move on the stage at a time, in the order asked.
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
       const ran = Date.now();
-      const shown: StageHands = (hand) =>
-        stage(
-          hand.action === "point" ? { ...hand, ms: pointMs(stepWords) } : hand,
-        );
       const result: { text: string; error?: boolean; change?: string } = await (
         isStageTool(call.name)
-          ? runStageTool(call, shown)
+          ? runStageTool(call, stage)
           : runChatTool(call, context, sources)
       ).catch((error: Error) => ({
         text: `That failed: ${error.message.slice(0, 200)}`,
@@ -415,12 +437,16 @@ export async function talkTurn(input: {
 
 /**
  * The chat completion stream ElevenLabs reads: the words as they come, a
- * call to ElevenLabs' skip_turn when the turn was not the member's, the end.
+ * call to the page's resume_presentation tool, or to ElevenLabs' skip_turn
+ * when the turn was not the member's, the end.
  * https://elevenlabs.io/docs/agents-platform/customization/llm/custom-llm
  */
 export const completion = {
   words(id: string, text: string): string {
     return chunk(id, { content: text }, null);
+  },
+  resume(id: string, chapter: number | null): string {
+    return toolCall(id, RESUME.name, chapter === null ? {} : { chapter });
   },
   skip(id: string): string {
     return toolCall(id, "skip_turn");
@@ -431,7 +457,11 @@ export const completion = {
   done: "data: [DONE]\n\n",
 };
 
-function toolCall(id: string, name: string): string {
+function toolCall(
+  id: string,
+  name: string,
+  input: Record<string, unknown> = {},
+): string {
   return (
     chunk(
       id,
@@ -441,7 +471,7 @@ function toolCall(id: string, name: string): string {
             index: 0,
             id: `call_${id}`,
             type: "function",
-            function: { name, arguments: "{}" },
+            function: { name, arguments: JSON.stringify(input) },
           },
         ],
       },

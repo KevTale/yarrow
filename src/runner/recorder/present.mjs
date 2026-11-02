@@ -2184,8 +2184,7 @@ class Desktop {
     }
     // Its title's side, away from its close button.
     const spot = { x: left + tab * 0.35, y: frame.y + TABS.y * ZOOM };
-    const on = (shown) =>
-      shown && shown.start <= spot.x && spot.x < shown.end;
+    const on = (shown) => shown && shown.start <= spot.x && spot.x < shown.end;
     let at = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
       await this.glide(spot.x, spot.y, 800);
@@ -2615,6 +2614,34 @@ async function answers(url) {
   }
 }
 
+/**
+ * A chapter's gesture done at once, for what it leaves on the page: what
+ * only shows something (a point, a circle, a wait) leaves nothing.
+ */
+async function quickly(page, base, action) {
+  const kind = action.do;
+  if (["wait", "point", "hover", "circle"].includes(kind)) return;
+  if (kind === "goto")
+    await page.goto(join(base, action.path), {
+      waitUntil: "load",
+      timeout: 20000,
+    });
+  else if (kind === "reload") await page.reload({ waitUntil: "load" });
+  else if (kind === "press") await page.keyboard.press(action.key);
+  else if (kind === "scroll" && !action.target)
+    await page.evaluate((y) => window.scrollBy(0, y), Number(action.y) || 400);
+  else {
+    const locator = page.locator(action.target).first();
+    if (kind === "scroll")
+      await locator.scrollIntoViewIfNeeded({ timeout: 8000 });
+    else if (kind === "click") await locator.click({ timeout: 8000 });
+    else if (kind === "select")
+      await locator.selectOption(String(action.value), { timeout: 8000 });
+    else await locator.fill(String(action.text ?? ""), { timeout: 8000 });
+  }
+  await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {});
+}
+
 /** A chapter cut short: the agent leads the presentation from here. */
 class Stopped extends Error {}
 
@@ -2645,12 +2672,12 @@ class Presenter {
      */
     this.over = false;
     this.run = 0;
-    /** The chapters shown in full, by the presentation or by the agent. */
+    /** The chapters shown in full. */
     this.shown = new Set();
     /** The chapter the talk cut, if one was playing. */
     this.cut = null;
-    /** The member's latest turn on the call: an older one shows no more. */
-    this.turn = null;
+    /** The chapter the film was paused in, the stage brought to it. */
+    this.film = null;
   }
 
   /** The presentation's own time: it stands still while held. */
@@ -2671,14 +2698,8 @@ class Presenter {
     if (run !== this.run) throw new Stopped();
   }
 
-  /**
-   * The recorded presentation ends here, the screen as the talk left it:
-   * the agent leads the rest (its `point`s), from what was said. Asked
-   * again by the member's next turn (`turn`), the chapter the agent was
-   * showing stops too.
-   */
-  async stop(turn) {
-    if (turn) this.turn = turn;
+  /** The presentation ends here, the screen as the talk left it. */
+  async stop() {
     this.run++;
     const hold = this.hold;
     if (hold) {
@@ -2694,41 +2715,6 @@ class Presenter {
         (this.cut === null ? "" : ", chapter " + (this.cut + 1) + " cut"),
     );
     return [];
-  }
-
-  /**
-   * A chapter's gestures shown again, without its voice, over `ms` as the
-   * agent says it in its own words: what the screen shows after.
-   */
-  async point(index, turn, ms) {
-    const chapter = this.plan.chapters[index];
-    if (!chapter)
-      return { problems: ["no chapter " + (index + 1)], screen: await this.look() };
-    if (turn && this.turn && turn !== this.turn)
-      return { problems: ["the member spoke again: stop here"], screen: "" };
-    if (!this.over) await this.stop();
-    log("chapter " + (index + 1) + " shown by the agent");
-    const pace = Math.max(
-      ms || 3000,
-      (chapter.actions?.length ?? 1) * (ms ? 700 : 1500),
-    );
-    this.playing = index;
-    let problems;
-    try {
-      problems =
-        chapter.tab === "terminal"
-          ? (await this.desktop.recordTerminal(chapter, null, pace)).problems
-          : await this.app(chapter, index, pace, this.run);
-    } catch (error) {
-      // The member spoke again, or it was played again: it stops here.
-      if (error instanceof Stopped)
-        return { problems: ["the member spoke again: stop here"], screen: "" };
-      throw error;
-    } finally {
-      this.playing = null;
-    }
-    this.shown.add(index);
-    return { problems, screen: await this.look() };
   }
 
   async pause() {
@@ -2870,7 +2856,99 @@ class Presenter {
       over: this.over,
       shown: [...this.shown].sort((a, b) => a - b),
       cut: this.cut,
+      film: this.film,
     };
+  }
+
+  /**
+   * The stage as the film shows it where the member paused it, for the
+   * agent to go on from: the opening, then the chapters before it and the
+   * part of its own already seen (`part`, 0 to 1), done at once, off the
+   * film (no pointer gliding, nothing typed a letter at a time).
+   */
+  async reach(index, part) {
+    const { desktop, plan } = this;
+    const chapters = plan.chapters.slice(0, index + 1);
+    if (!chapters.length) return ["no chapter " + (index + 1)];
+    const started = Date.now();
+    await this.set();
+    // The member speaking meanwhile stops nothing of it.
+    this.over = true;
+    this.untouched = false;
+    const problems = [];
+    const marks = [];
+    const clock = () => 0;
+    for (const [i, chapter] of chapters.entries()) {
+      const actions = chapter.actions ?? [];
+      const done =
+        i < index
+          ? actions
+          : actions.slice(0, Math.round(actions.length * part));
+      if (chapter.tab === "terminal") {
+        // Its command once, as the film ran it, only when it shows now.
+        if (i === index) {
+          const ran = await desktop.recordTerminal(chapter, null, 0);
+          problems.push(...ran.problems);
+        }
+        continue;
+      }
+      const which = chapter.app || "after";
+      const page = desktop.tabs?.pages[which];
+      const app = plan.apps[which];
+      if (!page || !app) {
+        problems.push("chapter " + (i + 1) + ": its app is not open");
+        continue;
+      }
+      if (i === index) {
+        await desktop.show("browser", clock, marks);
+        desktop.tabs.active = which;
+      }
+      await page.bringToFront();
+      const url = join(app.url, chapter.path);
+      if (!samePage(page.url(), url))
+        await page
+          .goto(url, { waitUntil: "load", timeout: 20000 })
+          .catch((error) =>
+            problems.push(
+              "chapter " +
+                (i + 1) +
+                ": " +
+                String(error?.message).split("\n")[0],
+            ),
+          );
+      desktop.tabs.urls[which] = url;
+      for (const action of done)
+        try {
+          await quickly(page, app.url, action);
+        } catch (error) {
+          problems.push(
+            "chapter " +
+              (i + 1) +
+              ": " +
+              action.do +
+              " " +
+              (action.target || action.path || "") +
+              ": " +
+              String(error?.message).split("\n")[0],
+          );
+        }
+      desktop.tabs.seen = { ...desktop.tabs.seen, [which]: page.url() };
+      if (i < index) this.shown.add(i);
+    }
+    // The tab in front last, whatever the others' pages did.
+    const front =
+      chapters[index].tab === "app" ? chapters[index].app || "after" : null;
+    if (front) await desktop.tabs?.pages[front]?.bringToFront();
+    this.cut = index;
+    this.film = index;
+    log(
+      "reached chapter " +
+        (index + 1) +
+        " in " +
+        ((Date.now() - started) / 1000).toFixed(1) +
+        " s",
+    );
+    return problems;
   }
 
   /**
@@ -3029,6 +3107,7 @@ class Presenter {
     this.run++;
     this.shown = new Set();
     this.cut = null;
+    this.film = null;
     if (this.untouched) return [];
     const started = Date.now();
     const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
@@ -3171,7 +3250,8 @@ function serve(presenter) {
     "/resume": "hands",
     "/changes": "hands",
     "/sign-in": "hands",
-    "/point": "hands",
+    // The agent's hands wait for the stage to be where the film was paused.
+    "/reach": "hands",
   };
   const answer = async (url, asked) => {
     try {
@@ -3188,20 +3268,19 @@ function serve(presenter) {
           };
         case "/pause":
           return { ok: true, problems: await presenter.pause() };
+        case "/reach":
+          return {
+            ok: true,
+            problems: await presenter.reach(
+              Number(asked.index) || 0,
+              Math.min(1, Math.max(0, Number(asked.part) || 0)),
+            ),
+          };
         case "/stop":
           return {
             ok: true,
-            problems: await presenter.stop(asked.turn),
+            problems: await presenter.stop(),
             state: presenter.state(),
-          };
-        case "/point":
-          return {
-            ok: true,
-            ...(await presenter.point(
-              Number(asked.index),
-              asked.turn,
-              Math.min(20000, Number(asked.ms) || 0),
-            )),
           };
         case "/resume":
           return { ok: true, problems: await presenter.resume() };

@@ -14,19 +14,32 @@ const API = "https://api.elevenlabs.io/v1";
 /** How long a call's pass is good for. */
 export const TALK_GRANT_MS = 2 * 60 * 60_000;
 
-/** The page's tool: the presentation goes on, once the voice has finished. */
+/**
+ * The page's tool: the film plays on once the voice has finished, where
+ * the member paused it or from a chapter's start, and the call ends.
+ */
 export const RESUME_TOOL = {
   type: "client",
   name: "resume_presentation",
   description:
-    "The presentation goes on from where the member stopped it. Only when they want it to.",
+    "The film plays on and the call ends: where the member paused it, or from the start of a chapter.",
   expects_response: false,
-  parameters: { type: "object", properties: {}, required: [] },
+  parameters: {
+    type: "object",
+    properties: {
+      chapter: {
+        type: "integer",
+        description: "From this chapter's start, 1 for the beginning.",
+      },
+    },
+    required: [],
+  },
 } as const;
 
 /**
  * The agent: ElevenLabs' ears and voice, the brain's words. It waits for
- * the member (no first message), never speaks up on its own while the
+ * the member (no first message, unless the page gives one: the call from
+ * the film's player greets them), never speaks up on its own while a
  * presentation plays, never falls back to a model of its own.
  */
 export function talkAgentConfig(input: {
@@ -110,7 +123,7 @@ export function talkAgentConfig(input: {
       overrides: {
         custom_llm_extra_body: true,
         conversation_config_override: {
-          agent: { language: true },
+          agent: { language: true, first_message: true },
           conversation: { text_only: true },
         },
       },

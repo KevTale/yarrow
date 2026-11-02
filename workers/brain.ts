@@ -1425,8 +1425,6 @@ async function talkRoute(
   const encoder = new TextEncoder();
   let said = Date.now();
   let fillers = 0;
-  // A chapter the agent shows plays under its words: no filler over it.
-  let pointing = false;
   const write = (text: string) =>
     writer.write(encoder.encode(text)).catch(() => {});
   const say = (text: string) => {
@@ -1435,7 +1433,7 @@ async function talkRoute(
   };
   // While the agent works on the stage in silence, a few words keep the call.
   const silence = setInterval(() => {
-    if (Date.now() - said >= TALK_SILENCE_MS + (pointing ? 5000 : 0))
+    if (Date.now() - said >= TALK_SILENCE_MS)
       void say(talkFiller(grant.language, fillers++));
   }, 500);
   const turn = (async () => {
@@ -1452,10 +1450,9 @@ async function talkRoute(
       const looked = Date.now();
       const [kept, state, screen] = await Promise.all([
         stage.talk(),
-        // They spoke: the recorded presentation ends, and whatever the
-        // agent was showing for their last turn; the agent leads.
+        // They spoke: a presentation playing live ends there.
         stage
-          .present({ action: "stop", turn: id })
+          .present({ action: "stop" })
           .then((result) => result.state ?? null)
           .catch(() => null),
         screenFirst
@@ -1496,15 +1493,7 @@ async function talkRoute(
           ticket: (key) =>
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
-        stage: async (hand) => {
-          if (hand.action !== "point") return stage.present(hand);
-          pointing = true;
-          try {
-            return await stage.present({ ...hand, turn: id });
-          } finally {
-            pointing = false;
-          }
-        },
+        stage: (hand) => stage.present(hand),
         say: (text) => void say(text),
         leadIn: talkFiller(grant.language, fillers++),
       });
@@ -1541,11 +1530,16 @@ async function talkRoute(
             cents: chatCostCents(answer.usage),
             words: answer.words,
             change: answer.change,
+            resume: answer.resume,
             screen: after?.screen?.slice(0, 6000) ?? null,
           })}\n\n`,
         );
       }
-      await write(completion.end(id));
+      await write(
+        answer.resume
+          ? completion.resume(id, answer.resume.chapter) + completion.done
+          : completion.end(id),
+      );
       console.log("talk", {
         workUnitId: grant.workUnitId,
         model,
@@ -1554,6 +1548,7 @@ async function talkRoute(
         firstWordMs: answer.firstWordMs,
         ms,
         fillers,
+        resume: answer.resume,
         steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
         cents: Number(chatCostCents(answer.usage).toFixed(3)),
         usage: answer.usage,

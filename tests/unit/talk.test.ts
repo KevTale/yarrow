@@ -7,7 +7,6 @@ import {
   conversationSoFar,
   memberSpoke,
   memberWords,
-  pointMs,
   stageNote,
   talkGrantOf,
   talkFiller,
@@ -314,63 +313,45 @@ describe("the live call's turn", () => {
     expect(asked).toEqual([]);
   });
 
-  it("leads the rest of the presentation, each chapter as long as its words", async () => {
-    const before = "Reste le filtre : seules les tâches terminées restent.";
-    const { client, requests } = claude((body) =>
-      (body.messages as unknown[]).length === 1
-        ? {
-            stop_reason: "tool_use",
-            content: [
-              { type: "text", text: before },
-              {
-                type: "tool_use",
-                id: "t1",
-                name: "show_chapter",
-                input: { chapter: 3 },
-              },
-            ],
-          }
-        : {
-            stop_reason: "end_turn",
-            content: [{ type: "text", text: "C'est tout." }],
-          },
-    );
-    const { stage: hands, hands: asked } = stage({
-      point: { ok: true, problems: [], screen: "- list: 2 tasks" },
-    });
+  it("plays the film on when they want it, from a chapter, after its words", async () => {
+    const { client, requests } = claude(() => ({
+      stop_reason: "tool_use",
+      content: [
+        { type: "text", text: "Je le reprends du début." },
+        {
+          type: "tool_use",
+          id: "t1",
+          name: "resume_presentation",
+          input: { chapter: 1 },
+        },
+      ],
+    }));
+    const { stage: hands, hands: asked } = stage({});
+    const said: string[] = [];
     const answer = await talkTurn({
       client,
       context,
-      messages: [{ role: "user", content: "Vas-y, continue." }],
-      state: {
-        chapter: null,
-        held: false,
-        chapters: 3,
-        over: true,
-        shown: [0],
-        cut: 1,
-      },
+      messages: [{ role: "user", content: "Remontre depuis le début." }],
+      state: { chapter: null, held: false, chapters: 3, over: true, film: 1 },
       sources,
       stage: hands,
-      say: () => {},
+      say: (text) => said.push(text),
+      leadIn: "Une seconde. ",
     });
-    expect(asked).toEqual([
-      { action: "point", index: 2, ms: pointMs(before) },
-    ]);
-    expect(answer.steps.map((step) => step.what)).toEqual([
-      "claude",
-      "show_chapter[3]",
-      "claude",
-    ]);
+    expect(answer.resume).toEqual({ chapter: 1 });
+    expect(answer.words).toBe("Je le reprends du début.");
+    expect(said.join("")).not.toContain("Une seconde");
+    expect(asked).toEqual([]);
+    expect(requests).toHaveLength(1);
     const first = (requests[0]!.body.messages as { content: string }[])[0]!;
     expect(first.content).toContain(
-      "stopped during chapter 2 when they spoke; you lead the rest. Shown in full: 1. Not shown yet: 2, 3.",
+      "The film is paused in chapter 2 of 3; the stage shows the app as the film had it there.",
     );
-    const tools = requests[0]!.body.tools as { name: string }[];
-    expect(tools.map((tool) => tool.name)).toContain("show_chapter");
-    expect(tools.map((tool) => tool.name)).not.toContain(
-      "resume_presentation",
+    const tools = (requests[0]!.body.tools as { name: string }[]).map(
+      (tool) => tool.name,
     );
+    expect(tools).toContain("resume_presentation");
+    expect(tools).not.toContain("show_chapter");
   });
 
   it("proposes a change as a card in the thread, never reading it out", async () => {
@@ -642,10 +623,8 @@ describe("what ElevenLabs sends the brain", () => {
     expect(stageNote({ ...held, held: false })).toContain(
       'playing in chapter 2 of 3, "The filter"',
     );
-    expect(
-      stageNote({ ...held, over: true, shown: [0, 1, 2], cut: null }),
-    ).toBe(
-      "[On the stage: the recorded presentation stopped when they spoke; you lead the rest. Shown in full: 1, 2, 3. Not shown yet: none.]",
+    expect(stageNote({ ...held, over: true, cut: 1 })).toBe(
+      "[On the stage: the presentation stopped in chapter 2 of 3 when they spoke.]",
     );
   });
 
@@ -656,6 +635,15 @@ describe("what ElevenLabs sends the brain", () => {
       object: "chat.completion.chunk",
       choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
     });
+    // The film on: the page's tool, from a chapter or where it was.
+    const resume = (chapter: number | null) =>
+      JSON.parse(completion.resume("1", chapter).split("\n\n")[0]!.slice(6))
+        .choices[0].delta.tool_calls[0].function;
+    expect(resume(1)).toEqual({
+      name: "resume_presentation",
+      arguments: '{"chapter":1}',
+    });
+    expect(resume(null).arguments).toBe("{}");
     // A turn that was not the member's: ElevenLabs' own skip_turn.
     expect(
       JSON.parse(completion.skip("1").split("\n\n")[0]!.slice(6)).choices[0]
@@ -678,12 +666,6 @@ describe("what ElevenLabs sends the brain", () => {
     expect(untilTool("Regarde.")).toBe(" ");
     expect(untilTool("Tu vois ? ")).toBe(" ");
     expect(untilTool("Je vérifie dans le code")).toBe(". ");
-  });
-
-  it("plays a chapter the agent shows as long as its words", () => {
-    expect(pointMs("Regarde.")).toBe(3000);
-    expect(pointMs("x".repeat(100))).toBe(6500);
-    expect(pointMs("x".repeat(1000))).toBe(12000);
   });
 });
 

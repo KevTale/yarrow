@@ -33,8 +33,12 @@ import {
   requestChangeFn,
 } from "@/functions/builder.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { LivePlayer, useLiveStage } from "@/components/live-stage";
-import { loadPresentation, Presentation } from "@/components/presentation";
+import { LiveCall, useLiveStage } from "@/components/live-stage";
+import {
+  loadPresentation,
+  Presentation,
+  type FilmControl,
+} from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
 import { DraftTicket } from "./new-ticket";
@@ -200,9 +204,10 @@ export function usePullPanel(projectId: string, rowKey: string) {
 /**
  * A ticket's row, opened: what the agents did, what to watch and the files
  * changed on the left, the conversation on the right; a change asked from
- * there goes to the pull request. Who paid is on the row's line. The
- * presentation plays live on the pull request's stage once it is up, in
- * the film's place.
+ * there goes to the pull request. Who paid is on the row's line. The film
+ * plays first; the member calls the agent from it, and the pull request's
+ * stage takes its place, the app live where the film was paused, until the
+ * film plays on.
  */
 export function PullPanel({
   projectId,
@@ -220,14 +225,14 @@ export function PullPanel({
   }, [projectId, rowKey]);
 
   // The stage comes up as the row opens, for an open pull request on a
-  // window wide enough: the film plays until it is up, once it was started,
-  // and on a phone.
+  // window wide enough, for a call from the film; on a phone, the call
+  // alone.
   const [wide] = useState(
     () =>
       typeof window !== "undefined" &&
       window.matchMedia("(min-width: 761px)").matches,
   );
-  const [film, setFilm] = useState(false);
+  const play = useRef<FilmControl | null>(null);
   const stage = useLiveStage({
     projectId,
     rowKey,
@@ -238,6 +243,7 @@ export function PullPanel({
     ),
     messages: panel?.messages.length ?? 0,
     refresh,
+    onResume: (chapter) => play.current?.(chapter),
   });
 
   // Cinema: the film fills the window beside the conversation, which goes
@@ -275,18 +281,13 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  const onStage = Boolean(
-    presentation &&
-    !film &&
-    stage.phase === "ready" &&
-    stage.status?.live &&
-    stage.timeline,
-  );
-  // The film from a moment: the stage's voice and call end.
+  // Up: what is written in the conversation acts on it.
+  const onStage = stage.phase === "ready";
+  // On a call from the film, once the stage is where it was paused.
+  const onCall = Boolean(presentation && stage.reached && stage.talk !== "off");
+  // The film from a moment: the call ends.
   const toFilm = (ms: number) => {
-    stage.stop();
     stage.endTalk();
-    setFilm(true);
     seek.current?.(ms);
   };
   // The conversation, the panel's right column, beside the film in cinema;
@@ -300,11 +301,7 @@ export function PullPanel({
       onDraft={setDraft}
       onPanel={setPanel}
       onRefresh={refresh}
-      onSeek={
-        presentation
-          ? (ms) => (onStage ? toFilm(ms) : seek.current?.(ms))
-          : null
-      }
+      onSeek={presentation ? toFilm : null}
       onMade={() => {
         void refresh();
         onChanged();
@@ -339,22 +336,27 @@ export function PullPanel({
                   </button>
                 )}
                 <div className="pp-film">
-                  {onStage && (
-                    <LivePlayer
+                  {onCall && (
+                    <LiveCall
                       stage={stage}
                       cinema={cinema}
                       onCinema={flipCinema}
-                      onFilm={() => toFilm(0)}
+                      onFilm={() => play.current?.(null)}
                     />
                   )}
-                  {/* Kept behind the stage: a moment of it plays at once. */}
-                  <div className="pp-take" hidden={onStage}>
+                  {/* Kept behind the stage, paused where the call began. */}
+                  <div className="pp-take" hidden={onCall}>
                     <Presentation
                       artifact={presentation}
                       cinema={cinema}
                       onCinema={flipCinema}
                       seekRef={seek}
-                      onStart={() => setFilm(true)}
+                      playRef={play}
+                      call={{
+                        state: stage.talk,
+                        onCall: (at) => void stage.callFrom(at),
+                        onHangUp: () => stage.endTalk(),
+                      }}
                     />
                   </div>
                 </div>

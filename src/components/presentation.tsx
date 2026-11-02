@@ -4,6 +4,8 @@ import {
   Maximize,
   Minimize,
   Pause,
+  Phone,
+  PhoneOff,
   Play,
   RectangleHorizontal,
   RotateCcw,
@@ -30,6 +32,17 @@ import {
 import type { StoredArtifact } from "@/core/review";
 
 const evidence = (key: string) => `/evidence/${key}`;
+
+/** The call to the agent from the film's player: its button, and the film's moment. */
+export interface FilmCall {
+  state: "off" | "starting" | "on";
+  /** Called, the film paused in chapter `index`, `part` of it seen (0 to 1). */
+  onCall: (at: { index: number; part: number }) => void;
+  onHangUp: () => void;
+}
+
+/** The film played on by the page: from a chapter's start, or where it was. */
+export type FilmControl = (chapter: number | null) => void;
 
 /** Timelines never change under their key: one fetch per page. */
 const timelines = new Map<string, Promise<Timeline | null>>();
@@ -126,7 +139,8 @@ export function Presentation({
   cinema = false,
   onCinema,
   seekRef,
-  onStart,
+  playRef,
+  call,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -134,8 +148,10 @@ export function Presentation({
   onCinema?: () => void;
   /** Set to play the film from a moment: the conversation's `0:56`. */
   seekRef?: RefObject<((ms: number) => void) | null>;
-  /** The film started: the live stage no longer takes its place. */
-  onStart?: () => void;
+  /** Set to play the film on: the agent's resume_presentation. */
+  playRef?: RefObject<FilmControl | null>;
+  /** The agent can be called from it. */
+  call?: FilmCall;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -155,7 +171,8 @@ export function Presentation({
       cinema={cinema}
       onCinema={onCinema}
       seekRef={seekRef}
-      onStart={onStart}
+      playRef={playRef}
+      call={call}
     />
   );
 }
@@ -166,14 +183,16 @@ function Player({
   cinema,
   onCinema,
   seekRef,
-  onStart,
+  playRef,
+  call,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
   cinema: boolean;
   onCinema?: () => void;
   seekRef?: RefObject<((ms: number) => void) | null>;
-  onStart?: () => void;
+  playRef?: RefObject<FilmControl | null>;
+  call?: FilmCall;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -209,12 +228,6 @@ function Player({
     if (audio.current) audio.current.muted = !voice;
     hearing.current = voice;
   }, [voice]);
-
-  useEffect(() => {
-    if (started) onStart?.();
-    // Once, as it starts: the page's handler is new at each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started]);
 
   const chapters = timeline?.chapters ?? [];
   const chapter = chapters[index];
@@ -407,6 +420,8 @@ function Player({
 
   const toggle = () => {
     if (!timeline) return;
+    // Played on during a call: the call ends.
+    if (!playing && call && call.state !== "off") call.onHangUp();
     if (finished) {
       jump(0);
       return;
@@ -415,6 +430,22 @@ function Player({
     allowSound();
     setStarted(true);
     setPlaying((on) => !on);
+  };
+  // The film paused where it is, the agent called there.
+  const phone = () => {
+    if (!call) return;
+    if (call.state !== "off") {
+      call.onHangUp();
+      return;
+    }
+    wake();
+    allowSound();
+    setPlaying(false);
+    call.onCall(
+      finished
+        ? { index: Math.max(0, chapters.length - 1), part: 1 }
+        : { index, part: started ? Math.min(1, elapsed / (length || 1)) : 0 },
+    );
   };
   function jump(to: number, offset = 0, play = true) {
     wake();
@@ -469,6 +500,16 @@ function Player({
           block: "nearest",
           behavior: "smooth",
         });
+      };
+    if (playRef)
+      playRef.current = (chapter) => {
+        if (chapter !== null) jump(Math.min(chapter, chapters.length - 1));
+        else if (finished) jump(0);
+        else {
+          wake();
+          setStarted(true);
+          setPlaying(true);
+        }
       };
   });
   const idle = playing && !awake;
@@ -633,6 +674,22 @@ function Player({
                     )}
                   </span>
                   <span className="pv-glass-pill pv-tools">
+                    {call && (
+                      <button
+                        type="button"
+                        className={`pv-icon ${call.state === "off" ? "" : "on"}`}
+                        disabled={call.state === "starting"}
+                        onClick={phone}
+                        aria-label={call.state === "off" ? "Call" : "Hang up"}
+                        data-tip={call.state === "off" ? "Call" : "Hang up"}
+                      >
+                        {call.state === "off" ? (
+                          <Phone size={18} aria-hidden="true" />
+                        ) : (
+                          <PhoneOff size={18} aria-hidden="true" />
+                        )}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="pv-icon"
