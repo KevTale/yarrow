@@ -401,7 +401,10 @@ export class Stage extends DurableObject<StageEnv> {
       return page("signed-out", 403);
 
     const saved = this.#kv.get<Saved>("saved");
-    if (!this.#container.running || !saved?.served) {
+    // The desktop comes only once the app answers; a failed desktop leaves it answering.
+    const answering =
+      saved?.served || saved?.step === "desktop" || saved?.step === "ready";
+    if (!this.#container.running || !answering) {
       if (saved?.step === "failed") return page("failed", 502, saved.error);
       // Asleep: up again from its snapshot. Coming: looked at.
       if (!this.#container.running && saved?.step !== "starting")
