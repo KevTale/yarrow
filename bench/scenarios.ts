@@ -42,6 +42,17 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "search",
+    about: "A UI feature typed into: a search shown live, the list narrowing.",
+    title: "Search tasks by title",
+    body: "Finding a task means reading the whole list. Add a search field above the task list: typing narrows the list to tasks whose title contains the text, whatever the case, and an empty field shows them all again. When nothing matches, say so.",
+    expect: {
+      outcome: "pull_request",
+      shows: ["app"],
+      touches: ["src/"],
+    },
+  },
+  {
     name: "bugfix",
     about: "A visible bug: fixed, tested, shown.",
     title: "Done tasks show as overdue",
