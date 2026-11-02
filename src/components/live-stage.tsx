@@ -193,6 +193,8 @@ export function useLiveStage({
     at: number;
     made: ReturnType<typeof stageTalkFn>;
   } | null>(null);
+  /** Up, its presentation playable: a call can be made. */
+  const up = useRef(false);
   const known = useRef(0);
   useEffect(() => {
     known.current = messages;
@@ -451,6 +453,7 @@ export function useLiveStage({
    */
   const language = () => (navigator.language || "en").slice(0, 2).toLowerCase();
   const warm = () => {
+    if (!up.current) return;
     void import("@elevenlabs/client");
     if (pass.current && Date.now() - pass.current.at < PASS_MS) return;
     const made = stageTalkFn({
@@ -588,6 +591,7 @@ export function useLiveStage({
           setLines((now) => now.filter((line) => line.turn !== -1));
           setReached(false);
           setTalk("off");
+          warm();
         },
         onError: (message) =>
           setProblems((now) => [...now, `call: ${message}`]),
@@ -615,6 +619,8 @@ export function useLiveStage({
     setTalk("off");
     setVoicing(false);
     setLines((now) => now.filter((line) => line.turn !== -1));
+    // The next call's pass: a pass is for one call.
+    warm();
   };
 
   /**
@@ -786,16 +792,19 @@ export function useLiveStage({
     latest.current = { onResume, play };
   });
   useEffect(() => {
-    if (phase === "ready") {
+    up.current = phase === "ready" && live;
+    if (up.current) {
       // Up: the call's pass asked for now, so the click starts it at once.
-      if (live) ending.current.warm();
+      ending.current.warm();
       return;
     }
+    if (phase === "ready") return;
     ending.current.stop();
     ending.current.endTalk();
   }, [phase, live]);
   useEffect(
     () => () => {
+      up.current = false;
       ending.current.stop();
       ending.current.endTalk();
       ending.current.hangUpVoice();

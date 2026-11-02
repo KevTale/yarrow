@@ -1425,8 +1425,17 @@ async function talkRoute(
   const encoder = new TextEncoder();
   let said = Date.now();
   let fillers = 0;
+  // ElevenLabs drops a turn's stream when the member speaks on (its
+  // speculative turn), and asks again: the dropped turn no longer acts on
+  // the stage, nor is it kept.
+  let dropped = false;
+  const drop = () => {
+    dropped = true;
+  };
   const write = (text: string) =>
-    writer.write(encoder.encode(text)).catch(() => {});
+    writer.write(encoder.encode(text)).catch(drop);
+  writer.closed.catch(drop);
+  request.signal.addEventListener("abort", drop);
   const say = (text: string) => {
     said = Date.now();
     return write(completion.words(id, text));
@@ -1493,13 +1502,16 @@ async function talkRoute(
           ticket: (key) =>
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
-        stage: (hand) => stage.present(hand),
+        stage: (hand) =>
+          dropped
+            ? Promise.reject(new Error("turn dropped"))
+            : stage.present(hand),
         say: (text) => void say(text),
         leadIn: talkFiller(grant.language, fillers++),
       });
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
-      if (!bench && (answer.words || answer.change))
+      if (!bench && !dropped && (answer.words || answer.change))
         await withDb(env, (db) =>
           saveSpokenTurn(
             db,
@@ -1548,6 +1560,7 @@ async function talkRoute(
         firstWordMs: answer.firstWordMs,
         ms,
         fillers,
+        dropped,
         resume: answer.resume,
         steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
         cents: Number(chatCostCents(answer.usage).toFixed(3)),
