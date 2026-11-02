@@ -41,6 +41,17 @@ describe("the stage", () => {
     ).toEqual([STALE_LOCKS, "cd web", "nohup pnpm start &"]);
   });
 
+  it("brings the app as it was back without touching the live locks", () => {
+    // As the bench's implementer wrote it on dev (2026-10-28). The locks
+    // cleared again once PostgreSQL ran: it shut down a minute later.
+    const before = [
+      "ln -s /workspace/repo/node_modules /tmp/before/node_modules",
+      "cp /workspace/repo/.env /tmp/before/.env",
+      "cd /tmp/before && PORT=3001 setsid -f npm start </dev/null >>/tmp/before.log 2>&1",
+    ];
+    expect(restartSteps(before, { locks: false })).toEqual([before[2]]);
+  });
+
   it("reads the seeded user's sign-in from the recipe's words", () => {
     const signIn = stageSignIn(
       "Seeded demo user demo@tally.dev / demo1234: POST the /login form and save the session cookie",

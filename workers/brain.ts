@@ -1230,7 +1230,10 @@ async function stageSpec(
     signIn: stageSignIn(recipe.signIn),
     base: context.base,
     before: recipe.before
-      ? { ...recipe.before, restart: restartSteps(recipe.before.steps) }
+      ? {
+          ...recipe.before,
+          restart: restartSteps(recipe.before.steps, { locks: false }),
+        }
       : null,
     script: stagePlan(timeline, Boolean(recipe.before)),
     recorder: RECORDER_SOURCE,

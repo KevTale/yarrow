@@ -107,13 +107,18 @@ const LONG_LIVED =
 /**
  * The steps that start what a snapshot cannot keep (processes), after the
  * locks the last boot left behind. A step that only moves (`cd`) is kept
- * for the steps after it.
+ * for the steps after it. `locks: false` for the steps run once the first
+ * ones are up (the app as it was): PostgreSQL shuts down within a minute
+ * when its live lock file is gone.
  */
-export function restartSteps(steps: string[]): string[] {
+export function restartSteps(
+  steps: string[],
+  { locks = true }: { locks?: boolean } = {},
+): string[] {
   const kept = steps.filter(
     (step) => LONG_LIVED.test(step) || /^\s*cd\s+\S+\s*$/.test(step),
   );
-  return [STALE_LOCKS, ...kept];
+  return locks ? [STALE_LOCKS, ...kept] : kept;
 }
 
 /** PostgreSQL's pid and socket locks, X's: from processes that are gone. */
