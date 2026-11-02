@@ -99,6 +99,10 @@ export function talkAgentConfig(input: {
         initial_wait_time: -1,
         silence_end_call_timeout: -1,
         turn_eagerness: "normal",
+        // No answer asked before they are done: the brain acts on the stage
+        // and keeps the turn, and ElevenLabs asked again once they spoke on,
+        // the answer twice in the thread.
+        speculative_turn: false,
         soft_timeout_config: { timeout_seconds: -1 },
       },
       conversation: {
