@@ -2879,6 +2879,11 @@ class Presenter {
     const marks = [];
     const clock = () => 0;
     for (const [i, chapter] of chapters.entries()) {
+      // The film's ticket or given output: the stage stays as it was.
+      if (!chapter.tab) {
+        if (i < index) this.shown.add(i);
+        continue;
+      }
       const actions = chapter.actions ?? [];
       const done =
         i < index
@@ -3150,8 +3155,9 @@ class Presenter {
     }
     this.playing = index;
     try {
-      const problems =
-        chapter.tab === "terminal"
+      const problems = !chapter.tab
+        ? []
+        : chapter.tab === "terminal"
           ? (await this.desktop.recordTerminal(chapter, null, voiceMs)).problems
           : await this.app(chapter, index, voiceMs, run);
       this.shown.add(index);
@@ -3381,7 +3387,7 @@ async function stage(spec) {
   const script = spec.script;
   const plan = {
     apps: {
-      after: app(script ? script.apps.after : spec.url),
+      after: app(script?.apps.after ?? spec.url),
       before: app(script?.apps.before),
     },
     chapters: script ? script.chapters : [],

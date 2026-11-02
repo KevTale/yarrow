@@ -41,32 +41,44 @@ export interface StageSpec {
   recorder: string;
 }
 
-/** The presentation as the stage plays it: the plan's apps and chapters. */
+/**
+ * The presentation as the stage plays it: the plan's apps (none for a film
+ * of terminals: the recipe's app) and chapters, one for each of the film's.
+ * A chapter of `tab` null leaves the stage as it was.
+ */
 export interface StagePlan {
-  apps: { after: string; before: string | null };
-  chapters: (LiveChapter & { title: string; tab: "app" | "terminal" })[];
+  apps: { after: string | null; before: string | null };
+  chapters: (
+    | (LiveChapter & { title: string; tab: "app" | "terminal" })
+    | { title: string; tab: null }
+  )[];
 }
 
 /**
- * The presentation, if the stage can play all of it live: every chapter
- * on the desktop (no ticket, phone or given output), the app as it was
- * running when a chapter shows it.
+ * The presentation as far as the stage can play it live: the chapters on
+ * the desktop, the app as it was only when it runs there; a ticket, a phone,
+ * a given output leave the stage as it was. None when no chapter can be
+ * (films before 2026-10-28 kept no live steps).
  */
 export function stagePlan(
   timeline: Presentation | null,
   before: boolean,
 ): StagePlan | null {
-  const after = timeline?.apps?.after;
-  if (!timeline || !after) return null;
-  const chapters: StagePlan["chapters"] = [];
-  for (const chapter of timeline.chapters) {
-    const { live, tab, title } = chapter;
-    if (!live || tab === "ticket") return null;
-    if (tab === "app" && live.app === "before" && !before) return null;
-    chapters.push({ ...live, title, tab });
-  }
+  if (!timeline) return null;
+  const chapters: StagePlan["chapters"] = timeline.chapters.map(
+    ({ live, tab, title }) =>
+      !live ||
+      tab === "ticket" ||
+      (tab === "app" && live.app === "before" && !before)
+        ? { title, tab: null }
+        : { ...live, title, tab },
+  );
+  if (chapters.every((chapter) => chapter.tab === null)) return null;
   return {
-    apps: { after, before: before ? (timeline.apps?.before ?? null) : null },
+    apps: {
+      after: timeline.apps?.after ?? null,
+      before: before ? (timeline.apps?.before ?? null) : null,
+    },
     chapters,
   };
 }

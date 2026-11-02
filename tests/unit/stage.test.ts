@@ -224,7 +224,7 @@ describe("the presentation on the stage", () => {
     urls: [],
     live,
   });
-  const app = (which: "before" | "after", path: string) => ({
+  const app = (which: "before" | "after", path: string | null) => ({
     app: which,
     path,
     actions: [{ do: "click" as const, target: "text=Doing" }],
@@ -263,14 +263,42 @@ describe("the presentation on the stage", () => {
     });
   });
 
-  it("plays none of it when a chapter cannot be played live", () => {
+  it("leaves the stage as it was for a chapter it cannot play live", () => {
     // The app as it was does not run on the stage.
-    expect(stagePlan(film, false)).toBeNull();
-    // A ticket, or a presentation recorded before the plan was kept.
+    expect(stagePlan(film, false)?.chapters).toMatchObject([
+      { title: "Before", tab: null },
+      { title: "Filters", tab: "app" },
+      { title: "Tests", tab: "terminal" },
+    ]);
+    // A ticket, then terminals only: the recipe's app is the stage's.
+    const terminals = stagePlan(
+      {
+        ...timeline([
+          chapter("The ask", "ticket", null),
+          chapter("Tests", "terminal", {
+            ...app("after", null),
+            actions: [],
+            command: "npm test",
+          }),
+        ]),
+        apps: { before: null, after: null },
+      },
+      true,
+    );
+    expect(terminals).toMatchObject({
+      apps: { after: null, before: null },
+      chapters: [
+        { title: "The ask", tab: null },
+        { title: "Tests", tab: "terminal", command: "npm test" },
+      ],
+    });
+  });
+
+  it("plays none of it when no chapter can be played live", () => {
+    // A presentation recorded before the plan was kept.
     expect(
       stagePlan(timeline([chapter("The ask", "ticket", null)]), true),
     ).toBeNull();
-    expect(stagePlan({ ...film, apps: null }, true)).toBeNull();
     expect(stagePlan(null, true)).toBeNull();
     // Without the app as it was, a film that never shows it still plays.
     expect(
