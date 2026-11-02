@@ -95,8 +95,19 @@ import {
 import { voiceProvider } from "../src/runner/voice/index";
 import { sendOutOfCreditAlert } from "./alerts";
 import { museClient, type MuseSandbox } from "./muse";
+import type { Stage } from "./stage";
+import {
+  restartSteps,
+  stageAddress,
+  stageSignIn,
+  type StageStatus,
+} from "../src/core/stage";
+import { stageContext } from "../src/db/stage";
+import { installationToken } from "../src/server/github/app";
+import { RECORDER_SOURCE } from "../src/runner/recorder/source";
 
 export { MuseOutbound, MuseSandbox } from "./muse";
+export { Stage } from "./stage";
 
 export interface BrainEnv {
   WORKFLOW: Workflow<RunRequest>;
@@ -147,6 +158,8 @@ export interface BrainEnv {
   META_API_KEY?: string;
   META_MODEL?: string;
   META_EFFORT?: string;
+  /** Pull requests' stages (workers/stage.ts); dev only for now. */
+  STAGE?: DurableObjectNamespace<Stage>;
 }
 
 async function withDb<T>(
@@ -1109,6 +1122,71 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       return { ok: false, error: "The agent cannot answer right now." };
     }
     return { ok: true };
+  }
+
+  /**
+   * A pull request's stage, its app live (workers/stage.ts). The web Worker
+   * has checked the viewer is a member of the ticket's project. `fresh`
+   * forgets the snapshot: the next boot runs the whole recipe again.
+   */
+  async stage(input: {
+    workUnitId: string;
+    action: "open" | "status" | "close";
+    fresh?: boolean;
+  }): Promise<StageStatus> {
+    const off = (error: string): StageStatus => ({
+      phase: "failed",
+      warm: false,
+      events: [],
+      error,
+    });
+    if (!this.env.STAGE) return off("No stage on this environment.");
+    const stage = this.env.STAGE.getByName(input.workUnitId);
+    if (input.action === "status") return stage.status();
+    if (input.action === "close") {
+      await stage.close();
+      return stage.status();
+    }
+    const credentials = this.credentials();
+    if (!credentials) return off("GitHub is not configured.");
+    const context = await withDb(this.env, (db) =>
+      stageContext(db, input.workUnitId),
+    );
+    if (!context) return off("This ticket has no pull request.");
+    if (!context.recipe) return off("Yarrow has not run this project's app yet.");
+    if (!context.githubInstallationId || !context.githubRepositoryId)
+      return off("The GitHub App is not installed on this repository.");
+    const { token } = await installationToken(
+      credentials,
+      context.githubInstallationId,
+      {
+        repositoryIds: [Number(context.githubRepositoryId)],
+        permissions: { contents: "read" },
+      },
+    );
+    return stage.open(
+      {
+        repository: context.repository,
+        branch: context.branch,
+        token,
+        steps: context.recipe.steps,
+        restart: restartSteps(context.recipe.steps),
+        ...stageAddress(context.recipe.url),
+        signIn: stageSignIn(context.recipe.signIn),
+        recorder: RECORDER_SOURCE,
+      },
+      input.fresh,
+    );
+  }
+
+  /** The stage's screen: the page's WebSocket, forwarded by the web Worker. */
+  async fetch(request: Request): Promise<Response> {
+    const match = /^\/stage\/([0-9a-f-]{36})$/.exec(
+      new URL(request.url).pathname,
+    );
+    if (!match || !this.env.STAGE)
+      return new Response("Not found\n", { status: 404 });
+    return this.env.STAGE.getByName(match[1]!).fetch(request);
   }
 }
 

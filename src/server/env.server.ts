@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { ActionResult, PullRequestAction } from "./github/pull-actions";
 import type { NewIssueResult } from "./github/new-issue";
+import type { StageStatus } from "../core/stage";
 
 /**
  * The shop Worker's configuration. Public values come from wrangler.jsonc
@@ -76,6 +77,14 @@ export interface AppEnv {
       source: "github" | "jira";
     }): Promise<ActionResult>;
     closePullRequest(input: { workUnitId: string }): Promise<ActionResult>;
+    /** A pull request's stage, its app live (workers/stage.ts). */
+    stage(input: {
+      workUnitId: string;
+      action: "open" | "status" | "close";
+      fresh?: boolean;
+    }): Promise<StageStatus>;
+    /** The stage's screen: a WebSocket to /stage/<workUnitId>. */
+    fetch(request: Request): Promise<Response>;
   };
 }
 

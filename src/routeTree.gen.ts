@@ -38,6 +38,8 @@ import { Route as ApiWebhooksJiraRouteImport } from './routes/api/webhooks/jira'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integrations/$tracker.callback'
 import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integrations/$tracker.connect'
+import { Route as StageScreenProjectIdKeyRouteImport } from './routes/stage-screen/$projectId.$key'
+import { Route as StageProjectIdKeyRouteImport } from './routes/stage/$projectId.$key'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -187,6 +189,16 @@ const IntegrationsTrackerConnectRoute =
     path: '/integrations/$tracker/connect',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StageScreenProjectIdKeyRoute = StageScreenProjectIdKeyRouteImport.update({
+  id: '/stage-screen/$projectId/$key',
+  path: '/stage-screen/$projectId/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StageProjectIdKeyRoute = StageProjectIdKeyRouteImport.update({
+  id: '/stage/$projectId/$key',
+  path: '/stage/$projectId/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -218,6 +230,8 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
+  '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -249,6 +263,8 @@ export interface FileRoutesByTo {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
+  '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -281,6 +297,8 @@ export interface FileRoutesById {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
+  '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -314,6 +332,8 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/stage-screen/$projectId/$key'
+    | '/stage/$projectId/$key'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -345,6 +365,8 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/stage-screen/$projectId/$key'
+    | '/stage/$projectId/$key'
   id:
     | '__root__'
     | '/'
@@ -376,6 +398,8 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/stage-screen/$projectId/$key'
+    | '/stage/$projectId/$key'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -408,6 +432,8 @@ export interface RootRouteChildren {
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
   IntegrationsTrackerConnectRoute: typeof IntegrationsTrackerConnectRoute
+  StageScreenProjectIdKeyRoute: typeof StageScreenProjectIdKeyRoute
+  StageProjectIdKeyRoute: typeof StageProjectIdKeyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -615,6 +641,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsTrackerConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stage-screen/$projectId/$key': {
+      id: '/stage-screen/$projectId/$key'
+      path: '/stage-screen/$projectId/$key'
+      fullPath: '/stage-screen/$projectId/$key'
+      preLoaderRoute: typeof StageScreenProjectIdKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stage/$projectId/$key': {
+      id: '/stage/$projectId/$key'
+      path: '/stage/$projectId/$key'
+      fullPath: '/stage/$projectId/$key'
+      preLoaderRoute: typeof StageProjectIdKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -648,6 +688,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,
   IntegrationsTrackerConnectRoute: IntegrationsTrackerConnectRoute,
+  StageScreenProjectIdKeyRoute: StageScreenProjectIdKeyRoute,
+  StageProjectIdKeyRoute: StageProjectIdKeyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

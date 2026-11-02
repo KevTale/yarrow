@@ -9322,3 +9322,44 @@ button.pp-idea:focus-visible .pp-idea-go {
     display: none;
   }
 }
+
+/* A pull request's stage (routes/stage): its app live, then how it came up. */
+.stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stage-actions {
+  display: flex;
+  gap: 8px;
+}
+.stage-screen {
+  aspect-ratio: 1440 / 900;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.stage-events {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font: 13px/1.7 var(--font-geist-mono), monospace;
+  color: var(--secondary);
+}
+.stage-events span {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--muted);
+}
+.stage-warm {
+  color: var(--green);
+}
+.stage-error {
+  margin-top: 12px;
+  white-space: pre-wrap;
+  color: var(--red);
+  font-size: 13px;
+}

@@ -74,9 +74,13 @@
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },
       ],
-      // One container per Meta run (workers/muse.ts), built from muse/Dockerfile.
+      // One container per Meta run (workers/muse.ts), built from muse/Dockerfile,
+      // and one per pull request's stage (workers/stage.ts), the same image.
       "durable_objects": {
-        "bindings": [{ "name": "MUSE", "class_name": "MuseSandbox" }],
+        "bindings": [
+          { "name": "MUSE", "class_name": "MuseSandbox" },
+          { "name": "STAGE", "class_name": "Stage" },
+        ],
       },
       "containers": [
         {
@@ -84,9 +88,15 @@
           "scheduling_policy": "durable_object",
           "images": { "muse": { "dockerfile": "./muse/Dockerfile" } },
         },
+        {
+          "class_name": "Stage",
+          "scheduling_policy": "durable_object",
+          "images": { "stage": { "dockerfile": "./muse/Dockerfile" } },
+        },
       ],
       "exports": {
         "MuseSandbox": { "type": "durable-object", "storage": "sqlite" },
+        "Stage": { "type": "durable-object", "storage": "sqlite" },
       },
     },
     // Paired with yarrow.run, deployed on every push to the prod branch.

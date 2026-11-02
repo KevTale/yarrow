@@ -5,6 +5,8 @@
 //
 //   node present.mjs plan.json           record every chapter
 //   node present.mjs plan.json --check   check the plan, record nothing
+//   node present.mjs stage.json --stage  the app live on the desktop, served
+//                                        over VNC until stopped (workers/stage.ts)
 //
 // Writes presentation/presentation.json, one clip per chapter and a poster
 // under the session's outputs. The brain voices it after the review.
@@ -16,6 +18,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -1422,7 +1425,7 @@ class Desktop {
     this.x("xdotool", ["key", "--clearmodifiers", keys]);
   }
 
-  async start(playwright) {
+  async start(playwright, { film = true } = {}) {
     const born = Date.now();
     installDesktop();
     let display = 99;
@@ -1621,7 +1624,7 @@ class Desktop {
       String(this.pointer.x),
       String(this.pointer.y),
     ]);
-    await this.startFilm();
+    if (film) await this.startFilm();
     log(
       "desktop up on :" +
         display +
@@ -2382,6 +2385,93 @@ class Desktop {
   }
 }
 
+// ---------- The stage: the app live on the desktop ----------
+
+/** Where the brain's Stage reaches the screen, bridged to the page's viewer. */
+const VNC_PORT = 5900;
+
+const listening = (port) =>
+  new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1");
+    socket.once("connect", () => {
+      socket.end();
+      resolve(true);
+    });
+    socket.once("error", () => resolve(false));
+  });
+
+/** The seeded user's session, saved for the browser's window. */
+async function signIn(browser, base, how, file) {
+  const context = await browser.newContext({ viewport: null });
+  try {
+    const page = await context.newPage();
+    await page.goto(join(base, how.path), {
+      waitUntil: "load",
+      timeout: 45000,
+    });
+    const fields = Object.entries(how.fields);
+    for (const [selector, value] of fields) await page.fill(selector, value);
+    await Promise.all([
+      page.waitForLoadState("load").catch(() => {}),
+      how.submit
+        ? page.click(how.submit)
+        : page.press(fields.at(-1)[0], "Enter"),
+    ]);
+    await page
+      .waitForLoadState("networkidle", { timeout: 6000 })
+      .catch(() => {});
+    await context.storageState({ path: file });
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
+/**
+ * `--stage`: the same desktop as the films, the app in its browser and
+ * signed in, its screen served over VNC (the pointer drawn into it) until
+ * the container stops. Nothing is filmed. The stage file gives the app
+ * ({ url, path, signIn: { path, fields, submit } | null }) and `ready`,
+ * written once the screen can be watched.
+ */
+async function stage(spec) {
+  browsersPath();
+  const playwright = loadPlaywright();
+  const desktop = new Desktop();
+  process.on("exit", () => desktop.close());
+  for (const signal of ["SIGTERM", "SIGINT"])
+    process.on(signal, () => process.exit(0));
+  await desktop.start(playwright, { film: false });
+  const after = { url: spec.url };
+  if (spec.signIn) {
+    after.storage = path.join(desktop.dir, "after-state.json");
+    try {
+      await signIn(desktop.browser, spec.url, spec.signIn, after.storage);
+    } catch (error) {
+      log("not signed in: " + String(error?.message).split("\n")[0]);
+      delete after.storage;
+    }
+    // The sign-in's window is gone: the next one is the app's.
+    desktop.known = new Set(desktop.windows().map((w) => w.id));
+  }
+  const plan = { apps: { after }, chapters: [] };
+  await desktop.openWindow(plan, 0, "after", join(spec.url, spec.path));
+  desktop.spawn("x11vnc", "x11vnc", [
+    ...["-display", desktop.env.DISPLAY, "-rfbport", String(VNC_PORT)],
+    // No cursor shapes: the pointer the agent moves is drawn into the screen.
+    ...flags(
+      "-forever -shared -nopw -quiet -noxrecord -nocursorshape -nocursorpos",
+    ),
+  ]);
+  if (!(await until(() => listening(VNC_PORT), 15000)))
+    throw new Error("the screen is not served (x11vnc)");
+  fs.writeFileSync(
+    spec.ready,
+    JSON.stringify({ display: desktop.env.DISPLAY, at: Date.now() }),
+  );
+  log("stage up: " + spec.url);
+  await new Promise(() => {});
+}
+
 /** Chapters the desktop films; a phone or a given output stays a clip. */
 const onDesktop = (chapter) =>
   (chapter.tab === "app" && chapter.device !== "phone") ||
@@ -2391,6 +2481,7 @@ async function main() {
   const [file, flag] = process.argv.slice(2);
   if (!file) throw new Error("usage: node present.mjs plan.json [--check]");
   const plan = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (flag === "--stage") return stage(plan);
   const problems = check(plan);
   if (problems.length) {
     for (const problem of problems) console.error("plan: " + problem);
