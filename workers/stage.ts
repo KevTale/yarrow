@@ -104,7 +104,6 @@ export class Stage extends DurableObject<StageEnv> {
   }
 
   async #start(asked: number): Promise<void> {
-    const spec = this.#kv.get<StageSpec>("spec")!;
     const snapshot = this.#kv.get<ContainerSnapshot>("snapshot");
     this.#save({
       asked,
