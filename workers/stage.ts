@@ -6,11 +6,13 @@ import {
   type StageCue,
   type StageCueResult,
   type StageEvent,
+  type StageHand,
   type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
 import { MUSE_INSTANCE } from "../src/runner/muse";
 import { RECORDER_PATH } from "../src/runner/presentation";
+import type { TalkContext } from "../src/runner/talk";
 
 /**
  * A pull request's stage (src/core/stage.ts): one container per work unit,
@@ -230,8 +232,21 @@ export class Stage extends DurableObject<StageEnv> {
     };
   }
 
-  /** The page's cue to the presenter; answered once it is played. */
-  async present(cue: StageCue): Promise<StageCueResult> {
+  /**
+   * What the agent the member talks to knows of the pull request, kept for
+   * the call (src/runner/talk.ts): each turn reads it instead of the database,
+   * GitHub and the presentation again.
+   */
+  setTalk(context: TalkContext): void {
+    this.#kv.put("talk", context);
+  }
+
+  talk(): TalkContext | null {
+    return this.#kv.get<TalkContext>("talk") ?? null;
+  }
+
+  /** The page's cue to the presenter, or the agent's move; answered once done. */
+  async present(cue: StageCue | StageHand): Promise<StageCueResult> {
     if (
       !this.#container.running ||
       this.#kv.get<Saved>("saved")?.step !== "ready"

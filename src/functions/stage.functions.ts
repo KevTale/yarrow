@@ -61,7 +61,10 @@ export const stageFn = createServerFn({ method: "POST" })
     return { ...status, presentation: film?.key ?? null };
   });
 
-/** The presentation played live on it: the opening, then each chapter. */
+/**
+ * The presentation played live on it: the opening, then each chapter;
+ * held while the member talks, and on again.
+ */
 export const stageCueFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
@@ -73,6 +76,8 @@ export const stageCueFn = createServerFn({ method: "POST" })
           index: z.number().int().min(0).max(11),
           voiceMs: z.number().int().min(0).max(120_000),
         }),
+        z.object({ action: z.literal("pause") }),
+        z.object({ action: z.literal("resume") }),
       ]),
     }),
   )
@@ -83,5 +88,34 @@ export const stageCueFn = createServerFn({ method: "POST" })
     return found.brain.stageCue({
       workUnitId: found.workUnitId,
       cue: data.cue,
+    });
+  });
+
+export type TalkCall =
+  | { ok: true; conversationToken: string; grant: string }
+  | { ok: false; reason: string };
+
+/**
+ * A live call about the pull request, by voice: what the page starts it
+ * with (src/runner/talk.ts). The member's language picks the one heard.
+ */
+export const stageTalkFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      ...ticket,
+      language: z
+        .string()
+        .regex(/^[a-z]{2,3}$/)
+        .default("en"),
+    }),
+  )
+  .handler(async ({ data }): Promise<TalkCall> => {
+    const viewer = await requireViewer();
+    const found = await stageOf(data);
+    if (!found) return { ok: false, reason: "No stage for this ticket here." };
+    return found.brain.talkCall({
+      workUnitId: found.workUnitId,
+      userId: viewer.userId,
+      language: data.language,
     });
   });

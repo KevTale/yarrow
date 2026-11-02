@@ -36,6 +36,7 @@ import {
   askQuestion,
   chatContext,
   failAnswer,
+  pullContext,
   ticketForChat,
   ticketsForChat,
   saveAnswer,
@@ -71,7 +72,7 @@ import {
   closePullRequest,
   closeTicket,
 } from "../src/server/github/ticket-actions";
-import { repoReader } from "../src/server/github/repo-reads";
+import { lazyRepoReader, repoReader } from "../src/server/github/repo-reads";
 import { runGithubTasks } from "../src/server/github/tasks";
 import {
   correctionInstruction,
@@ -85,7 +86,27 @@ import {
 import { ensureJiraWebhooks } from "../src/server/trackers/jira-webhooks";
 import { ManagedAgentsClient } from "../src/runner/anthropic";
 import { isMuseSession, MUSE_EFFORT, MUSE_MODEL } from "../src/runner/muse";
-import { answerQuestion, type ChatAnswer } from "../src/runner/chat";
+import {
+  answerQuestion,
+  chatContextText,
+  type ChatAnswer,
+} from "../src/runner/chat";
+import {
+  completion,
+  stageNote,
+  talkGrantOf,
+  talkMessages,
+  talkRequestSchema,
+  talkTurn,
+  type TalkContext,
+} from "../src/runner/talk";
+import {
+  conversationToken,
+  readTalkGrant,
+  sameKey,
+  signTalkGrant,
+  talkKey,
+} from "../src/runner/voice/agent";
 import { AgentsClient, defaultReviewerRates } from "../src/runner/openai";
 import {
   RunPipeline,
@@ -106,6 +127,7 @@ import {
   type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
+import { chatCostCents } from "../src/core/chat";
 import { stageContext } from "../src/db/stage";
 import { installationToken } from "../src/server/github/app";
 import { RECORDER_SOURCE } from "../src/runner/recorder/source";
@@ -164,6 +186,13 @@ export interface BrainEnv {
   META_EFFORT?: string;
   /** Pull requests' stages (workers/stage.ts); dev only for now. */
   STAGE?: DurableObjectNamespace<Stage>;
+  /**
+   * The live review's call (src/runner/talk.ts): the ElevenLabs agent made by
+   * scripts/voice-agent.ts, and the secret its passes and its key to the
+   * brain come from. Both put by that script, dev only for now.
+   */
+  ELEVENLABS_AGENT_ID?: string;
+  VOICE_SECRET?: string;
 }
 
 async function withDb<T>(
@@ -1179,15 +1208,192 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     return this.env.STAGE.getByName(input.workUnitId).present(input.cue);
   }
 
-  /** The stage's screen: the page's WebSocket, forwarded by the web Worker. */
+  /**
+   * A live call about the pull request, for a member of its project: the
+   * token the page starts it with, and the pass it carries to each turn.
+   * What the agent knows of the pull request is gathered now, once.
+   */
+  async talkCall(input: {
+    workUnitId: string;
+    userId: string;
+    language: string;
+  }): Promise<
+    | { ok: true; conversationToken: string; grant: string }
+    | { ok: false; reason: string }
+  > {
+    const { env } = this;
+    if (
+      !env.STAGE ||
+      !env.ELEVENLABS_API_KEY ||
+      !env.ELEVENLABS_AGENT_ID ||
+      !env.VOICE_SECRET ||
+      !env.ANTHROPIC_API_KEY
+    )
+      return { ok: false, reason: "No live call on this environment." };
+    const stage = env.STAGE.getByName(input.workUnitId);
+    const [context, token, grant] = await Promise.all([
+      talkContext(env, input.workUnitId),
+      conversationToken(env.ELEVENLABS_API_KEY, env.ELEVENLABS_AGENT_ID),
+      signTalkGrant(env.VOICE_SECRET, input),
+    ]);
+    if (!context)
+      return { ok: false, reason: "This ticket has no pull request." };
+    await stage.setTalk(context);
+    return { ok: true, conversationToken: token, grant };
+  }
+
+  /**
+   * The stage's screen: the page's WebSocket, forwarded by the web Worker.
+   * And the live call's turns: ElevenLabs asking for the agent's words.
+   */
   async fetch(request: Request): Promise<Response> {
-    const match = /^\/stage\/([0-9a-f-]{36})$/.exec(
-      new URL(request.url).pathname,
-    );
+    const { pathname } = new URL(request.url);
+    if (pathname.startsWith("/voice/llm"))
+      return talkRoute(this.env, this.ctx, request);
+    const match = /^\/stage\/([0-9a-f-]{36})$/.exec(pathname);
     if (!match || !this.env.STAGE)
       return new Response("Not found\n", { status: 404 });
     return this.env.STAGE.getByName(match[1]!).fetch(request);
   }
+}
+
+/** What the call's agent knows of the pull request: the written chat's context. */
+async function talkContext(
+  env: BrainEnv,
+  workUnitId: string,
+): Promise<TalkContext | null> {
+  const context = await withDb(env, (db) => pullContext(db, workUnitId));
+  if (!context) return null;
+  const film = context.panel?.screens.find(
+    (screen) => screen.kind === "presentation",
+  );
+  const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
+  const pull = context.pullRequest;
+  const [presentation, diff] = await Promise.all([
+    film && env.EVIDENCE
+      ? env.EVIDENCE.get(film.key)
+          .then(async (object) =>
+            object ? presentationSchema.safeParse(await object.json()) : null,
+          )
+          .then((parsed) => (parsed?.success ? parsed.data : null))
+          .catch(() => null)
+      : null,
+    appId && privateKey && pull
+      ? repoReader({ appId, privateKey }, context.project)
+          .then((reader) => reader?.pullDiff(pull.number) ?? null)
+          .catch(() => null)
+      : null,
+  ]);
+  return {
+    text: chatContextText(context, { presentation, diff }),
+    project: context.project,
+    pullRequest: pull,
+  };
+}
+
+/**
+ * One turn of a live call: ElevenLabs' chat completion request (the
+ * member's words so far), answered as a stream of the agent's words.
+ * ElevenLabs holds the key; the page's pass names the pull request.
+ */
+async function talkRoute(
+  env: BrainEnv,
+  ctx: ExecutionContext,
+  request: Request,
+): Promise<Response> {
+  const started = Date.now();
+  const missing = () => new Response("Not found\n", { status: 404 });
+  if (request.method !== "POST") return missing();
+  const { VOICE_SECRET: secret, ANTHROPIC_API_KEY: apiKey, STAGE } = env;
+  if (!secret || !apiKey || !STAGE) return missing();
+  const refused = () => new Response("Unauthorized\n", { status: 401 });
+  if (!sameKey(request.headers.get("authorization"), await talkKey(secret)))
+    return refused();
+  const parsed = talkRequestSchema.safeParse(
+    await request.json().catch(() => null),
+  );
+  if (!parsed.success) return new Response("Bad request\n", { status: 400 });
+  const pass = talkGrantOf(parsed.data);
+  const grant = pass ? await readTalkGrant(secret, pass) : null;
+  if (!grant) return refused();
+  const stage = STAGE.getByName(grant.workUnitId);
+  const messages = talkMessages(parsed.data.messages);
+  const id = crypto.randomUUID().slice(0, 12);
+  const headers = {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+  };
+  // Not the member's turn (ElevenLabs after a tool, or on its own): nothing to say.
+  if (messages.at(-1)?.role !== "user")
+    return new Response(completion.end(id), { headers });
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+  const write = (text: string) =>
+    writer.write(encoder.encode(text)).catch(() => {});
+  const turn = (async () => {
+    try {
+      const [kept, state] = await Promise.all([
+        stage.talk(),
+        stage
+          .present({ action: "state" })
+          .then((result) => result.state ?? null)
+          .catch(() => null),
+      ]);
+      const context = kept ?? (await talkContext(env, grant.workUnitId));
+      if (!context) throw new Error("no pull request");
+      const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
+      const projectId = context.project.id;
+      const answer = await talkTurn({
+        client: new Anthropic({ apiKey }),
+        context,
+        messages,
+        state,
+        started,
+        sources: {
+          reader:
+            appId && privateKey
+              ? lazyRepoReader(() =>
+                  repoReader({ appId, privateKey }, context.project),
+                )
+              : null,
+          tickets: () => withDb(env, (db) => ticketsForChat(db, projectId)),
+          ticket: (key) =>
+            withDb(env, (db) => ticketForChat(db, projectId, key)),
+        },
+        stage: (hand) => stage.present(hand),
+        say: (text) => void write(completion.words(id, text)),
+      });
+      await write(
+        answer.resume
+          ? completion.resume(id) + completion.done
+          : completion.end(id),
+      );
+      console.log("talk", {
+        workUnitId: grant.workUnitId,
+        stage: stageNote(state),
+        firstWordMs: answer.firstWordMs,
+        ms: Date.now() - started,
+        resume: answer.resume,
+        cents: Number(chatCostCents(answer.usage).toFixed(3)),
+        usage: answer.usage,
+      });
+    } catch (error) {
+      console.warn("talk", describe(error));
+      await write(
+        completion.words(
+          id,
+          grant.language.startsWith("fr")
+            ? "Désolé, je n'ai pas pu répondre. Tu peux répéter ?"
+            : "Sorry, I couldn't answer that. Could you say it again?",
+        ) + completion.end(id),
+      );
+    } finally {
+      await writer.close().catch(() => {});
+    }
+  })();
+  ctx.waitUntil(turn);
+  return new Response(readable, { headers });
 }
 
 /**

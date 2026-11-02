@@ -6,7 +6,7 @@
  * services and the app back. No I/O here.
  */
 
-import type { LiveChapter, Presentation } from "./presentation";
+import type { LiveAction, LiveChapter, Presentation } from "./presentation";
 
 /** How the seeded user signs in, for the stage's browser. */
 export interface StageSignIn {
@@ -89,15 +89,43 @@ export interface StageStatus {
   live: boolean;
 }
 
-/** What the page asks the presenter: the opening, or a chapter over its voice. */
+/**
+ * What the page asks the presenter: the opening, a chapter over its voice,
+ * or to hold it while the member talks and go on after.
+ */
 export type StageCue =
-  { action: "set" } | { action: "chapter"; index: number; voiceMs: number };
+  | { action: "set" }
+  | { action: "chapter"; index: number; voiceMs: number }
+  | { action: "pause" }
+  | { action: "resume" };
+
+/**
+ * What the agent the member talks to does there (src/runner/talk.ts):
+ * reads where the presentation stands and the screen, acts on it.
+ */
+export type StageHand =
+  | { action: "state" }
+  | { action: "look" }
+  | { action: "act"; actions: LiveAction[] }
+  | { action: "window"; window: "after" | "before" | "terminal" }
+  | { action: "run"; command: string; cwd?: string };
 
 export interface StageCueResult {
   ok: boolean;
   problems: string[];
   /** What the presenter said while it played it. */
   notes?: string[];
+  /** The screen as text, after the agent's move. */
+  screen?: string;
+  state?: StageState;
+}
+
+/** Where the presentation stands on the stage. */
+export interface StageState {
+  chapter: { index: number; title: string } | null;
+  /** Held while the member talks. */
+  held: boolean;
+  chapters: number;
 }
 
 /** A recipe step that leaves something running: a database, a server. */

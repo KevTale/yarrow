@@ -1,0 +1,524 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { describe, expect, it } from "vitest";
+import type { StageCueResult, StageHand } from "../../src/core/stage";
+import type { ChatSources } from "../../src/runner/chat";
+import {
+  completion,
+  stageNote,
+  talkGrantOf,
+  talkMessages,
+  talkRequestSchema,
+  talkTurn,
+  type TalkContext,
+} from "../../src/runner/talk";
+import {
+  conversationToken,
+  readTalkGrant,
+  sameKey,
+  signTalkGrant,
+  TALK_GRANT_MS,
+  talkAgentConfig,
+  talkKey,
+} from "../../src/runner/voice/agent";
+
+type Block =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: unknown };
+
+/** Claude's answer as the stream sends it, a few words per event. */
+function sse(
+  index: number,
+  answer: { stop_reason: string; content: Block[] },
+): string {
+  const events: object[] = [
+    {
+      type: "message_start",
+      message: {
+        id: `msg_${index}`,
+        type: "message",
+        role: "assistant",
+        model: "claude-opus-5-5",
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 1,
+          cache_read_input_tokens: 1000,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    },
+  ];
+  answer.content.forEach((block, at) => {
+    if (block.type === "text") {
+      events.push({
+        type: "content_block_start",
+        index: at,
+        content_block: { type: "text", text: "" },
+      });
+      for (const word of block.text.match(/\S+\s*/g) ?? [])
+        events.push({
+          type: "content_block_delta",
+          index: at,
+          delta: { type: "text_delta", text: word },
+        });
+    } else {
+      events.push({
+        type: "content_block_start",
+        index: at,
+        content_block: { ...block, input: {} },
+      });
+      events.push({
+        type: "content_block_delta",
+        index: at,
+        delta: {
+          type: "input_json_delta",
+          partial_json: JSON.stringify(block.input),
+        },
+      });
+    }
+    events.push({ type: "content_block_stop", index: at });
+  });
+  events.push(
+    {
+      type: "message_delta",
+      delta: { stop_reason: answer.stop_reason, stop_sequence: null },
+      usage: { output_tokens: 20 },
+    },
+    { type: "message_stop" },
+  );
+  return events
+    .map(
+      (event) =>
+        `event: ${(event as { type: string }).type}\ndata: ${JSON.stringify(event)}\n\n`,
+    )
+    .join("");
+}
+
+function claude(
+  script: (body: Record<string, unknown>) => {
+    stop_reason: string;
+    content: Block[];
+  },
+) {
+  const requests: { body: Record<string, unknown>; beta: string | null }[] = [];
+  const fetcher = (async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    requests.push({
+      body,
+      beta: new Headers(init.headers).get("anthropic-beta"),
+    });
+    return new Response(sse(requests.length, script(body)), {
+      headers: { "content-type": "text/event-stream" },
+    });
+  }) as typeof fetch;
+  return {
+    requests,
+    client: new Anthropic({ apiKey: "test", fetch: fetcher, maxRetries: 0 }),
+  };
+}
+
+const context: TalkContext = {
+  text: "Pull request #4 of marie/halyard: a status filter above the list.",
+  project: {
+    id: "p",
+    name: "Halyard",
+    repository: "marie/halyard",
+    defaultBranch: "main",
+    githubInstallationId: "42",
+    githubRepositoryId: "999",
+  },
+  pullRequest: {
+    number: 4,
+    url: "https://github.com/marie/halyard/pull/4",
+    branch: "yarrow/3",
+    state: "open",
+  },
+};
+
+const sources: ChatSources = {
+  reader: {
+    readFile: async () => ({ kind: "file", text: "const a = 1;" }),
+    listFiles: async () => ({ paths: [], truncated: false }),
+    searchCode: async () => [],
+    openIssues: async () => [],
+    readIssue: async () => null,
+    pullDiff: async () => [],
+  },
+  tickets: async () => [],
+  ticket: async () => null,
+};
+
+function stage(answers: Partial<Record<StageHand["action"], StageCueResult>>) {
+  const hands: StageHand[] = [];
+  return {
+    hands,
+    stage: async (hand: StageHand) => {
+      hands.push(hand);
+      return answers[hand.action] ?? { ok: true, problems: [] };
+    },
+  };
+}
+
+const held = {
+  chapter: { index: 1, title: "The filter" },
+  held: true,
+  chapters: 3,
+};
+
+describe("the live call's turn", () => {
+  it("speaks first, looks, acts on the stage, then answers", async () => {
+    const { client, requests } = claude((body) => {
+      const turns = (body.messages as unknown[]).length;
+      if (turns === 1)
+        return {
+          stop_reason: "tool_use",
+          content: [
+            { type: "text", text: "Let me show you." },
+            { type: "tool_use", id: "t1", name: "look_at_screen", input: {} },
+          ],
+        };
+      if (turns === 3)
+        return {
+          stop_reason: "tool_use",
+          content: [
+            {
+              type: "tool_use",
+              id: "t2",
+              name: "act_on_screen",
+              input: { actions: [{ do: "click", target: "e12" }] },
+            },
+          ],
+        };
+      return {
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Only the done tasks are left." }],
+      };
+    });
+    const { stage: hands, hands: asked } = stage({
+      look: { ok: true, problems: [], screen: '- button "Done" [ref=e12]' },
+      act: { ok: true, problems: [], screen: "- list: 2 tasks" },
+    });
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Show me the done filter." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: (text) => said.push(text),
+    });
+
+    expect(said.join("")).toBe(
+      "Let me show you. Only the done tasks are left. ",
+    );
+    expect(answer.resume).toBe(false);
+    expect(answer.firstWordMs).not.toBeNull();
+    expect(answer.usage).toMatchObject({ input: 300, output: 60 });
+    expect(asked).toEqual([
+      { action: "look" },
+      { action: "act", actions: [{ do: "click", target: "e12" }] },
+    ]);
+
+    const first = requests[0]!;
+    expect(first.beta).toContain("server-side-fallback-2026-07-01");
+    expect(first.body).toMatchObject({
+      model: "claude-opus-5-5",
+      fallbacks: "default",
+      output_config: { effort: "low" },
+      tool_choice: { type: "auto" },
+    });
+    const tools = first.body.tools as { name: string }[];
+    expect(tools.map((tool) => tool.name)).toContain("act_on_screen");
+    expect(tools.map((tool) => tool.name)).not.toContain("propose_change");
+    expect(
+      (first.body.messages as { content: string }[])[0]!.content,
+    ).toContain('stopped in chapter 2 of 3, "The filter"');
+
+    const third = requests[2]!.body.messages as {
+      role: string;
+      content: { type: string; content?: string; tool_use_id?: string }[];
+    }[];
+    expect(third[2]!.content[0]).toMatchObject({
+      type: "tool_result",
+      tool_use_id: "t1",
+      content: '- button "Done" [ref=e12]',
+    });
+  });
+
+  it("asks the page to go on, without a word more", async () => {
+    const { client, requests } = claude(() => ({
+      stop_reason: "tool_use",
+      content: [
+        { type: "text", text: "Going on." },
+        { type: "tool_use", id: "t1", name: "resume_presentation", input: {} },
+      ],
+    }));
+    const { stage: hands, hands: asked } = stage({});
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "OK, carry on." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: (text) => said.push(text),
+    });
+    expect(answer.resume).toBe(true);
+    expect(said.join("").trim()).toBe("Going on.");
+    expect(asked).toEqual([]);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("tells the agent what failed on the stage, and what it sees", async () => {
+    const { client, requests } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "act_on_screen",
+                input: { actions: [{ do: "click", target: "e99" }] },
+              },
+              {
+                type: "tool_use",
+                id: "t2",
+                name: "show_window",
+                input: { window: "sideways" },
+              },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "That button is gone." }],
+          },
+    );
+    const { stage: hands, hands: asked } = stage({
+      act: { ok: true, problems: ["e99: not found"], screen: "- main" },
+    });
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Click it." }],
+      state: null,
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    expect(asked).toHaveLength(1);
+    const results = (requests[1]!.body.messages as { content: unknown[] }[])[2]!
+      .content;
+    expect(results).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "t1",
+        content: "Failed: e99: not found\n- main",
+      },
+      {
+        type: "tool_result",
+        tool_use_id: "t2",
+        content: "Invalid call to show_window.",
+        is_error: true,
+      },
+    ]);
+    expect(
+      (requests[0]!.body.messages as { content: string }[])[0]!.content,
+    ).toContain("[The stage does not answer right now.]");
+  });
+
+  it("answers with what it has after ten tool calls", async () => {
+    const { client, requests } = claude((body) =>
+      body.tool_choice && (body.tool_choice as { type: string }).type === "none"
+        ? {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "Here is what I found." }],
+          }
+        : {
+            stop_reason: "tool_use",
+            content: [
+              { type: "tool_use", id: "t", name: "look_at_screen", input: {} },
+            ],
+          },
+    );
+    const { stage: hands } = stage({});
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Look everywhere." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    expect(requests).toHaveLength(11);
+    const last = requests[10]!.body.messages as { content: unknown[] }[];
+    expect(last.at(-1)!.content.at(-1)).toEqual({
+      type: "text",
+      text: "Answer now with what you have.",
+    });
+  });
+});
+
+describe("what ElevenLabs sends the brain", () => {
+  it("keeps the words said, from the member's first", () => {
+    const request = talkRequestSchema.parse({
+      model: "claude-opus-5-5",
+      messages: [
+        { role: "system", content: "ElevenLabs' prompt" },
+        { role: "assistant", content: "Hello" },
+        { role: "user", content: "Show me" },
+        { role: "user", content: [{ type: "text", text: " the bug" }] },
+        { role: "assistant", content: null, tool_calls: [{}] },
+        { role: "tool", content: "{}" },
+        { role: "assistant", content: "Here it is." },
+        { role: "user", content: "Thanks" },
+      ],
+      elevenlabs_extra_body: { yarrow: "grant" },
+    });
+    expect(talkMessages(request.messages)).toEqual([
+      { role: "user", content: "Show me\nthe bug" },
+      { role: "assistant", content: "Here it is." },
+      { role: "user", content: "Thanks" },
+    ]);
+    expect(talkGrantOf(request)).toBe("grant");
+    expect(
+      talkGrantOf(
+        talkRequestSchema.parse({
+          messages: [],
+          custom_llm_extra_body: { yarrow: "other" },
+        }),
+      ),
+    ).toBe("other");
+    expect(talkGrantOf(talkRequestSchema.parse({ messages: [] }))).toBeNull();
+  });
+
+  it("says where the presentation stands", () => {
+    expect(stageNote({ chapter: null, held: true, chapters: 3 })).toContain(
+      "stopped between two chapters",
+    );
+    expect(stageNote({ chapter: null, held: false, chapters: 3 })).toContain(
+      "not playing",
+    );
+    expect(stageNote({ ...held, held: false })).toContain(
+      'playing in chapter 2 of 3, "The filter"',
+    );
+  });
+
+  it("gets the words as chat completion chunks, then the end", () => {
+    const words = JSON.parse(completion.words("1", "Hi").slice(6));
+    expect(words).toMatchObject({
+      id: "chatcmpl-1",
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
+    });
+    const resume = completion
+      .resume("1")
+      .split("\n\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line.slice(6)));
+    expect(resume[0].choices[0].delta.tool_calls[0].function).toEqual({
+      name: "resume_presentation",
+      arguments: "{}",
+    });
+    expect(resume[1].choices[0].finish_reason).toBe("tool_calls");
+    expect(completion.end("1")).toMatch(
+      /"finish_reason":"stop".*\n\ndata: \[DONE\]\n\n$/s,
+    );
+  });
+});
+
+describe("the call's pass", () => {
+  const grant = { workUnitId: "w", userId: "u", language: "fr" };
+
+  it("is good for two hours, for this pull request and member", async () => {
+    const now = 1_800_000_000_000;
+    const pass = await signTalkGrant("secret", grant, now);
+    expect(await readTalkGrant("secret", pass, now + 60_000)).toEqual({
+      ...grant,
+      expires: now + TALK_GRANT_MS,
+    });
+    expect(
+      await readTalkGrant("secret", pass, now + TALK_GRANT_MS + 1),
+    ).toBeNull();
+  });
+
+  it("is refused when changed or signed by another secret", async () => {
+    const pass = await signTalkGrant("secret", grant);
+    const [body, signature] = pass.split(".");
+    const forged = Buffer.from(
+      JSON.stringify({
+        ...grant,
+        workUnitId: "other",
+        expires: Date.now() + 1e6,
+      }),
+    ).toString("base64url");
+    expect(await readTalkGrant("secret", `${forged}.${signature}`)).toBeNull();
+    expect(await readTalkGrant("other", pass)).toBeNull();
+    expect(await readTalkGrant("secret", body!)).toBeNull();
+    expect(await readTalkGrant("secret", "")).toBeNull();
+  });
+
+  it("goes with the brain's key, which only VOICE_SECRET makes", async () => {
+    const key = await talkKey("secret");
+    expect(key).toBe(await talkKey("secret"));
+    expect(key).not.toBe(await talkKey("other"));
+    expect(sameKey(`Bearer ${key}`, key)).toBe(true);
+    expect(sameKey(key, key)).toBe(true);
+    expect(sameKey(`Bearer ${key}x`, key)).toBe(false);
+    expect(sameKey(null, key)).toBe(false);
+  });
+});
+
+describe("the ElevenLabs agent", () => {
+  it("is private, asks the brain, and waits for the member", () => {
+    const config = talkAgentConfig({
+      name: "Yarrow live review (dev)",
+      llmUrl: "https://dev.yarrow.run/voice/llm",
+      secretId: "s1",
+      toolId: "t1",
+    });
+    expect(config.platform_settings.auth.enable_auth).toBe(true);
+    expect(config.platform_settings.overrides.custom_llm_extra_body).toBe(true);
+    expect(config.conversation_config.agent.first_message).toBe("");
+    expect(config.conversation_config.agent.prompt).toMatchObject({
+      llm: "custom-llm",
+      custom_llm: {
+        url: "https://dev.yarrow.run/voice/llm",
+        api_key: { secret_id: "s1" },
+      },
+      tool_ids: ["t1"],
+      backup_llm_config: { preference: "disabled" },
+    });
+    expect(config.conversation_config.turn.silence_end_call_timeout).toBe(-1);
+  });
+
+  it("starts a call with a token the brain asks for", async () => {
+    const asked: string[] = [];
+    const token = await conversationToken(
+      "xi",
+      "agent 1",
+      async (url, init) => {
+        asked.push(
+          `${String(url)} ${new Headers(init?.headers).get("xi-api-key")}`,
+        );
+        return Response.json({ token: "tok", conversation_id: "c" });
+      },
+    );
+    expect(token).toBe("tok");
+    expect(asked).toEqual([
+      "https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=agent%201 xi",
+    ]);
+    await expect(
+      conversationToken(
+        "xi",
+        "a",
+        async () => new Response("no", { status: 401 }),
+      ),
+    ).rejects.toThrow("ElevenLabs call token failed (401)");
+  });
+});

@@ -1,3 +1,4 @@
+import type { Language } from "@elevenlabs/client";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadPresentation } from "@/components/presentation";
@@ -12,12 +13,15 @@ import type { StageCueResult } from "@/core/stage";
 import {
   stageCueFn,
   stageFn,
+  stageTalkFn,
   type StageView,
 } from "@/functions/stage.functions";
 
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
  * and its presentation played on it: the voice here, the gestures there.
+ * The member talks to the agent over it (src/runner/talk.ts): speaking
+ * holds the presentation, the agent answers aloud and shows on the stage.
  * Not linked from the dashboard yet: the live review, step by step.
  */
 export const Route = createFileRoute("/stage/$projectId/$key")({
@@ -35,6 +39,19 @@ interface Show {
   spokenMs: number;
 }
 
+/** A line of the call, as it was heard. */
+interface Line {
+  who: "member" | "agent";
+  text: string;
+}
+
+type Cue = Parameters<typeof stageCueFn>[0]["data"]["cue"];
+
+/** What the page asks of the call (an ElevenLabs conversation). */
+interface Call {
+  endSession(): Promise<void>;
+}
+
 function StagePage() {
   const { projectId, key } = Route.useParams();
   const [status, setStatus] = useState<StageView>(Route.useLoaderData());
@@ -43,11 +60,38 @@ function StagePage() {
   const [show, setShow] = useState<Show | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
+  const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
+  const [held, setHeld] = useState(false);
+  const [lines, setLines] = useState<Line[]>([]);
   const screen = useRef<HTMLDivElement>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   const stopped = useRef(false);
   /** Ends the voice playing now. */
   const hush = useRef<(() => void) | null>(null);
+  /** Holds the voice playing now, and lets it go on. */
+  const voiceHold = useRef<{ pause(): void; resume(): void } | null>(null);
+  const showing = useRef(false);
+  /** Held while the member talks: the next chapter waits for it. */
+  const holding = useRef<{ release(): void; resumed: Promise<void> } | null>(
+    null,
+  );
+  const conversation = useRef<Call | null>(null);
+  const calling = useRef(false);
+  /** The agent's voice is on. */
+  const speaking = useRef(false);
+  /** The agent asked to go on: once its voice is done. */
+  const goOnAsked = useRef(false);
+
+  const cue = useCallback(
+    (data: Cue) =>
+      stageCueFn({ data: { projectId, key, cue: data } }).catch(
+        (error: Error): StageCueResult => ({
+          ok: false,
+          problems: [error.message],
+        }),
+      ),
+    [projectId, key],
+  );
 
   const call = useCallback(
     (action: "open" | "status" | "close", fresh = false) =>
@@ -102,6 +146,14 @@ function StagePage() {
     };
   }, [phase, projectId, key, call]);
 
+  // The call ends with the page.
+  useEffect(
+    () => () => {
+      void conversation.current?.endSession();
+    },
+    [],
+  );
+
   const act = async (action: "open" | "close", fresh = false) => {
     setAsking(true);
     try {
@@ -111,27 +163,125 @@ function StagePage() {
     }
   };
 
+  /** The member speaks: the presentation waits for them. */
+  const hold = () => {
+    if (!showing.current || holding.current) return;
+    let release = () => {};
+    const resumed = new Promise<void>((resolve) => (release = resolve));
+    holding.current = { release, resumed };
+    setHeld(true);
+    voiceHold.current?.pause();
+    void cue({ action: "pause" });
+  };
+
+  /** On again: the screen as the talk found it, then the voice from its sentence. */
+  const goOn = async () => {
+    const holdNow = holding.current;
+    goOnAsked.current = false;
+    if (!holdNow) return;
+    const result = await cue({ action: "resume" });
+    if (result.problems.length)
+      setProblems((now) => [...now, ...result.problems]);
+    holding.current = null;
+    setHeld(false);
+    voiceHold.current?.resume();
+    holdNow.release();
+  };
+
+  /** The call: the member's voice to the agent, the agent's back. */
+  const startTalk = async () => {
+    if (calling.current) return;
+    calling.current = true;
+    setTalk("starting");
+    try {
+      const language = (navigator.language || "en").slice(0, 2).toLowerCase();
+      const pass = await stageTalkFn({ data: { projectId, key, language } });
+      if (!pass.ok) throw new Error(pass.reason);
+      const { Conversation } = await import("@elevenlabs/client");
+      conversation.current = await Conversation.startSession({
+        conversationToken: pass.conversationToken,
+        connectionType: "webrtc",
+        overrides: { agent: { language: language as Language } },
+        customLlmExtraBody: { yarrow: pass.grant },
+        clientTools: {
+          resume_presentation: () => {
+            goOnAsked.current = true;
+            if (!speaking.current) void goOn();
+          },
+        },
+        // Their first words, still being heard, already hold it.
+        onIncomingEvent: (event: {
+          type?: string;
+          tentative_user_transcription_event?: { user_transcript?: string };
+        }) => {
+          const heard =
+            event.tentative_user_transcription_event?.user_transcript ?? "";
+          if (
+            event.type === "tentative_user_transcript" &&
+            /\p{L}/u.test(heard)
+          )
+            hold();
+        },
+        onMessage: ({ source, message }) => {
+          if (source === "user") hold();
+          const text = message.trim();
+          if (text)
+            setLines((now) => [
+              ...now,
+              { who: source === "user" ? "member" : "agent", text },
+            ]);
+        },
+        onModeChange: ({ mode }) => {
+          speaking.current = mode === "speaking";
+          if (!speaking.current && goOnAsked.current) void goOn();
+        },
+        onDisconnect: () => {
+          conversation.current = null;
+          calling.current = false;
+          setTalk("off");
+        },
+        onError: (message) =>
+          setProblems((now) => [...now, `call: ${message}`]),
+      });
+      setTalk("on");
+    } catch (error) {
+      calling.current = false;
+      setTalk("off");
+      setProblems((now) => [...now, `call: ${(error as Error).message}`]);
+    }
+  };
+
+  const endTalk = () => {
+    void conversation.current?.endSession();
+    conversation.current = null;
+    calling.current = false;
+    setTalk("off");
+  };
+
   /**
    * The chapter's voice, its words as they are said; none (or one that
    * cannot play): its length in silence. It ends with the voice, the
-   * frames only show the words: a hidden tab gets none.
+   * frames only show the words: a hidden tab gets none. Held, it waits.
    */
   const speak = (chapter: PresentationChapter, index: number) =>
     new Promise<void>((resolve) => {
       const length = chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
-      const started = performance.now();
+      let started = performance.now();
+      let pausedAt: number | null = null;
       let frame = 0;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const done = () => {
         cancelAnimationFrame(frame);
         clearTimeout(timer);
         hush.current = null;
+        voiceHold.current = null;
         resolve();
       };
       hush.current = done;
       const silent = () => {
         clearTimeout(timer);
-        timer = setTimeout(done, length - (performance.now() - started));
+        if (pausedAt === null)
+          timer = setTimeout(done, length - (performance.now() - started));
       };
       let audio: HTMLAudioElement | null = null;
       if (chapter.audio) {
@@ -142,11 +292,31 @@ function StagePage() {
         audio.src = evidence(chapter.audio.key);
         void audio.play().catch(silent);
       } else silent();
+      const playing = audio;
+      voiceHold.current = {
+        pause: () => {
+          if (pausedAt !== null) return;
+          pausedAt = performance.now();
+          clearTimeout(timer);
+          playing?.pause();
+        },
+        resume: () => {
+          if (pausedAt === null) return;
+          started += performance.now() - pausedAt;
+          pausedAt = null;
+          if (playing && !playing.error) {
+            // From the start of its sentence: the thread picks up where it broke.
+            const sentence = cueAt(chapter.cues, playing.currentTime * 1000);
+            if (sentence) playing.currentTime = sentence.startMs / 1000;
+            void playing.play().catch(silent);
+          } else silent();
+        },
+      };
       const tick = () => {
         const spokenMs =
           audio && !audio.error
             ? audio.currentTime * 1000
-            : performance.now() - started;
+            : (pausedAt ?? performance.now()) - started;
         setShow({ index, spokenMs });
         frame = requestAnimationFrame(tick);
       };
@@ -156,16 +326,12 @@ function StagePage() {
   const play = async () => {
     if (!timeline) return;
     stopped.current = false;
+    showing.current = true;
     setProblems([]);
     setNotes([]);
     setShow({ index: 0, spokenMs: 0 });
-    const cue = (data: Parameters<typeof stageCueFn>[0]["data"]["cue"]) =>
-      stageCueFn({ data: { projectId, key, cue: data } }).catch(
-        (error: Error): StageCueResult => ({
-          ok: false,
-          problems: [error.message],
-        }),
-      );
+    // The member can stop it by speaking from the first word.
+    if (!conversation.current) void startTalk();
     const heard = (at: string, result: StageCueResult) =>
       setNotes((now) => [
         ...now,
@@ -176,6 +342,8 @@ function StagePage() {
     const found = [...opening.problems];
     if (opening.ok)
       for (const [index, chapter] of timeline.chapters.entries()) {
+        while (holding.current && !stopped.current)
+          await holding.current.resumed;
         if (stopped.current) break;
         const voiceMs =
           chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
@@ -187,7 +355,8 @@ function StagePage() {
         found.push(...played.problems);
         heard(`${index + 1}`, played);
       }
-    setProblems(found);
+    showing.current = false;
+    setProblems((now) => [...now, ...found]);
     setShow(null);
   };
 
@@ -195,6 +364,14 @@ function StagePage() {
     stopped.current = true;
     voice.current?.pause();
     hush.current?.();
+    // The presenter lets its chapter end; the page waits no more.
+    const holdNow = holding.current;
+    if (holdNow) {
+      holding.current = null;
+      setHeld(false);
+      void cue({ action: "resume" });
+      holdNow.release();
+    }
   };
 
   const up = phase === "ready" || phase === "booting";
@@ -206,6 +383,15 @@ function StagePage() {
       <header className="stage-head">
         <h1>{chapter ? chapter.title : "Stage"}</h1>
         <div className="stage-actions">
+          {phase === "ready" && held && (
+            <button
+              type="button"
+              className="button button-primary button-small"
+              onClick={() => void goOn()}
+            >
+              Resume
+            </button>
+          )}
           {phase === "ready" &&
             status.live &&
             timeline &&
@@ -226,6 +412,25 @@ function StagePage() {
                 Present
               </button>
             ))}
+          {phase === "ready" &&
+            (talk === "off" ? (
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                onClick={() => void startTalk()}
+              >
+                Talk
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                disabled={talk === "starting"}
+                onClick={endTalk}
+              >
+                Hang up
+              </button>
+            ))}
           {up ? (
             <button
               type="button"
@@ -233,6 +438,7 @@ function StagePage() {
               disabled={asking}
               onClick={() => {
                 stop();
+                endTalk();
                 void act("close");
               }}
             >
@@ -280,6 +486,15 @@ function StagePage() {
             ))}
         </p>
       </div>
+      {lines.length > 0 && (
+        <ol className="stage-talk" aria-live="polite">
+          {lines.map((line, i) => (
+            <li key={i} data-who={line.who}>
+              {line.text}
+            </li>
+          ))}
+        </ol>
+      )}
       {problems.length > 0 && (
         <pre className="stage-error">{problems.join("\n")}</pre>
       )}

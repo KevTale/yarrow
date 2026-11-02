@@ -59,7 +59,7 @@ Changes:
 - Do not propose a change they did not ask for: suggest it in words and let them ask.
 - A closed or merged pull request can no longer change: say so.`;
 
-const TOOLS: Tool[] = [
+export const CHAT_TOOLS: Tool[] = [
   {
     name: "read_file",
     description:
@@ -178,7 +178,7 @@ export function presentationLines(timeline: Presentation): string {
 
 /** Everything about the pull request, before the conversation. */
 export function chatContextText(
-  context: ChatContext,
+  context: Omit<ChatContext, "answerId" | "history">,
   extra: {
     presentation: Presentation | null;
     diff: Awaited<ReturnType<RepoReader["pullDiff"]>> | null;
@@ -279,9 +279,9 @@ const usageOf = (response: Anthropic.Beta.BetaMessage): ChatUsage => ({
 });
 
 /** One tool call, run: its text for the model, and a change when proposed. */
-async function runTool(
+export async function runChatTool(
   call: Anthropic.Beta.BetaToolUseBlock,
-  context: ChatContext,
+  context: Pick<ChatContext, "project" | "pullRequest">,
   sources: ChatSources,
 ): Promise<{ text: string; error?: boolean; change?: string }> {
   const schema = inputs[call.name as keyof typeof inputs];
@@ -441,7 +441,7 @@ export async function answerQuestion(input: {
       fallbacks: "default",
       output_config: { effort: CHAT_EFFORT },
       system,
-      tools: TOOLS,
+      tools: CHAT_TOOLS,
       tool_choice: last ? { type: "none" } : { type: "auto" },
       cache_control: { type: "ephemeral" },
       messages,
@@ -467,7 +467,7 @@ export async function answerQuestion(input: {
     messages.push({ role: "assistant", content: response.content });
     const results: ToolResult[] = await Promise.all(
       calls.map(async (call) => {
-        const result = await runTool(call, context, sources).catch(
+        const result = await runChatTool(call, context, sources).catch(
           (error: Error) => ({
             text: `That failed: ${error.message.slice(0, 200)}`,
             error: true as const,

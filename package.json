@@ -29,11 +29,13 @@
     "brand:assets": "tsx scripts/brand-assets.ts",
     "bench": "tsx bench/run.ts",
     "implementer": "tsx scripts/implementer.ts",
-    "recorder:embed": "tsx scripts/embed-recorder.ts"
+    "recorder:embed": "tsx scripts/embed-recorder.ts",
+    "voice:agent": "tsx scripts/voice-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",
     "@cloudflare/sandbox": "1.0.3",
+    "@elevenlabs/client": "1.32.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/jost": "^5.3.0",

@@ -235,11 +235,8 @@ export async function chatContext(
     .innerJoin(projects, eq(projects.id, workUnits.projectId))
     .where(eq(chatMessages.id, answerId));
   if (!row) return null;
-  const [[pull], earlier, panel] = await Promise.all([
-    db
-      .select()
-      .from(pullRequests)
-      .where(eq(pullRequests.workUnitId, row.unit.id)),
+  const [about, earlier] = await Promise.all([
+    describePull(db, row),
     db
       .select({
         author: chatMessages.author,
@@ -254,10 +251,50 @@ export async function chatContext(
         ),
       )
       .orderBy(asc(chatMessages.createdAt)),
-    pullPanel(db, row.unit.projectId, row.unit.externalId),
   ]);
   return {
     answerId,
+    ...about,
+    // A failed answer left its question unanswered: both stay out.
+    history: earlier
+      .filter((message, i) => {
+        if (message.author === "agent")
+          return message.status === "done" && message.body.trim() !== "";
+        const next = earlier[i + 1];
+        return !next || (next.author === "agent" && next.status === "done");
+      })
+      .map(({ author, body }) => ({ author, body })),
+  };
+}
+
+/** The pull request alone, for the live call: no question, no history. */
+export async function pullContext(
+  db: Database,
+  workUnitId: string,
+): Promise<Omit<ChatContext, "answerId" | "history"> | null> {
+  const [row] = await db
+    .select({ unit: workUnits, project: projects })
+    .from(workUnits)
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .where(eq(workUnits.id, workUnitId));
+  return row ? describePull(db, row) : null;
+}
+
+async function describePull(
+  db: Database,
+  row: {
+    unit: typeof workUnits.$inferSelect;
+    project: typeof projects.$inferSelect;
+  },
+): Promise<Omit<ChatContext, "answerId" | "history">> {
+  const [[pull], panel] = await Promise.all([
+    db
+      .select()
+      .from(pullRequests)
+      .where(eq(pullRequests.workUnitId, row.unit.id)),
+    pullPanel(db, row.unit.projectId, row.unit.externalId),
+  ]);
+  return {
     project: {
       id: row.project.id,
       name: row.project.name,
@@ -282,15 +319,6 @@ export async function chatContext(
         }
       : null,
     panel,
-    // A failed answer left its question unanswered: both stay out.
-    history: earlier
-      .filter((message, i) => {
-        if (message.author === "agent")
-          return message.status === "done" && message.body.trim() !== "";
-        const next = earlier[i + 1];
-        return !next || (next.author === "agent" && next.status === "done");
-      })
-      .map(({ author, body }) => ({ author, body })),
   };
 }
 

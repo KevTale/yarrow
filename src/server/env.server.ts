@@ -88,7 +88,19 @@ export interface AppEnv {
       workUnitId: string;
       cue: StageCue;
     }): Promise<StageCueResult>;
-    /** The stage's screen: a WebSocket to /stage/<workUnitId>. */
+    /** A live call about the pull request, by voice (src/runner/talk.ts). */
+    talkCall(input: {
+      workUnitId: string;
+      userId: string;
+      language: string;
+    }): Promise<
+      | { ok: true; conversationToken: string; grant: string }
+      | { ok: false; reason: string }
+    >;
+    /**
+     * The stage's screen: a WebSocket to /stage/<workUnitId>. And the live
+     * call's turns, ElevenLabs' requests to /voice/llm.
+     */
     fetch(request: Request): Promise<Response>;
   };
 }

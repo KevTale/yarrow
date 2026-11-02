@@ -9370,6 +9370,29 @@ button.pp-idea:focus-visible .pp-idea-go {
 .stage-warm {
   color: var(--green);
 }
+/* The call, as heard: the member's words on the right, the agent's on the left. */
+.stage-talk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 760px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.stage-talk li[data-who="member"] {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--elevated);
+  color: var(--text);
+}
+.stage-talk li[data-who="agent"] {
+  color: var(--secondary);
+}
 .stage-error {
   margin-top: 12px;
   white-space: pre-wrap;

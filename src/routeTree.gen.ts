@@ -40,6 +40,7 @@ import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integr
 import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integrations/$tracker.connect'
 import { Route as StageScreenProjectIdKeyRouteImport } from './routes/stage-screen/$projectId.$key'
 import { Route as StageProjectIdKeyRouteImport } from './routes/stage/$projectId.$key'
+import { Route as VoiceLlmSplatRouteImport } from './routes/voice/llm/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -199,6 +200,11 @@ const StageProjectIdKeyRoute = StageProjectIdKeyRouteImport.update({
   path: '/stage/$projectId/$key',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VoiceLlmSplatRoute = VoiceLlmSplatRouteImport.update({
+  id: '/voice/llm/$',
+  path: '/voice/llm/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
+  '/voice/llm/$': typeof VoiceLlmSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
+  '/voice/llm/$': typeof VoiceLlmSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
+  '/voice/llm/$': typeof VoiceLlmSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -334,6 +343,7 @@ export interface FileRouteTypes {
     | '/integrations/$tracker/connect'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
+    | '/voice/llm/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/integrations/$tracker/connect'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
+    | '/voice/llm/$'
   id:
     | '__root__'
     | '/'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '/integrations/$tracker/connect'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
+    | '/voice/llm/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -434,6 +446,7 @@ export interface RootRouteChildren {
   IntegrationsTrackerConnectRoute: typeof IntegrationsTrackerConnectRoute
   StageScreenProjectIdKeyRoute: typeof StageScreenProjectIdKeyRoute
   StageProjectIdKeyRoute: typeof StageProjectIdKeyRoute
+  VoiceLlmSplatRoute: typeof VoiceLlmSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -655,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StageProjectIdKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/voice/llm/$': {
+      id: '/voice/llm/$'
+      path: '/voice/llm/$'
+      fullPath: '/voice/llm/$'
+      preLoaderRoute: typeof VoiceLlmSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -690,6 +710,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsTrackerConnectRoute: IntegrationsTrackerConnectRoute,
   StageScreenProjectIdKeyRoute: StageScreenProjectIdKeyRoute,
   StageProjectIdKeyRoute: StageProjectIdKeyRoute,
+  VoiceLlmSplatRoute: VoiceLlmSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

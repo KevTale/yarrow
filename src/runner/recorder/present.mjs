@@ -1597,8 +1597,11 @@ class Desktop {
       ? "/workspace/repo"
       : process.cwd();
     this.state = path.join(this.dir, "prompt");
+    // What it shows, kept as it comes: a command run live is read back.
+    this.transcript = path.join(this.dir, "terminal.log");
     const rcfile = path.join(this.dir, "bashrc");
     fs.writeFileSync(rcfile, bashrc(this.state, this.cwd));
+    const shell = ["bash", "--rcfile", rcfile, "-i"];
     const resources = [
       "cursorBlink: false",
       "visualBell: false",
@@ -1615,7 +1618,10 @@ class Desktop {
         "-bg #0f1013 -fg #d5d7dc -cr #f2b544 -b 20 +sb -geometry 100x28",
       ),
       ...resources.flatMap((line) => ["-xrm", "XTerm*" + line]),
-      ...["-e", "bash", "--rcfile", rcfile, "-i"],
+      "-e",
+      ...(has("script")
+        ? ["script", "-q", "-f", this.transcript, "-c", shell.join(" ")]
+        : shell),
     ]);
     const term = await this.opened((w) => /yarrowterm/i.test(w.wmClass), 15000);
     if (!term) throw new Error("the terminal did not open");
@@ -1978,14 +1984,22 @@ class Desktop {
   }
 
   /** The chapter's actions, spread over what is said, so the gestures land on the words. */
-  async actOver(page, base, actions = [], target, clock, marks, fail) {
+  /**
+   * The chapter's gestures spread over its voice. Live, `hold` waits while
+   * the member holds the presentation, and `clock` stops meanwhile.
+   */
+  async actOver(page, base, actions = [], target, clock, marks, fail, hold) {
     const lead = Math.max(700, clock());
     if (clock() < lead) await sleep(lead - clock());
     for (const [i, action] of actions.entries()) {
       const due =
         lead + (target - lead) * 0.85 * (i / Math.max(actions.length, 1));
-      const wait = due - clock();
-      if (wait > 0) await sleep(Math.min(wait, 3000));
+      const end = clock() + Math.min(due - clock(), 3000);
+      while (clock() < end) {
+        await sleep(Math.min(end - clock(), 200));
+        await hold?.();
+      }
+      await hold?.();
       try {
         await this.act(page, base, action, marks, clock);
       } catch (error) {
@@ -2263,8 +2277,44 @@ class Desktop {
     await this.settle(page);
   }
 
-  /** Live on the stage, `state` is null (no stills) and the voice gives `target`. */
-  async recordTerminal(chapter, state, target = estimateMs(chapter.say)) {
+  /** What the terminal showed after `from` (its transcript's length then), as text. */
+  terminalSince(from) {
+    try {
+      const all = fs.readFileSync(this.transcript);
+      return (
+        all
+          .subarray(from)
+          .toString("utf8")
+          // Colours, cursor moves and titles out; what they framed stays.
+          .replace(
+            // eslint-disable-next-line no-control-regex
+            /\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[()][0-9A-B]|\r/g,
+            "",
+          )
+      );
+    } catch {
+      return "";
+    }
+  }
+
+  terminalSize() {
+    try {
+      return fs.statSync(this.transcript).size;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Live on the stage, `state` is null (no stills) and the voice gives
+   * `target`; the run stops after `limitMs`, and its output comes back.
+   */
+  async recordTerminal(
+    chapter,
+    state,
+    target = estimateMs(chapter.say),
+    limitMs = 240000,
+  ) {
     const before = chapter.before === true;
     const marks = [];
     const problems = [];
@@ -2283,6 +2333,7 @@ class Desktop {
     const text =
       (cwd !== this.cwd ? "cd " + quote(cwd) + " && " : "") + chapter.command;
     const shown = this.prompt();
+    const from = this.terminalSize();
     const delay = Math.round(
       Math.max(12, Math.min(40, 1500 / Math.max(text.length, 1))),
     );
@@ -2302,7 +2353,7 @@ class Desktop {
     // A run longer than a few seconds is cut: its start, then its end.
     const started = Date.now();
     let done = null;
-    while (Date.now() - started < 240000) {
+    while (Date.now() - started < limitMs) {
       const now = this.prompt();
       if (now && (!shown || now.count > shown.count)) {
         done = now;
@@ -2314,12 +2365,23 @@ class Desktop {
     if (!done) {
       this.key("ctrl+c");
       problems.push(
-        '"' + chapter.title + '": still running after four minutes, stopped',
+        '"' +
+          chapter.title +
+          '": still running after ' +
+          Math.round(limitMs / 1000) +
+          " s, stopped",
       );
       await sleep(600);
     }
     film.resume();
-    if (!state) return { take: film, problems, chapter: null };
+    if (!state)
+      return {
+        take: film,
+        problems,
+        chapter: null,
+        output: this.terminalSince(from),
+        status: done?.status ?? null,
+      };
     await sleep(Math.max(target - clock(), 1800));
     film.pause();
     if (!before && !state.run) state.run = this.still();
@@ -2475,6 +2537,232 @@ class Presenter {
     this.plan = plan;
     /** The opening is on screen, nothing played since: it stays. */
     this.untouched = false;
+    /** The chapter playing: its index, null between chapters. */
+    this.playing = null;
+    /**
+     * Held while the member talks: the chapter waits at its next gesture,
+     * the screen as it was then kept to come back to.
+     */
+    this.hold = null;
+    /** How long the presentation was held, every hold together. */
+    this.heldMs = 0;
+  }
+
+  /** The presentation's own time: it stands still while held. */
+  now() {
+    return (
+      Date.now() - this.heldMs - (this.hold ? Date.now() - this.hold.since : 0)
+    );
+  }
+
+  /** Waits while the presentation is held. */
+  async held() {
+    while (this.hold) await this.hold.resumed;
+  }
+
+  pause() {
+    if (this.hold) return [];
+    const { tabs, front } = this.desktop;
+    const tab = tabs?.active ?? null;
+    let release;
+    const resumed = new Promise((resolve) => (release = resolve));
+    this.hold = {
+      since: Date.now(),
+      resumed,
+      release,
+      front,
+      tab,
+      url: tab ? (tabs.pages[tab]?.url() ?? null) : null,
+    };
+    log(
+      "held" +
+        (this.playing === null ? "" : " in chapter " + (this.playing + 1)),
+    );
+    return [];
+  }
+
+  /** Back to the screen as the talk found it, then the chapter goes on. */
+  async resume() {
+    const hold = this.hold;
+    if (!hold) return [];
+    const problems = [];
+    const { desktop } = this;
+    try {
+      const marks = [];
+      const clock = () => 0;
+      if (
+        hold.front === "browser" &&
+        hold.tab &&
+        desktop.tabs?.pages[hold.tab]
+      ) {
+        await desktop.show("browser", clock, marks);
+        if (desktop.tabs.active !== hold.tab) {
+          await desktop.switchTab(hold.tab, clock, marks);
+          desktop.tabs.active = hold.tab;
+        }
+        const page = desktop.tabs.pages[hold.tab];
+        await page.bringToFront();
+        if (hold.url && !samePage(page.url(), hold.url))
+          await desktop.address(page, hold.url, marks, clock);
+      } else if (hold.front === "terminal")
+        await desktop.show("terminal", clock, marks);
+    } catch (error) {
+      problems.push(
+        "back to the presentation: " + String(error?.message).split("\n")[0],
+      );
+    }
+    this.heldMs += Date.now() - hold.since;
+    this.hold = null;
+    hold.release();
+    log("resumed");
+    return problems;
+  }
+
+  /** Where the presentation stands, for the agent the member talks to. */
+  state() {
+    const chapter =
+      this.playing === null ? null : this.plan.chapters[this.playing];
+    return {
+      chapter: chapter ? { index: this.playing, title: chapter.title } : null,
+      held: Boolean(this.hold),
+      chapters: this.plan.chapters.length,
+    };
+  }
+
+  /**
+   * The screen as text for the agent: the window in front, its address,
+   * and the page as its elements, each with a ref (e12) to act on.
+   */
+  async look() {
+    const { desktop } = this;
+    if (desktop.front === "terminal") {
+      const tail = desktop.terminalSince(
+        Math.max(0, desktop.terminalSize() - 6000),
+      );
+      return (
+        "In front: the terminal, in " +
+        desktop.cwd +
+        ". Its last lines:\n" +
+        tail.split("\n").slice(-40).join("\n")
+      );
+    }
+    const which = desktop.tabs?.active;
+    const page = which && desktop.tabs.pages[which];
+    if (!page) return "In front: nothing the agent can read.";
+    const tabs = Object.keys(desktop.tabs.pages);
+    const snapshot = await page
+      .ariaSnapshot({ mode: "ai", timeout: 5000 })
+      .catch(
+        (error) =>
+          "(unreadable: " + String(error?.message).split("\n")[0] + ")",
+      );
+    const clipped =
+      snapshot.length > 12000
+        ? snapshot.slice(0, 12000) + "\n[…cut]"
+        : snapshot;
+    return (
+      "In front: the browser, " +
+      (which === "before"
+        ? "the app as it was before the change"
+        : "the app as it is on the branch") +
+      (tabs.length > 1
+        ? " (its other tab: the app " +
+          (which === "before" ? "as it is" : "as it was") +
+          ")"
+        : "") +
+      ".\nAddress: " +
+      page.url() +
+      "\nTitle: " +
+      (await page.title().catch(() => "")) +
+      "\n" +
+      clipped
+    );
+  }
+
+  /** The agent's gestures on the window in front, then the screen after. */
+  async act(actions) {
+    const { desktop, plan } = this;
+    const problems = [];
+    const which = desktop.tabs?.active;
+    const page = which && desktop.tabs.pages[which];
+    if (desktop.front !== "browser" || !page)
+      return {
+        problems: ["the browser is not in front"],
+        screen: await this.look(),
+      };
+    const base = plan.apps[which]?.url ?? new URL(page.url()).origin;
+    const marks = [];
+    const started = Date.now();
+    const clock = () => Date.now() - started;
+    await page.bringToFront();
+    for (const action of actions) {
+      // A ref from the last look: the element it named.
+      const target =
+        typeof action.target === "string" && /^e\d+$/.test(action.target.trim())
+          ? "aria-ref=" + action.target.trim()
+          : action.target;
+      try {
+        await desktop.act(page, base, { ...action, target }, marks, clock);
+      } catch (error) {
+        problems.push(
+          action.do +
+            " " +
+            (action.target || action.path || "") +
+            ": " +
+            String(error?.message).split("\n")[0],
+        );
+        break;
+      }
+    }
+    return { problems, screen: await this.look() };
+  }
+
+  /** A window in front: the app as it is, as it was, or the terminal. */
+  async show(window) {
+    const { desktop } = this;
+    const marks = [];
+    const clock = () => 0;
+    if (window === "terminal") {
+      await desktop.show("terminal", clock, marks);
+      return { problems: [], screen: await this.look() };
+    }
+    const which = window === "before" ? "before" : "after";
+    if (!desktop.tabs?.pages[which])
+      return {
+        problems: [
+          "the app " + (which === "before" ? "as it was " : "") + "is not open",
+        ],
+        screen: await this.look(),
+      };
+    await desktop.show("browser", clock, marks);
+    if (desktop.tabs.active !== which) {
+      await desktop.switchTab(which, clock, marks);
+      desktop.tabs.active = which;
+    }
+    await desktop.tabs.pages[which].bringToFront();
+    return { problems: [], screen: await this.look() };
+  }
+
+  /** A command typed in the terminal, as the member watches: its output. */
+  async run(command, cwd) {
+    const result = await this.desktop.recordTerminal(
+      { title: command, command, cwd: cwd || null, say: "" },
+      null,
+      0,
+      120000,
+    );
+    const output = result.output.trim();
+    return {
+      problems: result.problems,
+      screen:
+        "Ran: " +
+        command +
+        (result.status === null ? "" : " (exit " + result.status + ")") +
+        "\n" +
+        (output.length > 6000
+          ? "[…]\n" + output.slice(-6000)
+          : output || "(no output)"),
+    };
   }
 
   /**
@@ -2516,10 +2804,17 @@ class Presenter {
     if (!chapter) throw new Error("no chapter " + (index + 1));
     this.untouched = false;
     log("live chapter " + (index + 1) + ": " + chapter.title);
-    if (chapter.tab === "terminal")
-      return (await this.desktop.recordTerminal(chapter, null, voiceMs))
-        .problems;
-    return this.app(chapter, index, voiceMs);
+    // Held before it began (the member spoke between chapters): it waits.
+    await this.held();
+    this.playing = index;
+    try {
+      if (chapter.tab === "terminal")
+        return (await this.desktop.recordTerminal(chapter, null, voiceMs))
+          .problems;
+      return await this.app(chapter, index, voiceMs);
+    } finally {
+      this.playing = null;
+    }
   }
 
   async app(chapter, index, voiceMs) {
@@ -2534,8 +2829,8 @@ class Presenter {
     const url = join(app.url, chapter.path);
     const problems = [];
     const marks = [];
-    const started = Date.now();
-    const clock = () => Date.now() - started;
+    const started = this.now();
+    const clock = () => this.now() - started;
     const fail = (action, error) =>
       problems.push(
         "chapter " +
@@ -2572,6 +2867,7 @@ class Presenter {
       clock,
       marks,
       fail,
+      () => this.held(),
     );
     for (const [name, shown] of Object.entries(tabs.pages))
       log(
@@ -2589,21 +2885,61 @@ class Presenter {
 /** Where the page's requests reach the presenter, through the brain's Stage. */
 const PRESENTER_PORT = 7070;
 
-/** One request at a time, in order: a chapter never starts over another. */
+/**
+ * The page's cues, one at a time, in order: a chapter never starts over
+ * another. The agent the member talks to has its own line (what it does
+ * on the screen, one thing at a time), and holding or reading where the
+ * presentation stands answers at once, a chapter playing or not.
+ */
 function serve(presenter) {
-  let queue = Promise.resolve();
+  const lines = { show: Promise.resolve(), hands: Promise.resolve() };
+  const LINE = {
+    "/set": "show",
+    "/chapter": "show",
+    "/look": "hands",
+    "/act": "hands",
+    "/window": "hands",
+    "/run": "hands",
+    "/resume": "hands",
+  };
   const answer = async (url, asked) => {
     try {
-      if (url === "/set") return { ok: true, problems: await presenter.set() };
-      if (url === "/chapter")
-        return {
-          ok: true,
-          problems: await presenter.chapter(
-            Number(asked.index),
-            Number(asked.voiceMs) || 4000,
-          ),
-        };
-      return { ok: false, problems: ["no such request: " + url] };
+      switch (url) {
+        case "/set":
+          return { ok: true, problems: await presenter.set() };
+        case "/chapter":
+          return {
+            ok: true,
+            problems: await presenter.chapter(
+              Number(asked.index),
+              Number(asked.voiceMs) || 4000,
+            ),
+          };
+        case "/pause":
+          return { ok: true, problems: presenter.pause() };
+        case "/resume":
+          return { ok: true, problems: await presenter.resume() };
+        case "/state":
+          return { ok: true, problems: [], state: presenter.state() };
+        case "/look":
+          return { ok: true, problems: [], screen: await presenter.look() };
+        case "/act":
+          return {
+            ok: true,
+            ...(await presenter.act(
+              Array.isArray(asked.actions) ? asked.actions : [],
+            )),
+          };
+        case "/window":
+          return { ok: true, ...(await presenter.show(asked.window)) };
+        case "/run":
+          return {
+            ok: true,
+            ...(await presenter.run(String(asked.command ?? ""), asked.cwd)),
+          };
+        default:
+          return { ok: false, problems: ["no such request: " + url] };
+      }
     } catch (error) {
       return { ok: false, problems: [String(error?.message).split("\n")[0]] };
     }
@@ -2612,21 +2948,29 @@ function serve(presenter) {
     let body = "";
     request.on("data", (chunk) => (body += chunk));
     request.on("end", () => {
-      queue = queue.then(async () => {
+      const reply = async () => {
         let asked = {};
         try {
           asked = body ? JSON.parse(body) : {};
         } catch {
           // An empty request.
         }
-        heard = [];
-        const result = { ...(await answer(request.url, asked)), notes: heard };
-        heard = null;
+        // What the presenter logs while a chapter plays goes back with it.
+        const show = LINE[request.url] === "show";
+        if (show) heard = [];
+        const result = { ...(await answer(request.url, asked)) };
+        if (show) {
+          result.notes = heard;
+          heard = null;
+        }
         for (const problem of result.problems)
           console.error("problem: " + problem);
         response.writeHead(200, { "content-type": "application/json" });
         response.end(JSON.stringify(result));
-      });
+      };
+      const line = LINE[request.url];
+      if (!line) return void reply().catch(() => {});
+      lines[line] = lines[line].then(reply).catch(() => {});
     });
   });
   // Every interface, as websockify: the brain's Stage reaches the machine from outside.

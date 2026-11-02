@@ -26,9 +26,7 @@ export interface RepoReader {
   /** GitHub's code search: the default branch only. */
   searchCode(query: string): Promise<string[]>;
   openIssues(): Promise<{ number: number; title: string; url: string }[]>;
-  readIssue(
-    number: number,
-  ): Promise<{
+  readIssue(number: number): Promise<{
     title: string;
     body: string;
     url: string;
@@ -43,6 +41,29 @@ export interface RepoReader {
       patch: string | null;
     }[]
   >;
+}
+
+/**
+ * A reader made on its first read: a turn of the live call that reads no
+ * code asks GitHub for no token.
+ */
+export function lazyRepoReader(
+  make: () => Promise<RepoReader | null>,
+): RepoReader {
+  let made: Promise<RepoReader | null> | null = null;
+  const reader = async () => {
+    const found = await (made ??= make());
+    if (!found) throw new Error("The repository cannot be read right now.");
+    return found;
+  };
+  return {
+    readFile: async (path, ref) => (await reader()).readFile(path, ref),
+    listFiles: async (ref) => (await reader()).listFiles(ref),
+    searchCode: async (query) => (await reader()).searchCode(query),
+    openIssues: async () => (await reader()).openIssues(),
+    readIssue: async (number) => (await reader()).readIssue(number),
+    pullDiff: async (number) => (await reader()).pullDiff(number),
+  };
 }
 
 const decode = (base64: string) =>

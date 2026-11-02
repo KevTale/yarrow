@@ -15,6 +15,7 @@ import {
   askQuestion,
   chatContext,
   failAnswer,
+  pullContext,
   saveAnswer,
   threadMessages,
   type ChatContext,
@@ -211,6 +212,14 @@ describe("questions and answers", () => {
       state: "open",
     });
     expect(context!.project.repository).toBe("marie/halyard");
+    // The live call knows the same pull request, without the thread.
+    const pull = await pullContext(db, workUnitId);
+    expect(pull).toMatchObject({
+      project: context!.project,
+      pullRequest: context!.pullRequest,
+    });
+    expect(pull).not.toHaveProperty("history");
+    expect(await pullContext(db, crypto.randomUUID())).toBeNull();
     // A lost answer saved late stays lost.
     await saveAnswer(db, first.answerId, {
       body: "Too late",
