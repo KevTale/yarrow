@@ -124,14 +124,7 @@ export class Stage extends DurableObject<StageEnv> {
         ? { ...common, containerSnapshot: { id: snapshot.id } }
         : { ...common, image: this.#container.images.stage! },
     );
-    const outbound = (
-      this.ctx.exports as unknown as OutboundExports
-    ).MuseOutbound({
-      props: { sandbox: this.ctx.id.toString(), token: spec.token },
-    });
-    await this.#container.interceptAllOutboundHttp(outbound);
-    await this.#container.interceptOutboundHttps("*", outbound);
-    await this.#container.setInactivityTimeout(IDLE_MS);
+    // The rest waits for the machine: the alarm does it.
     await this.ctx.storage.setAlarm(Date.now());
   }
 
@@ -139,6 +132,15 @@ export class Stage extends DurableObject<StageEnv> {
   async #boot(saved: Saved): Promise<void> {
     const spec = this.#kv.get<StageSpec>("spec")!;
     try {
+      // Nothing leaves the machine before these: the boot starts after.
+      const outbound = (
+        this.ctx.exports as unknown as OutboundExports
+      ).MuseOutbound({
+        props: { sandbox: this.ctx.id.toString(), token: spec.token },
+      });
+      await this.#container.interceptAllOutboundHttp(outbound);
+      await this.#container.interceptOutboundHttps("*", outbound);
+      await this.#container.setInactivityTimeout(IDLE_MS);
       await this.#must([
         "/bin/sh",
         "-c",
@@ -227,7 +229,11 @@ export class Stage extends DurableObject<StageEnv> {
     )
       return new Response("The stage is not up\n", { status: 409 });
     // websockify in the machine speaks WebSocket: the upgrade goes through as it is.
-    return this.#container.getTcpPort(SCREEN).fetch(request);
+    // Plain HTTP: the machine's port speaks no TLS.
+    const { pathname } = new URL(request.url);
+    return this.#container
+      .getTcpPort(SCREEN)
+      .fetch(new Request(`http://stage${pathname}`, request));
   }
 
   /** One look at the machine, one move at a time. */
