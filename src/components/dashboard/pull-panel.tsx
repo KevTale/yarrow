@@ -353,12 +353,18 @@ export function PullPanel({
                       onCinema={flipCinema}
                       seekRef={seek}
                       playRef={play}
-                      call={{
-                        state: stage.talk,
-                        onCall: (at) => void stage.callFrom(at),
-                        onHangUp: () => stage.endTalk(),
-                        onWarm: () => stage.warm(),
-                      }}
+                      // A call only where the stage can take the film's
+                      // place: a film recorded with its live steps.
+                      call={
+                        stage.status?.live
+                          ? {
+                              state: stage.talk,
+                              onCall: (at) => void stage.callFrom(at),
+                              onHangUp: () => stage.endTalk(),
+                              onWarm: () => stage.warm(),
+                            }
+                          : undefined
+                      }
                     />
                   </div>
                 </div>
