@@ -197,7 +197,9 @@ export function outputDiff(before: string, after: string): OutputLine[] {
       ...a.map((text) => ({ kind: "removed" as const, text })),
       ...b.map((text) => ({ kind: "added" as const, text })),
     ];
-  const same = (i: number, j: number) => a[i]!.trimEnd() === b[j]!.trimEnd();
+  // A comma gained before a new line of a list is no change to read.
+  const plain = (line: string) => line.trimEnd().replace(/,$/, "");
+  const same = (i: number, j: number) => plain(a[i]!) === plain(b[j]!);
   // common[i][j]: how many lines a[i..] and b[j..] have in common.
   const common = Array.from({ length: a.length + 1 }, () =>
     new Array<number>(b.length + 1).fill(0),

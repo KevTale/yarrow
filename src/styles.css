@@ -8598,8 +8598,13 @@ body:has(.sb-dialog[open]) {
 .pf-fold:hover {
   color: var(--text);
 }
-.pf-command {
+/* Small under the print, for who wants it: never a box of its own (the
+   panel's code style would make it one). */
+.pf .pf-command {
   overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
   font:
     11.5px var(--font-geist-mono),
     monospace;

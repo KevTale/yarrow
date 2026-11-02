@@ -261,8 +261,12 @@ describe("an output read without a terminal", () => {
       { kind: "same", text: "c" },
       { kind: "added", text: "d" },
     ]);
-    // Trailing spaces are no change.
+    // Trailing spaces are no change, nor a comma before a new line.
     expect(outputDiff("ok  ", "ok")).toEqual([{ kind: "same", text: "ok" }]);
+    expect(outputDiff('"a": 1', '"a": 1,\n"b": 2')).toEqual([
+      { kind: "same", text: '"a": 1,' },
+      { kind: "added", text: '"b": 2' },
+    ]);
   });
 
   it("folds the unchanged lines away from a change", () => {
