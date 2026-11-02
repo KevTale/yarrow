@@ -8388,7 +8388,7 @@ body:has(.sb-dialog[open]) {
 .pp-take > .pv {
   grid-area: 1 / 1;
 }
-/* The pull request's app at its own address, under the film, and the
+/* The pull request's app at its own address, under the proofs, and the
    test account beside it, each copied on a click. */
 .pp-preview {
   display: flex;
@@ -8396,7 +8396,6 @@ body:has(.sb-dialog[open]) {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  margin-top: -12px;
 }
 .pp-preview-open,
 .pp-preview-copy {
@@ -8444,8 +8443,14 @@ body:has(.sb-dialog[open]) {
   border-color: var(--border-strong);
   background: var(--hover);
 }
-/* What proves the pull request: each screen before and after, what a
-   command printed, a measure, the documents. */
+/* What proves the pull request, under its summary: each screen before
+   and after, a measure, the documents, what a command printed. */
+.pf {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
 .pf-pairs {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
@@ -8547,25 +8552,59 @@ body:has(.sb-dialog[open]) {
   background: var(--hover);
   color: var(--text);
 }
-.pf-out pre {
-  max-height: 320px;
-  margin: 0;
-  padding: 12px 14px;
+.pf-print {
+  display: grid;
+  max-height: 360px;
+  padding: 8px 0;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--elevated);
   font:
-    12.5px/1.55 var(--font-geist-mono),
+    12.5px/1.6 var(--font-geist-mono),
     monospace;
-  color: var(--secondary);
-  white-space: pre;
 }
-.pf-command {
+/* Long lines wrap: nothing to scroll sideways for. */
+.pf-line {
+  padding: 0 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--secondary);
+}
+/* What moved, so it is what one reads. */
+.pf-added,
+.pf-removed {
   color: var(--text);
 }
-.pf-command::before {
-  content: "$ ";
+.pf-added {
+  background: #5ccb951a;
+  box-shadow: inset 2px 0 var(--green);
+}
+.pf-removed {
+  background: #ee7b6e1a;
+  box-shadow: inset 2px 0 var(--red);
+}
+.pf-fold {
+  padding: 2px 14px;
+  border: 0;
+  background: none;
+  font:
+    12px var(--font-geist-sans),
+    sans-serif;
+  text-align: left;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pf-fold:hover {
+  color: var(--text);
+}
+.pf-command {
+  overflow: hidden;
+  font:
+    11.5px var(--font-geist-mono),
+    monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--muted);
 }
 .pf-measure {

@@ -56,7 +56,7 @@ export interface PullRequestInput {
   evidenceInYarrow?: { count: number; url: string } | null;
   /** Played on the run's page; a public project's still shows here. */
   presentation?: { title: string; url: string; poster: string | null } | null;
-  /** What proves it, rendered (src/core/proofs.ts): "## Proof", or empty. */
+  /** What proves it, rendered (src/core/proofs.ts), under What changed; or empty. */
   proof?: string;
   roles: PipelineRoles;
   sponsors: RunSponsor[];
@@ -102,17 +102,20 @@ export function pullRequestBlock(
       ? `Closes #${input.ticket.number}`
       : `Ticket: ${input.ticket.url}`,
   );
-  sections.push(`## What changed\n\n${input.summary || "See the diff."}`);
+  // The summary, then what proves it right under it, the film first: one
+  // section read top to bottom (decided 2026-10-29).
+  const changed = [`## What changed\n\n${input.summary || "See the diff."}`];
   const presentation = input.presentation;
   if (presentation)
-    sections.push(
-      `## Presentation\n\n${
+    changed.push(
+      `<!-- yarrow:proof film -->\n${
         presentation.poster
           ? `[![${presentation.title.replace(/[[\]]/g, "")}](${presentation.poster})](${presentation.url})\n\n`
           : ""
       }[Watch it in Yarrow](${presentation.url})`,
     );
-  if (input.proof) sections.push(input.proof);
+  if (input.proof) changed.push(input.proof);
+  sections.push(changed.join("\n\n"));
   if (input.evidence.length > 0)
     sections.push(
       `## Screenshots\n\n${input.evidence

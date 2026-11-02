@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  foldOutput,
   isAppPath,
   measureChange,
+  outputDiff,
   OUTPUT_CHARS,
   parseAgentProofs,
   proofImages,
@@ -165,15 +167,15 @@ describe("measureChange", () => {
   });
 });
 
+const links = (shown: boolean) => ({
+  image: (key: string) => (shown ? `https://yarrow.run/evidence/${key}` : null),
+  document: (file: string) => `https://github.com/o/r/blob/yarrow/42/${file}`,
+  app: (path: string) =>
+    `https://yarrow.run/preview/p/42?path=${encodeURIComponent(path)}`,
+  runUrl: "https://yarrow.run/runs/r",
+});
+
 describe("proofsMarkdown", () => {
-  const links = (shown: boolean) => ({
-    image: (key: string) =>
-      shown ? `https://yarrow.run/evidence/${key}` : null,
-    document: (file: string) => `https://github.com/o/r/blob/yarrow/42/${file}`,
-    app: (path: string) =>
-      `https://yarrow.run/preview/p/42?path=${encodeURIComponent(path)}`,
-    runUrl: "https://yarrow.run/runs/r",
-  });
   const proofs: Proof[] = [
     {
       kind: "images",
@@ -210,7 +212,7 @@ describe("proofsMarkdown", () => {
   it("shows a public project's images, each proof marked", () => {
     const text = proofsMarkdown(proofs, links(true));
     expect(text).toMatch(
-      /^## Proof\n\n<!-- yarrow:proof images -->\n\*\*Home \[new\]\*\*\n\n!\[Home new\]\(https:\/\/yarrow\.run\/evidence\/runs\/r\/home\.png\)/,
+      /^<!-- yarrow:proof images -->\n\*\*Home \[new\]\*\*\n\n!\[Home new\]\(https:\/\/yarrow\.run\/evidence\/runs\/r\/home\.png\)/,
     );
     expect(text).toContain(
       "| Before | After |\n| --- | --- |\n| ![Before](https://yarrow.run/evidence/runs/r/a.png) | ![After](https://yarrow.run/evidence/runs/r/b.png) |",
@@ -244,9 +246,68 @@ describe("proofsMarkdown", () => {
     expect(
       proofsMarkdown([{ kind: "app", path: "/settings" }], links(true)),
     ).toBe(
-      "## Proof\n\n<!-- yarrow:proof app -->\n[Try it in the app](https://yarrow.run/preview/p/42?path=%2Fsettings)",
+      "<!-- yarrow:proof app -->\n[Try it in the app](https://yarrow.run/preview/p/42?path=%2Fsettings)",
     );
     expect(proofsMarkdown([], links(true))).toBe("");
+  });
+});
+
+describe("an output read without a terminal", () => {
+  it("marks the lines that changed, the one gone first", () => {
+    expect(outputDiff("a\nb\nc", "a\nB\nc\nd")).toEqual([
+      { kind: "same", text: "a" },
+      { kind: "removed", text: "b" },
+      { kind: "added", text: "B" },
+      { kind: "same", text: "c" },
+      { kind: "added", text: "d" },
+    ]);
+    // Trailing spaces are no change.
+    expect(outputDiff("ok  ", "ok")).toEqual([{ kind: "same", text: "ok" }]);
+  });
+
+  it("folds the unchanged lines away from a change", () => {
+    const after = Array.from({ length: 12 }, (_, i) => `line ${i}`);
+    const before = after.map((line, i) => (i === 9 ? "old" : line));
+    const shown = foldOutput(
+      outputDiff(before.join("\n"), after.join("\n")).filter(
+        (line) => line.kind !== "removed",
+      ),
+    );
+    expect(shown).toEqual([
+      { folded: 7 },
+      { kind: "same", text: "line 7" },
+      { kind: "same", text: "line 8" },
+      { kind: "added", text: "line 9" },
+      { kind: "same", text: "line 10" },
+      { kind: "same", text: "line 11" },
+    ]);
+    // Nothing changed: its first lines.
+    const same = after.concat(after).map((text) => ({
+      kind: "same" as const,
+      text,
+    }));
+    expect(foldOutput(same)).toEqual([...same.slice(0, 10), { folded: 14 }]);
+  });
+
+  it("is green and red in the description, once when nothing moved", () => {
+    const output = (before: string | null, after: string) =>
+      proofsMarkdown(
+        [
+          {
+            kind: "output",
+            label: "Tests",
+            command: "npm test",
+            before,
+            after,
+          },
+        ],
+        links(true),
+      );
+    expect(output("1 failed\nok a", "ok a\nok b")).toContain(
+      "```diff\n- 1 failed\n  ok a\n+ ok b\n```",
+    );
+    expect(output("same", "same")).toContain("`npm test`\n\n```\nsame\n```");
+    expect(output(null, "7 passed")).toContain("```\n7 passed\n```");
   });
 });
 

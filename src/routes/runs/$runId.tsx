@@ -132,6 +132,20 @@ function RunPage() {
                 </span>
               </h2>
               <Markdown source={run.summary} className="rp-text" />
+              {/* What proves it, right under it: the film first. */}
+              {run.artifacts
+                .filter((artifact) => artifact.kind === "presentation")
+                .map((artifact) => (
+                  <Presentation key={artifact.key} artifact={artifact} />
+                ))}
+              {run.proofs.length > 0 && (
+                <Proofs
+                  proofs={run.proofs}
+                  document={(file) =>
+                    branchFileUrl(run.pullRequestUrl, run.branch, file)
+                  }
+                />
+              )}
               {run.evidence.length > 0 && (
                 <ul className="rp-checks">
                   {run.evidence.map((line) => {
@@ -180,24 +194,11 @@ function RunPage() {
               )}
             </section>
           )}
-          {run.proofs.length > 0 && (
-            <div className="rp-panel">
-              <Proofs
-                proofs={run.proofs}
-                document={(file) =>
-                  branchFileUrl(run.pullRequestUrl, run.branch, file)
-                }
-              />
-            </div>
-          )}
-          {run.artifacts.length > 0 && (
+          {run.artifacts.some(
+            (artifact) => artifact.kind !== "presentation",
+          ) && (
             <section className="rp-panel">
               <h2>Evidence</h2>
-              {run.artifacts
-                .filter((artifact) => artifact.kind === "presentation")
-                .map((artifact) => (
-                  <Presentation key={artifact.key} artifact={artifact} />
-                ))}
               <div className="rp-media">
                 {run.artifacts
                   .filter((artifact) => artifact.kind !== "presentation")

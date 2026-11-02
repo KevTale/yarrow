@@ -289,7 +289,11 @@ async function check(
     });
 
   const runUrl = body.match(/https:\/\/[^\s)/]+\/runs\/[0-9a-f-]{36}/)?.[0];
-  const proof = /## Proof\n\n([\s\S]*?)(\n## |$)/.exec(body)?.[1] ?? "";
+  // The proofs sit under What changed, after the summary (2026-10-29);
+  // under their own heading before.
+  const proof =
+    (/## Proof\n\n([\s\S]*?)(\n## |$)/.exec(body) ??
+      /## What changed\n\n([\s\S]*?)(\n## |$)/.exec(body))?.[1] ?? "";
   if (shown.has("app"))
     checks.push({
       ok: /\[Try it in the app\]\(https:\/\/[^)\s]+\/preview\/[^)\s]+\?path=%2F[^)\s]*\)/.test(
@@ -331,7 +335,9 @@ async function check(
   }
   // A public project's screens show in the description, served; a
   // private one's are counted, seen in Yarrow.
-  const image = proof.match(/!\[[^\]]*\]\((https:[^)\s]+)\)/)?.[1];
+  const image = [...proof.matchAll(/!\[[^\]]*\]\((https:[^)\s]+)\)/g)]
+    .map((match) => match[1]!)
+    .find((url) => !url.endsWith("-poster.jpg"));
   if ((shown.has("images") || shown.has("phone")) && !image)
     checks.push({
       ok: /\[\d+ images?\]\(https:[^)\s]+\/runs\/[0-9a-f-]{36}\), in Yarrow/.test(

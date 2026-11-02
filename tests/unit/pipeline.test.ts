@@ -657,24 +657,24 @@ describe("run pipeline", async () => {
     const body = (pull.body as { body: string; draft: boolean }).body;
     expect((pull.body as { draft: boolean }).draft).toBe(true);
     expect(body).toContain("Closes #5");
-    // A public project's still links to the run, where it plays.
+    // Under the summary, the film first: a public project's still links to
+    // the run, where it plays.
     expect(body).toMatch(
-      /## Presentation\n\n\[!\[Empty exports\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-k1-poster\.jpg\)\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)\n\n\[Watch it in Yarrow\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)/,
+      /## What changed\n\n[^#]+\n\n<!-- yarrow:proof film -->\n\[!\[Empty exports\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-k1-poster\.jpg\)\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)\n\n\[Watch it in Yarrow\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)/,
     );
     expect(body).toContain("pnpm test → 42 passed");
     // The proofs, right after the film: images shown on a public project.
     expect(body).toMatch(
-      /## Proof\n\n<!-- yarrow:proof images -->\n\*\*Exporting an empty list\*\*\n\n\| Before \| After \|\n\| --- \| --- \|\n\| !\[Before\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-empty-before\.png\) \| !\[After\]/,
+      /\[Watch it in Yarrow\]\([^)]+\)\n\n<!-- yarrow:proof images -->\n\*\*Exporting an empty list\*\*\n\n\| Before \| After \|\n\| --- \| --- \|\n\| !\[Before\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-empty-before\.png\) \| !\[After\]/,
     );
     expect(body).toContain(
-      "<!-- yarrow:proof output -->\n**The export tests**\n\n`pnpm test export`\n\nBefore:\n\n```\n1 failed\n```\n\nAfter:\n\n```\n3 passed\n```",
+      "<!-- yarrow:proof output -->\n**The export tests**\n\n`pnpm test export`\n\n```diff\n- 1 failed\n+ 3 passed\n```",
     );
     expect(body).toMatch(
       /<!-- yarrow:proof app -->\n\[Try it in the app\]\(https:\/\/yarrow\.run\/preview\/[0-9a-f-]+\/5\?path=%2Fexports\)/,
     );
-    expect(body.indexOf("## Presentation")).toBeLessThan(
-      body.indexOf("## Proof"),
-    );
+    expect(body).not.toContain("## Presentation");
+    expect(body).not.toContain("## Proof");
     // A public project's screenshots show in the description.
     expect(body).toMatch(
       /## Screenshots\n\n\*\*Export dialog\*\*\n\n!\[Export dialog\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-export\.png\)/,

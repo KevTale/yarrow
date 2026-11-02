@@ -49,8 +49,9 @@ describe("Proofs", () => {
         after: "7 passed",
       },
     ]);
-    expect(html).toContain('<span class="pf-command">npm test</span>');
-    expect(html).toContain("7 passed");
+    // The command small, under what it printed; what moved marked.
+    expect(html).toContain('<code class="pf-command">npm test</code>');
+    expect(html).toContain('<div class="pf-line pf-added">7 passed</div>');
     expect(html).not.toContain("1 failed");
     expect(html).toContain('aria-pressed="true">After<');
   });

@@ -177,14 +177,125 @@ export function measureChange(
   return `${amount} ${improved ? "better" : "worse"}`;
 }
 
-const fence = (body: string) => {
+/** A line of what a command printed, beside the other side's. */
+export interface OutputLine {
+  /** Printed before and after, or only after (added), or only before. */
+  kind: "same" | "added" | "removed";
+  text: string;
+}
+
+/**
+ * What a command printed before and after, line by line: the lines both
+ * printed and those only one did, by their longest run in common (outputs
+ * are a few dozen lines; past that, all of it counts as changed).
+ */
+export function outputDiff(before: string, after: string): OutputLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  if (a.length * b.length > 200_000)
+    return [
+      ...a.map((text) => ({ kind: "removed" as const, text })),
+      ...b.map((text) => ({ kind: "added" as const, text })),
+    ];
+  const same = (i: number, j: number) => a[i]!.trimEnd() === b[j]!.trimEnd();
+  // common[i][j]: how many lines a[i..] and b[j..] have in common.
+  const common = Array.from({ length: a.length + 1 }, () =>
+    new Array<number>(b.length + 1).fill(0),
+  );
+  for (let i = a.length - 1; i >= 0; i--)
+    for (let j = b.length - 1; j >= 0; j--)
+      common[i]![j] = same(i, j)
+        ? common[i + 1]![j + 1]! + 1
+        : Math.max(common[i + 1]![j]!, common[i]![j + 1]!);
+  const lines: OutputLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && same(i, j)) {
+      lines.push({ kind: "same", text: b[j]! });
+      i++;
+      j++;
+    } else if (
+      i < a.length &&
+      (j === b.length || common[i + 1]![j]! >= common[i]![j + 1]!)
+    ) {
+      lines.push({ kind: "removed", text: a[i]! });
+      i++;
+    } else {
+      lines.push({ kind: "added", text: b[j]! });
+      j++;
+    }
+  }
+  return lines;
+}
+
+/** A line shown, or a run of unchanged ones folded away. */
+export type ShownLine = OutputLine | { folded: number };
+
+/**
+ * The lines worth reading: each changed one with `keep` lines around it,
+ * longer runs of unchanged lines folded. Nothing changed: the first lines,
+ * the rest folded.
+ */
+export function foldOutput(
+  lines: OutputLine[],
+  keep = 2,
+  head = 10,
+): ShownLine[] {
+  const changed = lines.map((line) => line.kind !== "same");
+  if (!changed.includes(true))
+    return lines.length > head + 2
+      ? [...lines.slice(0, head), { folded: lines.length - head }]
+      : lines;
+  const near = lines.map((_, index) =>
+    changed.slice(Math.max(0, index - keep), index + keep + 1).includes(true),
+  );
+  const shown: ShownLine[] = [];
+  for (let index = 0; index < lines.length;) {
+    if (near[index]) {
+      shown.push(lines[index]!);
+      index++;
+      continue;
+    }
+    let end = index;
+    while (end < lines.length && !near[end]) end++;
+    // One line takes no more room than its fold.
+    if (end - index === 1) shown.push(lines[index]!);
+    else shown.push({ folded: end - index });
+    index = end;
+  }
+  return shown;
+}
+
+const fence = (body: string, language = "") => {
   const ticks = body.includes("```") ? "````" : "```";
-  return `${ticks}\n${body}\n${ticks}`;
+  return `${ticks}${language}\n${body}\n${ticks}`;
 };
 
 /**
- * The proofs in the pull request's description. Images only where the
- * project's evidence may show (public), else counted, seen in Yarrow.
+ * An output in the description: what changed in green and red, the rest
+ * folded; printed once when there was nothing before or nothing moved.
+ */
+function outputMarkdown(before: string | null, after: string): string {
+  const lines = before === null ? [] : outputDiff(before, after);
+  if (!lines.some((line) => line.kind !== "same")) return fence(after);
+  const sign = { same: " ", added: "+", removed: "-" } as const;
+  return fence(
+    foldOutput(lines)
+      .map((line) =>
+        "folded" in line
+          ? `@@ ${line.folded} unchanged lines @@`
+          : `${sign[line.kind]} ${line.text}`,
+      )
+      .join("\n"),
+    "diff",
+  );
+}
+
+/**
+ * The proofs in the pull request's description, under What changed.
+ * Images only where the project's evidence may show (public), else
+ * counted, seen in Yarrow.
  */
 export function proofsMarkdown(
   proofs: Proof[],
@@ -225,11 +336,8 @@ export function proofsMarkdown(
           `**${proof.label}**`,
           "",
           `\`${proof.command.replace(/`/g, "'")}\``,
-          ...(proof.before !== null
-            ? ["", "Before:", "", fence(proof.before), "", "After:"]
-            : []),
           "",
-          fence(proof.after),
+          outputMarkdown(proof.before, proof.after),
         ].join("\n"),
       );
     } else if (proof.kind === "measure") {
@@ -249,5 +357,5 @@ export function proofsMarkdown(
     parts.push(
       `[${hidden} image${hidden === 1 ? "" : "s"}](${input.runUrl}), in Yarrow`,
     );
-  return parts.length ? `## Proof\n\n${parts.join("\n\n")}` : "";
+  return parts.join("\n\n");
 }

@@ -1,6 +1,11 @@
 import { ArrowRight, ArrowUpRight, FileText } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { measureChange, type Proof } from "@/core/proofs";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  foldOutput,
+  measureChange,
+  outputDiff,
+  type Proof,
+} from "@/core/proofs";
 
 type ImagesProof = Extract<Proof, { kind: "images" }>;
 type OutputProof = Extract<Proof, { kind: "output" }>;
@@ -23,8 +28,9 @@ export function branchFileUrl(
 
 /**
  * What proves the pull request, chosen for it by the implementer
- * (src/core/proofs.ts): screens as they were and are, what a command
- * printed, a measure, the documents. The app's page is the preview's link.
+ * (src/core/proofs.ts), under its summary: what one sees first (screens as
+ * they were and are, a measure, the documents), what a command printed
+ * last. The app's page is the preview's link.
  */
 export function Proofs({
   proofs,
@@ -43,15 +49,10 @@ export function Proofs({
     proof.kind === "document" ? [proof.file] : [],
   );
   return (
-    <section className="pp-section pf">
-      <h3>Proof</h3>
+    <div className="pf">
       {images.length > 0 && <Pairs proofs={images} />}
       {shown.map((proof, index) =>
-        proof.kind === "output" ? (
-          <Output key={index} proof={proof} />
-        ) : proof.kind === "measure" ? (
-          <Measure key={index} proof={proof} />
-        ) : null,
+        proof.kind === "measure" ? <Measure key={index} proof={proof} /> : null,
       )}
       {documents.length > 0 && (
         <div className="pf-docs">
@@ -82,7 +83,10 @@ export function Proofs({
           })}
         </div>
       )}
-    </section>
+      {shown.map((proof, index) =>
+        proof.kind === "output" ? <Output key={index} proof={proof} /> : null,
+      )}
+    </div>
   );
 }
 
@@ -168,10 +172,26 @@ function Pairs({ proofs }: { proofs: ImagesProof[] }) {
   );
 }
 
-/** A command or request and what it printed, now; before, on a click. */
+/**
+ * What a command or request printed, read without a terminal: now first,
+ * the lines that changed marked (before, on a click, those that went), the
+ * rest folded until asked for; the command itself small, under it.
+ */
 function Output({ proof }: { proof: OutputProof }) {
   const [side, setSide] = useState<"before" | "after">("after");
-  const text = side === "before" ? proof.before : proof.after;
+  const [whole, setWhole] = useState(false);
+  const lines = useMemo(
+    () =>
+      proof.before === null
+        ? proof.after
+            .split("\n")
+            .map((text) => ({ kind: "same" as const, text }))
+        : outputDiff(proof.before, proof.after),
+    [proof.before, proof.after],
+  );
+  const hidden = side === "before" ? "added" : "removed";
+  const sideLines = lines.filter((line) => line.kind !== hidden);
+  const shown = whole ? sideLines : foldOutput(sideLines);
   return (
     <figure className="pf-out">
       <figcaption>
@@ -191,13 +211,25 @@ function Output({ proof }: { proof: OutputProof }) {
           </span>
         )}
       </figcaption>
-      <pre>
-        <code>
-          <span className="pf-command">{proof.command}</span>
-          {"\n"}
-          {text || " "}
-        </code>
-      </pre>
+      <div className="pf-print">
+        {shown.map((line, index) =>
+          "folded" in line ? (
+            <button
+              key={index}
+              type="button"
+              className="pf-fold"
+              onClick={() => setWhole(true)}
+            >
+              {line.folded} more lines
+            </button>
+          ) : (
+            <div key={index} className={`pf-line pf-${line.kind}`}>
+              {line.text || " "}
+            </div>
+          ),
+        )}
+      </div>
+      <code className="pf-command">{proof.command}</code>
     </figure>
   );
 }

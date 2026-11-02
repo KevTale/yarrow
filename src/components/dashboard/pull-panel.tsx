@@ -27,6 +27,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { chatParts } from "@/core/chat";
 import { previewHref } from "@/core/preview";
@@ -344,86 +345,92 @@ export function PullPanel({
       }
     />
   );
+  // What proves the change, the film first, then the app to try it: under
+  // the summary of what changed (decided 2026-10-29).
+  const proven = (
+    <>
+      {presentation && (
+        <>
+          {cinema && <div style={{ height: slot }} />}
+          <dialog
+            ref={theater}
+            className="pp-stage"
+            aria-label="Cinema mode"
+            onClose={() => setCinema(false)}
+          >
+            {cinema && (
+              <button type="button" className="pp-back" onClick={flipCinema}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                Back
+              </button>
+            )}
+            <div className="pp-film">
+              {/* Up, its screen already drawn behind the film. */}
+              {onStage && (
+                <LiveCall
+                  stage={stage}
+                  shown={onCall}
+                  cinema={cinema}
+                  onCinema={flipCinema}
+                  onFilm={() => play.current?.(null)}
+                />
+              )}
+              {/* Kept behind the stage, paused where the call began. */}
+              <div className="pp-take" hidden={onCall}>
+                <Presentation
+                  artifact={presentation}
+                  cinema={cinema}
+                  onCinema={flipCinema}
+                  seekRef={seek}
+                  playRef={play}
+                  phoneRef={phone}
+                  call={call}
+                />
+              </div>
+            </div>
+            {cinema && talk}
+          </dialog>
+        </>
+      )}
+      {panel.proofs && (
+        <Proofs
+          proofs={panel.proofs}
+          document={(file) =>
+            branchFileUrl(
+              pullRequest?.url ?? null,
+              pullRequest?.branch ?? null,
+              file,
+            )
+          }
+        />
+      )}
+      {panel.preview && (
+        <PreviewLink
+          projectId={projectId}
+          rowKey={rowKey}
+          signIn={panel.preview.signIn}
+          path={panel.preview.path}
+        />
+      )}
+    </>
+  );
   return (
     <div className="pp">
       <div className="pp-grid">
         <div className="pp-main">
-          {presentation && (
-            <>
-              {cinema && <div style={{ height: slot }} />}
-              <dialog
-                ref={theater}
-                className="pp-stage"
-                aria-label="Cinema mode"
-                onClose={() => setCinema(false)}
-              >
-                {cinema && (
-                  <button
-                    type="button"
-                    className="pp-back"
-                    onClick={flipCinema}
-                  >
-                    <ArrowLeft size={16} aria-hidden="true" />
-                    Back
-                  </button>
-                )}
-                <div className="pp-film">
-                  {/* Up, its screen already drawn behind the film. */}
-                  {onStage && (
-                    <LiveCall
-                      stage={stage}
-                      shown={onCall}
-                      cinema={cinema}
-                      onCinema={flipCinema}
-                      onFilm={() => play.current?.(null)}
-                    />
-                  )}
-                  {/* Kept behind the stage, paused where the call began. */}
-                  <div className="pp-take" hidden={onCall}>
-                    <Presentation
-                      artifact={presentation}
-                      cinema={cinema}
-                      onCinema={flipCinema}
-                      seekRef={seek}
-                      playRef={play}
-                      phoneRef={phone}
-                      call={call}
-                    />
-                  </div>
-                </div>
-                {cinema && talk}
-              </dialog>
-            </>
-          )}
-          {panel.proofs && (
-            <Proofs
-              proofs={panel.proofs}
-              document={(file) =>
-                branchFileUrl(
-                  pullRequest?.url ?? null,
-                  pullRequest?.branch ?? null,
-                  file,
-                )
-              }
-            />
-          )}
-          {panel.preview && (
-            <PreviewLink
-              projectId={projectId}
-              rowKey={rowKey}
-              signIn={panel.preview.signIn}
-              path={panel.preview.path}
-            />
-          )}
           {panel.implementation?.ask && (
             <TicketAsk ask={panel.implementation.ask} />
           )}
-          {panel.implementation && (
+          {panel.implementation ? (
             <Changed
               implementation={panel.implementation}
               review={panel.review}
               screens={panel.screens}
-            />
+            >
+              {proven}
+            </Changed>
+          ) : (
+            proven
           )}
 
           {panel.implementation && panel.implementation.spotted.length > 0 && (
@@ -621,16 +628,20 @@ function TicketAsk({ ask }: { ask: string }) {
  * developer, in a few lines and one voice: the reviewer tells what it does,
  * how it is known to work, what to do before merging or what is still
  * wrong. Before it did, the implementer's words then the reviewer's own.
- * The criteria, the checks and the suggestions are the conversation's.
+ * What proves it follows, read right after. The criteria, the checks and
+ * the suggestions are the conversation's.
  */
 function Changed({
   implementation,
   review,
   screens,
+  children,
 }: {
   implementation: NonNullable<Panel["implementation"]>;
   review: Panel["review"];
   screens: Panel["screens"];
+  /** The film, the proofs and the app. */
+  children: ReactNode;
 }) {
   const shots = screens.filter((screen) => screen.kind !== "presentation");
   return (
@@ -644,6 +655,7 @@ function Changed({
           {review && <Markdown source={review.summary} className="pp-text" />}
         </>
       )}
+      {children}
       {shots.length > 0 && <Screens screens={shots} />}
     </section>
   );
