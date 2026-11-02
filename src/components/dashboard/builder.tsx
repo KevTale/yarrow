@@ -824,8 +824,8 @@ function TicketGroup({
  * with it now (Start, Retry), where it stands, its pull request, who paid,
  * and when it was written.
  */
-/** The site's header and a little air above an opened row. */
-const OVER_ROW = 72;
+/** The page's scroll padding: what a row brought into view stays under. */
+const OVER_ROW = 100;
 
 /**
  * An opened row comes to the middle of the window, or under the header when
