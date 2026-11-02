@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
 import { asCall } from "@/components/call-voice";
@@ -993,6 +994,7 @@ export function LiveCall({
   cinema,
   onCinema,
   onFilm,
+  actions,
 }: {
   stage: LiveStage;
   /** Off a call: behind the film, its screen drawn, ready to take its place. */
@@ -1001,6 +1003,8 @@ export function LiveCall({
   onCinema: () => void;
   /** The film on, where it was paused. */
   onFilm: () => void;
+  /** The pull request's own actions, beside the call, as on the film. */
+  actions?: ReactNode;
 }) {
   const { setScreen } = stage;
   return (
@@ -1037,15 +1041,6 @@ export function LiveCall({
                 <span className="pv-glass-pill pv-tools">
                   <button
                     type="button"
-                    className="pv-icon on"
-                    onClick={() => stage.endTalk()}
-                    aria-label="Hang up"
-                    data-tip="Hang up"
-                  >
-                    <PhoneOff size={18} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
                     className="pv-icon"
                     onClick={onCinema}
                     aria-pressed={cinema}
@@ -1054,6 +1049,18 @@ export function LiveCall({
                   >
                     <RectangleHorizontal size={18} aria-hidden="true" />
                   </button>
+                </span>
+                <span className="pv-glass-pill pv-tools">
+                  <button
+                    type="button"
+                    className="pv-icon on"
+                    onClick={() => stage.endTalk()}
+                    aria-label="Hang up"
+                    data-tip="Hang up"
+                  >
+                    <PhoneOff size={18} aria-hidden="true" />
+                  </button>
+                  {actions}
                 </span>
               </div>
             </div>

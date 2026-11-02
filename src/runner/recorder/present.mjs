@@ -3076,7 +3076,10 @@ const listening = (port) =>
     socket.once("error", () => resolve(false));
   });
 
-/** The seeded user's session, saved for the browser's window. */
+/**
+ * The seeded user's session, saved for the browser's window. True when the
+ * page stopped asking for a password: signed in.
+ */
 async function signIn(browser, base, how, file) {
   const context = await browser.newContext({ viewport: null });
   try {
@@ -3087,6 +3090,8 @@ async function signIn(browser, base, how, file) {
     });
     await fillSignIn(page, how);
     await context.storageState({ path: file });
+    const asked = page.locator("input[type=password]").first();
+    return !(await asked.isVisible().catch(() => false));
   } finally {
     await context.close().catch(() => {});
   }
@@ -3879,7 +3884,8 @@ function serve(presenter) {
  * signed in, its screen served over VNC (the pointer drawn into it) and as
  * a WebSocket (websockify) until the container stops. Nothing is filmed.
  * The stage file gives the app ({ url, path, signIn: { path, fields,
- * submit } | null }), `ready`, written once the screen can be watched, and
+ * submit } | null }), `ready`, written once the screen can be watched,
+ * `session`, written with the browser's session once it signed in, and
  * the presentation to play live (`script`: { apps, chapters } | null),
  * which the presenter plays as asked on PRESENTER_PORT.
  */
@@ -3894,12 +3900,16 @@ async function stage(spec) {
   let storage;
   if (spec.signIn) {
     storage = path.join(desktop.dir, "after-state.json");
+    // Read by the preview, for a visit to open signed in; empty, it cannot.
+    let session = "{}";
     try {
-      await signIn(desktop.browser, spec.url, spec.signIn, storage);
+      if (await signIn(desktop.browser, spec.url, spec.signIn, storage))
+        session = fs.readFileSync(storage, "utf8");
     } catch (error) {
       log("not signed in: " + String(error?.message).split("\n")[0]);
       storage = undefined;
     }
+    if (spec.session) fs.writeFileSync(spec.session, session);
     // The sign-in's window is gone: the next one is the app's.
     desktop.known = new Set(desktop.windows().map((w) => w.id));
   }

@@ -1242,6 +1242,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       events: [],
       error,
       live: false,
+      signedIn: null,
     });
     if (!this.env.STAGE) return off("No stage on this environment.");
     const stage = this.env.STAGE.getByName(input.workUnitId);

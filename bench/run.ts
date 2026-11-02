@@ -259,6 +259,13 @@ async function check(
       ),
       what: "What changed is told in one voice",
     },
+    {
+      // Its first lines; how it was checked is the notes' silence.
+      ok: !/\b(it was checked|was checked in|tests? pass|was verified)\b/i.test(
+        /## What changed\n\n(.*)/.exec(body)?.[1] ?? "",
+      ),
+      what: "What changed does not say how it was checked",
+    },
   );
   const files = api<{ filename: string }[]>(
     `repos/${repo}/pulls/${pull.number}/files?per_page=100`,

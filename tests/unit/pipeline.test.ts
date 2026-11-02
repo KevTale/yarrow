@@ -501,7 +501,7 @@ describe("run pipeline", async () => {
     // The task carries the evidence rules; no recipe yet for this project.
     const task = JSON.stringify(created.body);
     expect(task).toContain("Evidence (these rules replace");
-    expect(task).toContain("Proof: what makes the owner sure");
+    expect(task).toContain("Proof: you send the owner one thing");
     expect(task).toContain("Presentation (only when the proof is a film)");
     expect(task).toContain(
       "node /mnt/session/uploads/yarrow/present.mjs /tmp/presentation.json",

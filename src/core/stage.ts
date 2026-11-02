@@ -99,6 +99,12 @@ export interface StageStatus {
   error: string | null;
   /** Its presentation can be played on it. */
   live: boolean;
+  /**
+   * The recipe's account signed in on its browser, so a preview opens signed
+   * in; false, the member needs the account. Null when not known yet, or the
+   * recipe gives none.
+   */
+  signedIn: boolean | null;
 }
 
 /** What the agent says as the member calls from the film, before they speak. */

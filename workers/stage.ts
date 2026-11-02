@@ -7,8 +7,10 @@ import {
   PREVIEW_SESSION_S,
   fromApp,
   previewPage,
+  previewSession,
   rewritable,
   rewriteText,
+  sessionPage,
   splitCookie,
   toApp,
   type PreviewPage,
@@ -52,6 +54,8 @@ const BOOT_OUTPUT = `${TASK}/stage-boot.log`;
 const DESKTOP_LOG = `${TASK}/stage-desktop.log`;
 const DESKTOP_EXIT = `${TASK}/stage-desktop.exit`;
 const READY = `${TASK}/stage-ready.json`;
+/** The stage's browser's session, once it signed in: read for a visit, never kept. */
+const SESSION = `${TASK}/stage-session.json`;
 const CA = "/etc/cloudflare/certs/cloudflare-containers-ca.crt";
 /** The screen, as a WebSocket (websockify in front of x11vnc). */
 const SCREEN = 6080;
@@ -91,12 +95,18 @@ interface Saved {
   prepare?: boolean;
   /** The app answers: its preview can be shown, desktop or not. */
   served?: boolean;
+  /** The recipe's account signed in on the stage's browser. */
+  signedIn?: boolean;
 }
 
-/** The preview's one-time codes and signed-in visits, each with its end (ms). */
+/**
+ * The preview's one-time codes and signed-in visits, each with its end (ms);
+ * `fresh`, the visits that have not had the app's session yet.
+ */
 interface Visits {
   codes: Record<string, number>;
   sessions: Record<string, number>;
+  fresh: Record<string, number>;
 }
 
 const randomToken = () =>
@@ -201,7 +211,7 @@ export class Stage extends DurableObject<StageEnv> {
       await this.#must([
         "/bin/sh",
         "-c",
-        `cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && mkdir -p ${TASK} && rm -f ${BOOT_LOG} ${READY} ${DESKTOP_EXIT}`,
+        `cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && mkdir -p ${TASK} && rm -f ${BOOT_LOG} ${READY} ${SESSION} ${DESKTOP_EXIT}`,
       ]);
     } catch (error) {
       if (!saved.warm) throw error;
@@ -241,7 +251,14 @@ export class Stage extends DurableObject<StageEnv> {
     const saved = this.#kv.get<Saved>("saved");
     const live = Boolean(this.#kv.get<StageSpec>("spec")?.script);
     if (!saved)
-      return { phase: "off", warm: false, events: [], error: null, live };
+      return {
+        phase: "off",
+        warm: false,
+        events: [],
+        error: null,
+        live,
+        signedIn: null,
+      };
     const phase =
       saved.step === "failed"
         ? "failed"
@@ -261,6 +278,7 @@ export class Stage extends DurableObject<StageEnv> {
           ? "The stage's machine stopped."
           : saved.error,
       live,
+      signedIn: saved.signedIn ?? null,
     };
   }
 
@@ -338,7 +356,11 @@ export class Stage extends DurableObject<StageEnv> {
       Object.fromEntries(
         Object.entries(entries).filter(([, end]) => end > now),
       );
-    return { codes: keep(saved?.codes), sessions: keep(saved?.sessions) };
+    return {
+      codes: keep(saved?.codes),
+      sessions: keep(saved?.sessions),
+      fresh: keep(saved?.fresh),
+    };
   }
 
   /**
@@ -389,6 +411,7 @@ export class Stage extends DurableObject<StageEnv> {
       delete visits.codes[code];
       const session = randomToken();
       visits.sessions[session] = Date.now() + PREVIEW_SESSION_S * 1000;
+      visits.fresh[session] = visits.sessions[session];
       this.#kv.put("visits", visits);
       return new Response(null, {
         status: 302,
@@ -419,6 +442,28 @@ export class Stage extends DurableObject<StageEnv> {
     if (saved.prepare) this.#save({ ...saved, prepare: false });
 
     const preview = url.origin;
+    if (visits.fresh[session]) {
+      // The desktop's browser signs in as it starts: worth the wait, the
+      // app would open signed out.
+      const kept = spec.signIn ? await this.#text(SESSION) : undefined;
+      if (spec.signIn && kept === undefined && saved.step === "desktop")
+        return page("starting", 503);
+      delete visits.fresh[session];
+      this.#kv.put("visits", visits);
+      const found = kept ? previewSession(kept, spec.url, preview) : null;
+      if (found) {
+        const headers = new Headers({ "cache-control": "no-store" });
+        for (const cookie of found.cookies)
+          headers.append("set-cookie", cookie);
+        const to = `${url.pathname}${url.search}`;
+        if (found.items.length) {
+          headers.set("content-type", "text/html; charset=utf-8");
+          return new Response(sessionPage(found.items, to), { headers });
+        }
+        headers.set("location", to);
+        return new Response(null, { status: 302, headers });
+      }
+    }
     const port = Number(new URL(spec.url).port || 80);
     let response: Response;
     try {
@@ -522,6 +567,7 @@ export class Stage extends DurableObject<StageEnv> {
           signIn: spec.signIn,
           script: spec.script,
           ready: READY,
+          session: SESSION,
         }),
       );
       // The stage never ends on its own: an exit code is a failure.
@@ -541,8 +587,18 @@ export class Stage extends DurableObject<StageEnv> {
     }
     if (saved.step === "desktop") {
       if ((await this.#text(READY)) !== undefined) {
+        const spec = this.#kv.get<StageSpec>("spec")!;
+        const session = spec.signIn ? await this.#text(SESSION) : undefined;
         this.#mark("ready");
-        this.#save({ ...this.#kv.get<Saved>("saved")!, step: "ready" });
+        this.#save({
+          ...this.#kv.get<Saved>("saved")!,
+          step: "ready",
+          ...(spec.signIn && {
+            signedIn: Boolean(
+              session && previewSession(session, spec.url, spec.url),
+            ),
+          }),
+        });
         return;
       }
       if ((await this.#text(DESKTOP_EXIT)) !== undefined) {

@@ -5,10 +5,12 @@ import {
   fromApp,
   previewHost,
   previewPage,
+  previewSession,
   previewSignIn,
   previewUnit,
   rewritable,
   rewriteText,
+  sessionPage,
   splitCookie,
   toApp,
 } from "../../src/core/preview";
@@ -16,6 +18,67 @@ import {
 const UNIT = "0b7c6f8e-2d1a-4c3b-9e8f-1a2b3c4d5e6f";
 const APP = "http://localhost:3000";
 const PREVIEW = `https://${UNIT}-dev.yarrow.page`;
+
+describe("the app's session in the visitor's browser", () => {
+  const cookie = {
+    name: "sid",
+    value: "abc",
+    domain: "localhost",
+    path: "/",
+    expires: -1,
+    httpOnly: true,
+    sameSite: "Lax",
+  };
+
+  it("takes the app's cookies to the preview's host, and only those", () => {
+    const later = Math.round(Date.now() / 1000) + 3600;
+    const found = previewSession(
+      JSON.stringify({
+        cookies: [
+          cookie,
+          { ...cookie, name: "theme", expires: later, httpOnly: false },
+          { ...cookie, name: "old", expires: 1 },
+          { ...cookie, name: "other", domain: "tracker.example" },
+        ],
+      }),
+      APP,
+      PREVIEW,
+    );
+    expect(found?.items).toEqual([]);
+    expect(found?.cookies).toEqual([
+      "sid=abc; Path=/; HttpOnly; Secure; SameSite=Lax",
+      `theme=abc; Path=/; Expires=${new Date(later * 1000).toUTCString()}; Secure; SameSite=Lax`,
+    ]);
+  });
+
+  it("takes what the app keeps in localStorage, on the preview's address", () => {
+    const found = previewSession(
+      JSON.stringify({
+        origins: [
+          {
+            origin: APP,
+            localStorage: [{ name: "auth", value: `{"api":"${APP}/api"}` }],
+          },
+          { origin: "https://other.example", localStorage: [] },
+        ],
+      }),
+      APP,
+      PREVIEW,
+    );
+    expect(found?.items).toEqual([["auth", `{"api":"${PREVIEW}/api"}`]]);
+  });
+
+  it("is null without a session, or when none could be read", () => {
+    expect(previewSession("{}", APP, PREVIEW)).toBeNull();
+    expect(previewSession("not json", APP, PREVIEW)).toBeNull();
+  });
+
+  it("puts it in the browser, then goes on, nothing closing its script", () => {
+    const page = sessionPage([["auth", "</script><b>"]], "/tasks?status=doing");
+    expect(page).toContain('[["auth","\\u003c/script>\\u003cb>"]]');
+    expect(page).toContain('location.replace("/tasks?status=doing")');
+  });
+});
 
 describe("preview hosts", () => {
   it("names a work unit's host and reads it back on its environment only", () => {

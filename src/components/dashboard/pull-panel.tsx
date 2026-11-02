@@ -4,20 +4,17 @@ import {
   ArrowLeft,
   ArrowUp,
   ArrowUpRight,
-  Check,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
   FileText,
   GitCommitHorizontal,
-  KeyRound,
   Phone,
   PhoneOff,
   Play,
   Plus,
-  UserRound,
+  RectangleHorizontal,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import {
   Fragment,
@@ -34,7 +31,8 @@ import { previewHref } from "@/core/preview";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
-import { splitNote, spottedTicket } from "@/core/pull-notes";
+import { leadProof } from "@/core/proofs";
+import { agentNotes, splitNote, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   askChatFn,
@@ -42,9 +40,11 @@ import {
   getPullPanelFn,
   requestChangeFn,
 } from "@/functions/builder.functions";
+import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { LiveCall, useLiveStage } from "@/components/live-stage";
 import {
+  CallButton,
   loadPresentation,
   Presentation,
   type FilmCall,
@@ -52,7 +52,14 @@ import {
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
-import { branchFileUrl, Proofs } from "@/components/proofs";
+import {
+  Account,
+  branchFileUrl,
+  OpenApp,
+  ProofBlock,
+  Slider,
+  type AppLink,
+} from "@/components/proofs";
 import { DraftTicket } from "./new-ticket";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
@@ -214,13 +221,36 @@ export function usePullPanel(projectId: string, rowKey: string) {
 }
 
 /**
- * A ticket's row, opened: what the agents did, what to watch and the files
- * changed on the left, the conversation on the right; a change asked from
- * there goes to the pull request. Who paid is on the row's line. The film
- * plays first; the member calls the agent from it or from the
- * conversation, and the pull request's stage takes its place, the app live
- * where the film was paused, until the film plays on. Before the stage is
- * up, the call is by voice alone.
+ * The visit's session did not follow to the app (src/core/preview.ts):
+ * looked at as the row opens and on coming back to this tab from the app.
+ */
+function useSessionLost(
+  projectId: string,
+  rowKey: string,
+  watched: boolean,
+): boolean {
+  const [lost, setLost] = useState(false);
+  useEffect(() => {
+    if (!watched) return;
+    const look = () =>
+      stageFn({ data: { projectId, key: rowKey, action: "status" } })
+        .then((status) => setLost(status.signedIn === false))
+        .catch(() => {});
+    void look();
+    window.addEventListener("focus", look);
+    return () => window.removeEventListener("focus", look);
+  }, [projectId, rowKey, watched]);
+  return lost;
+}
+
+/**
+ * A ticket's row, opened: what the ticket asks, what changed with the one
+ * thing that proves it, and the files on the left; the agent's notes and the
+ * conversation on the right, where a change asked goes to the pull request.
+ * Who paid is on the row's line. The film plays first when there is one; the
+ * member calls the agent from it or from the conversation, and the pull
+ * request's stage takes its place, the app live where the film was paused,
+ * until the film plays on. Before the stage is up, the call is by voice alone.
  */
 export function PullPanel({
   projectId,
@@ -259,9 +289,14 @@ export function PullPanel({
     refresh,
     onResume: (chapter) => play.current?.(chapter),
   });
+  const lost = useSessionLost(
+    projectId,
+    rowKey,
+    Boolean(panel?.preview?.signIn),
+  );
 
-  // Cinema: the film fills the window beside the conversation, which goes
-  // with it; the page under it held where it was.
+  // Cinema: the film or the image fills the window beside the conversation,
+  // which goes with it; the page under it held where it was.
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
@@ -345,11 +380,21 @@ export function PullPanel({
       }
     />
   );
-  // What proves the change, the film first, then the app to try it: under
-  // the summary of what changed (decided 2026-10-29).
+  const app: AppLink | undefined = panel.preview
+    ? {
+        href: `${previewHref(projectId, rowKey)}${panel.preview.path ? `?path=${encodeURIComponent(panel.preview.path)}` : ""}`,
+        signIn: lost ? panel.preview.signIn : null,
+      }
+    : undefined;
+  const actions = app && <OpenApp app={app} />;
+  // The one thing that shows (decided 2026-10-30): the film passes over
+  // everything; an image takes its place, cinema mode included.
+  const lead = presentation ? null : leadProof(panel.proofs ?? []);
+  const image = lead?.kind === "images" ? lead : null;
+  const block = lead && lead.kind !== "images" ? lead : null;
   const proven = (
     <>
-      {presentation && (
+      {(presentation || image) && (
         <>
           {cinema && <div style={{ height: slot }} />}
           <dialog
@@ -366,35 +411,77 @@ export function PullPanel({
             )}
             <div className="pp-film">
               {/* Up, its screen already drawn behind the film. */}
-              {onStage && (
+              {presentation && onStage && (
                 <LiveCall
                   stage={stage}
                   shown={onCall}
                   cinema={cinema}
                   onCinema={flipCinema}
                   onFilm={() => play.current?.(null)}
+                  actions={actions}
                 />
               )}
               {/* Kept behind the stage, paused where the call began. */}
-              <div className="pp-take" hidden={onCall}>
-                <Presentation
-                  artifact={presentation}
-                  cinema={cinema}
-                  onCinema={flipCinema}
-                  seekRef={seek}
-                  playRef={play}
-                  phoneRef={phone}
-                  call={call}
+              {presentation && (
+                <div className="pp-take" hidden={onCall}>
+                  <Presentation
+                    artifact={presentation}
+                    cinema={cinema}
+                    onCinema={flipCinema}
+                    seekRef={seek}
+                    playRef={play}
+                    phoneRef={phone}
+                    call={call}
+                    actions={actions}
+                  />
+                </div>
+              )}
+              {image && (
+                <Slider
+                  proof={image}
+                  tools={
+                    <>
+                      {!cinema && (
+                        <span className="pv-glass-pill pv-tools">
+                          <button
+                            type="button"
+                            className="pv-icon"
+                            onClick={flipCinema}
+                            aria-label="Cinema mode"
+                            data-tip="Cinema mode"
+                          >
+                            <RectangleHorizontal size={18} aria-hidden="true" />
+                          </button>
+                        </span>
+                      )}
+                      {(call || actions) && (
+                        <span className="pv-glass-pill pv-tools">
+                          {call && (
+                            <CallButton
+                              state={call.state}
+                              onClick={
+                                call.state === "off"
+                                  ? () => void stage.callFrom(null)
+                                  : call.onHangUp
+                              }
+                              onWarm={call.onWarm}
+                            />
+                          )}
+                          {actions}
+                        </span>
+                      )}
+                    </>
+                  }
                 />
-              </div>
+              )}
             </div>
             {cinema && talk}
           </dialog>
         </>
       )}
-      {panel.proofs && (
-        <Proofs
-          proofs={panel.proofs}
+      {block && (
+        <ProofBlock
+          proof={block}
           document={(file) =>
             branchFileUrl(
               pullRequest?.url ?? null,
@@ -402,16 +489,16 @@ export function PullPanel({
               file,
             )
           }
+          checks={panel.checks}
+          app={app}
         />
       )}
-      {panel.preview && (
-        <PreviewLink
-          projectId={projectId}
-          rowKey={rowKey}
-          signIn={panel.preview.signIn}
-          path={panel.preview.path}
-        />
-      )}
+      {/* The app with nothing to sit on. */}
+      {app &&
+        !presentation &&
+        !image &&
+        block?.kind !== "measure" &&
+        block?.kind !== "output" && <PreviewLink app={app} />}
     </>
   );
   return (
@@ -425,23 +512,12 @@ export function PullPanel({
             <Changed
               implementation={panel.implementation}
               review={panel.review}
-              screens={panel.screens}
+              screens={panel.proofs ? [] : panel.screens}
             >
               {proven}
             </Changed>
           ) : (
             proven
-          )}
-
-          {panel.implementation && panel.implementation.spotted.length > 0 && (
-            <Suggested
-              projectId={projectId}
-              rowKey={rowKey}
-              onMade={() => void refresh()}
-              pullRequestUrl={pullRequest?.url ?? null}
-              by={panel.implementation.by}
-              lines={panel.implementation.spotted}
-            />
           )}
 
           {pullRequest && (
@@ -460,24 +536,13 @@ export function PullPanel({
   );
 }
 
-/** The pull request's app at its own address, and the test account to sign in with. */
-function PreviewLink({
-  projectId,
-  rowKey,
-  signIn,
-  path,
-}: {
-  projectId: string;
-  rowKey: string;
-  signIn: { login: string; password: string } | null;
-  /** The page a proof names. */
-  path: string | null;
-}) {
+/** The pull request's app in words, where no proof carries its icon. */
+function PreviewLink({ app }: { app: AppLink }) {
   return (
     <div className="pp-preview">
       <a
         className="pp-preview-open"
-        href={`${previewHref(projectId, rowKey)}${path ? `?path=${encodeURIComponent(path)}` : ""}`}
+        href={app.href}
         target="_blank"
         rel="noopener"
       >
@@ -485,53 +550,8 @@ function PreviewLink({
         Open the app
         <ArrowUpRight size={14} aria-hidden="true" />
       </a>
-      {signIn && (
-        <>
-          <Copy icon={UserRound} text={signIn.login} label="Copy the login" />
-          <Copy
-            icon={KeyRound}
-            text={signIn.password}
-            label="Copy the password"
-          />
-        </>
-      )}
+      {app.signIn && <Account signIn={app.signIn} />}
     </div>
-  );
-}
-
-/** A value copied on a click; a tick says it was. */
-function Copy({
-  icon: Icon,
-  text,
-  label,
-}: {
-  icon: LucideIcon;
-  text: string;
-  label: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
-  return (
-    <button
-      type="button"
-      className="pp-preview-copy"
-      aria-label={`${label}: ${text}`}
-      title={label}
-      onClick={() =>
-        void navigator.clipboard.writeText(text).then(() => setCopied(true))
-      }
-    >
-      {copied ? (
-        <Check size={14} aria-hidden="true" />
-      ) : (
-        <Icon size={14} aria-hidden="true" />
-      )}
-      <span>{text}</span>
-    </button>
   );
 }
 
@@ -625,11 +645,10 @@ function TicketAsk({ ask }: { ask: string }) {
 
 /**
  * What the pull request does now, read by a product manager as well as a
- * developer, in a few lines and one voice: the reviewer tells what it does,
- * how it is known to work, what to do before merging or what is still
- * wrong. Before it did, the implementer's words then the reviewer's own.
- * What proves it follows, read right after. The criteria, the checks and
- * the suggestions are the conversation's.
+ * developer, in a sentence or two and one voice: the reviewer's. Before it
+ * did, the implementer's words then the reviewer's own. The one thing that
+ * proves it follows. What to do and what could not be checked are the
+ * agent's notes; the criteria and the checks are the conversation's.
  */
 function Changed({
   implementation,
@@ -640,7 +659,7 @@ function Changed({
   implementation: NonNullable<Panel["implementation"]>;
   review: Panel["review"];
   screens: Panel["screens"];
-  /** The film, the proofs and the app. */
+  /** The film or the one proof. */
   children: ReactNode;
 }) {
   const shots = screens.filter((screen) => screen.kind !== "presentation");
@@ -662,8 +681,58 @@ function Changed({
 }
 
 /**
- * What the agents noticed outside the ticket and left alone, under the
- * review: a small card each in everyday words, the whole card a ticket to
+ * What the agent tells the owner first, before any question: what must be
+ * done, what could not be checked, or that all is good; then what it noticed
+ * outside the ticket.
+ */
+function Notes({
+  panel,
+  projectId,
+  rowKey,
+  onMade,
+}: {
+  panel: Panel;
+  projectId: string;
+  rowKey: string;
+  onMade: () => void;
+}) {
+  const { implementation, pullRequest, review } = panel;
+  if (!implementation) return null;
+  const notes = agentNotes({
+    blocking: review?.blocking ?? [],
+    criteria: implementation.criteria,
+    risks: implementation.risks,
+    notVerified: implementation.notVerified,
+  });
+  const good =
+    notes.length === 0 &&
+    review &&
+    !implementation.legacy &&
+    !panel.working &&
+    pullRequest?.state === "open";
+  return (
+    <li className="pp-it">
+      {notes.map((line) => (
+        <p key={line} className="pp-say">
+          <Rich text={line} />
+        </p>
+      ))}
+      {good && <p className="pp-say">All good on my side.</p>}
+      <Suggested
+        projectId={projectId}
+        rowKey={rowKey}
+        onMade={onMade}
+        pullRequestUrl={pullRequest?.url ?? null}
+        by={implementation.by}
+        lines={implementation.spotted}
+      />
+    </li>
+  );
+}
+
+/**
+ * What the agents noticed outside the ticket and left alone, in the agent's
+ * notes: a small card each in everyday words, the whole card a ticket to
  * write, its words drafted (its technical pointer goes in the ticket).
  */
 function Suggested({
@@ -689,54 +758,47 @@ function Suggested({
   const lines = listed.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
-    <section className="pp-section">
-      <h3>
-        {lines.length === 1
-          ? "1 suggested ticket"
-          : `${lines.length} suggested tickets`}
-      </h3>
-      <ul className="pp-ideas">
-        {lines.map((line) => {
-          const { plain } = splitNote(line);
-          const ticket = spottedTicket(line, by, pullRequestUrl);
-          return (
-            <li key={line}>
-              {draft ? (
-                <button
-                  type="button"
-                  className="pp-idea"
-                  aria-label={`Make it a ticket: ${ticket.title}`}
-                  onClick={() =>
-                    draft(
-                      projectId,
-                      { ...ticket, from: { key: rowKey, note: line } },
-                      () => {
-                        setMade((shown) => [...shown, line]);
-                        onMade();
-                      },
-                    )
-                  }
-                >
-                  <span>
-                    <Rich text={plain} />
-                  </span>
-                  <span className="pp-idea-go">
-                    <Plus size={13} aria-hidden="true" />
-                    Make it a ticket
-                  </span>
-                </button>
-              ) : (
-                <span className="pp-idea">
-                  <span>
-                    <Rich text={plain} />
-                  </span>
+    <ul className="pp-ideas">
+      {lines.map((line) => {
+        const { plain } = splitNote(line);
+        const ticket = spottedTicket(line, by, pullRequestUrl);
+        return (
+          <li key={line}>
+            {draft ? (
+              <button
+                type="button"
+                className="pp-idea"
+                aria-label={`Make it a ticket: ${ticket.title}`}
+                onClick={() =>
+                  draft(
+                    projectId,
+                    { ...ticket, from: { key: rowKey, note: line } },
+                    () => {
+                      setMade((shown) => [...shown, line]);
+                      onMade();
+                    },
+                  )
+                }
+              >
+                <span>
+                  <Rich text={plain} />
                 </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+                <span className="pp-idea-go">
+                  <Plus size={13} aria-hidden="true" />
+                  Make it a ticket
+                </span>
+              </button>
+            ) : (
+              <span className="pp-idea">
+                <span>
+                  <Rich text={plain} />
+                </span>
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -864,10 +926,11 @@ function lines(panel: Panel): Line[] {
 export type ThreadMessage = Message;
 
 /**
- * The pull request's conversation: questions, answers, the changes asked,
- * then the box to ask the next one. Beside the film in the panel; beside
- * the live stage on its page, where the agent may act on the stage and
- * `turn` is the live call's turn under way, until the thread has it.
+ * The pull request's conversation: the agent's notes, questions, answers,
+ * the changes asked, then the box to ask the next one. Beside the film in
+ * the panel; beside the live stage on its page, where the agent may act on
+ * the stage and `turn` is the live call's turn under way, until the thread
+ * has it.
  */
 export function Conversation({
   panel,
@@ -925,6 +988,7 @@ export function Conversation({
           open={open}
           onSeek={onSeek}
           onMade={onMade}
+          onRefresh={onRefresh}
         />
       </div>
       <Ask
@@ -964,7 +1028,10 @@ export interface ConversationCall {
   onWarm?: () => void;
 }
 
-/** The builder's words in a bubble on the right, the agent's as text on the left. */
+/**
+ * The agent's notes first; then the builder's words in a bubble on the
+ * right, the agent's as text on the left.
+ */
 function Thread({
   panel,
   projectId,
@@ -972,6 +1039,7 @@ function Thread({
   open,
   onSeek,
   onMade,
+  onRefresh,
 }: {
   panel: Panel;
   projectId: string;
@@ -981,6 +1049,7 @@ function Thread({
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
+  onRefresh: () => Promise<unknown>;
 }) {
   const shown = lines(panel);
   const working = workingText(panel);
@@ -992,9 +1061,14 @@ function Thread({
     const box = list.current?.parentElement;
     if (box) box.scrollTop = box.scrollHeight;
   }, [latest]);
-  if (shown.length === 0) return null;
   return (
     <ol className="pp-chat" ref={list}>
+      <Notes
+        panel={panel}
+        projectId={projectId}
+        rowKey={rowKey}
+        onMade={() => void onRefresh()}
+      />
       {shown.map((line) =>
         line.kind === "correction" ? (
           <Fragment key={line.correction.id}>

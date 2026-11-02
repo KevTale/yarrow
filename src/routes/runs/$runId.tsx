@@ -132,13 +132,15 @@ function RunPage() {
                 </span>
               </h2>
               <Markdown source={run.summary} className="rp-text" />
-              {/* What proves it, right under it: the film first. */}
+              {/* What proves it, right under it: the film, else the one proof. */}
               {run.artifacts
                 .filter((artifact) => artifact.kind === "presentation")
                 .map((artifact) => (
                   <Presentation key={artifact.key} artifact={artifact} />
                 ))}
-              {run.proofs.length > 0 && (
+              {!run.artifacts.some(
+                (artifact) => artifact.kind === "presentation",
+              ) && (
                 <Proofs
                   proofs={run.proofs}
                   document={(file) =>

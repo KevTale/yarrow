@@ -141,6 +141,86 @@ export function fromApp(
   return out;
 }
 
+/** A browser's session as Playwright saves it (storageState). */
+interface SavedSession {
+  cookies?: {
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    /** Seconds; -1 for a cookie of the browser's session. */
+    expires: number;
+    httpOnly: boolean;
+    sameSite?: string;
+  }[];
+  origins?: {
+    origin: string;
+    localStorage: { name: string; value: string }[];
+  }[];
+}
+
+/**
+ * The stage's browser signed in with the recipe's account (present.mjs): what
+ * of that session is the app's, for the visitor's browser to take, so the
+ * app opens signed in. Its cookies as Set-Cookie values on the preview's
+ * host, what it keeps in localStorage. Null when there is none.
+ */
+export function previewSession(
+  raw: string,
+  app: string,
+  preview: string,
+): { cookies: string[]; items: [string, string][] } | null {
+  let saved: SavedSession;
+  try {
+    saved = JSON.parse(raw) as SavedSession;
+  } catch {
+    return null;
+  }
+  const { hostname, origin } = new URL(app);
+  const now = Date.now() / 1000;
+  const cookies = (saved.cookies ?? [])
+    .filter(
+      (cookie) =>
+        cookie.domain.replace(/^\./, "") === hostname &&
+        (cookie.expires < 0 || cookie.expires > now),
+    )
+    .map((cookie) =>
+      [
+        `${cookie.name}=${cookie.value}`,
+        `Path=${cookie.path || "/"}`,
+        ...(cookie.expires > 0
+          ? [`Expires=${new Date(cookie.expires * 1000).toUTCString()}`]
+          : []),
+        ...(cookie.httpOnly ? ["HttpOnly"] : []),
+        "Secure",
+        `SameSite=${cookie.sameSite ?? "Lax"}`,
+      ].join("; "),
+    );
+  const items = (saved.origins ?? [])
+    .filter((entry) => entry.origin === origin)
+    .flatMap((entry) => entry.localStorage)
+    .map(({ name, value }): [string, string] => [
+      name,
+      rewriteText(value, app, preview),
+    ]);
+  return cookies.length || items.length ? { cookies, items } : null;
+}
+
+/** The app's session put in the visitor's browser, then on to the page asked. */
+export function sessionPage(items: [string, string][], to: string): string {
+  // Inside a <script>: nothing may close it.
+  const json = (value: unknown) =>
+    JSON.stringify(value).replaceAll("<", "\\u003c");
+  return `<!doctype html>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Starting the app · Yarrow</title>
+<script>
+for (const [name, value] of ${json(items)}) localStorage.setItem(name, value);
+location.replace(${json(to)});
+</script>`;
+}
+
 /** The recipe's sign-in, as the member types it: an email or user name, and a password. */
 export function previewSignIn(
   words: string | null,

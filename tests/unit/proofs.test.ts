@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  changedAt,
   foldOutput,
   isAppPath,
+  leadProof,
   measureChange,
   outputDiff,
   OUTPUT_CHARS,
   parseAgentProofs,
   proofImages,
   proofsMarkdown,
+  pullChecks,
   storedProofs,
+  type CheckRun,
   type Proof,
 } from "../../src/core/proofs";
 
@@ -316,6 +320,123 @@ describe("an output read without a terminal", () => {
     );
     expect(output("same", "same")).toContain("`npm test`\n\n```\nsame\n```");
     expect(output(null, "7 passed")).toContain("```\n7 passed\n```");
+  });
+});
+
+describe("the one thing shown", () => {
+  const measure: Proof = {
+    kind: "measure",
+    label: "Load",
+    unit: "ms",
+    before: 900,
+    after: 40,
+    better: "lower",
+  };
+  const output: Proof = {
+    kind: "output",
+    label: "The answer",
+    command: "curl /api",
+    before: null,
+    after: "{}",
+  };
+  const image: Proof = {
+    kind: "images",
+    label: "Settings",
+    before: "a.png",
+    after: "b.png",
+    device: "desktop",
+  };
+
+  it("takes the most telling, whatever the order", () => {
+    const app: Proof = { kind: "app", path: "/" };
+    expect(leadProof([output, measure, app, image])).toBe(image);
+    expect(leadProof([output, app, measure])).toBe(measure);
+    expect(leadProof([{ kind: "check" }, output])).toBe(output);
+    expect(leadProof([{ kind: "check" }])).toEqual({ kind: "check" });
+  });
+
+  it("is nothing for the app's page alone, or no proof", () => {
+    expect(leadProof([{ kind: "app", path: "/" }])).toBeNull();
+    expect(leadProof([])).toBeNull();
+  });
+
+  it("keeps a check as the agent lists it", () => {
+    expect(parseAgentProofs([{ kind: "check" }])).toEqual([{ kind: "check" }]);
+  });
+});
+
+describe("changedAt", () => {
+  /** A strip of grey pixels, with some columns painted. */
+  const strip = (width: number, painted: number[] = []) => {
+    const pixels = new Uint8ClampedArray(width * 2 * 4).fill(120);
+    for (const column of painted)
+      for (const row of [0, 1]) pixels[(row * width + column) * 4] = 255;
+    return pixels;
+  };
+
+  it("opens on the middle of what changed", () => {
+    expect(changedAt(strip(100), strip(100, [59, 60]), 100)).toBe(60);
+    expect(changedAt(strip(100), strip(100, [20, 39]), 100)).toBe(30);
+  });
+
+  it("is null when nothing moved, faint noise included", () => {
+    const noisy = strip(100);
+    noisy[40] = 130;
+    expect(changedAt(strip(100), noisy, 100)).toBeNull();
+  });
+
+  it("keeps the grip inside the frame", () => {
+    expect(changedAt(strip(100), strip(100, [0]), 100)).toBe(6);
+    expect(changedAt(strip(100), strip(100, [99]), 100)).toBe(94);
+  });
+});
+
+describe("pullChecks", () => {
+  const url = "https://github.com/o/r/pull/9";
+  const run = (overrides: Partial<CheckRun> = {}): CheckRun => ({
+    name: "test",
+    status: "completed",
+    conclusion: "success",
+    started_at: "2026-10-30T10:00:00Z",
+    completed_at: "2026-10-30T10:00:06Z",
+    html_url: "https://github.com/o/r/runs/1",
+    ...overrides,
+  });
+
+  it("says one check with its time and its page", () => {
+    expect(pullChecks([run()], url)).toEqual({
+      name: "test",
+      count: 1,
+      state: "passed",
+      seconds: 6,
+      url: "https://github.com/o/r/runs/1",
+    });
+  });
+
+  it("counts several, any failure or run under way showing", () => {
+    const lint = run({ name: "lint" });
+    expect(pullChecks([run(), lint], url)).toMatchObject({
+      count: 2,
+      state: "passed",
+      seconds: null,
+      url: `${url}/checks`,
+    });
+    expect(
+      pullChecks([run(), run({ name: "lint", conclusion: "failure" })], url)
+        ?.state,
+    ).toBe("failed");
+    expect(
+      pullChecks(
+        [run(), run({ name: "lint", status: "in_progress", conclusion: null })],
+        url,
+      )?.state,
+    ).toBe("running");
+  });
+
+  it("reads a re-run as the check, and none as nothing", () => {
+    const failed = run({ conclusion: "failure" });
+    expect(pullChecks([run(), failed], url)?.state).toBe("passed");
+    expect(pullChecks([], url)).toBeNull();
   });
 });
 

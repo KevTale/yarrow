@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
+  agentNotes,
   criterionMarkdown,
   splitNote,
   spottedTicket,
@@ -64,6 +65,38 @@ describe("pull request notes", () => {
       implementationResultSchema.parse({ ...base, criteria: "oops" }).criteria,
     ).toEqual([]);
     expect(implementationResultSchema.parse(base).criteria).toEqual([]);
+  });
+
+  it("tells what is left to the owner, in everyday words, and nothing else", () => {
+    expect(
+      agentNotes({
+        blocking: [{ body: "A reload loses the filter. — `useState` only" }],
+        criteria: [
+          { criterion: "Filters show", status: "met", proof: "app" },
+          {
+            criterion: "Counts",
+            status: "unmet",
+            proof: "none",
+            note: "off by one",
+          },
+          { criterion: "Odd statuses", status: "unchecked", proof: "none" },
+        ],
+        risks: ["Run the migration first. — `db/003.sql`"],
+        notVerified: [
+          "Tried at iPhone size, not on a real iPhone. — no device",
+          "Run the migration first.",
+        ],
+      }),
+    ).toEqual([
+      "A reload loses the filter.",
+      "Not met: Counts (off by one)",
+      "Run the migration first.",
+      "Tried at iPhone size, not on a real iPhone.",
+      "Not checked: Odd statuses",
+    ]);
+    expect(
+      agentNotes({ blocking: [], criteria: [], risks: [], notVerified: [] }),
+    ).toEqual([]);
   });
 
   it("drafts a ticket from what was noticed, its first sentence the title", () => {

@@ -149,7 +149,12 @@ export interface AppCredentials {
 
 export type TokenPermissions = Partial<
   Record<
-    "contents" | "pull_requests" | "issues" | "metadata" | "workflows",
+    | "checks"
+    | "contents"
+    | "pull_requests"
+    | "issues"
+    | "metadata"
+    | "workflows",
     "read" | "write"
   >
 >;

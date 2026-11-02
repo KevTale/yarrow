@@ -1,10 +1,30 @@
-import { ArrowRight, ArrowUpRight, FileText } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowUpRight,
+  Check,
+  ChevronsLeftRight,
+  CircleDashed,
+  ExternalLink,
+  FileText,
+  KeyRound,
+  UserRound,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import {
+  changedAt,
   foldOutput,
+  leadProof,
   measureChange,
   outputDiff,
   type Proof,
+  type PullChecks,
 } from "@/core/proofs";
 
 type ImagesProof = Extract<Proof, { kind: "images" }>;
@@ -26,12 +46,13 @@ export function branchFileUrl(
   return `${repository}/blob/${path(branch)}/${path(file)}`;
 }
 
-/**
- * What proves the pull request, chosen for it by the implementer
- * (src/core/proofs.ts), under its summary: what one sees first (screens as
- * they were and are, a measure, the documents), what a command printed
- * last. The app's page is the preview's link.
- */
+/** The pull request's app: its page, and its test account when its session did not follow. */
+export interface AppLink {
+  href: string;
+  signIn: { login: string; password: string } | null;
+}
+
+/** The one thing the pull request shows beside no film (src/core/proofs.ts). */
 export function Proofs({
   proofs,
   document,
@@ -40,145 +61,254 @@ export function Proofs({
   /** A document on the pull request's branch, when it can be linked. */
   document: (file: string) => string | null;
 }) {
-  const shown = proofs.filter((proof) => proof.kind !== "app");
-  if (shown.length === 0) return null;
-  const images = shown.filter(
-    (proof): proof is ImagesProof => proof.kind === "images",
+  const lead = leadProof(proofs);
+  if (!lead) return null;
+  return lead.kind === "images" ? (
+    <Slider proof={lead} />
+  ) : (
+    <ProofBlock proof={lead} document={document} />
   );
-  const documents = shown.flatMap((proof) =>
-    proof.kind === "document" ? [proof.file] : [],
+}
+
+/** A proof that reads in place: a number, an example, a document, a check. */
+export function ProofBlock({
+  proof,
+  document,
+  checks = null,
+  app,
+}: {
+  proof: Exclude<Proof, ImagesProof>;
+  document: (file: string) => string | null;
+  /** GitHub's checks, read live: none, nothing to say. */
+  checks?: PullChecks | null;
+  app?: AppLink;
+}) {
+  switch (proof.kind) {
+    case "measure":
+      return <Measure proof={proof} app={app} />;
+    case "output":
+      return <Example proof={proof} app={app} />;
+    case "document":
+      return <DocumentLine file={proof.file} href={document(proof.file)} />;
+    case "check":
+      return checks && <CheckLine checks={checks} />;
+    default:
+      return null;
+  }
+}
+
+const load = (src: string) =>
+  new Promise<HTMLImageElement>((done, failed) => {
+    const image = new Image();
+    image.onload = () => done(image);
+    image.onerror = failed;
+    image.src = src;
+  });
+
+/** The images' width where they are compared: a button still shows at it. */
+const COMPARED = 320;
+
+/** An image's pixels at the width compared, for that height. */
+function pixels(image: HTMLImageElement, height: number): Uint8ClampedArray {
+  const canvas = document.createElement("canvas");
+  canvas.width = COMPARED;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  context.drawImage(
+    image,
+    0,
+    0,
+    COMPARED,
+    (COMPARED * image.naturalHeight) / image.naturalWidth,
   );
+  return context.getImageData(0, 0, COMPARED, height).data;
+}
+
+/**
+ * A screen as it was and as it is, one image with a line to slide across:
+ * it opens on what changed, at the film's size and in its place. The whole
+ * page shows, a phone's in the middle of the stage; cinema mode enlarges.
+ */
+export function Slider({
+  proof,
+  tools,
+}: {
+  proof: ImagesProof;
+  /** The actions, over the image as over the film. */
+  tools?: ReactNode;
+}) {
+  const before = proof.before && `/evidence/${proof.before}`;
+  const after = `/evidence/${proof.after}`;
+  const [ratio, setRatio] = useState(
+    proof.device === "phone" ? 390 / 844 : 16 / 10,
+  );
+  const [position, setPosition] = useState(50);
+  useEffect(() => {
+    let gone = false;
+    void Promise.all([load(after), before ? load(before) : null])
+      .then(([now, was]) => {
+        if (gone) return;
+        setRatio(now.naturalWidth / now.naturalHeight);
+        if (!was) return;
+        const height = Math.round(
+          (COMPARED * now.naturalHeight) / now.naturalWidth,
+        );
+        const at = changedAt(
+          pixels(was, height),
+          pixels(now, height),
+          COMPARED,
+        );
+        if (at !== null) setPosition(at);
+      })
+      // Left at the middle: the line still slides.
+      .catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, [before, after]);
   return (
-    <div className="pf">
-      {images.length > 0 && <Pairs proofs={images} />}
-      {shown.map((proof, index) =>
-        proof.kind === "measure" ? <Measure key={index} proof={proof} /> : null,
-      )}
-      {documents.length > 0 && (
-        <div className="pf-docs">
-          {documents.map((file) => {
-            const href = document(file);
-            const name = (
-              <>
-                <FileText size={15} aria-hidden="true" />
-                <span>{file}</span>
-              </>
-            );
-            return href ? (
-              <a
-                key={file}
-                className="pp-preview-open"
-                href={href}
-                target="_blank"
-                rel="noopener"
-              >
-                {name}
-                <ArrowUpRight size={14} aria-hidden="true" />
-              </a>
-            ) : (
-              <span key={file} className="pp-preview-open">
-                {name}
-              </span>
-            );
-          })}
+    <div className="pf-hero">
+      <div
+        className={ratio < 1 ? "pf-frame pf-tall" : "pf-frame"}
+        style={{ "--ratio": ratio } as CSSProperties}
+      >
+        <div className="pf-layer">
+          <img src={after} alt={proof.label} />
         </div>
+        {before && (
+          <>
+            <div
+              className="pf-layer"
+              style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+            >
+              <img src={before} alt={`${proof.label}, before`} />
+            </div>
+            <input
+              className="pf-range"
+              type="range"
+              min={0}
+              max={100}
+              step={0.25}
+              value={position}
+              aria-label="Slide between before and after"
+              onChange={(event) => setPosition(Number(event.target.value))}
+            />
+            <span className="pf-cut" style={{ left: `${position}%` }}>
+              <span className="pf-grip">
+                <ChevronsLeftRight size={16} aria-hidden="true" />
+              </span>
+            </span>
+          </>
+        )}
+      </div>
+      {before && (
+        <>
+          <span className="pf-tag">Before</span>
+          <span className="pf-tag pf-after">After</span>
+        </>
       )}
-      {shown.map((proof, index) =>
-        proof.kind === "output" ? <Output key={index} proof={proof} /> : null,
-      )}
+      {tools && <div className="pv-bar pf-tools">{tools}</div>}
     </div>
   );
 }
 
-/**
- * Each screen as it was and as it is, side by side; full size on a click,
- * the arrows going through every image.
- */
-function Pairs({ proofs }: { proofs: ImagesProof[] }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [open, setOpen] = useState<number | null>(null);
-  const images = proofs.flatMap((proof) => [
-    ...(proof.before
-      ? [{ key: proof.before, label: `${proof.label}, before` }]
-      : []),
-    { key: proof.after, label: proof.label },
-  ]);
-  useEffect(() => {
-    if (open !== null && !dialog.current?.open) dialog.current?.showModal();
-  }, [open]);
-  const shown = open === null ? null : images[open];
-  const thumb = (
-    key: string,
-    side: "Before" | "After" | null,
-    label: string,
-  ) => (
-    <button
-      type="button"
-      aria-label={`${side ? `${label}, ${side.toLowerCase()}` : label}, full size`}
-      onClick={() => setOpen(images.findIndex((image) => image.key === key))}
-    >
-      <img src={`/evidence/${key}`} alt="" loading="lazy" />
-      {side && <span className="pf-side">{side}</span>}
-    </button>
-  );
+/** The pull request's app in a new tab; its account beside it when it is needed. */
+export function OpenApp({ app }: { app: AppLink }) {
   return (
     <>
-      <ul className="pf-pairs">
-        {proofs.map((proof) => (
-          <li
-            key={proof.after}
-            className={proof.device === "phone" ? "pf-phone" : undefined}
-          >
-            <div className={proof.before ? "pf-pair" : "pf-pair pf-one"}>
-              {proof.before && thumb(proof.before, "Before", proof.label)}
-              {thumb(proof.after, proof.before ? "After" : null, proof.label)}
-            </div>
-            <span>{proof.label}</span>
-          </li>
-        ))}
-      </ul>
-      <dialog
-        ref={dialog}
-        className="pp-shot"
-        aria-label={shown?.label ?? "Screen"}
-        onClose={() => setOpen(null)}
-        onClick={() => dialog.current?.close()}
-        onKeyDown={(event) => {
-          if (open === null || images.length < 2) return;
-          const step =
-            event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-          if (step) setOpen((open + step + images.length) % images.length);
-        }}
+      <a
+        className="pv-icon"
+        href={app.href}
+        target="_blank"
+        rel="noopener"
+        aria-label="Open the app"
+        data-tip="Open the app"
       >
-        {shown && (
-          <figure>
-            <img
-              key={shown.key}
-              src={`/evidence/${shown.key}`}
-              alt={shown.label}
-            />
-            <figcaption>
-              {shown.label}
-              {images.length > 1 && (
-                <span>
-                  {open! + 1} / {images.length}
-                </span>
-              )}
-            </figcaption>
-          </figure>
-        )}
-      </dialog>
+        <ExternalLink size={18} aria-hidden="true" />
+      </a>
+      {app.signIn && <Account signIn={app.signIn} />}
     </>
   );
 }
 
+/** The test account, once the visit's session could not be copied. */
+export function Account({
+  signIn,
+}: {
+  signIn: NonNullable<AppLink["signIn"]>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="pf-account"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        className="pv-icon"
+        aria-expanded={open}
+        aria-label="Test account"
+        data-tip={open ? undefined : "Test account"}
+        onClick={() => setOpen(!open)}
+      >
+        <KeyRound size={18} aria-hidden="true" />
+      </button>
+      {open && (
+        <span className="pf-menu">
+          <Copy icon={UserRound} text={signIn.login} label="Copy the login" />
+          <Copy
+            icon={KeyRound}
+            text={signIn.password}
+            label="Copy the password"
+          />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** A value copied on a click; a tick says it was. */
+function Copy({
+  icon: Icon,
+  text,
+  label,
+}: {
+  icon: LucideIcon;
+  text: string;
+  label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      aria-label={`${label}: ${text}`}
+      onClick={() =>
+        void navigator.clipboard.writeText(text).then(() => setCopied(true))
+      }
+    >
+      {copied ? (
+        <Check size={14} aria-hidden="true" />
+      ) : (
+        <Icon size={14} aria-hidden="true" />
+      )}
+      <span>{text}</span>
+    </button>
+  );
+}
+
 /**
- * What a command or request printed, read without a terminal: now first,
- * the lines that changed marked (before, on a click, those that went), the
- * rest folded until asked for; the command itself small, under it.
+ * What a request or a command gives, read without a terminal: what it gives
+ * now, the lines that changed marked, the rest folded until asked for. The
+ * command stays in the description, for developers.
  */
-function Output({ proof }: { proof: OutputProof }) {
-  const [side, setSide] = useState<"before" | "after">("after");
+function Example({ proof, app }: { proof: OutputProof; app?: AppLink }) {
   const [whole, setWhole] = useState(false);
   const lines = useMemo(
     () =>
@@ -189,25 +319,18 @@ function Output({ proof }: { proof: OutputProof }) {
         : outputDiff(proof.before, proof.after),
     [proof.before, proof.after],
   );
-  const hidden = side === "before" ? "added" : "removed";
-  const sideLines = lines.filter((line) => line.kind !== hidden);
-  const shown = whole ? sideLines : foldOutput(sideLines);
+  // A change that only took lines away shows them going.
+  const now = lines.some((line) => line.kind === "added")
+    ? lines.filter((line) => line.kind !== "removed")
+    : lines;
+  const shown = whole ? now : foldOutput(now);
   return (
     <figure className="pf-out">
       <figcaption>
         <span>{proof.label}</span>
-        {proof.before !== null && (
-          <span className="pf-sides" role="group" aria-label={proof.label}>
-            {(["before", "after"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={side === value}
-                onClick={() => setSide(value)}
-              >
-                {value === "before" ? "Before" : "After"}
-              </button>
-            ))}
+        {app && (
+          <span className="pf-open">
+            <OpenApp app={app} />
           </span>
         )}
       </figcaption>
@@ -229,33 +352,102 @@ function Output({ proof }: { proof: OutputProof }) {
           ),
         )}
       </div>
-      <code className="pf-command">{proof.command}</code>
     </figure>
   );
 }
 
-/** A measure as it was and is, and how far it moved. */
-function Measure({ proof }: { proof: MeasureProof }) {
+const amount = (value: number) => value.toLocaleString("en-US");
+
+/** A measure as it was and is, as two bars, and how far it moved. */
+function Measure({ proof, app }: { proof: MeasureProof; app?: AppLink }) {
   const change = measureChange(proof);
   const improved =
     proof.better === "lower"
       ? proof.after < proof.before
       : proof.after > proof.before;
+  const widest = Math.max(Math.abs(proof.before), Math.abs(proof.after)) || 1;
+  const bar = (value: number, className: string) => (
+    <i
+      className={className}
+      style={{ flexBasis: `${(Math.abs(value) / widest) * 100}%` }}
+    />
+  );
   return (
-    <div className="pf-measure">
-      <span>{proof.label}</span>
-      <span className="pf-values">
-        <span className="pf-was">
-          {proof.before} {proof.unit}
-        </span>
-        <ArrowRight size={13} aria-label="to" />
-        <b>
-          {proof.after} {proof.unit}
-        </b>
-        {change && change !== "unchanged" && (
-          <span className={improved ? "pf-better" : "pf-worse"}>{change}</span>
+    <figure className="pf-num">
+      <figcaption>
+        <span>{proof.label}</span>
+        {app && (
+          <span className="pf-open">
+            <OpenApp app={app} />
+          </span>
         )}
+      </figcaption>
+      <div className="pf-row">
+        Before
+        <div className="pf-track">
+          {bar(proof.before, "pf-was")}
+          <span>
+            {amount(proof.before)} {proof.unit}
+          </span>
+        </div>
+      </div>
+      <div className="pf-row">
+        Now
+        <div className="pf-track">
+          {bar(proof.after, improved ? "pf-now" : "pf-now pf-down")}
+          <span>
+            {amount(proof.after)} {proof.unit}
+          </span>
+          {change && change !== "unchanged" && (
+            <b className={improved ? undefined : "pf-down"}>{change}</b>
+          )}
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+function DocumentLine({ file, href }: { file: string; href: string | null }) {
+  return (
+    <div className="pf-one">
+      <FileText size={15} aria-hidden="true" />
+      <code>{file}</code>
+      {href && (
+        <a href={href} target="_blank" rel="noopener">
+          Read it
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+const CHECK_MARK = { passed: Check, failed: X, running: CircleDashed } as const;
+
+/** GitHub's own word on the pull request: what its checks say now. */
+function CheckLine({ checks }: { checks: PullChecks }) {
+  const Mark = CHECK_MARK[checks.state];
+  const one = checks.count === 1;
+  const word =
+    checks.state !== "running"
+      ? checks.state
+      : one
+        ? "is running"
+        : "are running";
+  return (
+    <div className="pf-one">
+      <em className={`pf-mark pf-${checks.state}`}>
+        <Mark size={12} strokeWidth={2.6} aria-hidden="true" />
+      </em>
+      <span>
+        {one ? <code>{checks.name}</code> : `${checks.count} checks`} {word} on
+        this pull request
       </span>
+      {checks.seconds !== null && <small>{checks.seconds}s</small>}
+      <a href={checks.url} target="_blank" rel="noopener">
+        GitHub
+        <ArrowUpRight size={14} aria-hidden="true" />
+      </a>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { parsePatch, type DiffLine } from "../../core/diff";
+import { pullChecks, type CheckRun, type PullChecks } from "../../core/proofs";
 import { appEnv } from "../env.server";
 import { GitHubClient } from "./app";
 import { forgetReadToken, readToken } from "./issues.server";
@@ -89,6 +90,49 @@ export function livePull(
       changedFiles: pull.changed_files,
     };
   });
+}
+
+/**
+ * GitHub's checks on the branch's last commit, for the pull request whose
+ * proof they are. Null when none ran, or the installation has not accepted
+ * the Checks permission yet: the panel then says nothing of them.
+ */
+export async function liveChecks(
+  project: Project,
+  branch: string,
+  pullRequestUrl: string,
+): Promise<PullChecks | null> {
+  const env = appEnv();
+  if (
+    !env.GITHUB_APP_ID ||
+    !env.GITHUB_APP_PRIVATE_KEY ||
+    !project.githubInstallationId ||
+    !project.githubRepositoryId
+  )
+    return null;
+  try {
+    const token = await readToken(
+      { appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY },
+      project.githubInstallationId,
+      Number(project.githubRepositoryId),
+      "checks",
+    );
+    const { check_runs: runs } = await new GitHubClient(token).request<{
+      check_runs: CheckRun[];
+    }>(
+      "GET",
+      `/repos/${project.repository}/commits/${encodeURIComponent(branch)}/check-runs?per_page=100`,
+    );
+    return pullChecks(runs, pullRequestUrl);
+  } catch (error) {
+    forgetReadToken(
+      project.githubInstallationId,
+      Number(project.githubRepositoryId),
+      "checks",
+    );
+    console.error("checks", project.repository, error);
+    return null;
+  }
 }
 
 /** The changed files with their numbered lines, at most 300 files. */

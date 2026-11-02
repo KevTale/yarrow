@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -64,6 +65,9 @@ export function loadPresentation(key: string): Promise<Timeline | null> {
 }
 
 const VOICE_KEY = "yarrow.presentation.voice";
+const SPEED_KEY = "yarrow.presentation.speed";
+/** Each click goes to the next, round to the first. */
+const SPEEDS = [1, 1.25, 1.5, 2];
 /** Captions on or off, for the film and the live stage alike. */
 export const CAPTIONS_KEY = "yarrow.presentation.captions";
 export function saved(key: string): boolean {
@@ -78,6 +82,15 @@ export function save(key: string, on: boolean) {
     localStorage.setItem(key, on ? "on" : "off");
   } catch {
     // Private window: the choice lasts the page.
+  }
+}
+
+function savedSpeed(): number {
+  try {
+    const speed = Number(localStorage.getItem(SPEED_KEY));
+    return SPEEDS.includes(speed) ? speed : 1;
+  } catch {
+    return 1;
   }
 }
 
@@ -142,6 +155,7 @@ export function Presentation({
   playRef,
   phoneRef,
   call,
+  actions,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -155,6 +169,8 @@ export function Presentation({
   phoneRef?: RefObject<(() => void) | null>;
   /** The agent can be called from it. */
   call?: FilmCall;
+  /** The pull request's own actions, beside the call. */
+  actions?: ReactNode;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -177,7 +193,38 @@ export function Presentation({
       playRef={playRef}
       phoneRef={phoneRef}
       call={call}
+      actions={actions}
     />
+  );
+}
+
+/** The agent called, from the film's bar or from over an image. */
+export function CallButton({
+  state,
+  onClick,
+  onWarm,
+}: {
+  state: FilmCall["state"];
+  onClick: () => void;
+  onWarm?: () => void;
+}) {
+  const label = state === "off" ? "Call" : "Hang up";
+  return (
+    <button
+      type="button"
+      className={`pv-icon ${state === "off" ? "" : state === "starting" ? "on ringing" : "on"}`}
+      onClick={onClick}
+      onPointerEnter={onWarm}
+      onFocus={onWarm}
+      aria-label={label}
+      data-tip={label}
+    >
+      {state === "on" ? (
+        <PhoneOff size={18} aria-hidden="true" />
+      ) : (
+        <Phone size={18} aria-hidden="true" />
+      )}
+    </button>
   );
 }
 
@@ -190,6 +237,7 @@ function Player({
   playRef,
   phoneRef,
   call,
+  actions,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
@@ -199,6 +247,7 @@ function Player({
   playRef?: RefObject<FilmControl | null>;
   phoneRef?: RefObject<(() => void) | null>;
   call?: FilmCall;
+  actions?: ReactNode;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -211,6 +260,8 @@ function Player({
   // The timeline loads in the browser: the button never renders on the server.
   const [voice, setVoice] = useState(() => saved(VOICE_KEY));
   const [captions, setCaptions] = useState(() => saved(CAPTIONS_KEY));
+  const [speed, setSpeed] = useState(savedSpeed);
+  const pace = useRef(speed);
   // The controls hide while it plays and the pointer rests.
   const [awake, setAwake] = useState(true);
   const rest = useRef(0);
@@ -239,9 +290,28 @@ function Player({
   const length = chapter ? chapterMs(chapter) : 0;
   const lengths = chapters.map(chapterMs);
 
+  // The chapter's own time: faster than the wall's at a higher speed.
   const now = () =>
     clock.current.before +
-    (clock.current.since ? performance.now() - clock.current.since : 0);
+    (clock.current.since
+      ? (performance.now() - clock.current.since) * pace.current
+      : 0);
+
+  // The clip and the voice at the player's speed, a new source included
+  // (loading one puts it back to the element's default).
+  const paced = useCallback((rate: number) => {
+    for (const media of [video.current, audio.current])
+      if (media) {
+        media.defaultPlaybackRate = rate;
+        media.playbackRate = rate;
+      }
+  }, []);
+  useEffect(() => {
+    if (clock.current.since)
+      clock.current = { before: now(), since: performance.now() };
+    pace.current = speed;
+    paced(speed);
+  }, [speed, paced]);
 
   const playMedia = useCallback(() => {
     const clip = video.current;
@@ -278,6 +348,7 @@ function Player({
       voiceLine.src = evidence(chapter.audio.key);
       seek(voiceLine, offset / 1000);
     } else voiceLine.removeAttribute("src");
+    paced(pace.current);
     // The next chapter's clip starts loading now.
     const next = chapters[index + 1];
     if (next?.video) void fetch(evidence(next.video.key)).catch(() => {});
@@ -465,6 +536,15 @@ function Player({
       save(CAPTIONS_KEY, !on);
       return !on;
     });
+  const nextSpeed = () => {
+    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]!;
+    setSpeed(next);
+    try {
+      localStorage.setItem(SPEED_KEY, String(next));
+    } catch {
+      // Private window: the choice lasts the page.
+    }
+  };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
   const said = cue ? wordsSaid(cue, time.spoken) : 0;
@@ -670,23 +750,15 @@ function Player({
                     )}
                   </span>
                   <span className="pv-glass-pill pv-tools">
-                    {call && (
-                      <button
-                        type="button"
-                        className={`pv-icon ${call.state === "off" ? "" : call.state === "starting" ? "on ringing" : "on"}`}
-                        onClick={phone}
-                        onPointerEnter={call.onWarm}
-                        onFocus={call.onWarm}
-                        aria-label={call.state === "off" ? "Call" : "Hang up"}
-                        data-tip={call.state === "off" ? "Call" : "Hang up"}
-                      >
-                        {call.state === "off" || call.state === "starting" ? (
-                          <Phone size={18} aria-hidden="true" />
-                        ) : (
-                          <PhoneOff size={18} aria-hidden="true" />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="pv-icon pv-speed"
+                      onClick={nextSpeed}
+                      aria-label={`Speed, ${speed} times`}
+                      data-tip="Speed"
+                    >
+                      {speed}×
+                    </button>
                     <button
                       type="button"
                       className="pv-icon"
@@ -730,6 +802,18 @@ function Player({
                       </button>
                     )}
                   </span>
+                  {(call || actions) && (
+                    <span className="pv-glass-pill pv-tools">
+                      {call && (
+                        <CallButton
+                          state={call.state}
+                          onClick={phone}
+                          onWarm={call.onWarm}
+                        />
+                      )}
+                      {actions}
+                    </span>
+                  )}
                 </div>
               </div>
             )}

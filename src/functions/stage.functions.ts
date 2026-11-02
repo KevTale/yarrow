@@ -49,6 +49,7 @@ export const stageFn = createServerFn({ method: "POST" })
         events: [],
         error: "No stage for this ticket here.",
         live: false,
+        signedIn: null,
         presentation: null,
       };
     const status = await found.brain.stage({

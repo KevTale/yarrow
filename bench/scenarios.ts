@@ -47,12 +47,21 @@ export const apps: BenchApp[] = [
 ];
 
 /**
- * What a pull request shows, read from its description: a proof's mark
+ * What a pull request holds, read from its description: a proof's mark
  * (`<!-- yarrow:proof <kind> -->`), "phone" for a phone's screens, "film"
- * for the presentation.
+ * for the presentation. The owner is shown one thing (src/core/proofs.ts):
+ * the film over everything, else the first of images, measure, output,
+ * document, check.
  */
 export type Shown =
-  "images" | "phone" | "output" | "measure" | "document" | "app" | "film";
+  | "images"
+  | "phone"
+  | "output"
+  | "measure"
+  | "document"
+  | "check"
+  | "app"
+  | "film";
 
 export interface Scenario {
   name: string;
@@ -94,13 +103,14 @@ export const scenarios: Scenario[] = [
   {
     name: "removal",
     app: "tally",
-    about: "Something taken away: the screen with it and without it.",
+    about:
+      "Something taken away on every page: the film, or one screen with it and without it.",
     title: "Remove the Tally Pro banner",
     body: "Every page shows a purple banner about Tally Pro. Pro was cancelled: remove the banner everywhere. Nothing else changes.",
     expect: {
       outcome: "pull_request",
-      shows: ["images", "app"],
-      hides: ["film"],
+      shows: ["app"],
+      showsOneOf: ["images", "film"],
       touches: ["src/"],
     },
   },
@@ -120,37 +130,38 @@ export const scenarios: Scenario[] = [
   {
     name: "filter",
     app: "tally",
-    about: "A feature used in several steps: a film, and the app to try it.",
+    about: "A feature used in several steps: the film alone, and the app.",
     title: "Filter the task list by status",
     body: "The task list shows every task at once. Add filters above it: All, To do, Doing and Done, each with its count. Picking one shows only those tasks, and the choice stays in the address so a reload keeps it. All stays the default.",
     expect: {
       outcome: "pull_request",
       shows: ["film", "app"],
+      hides: ["images"],
       touches: ["src/"],
     },
   },
   {
     name: "search",
     app: "tally",
-    about: "A feature typed into: a film of the list narrowing, the app.",
+    about: "A feature typed into: the film of the list narrowing, the app.",
     title: "Search tasks by title",
     body: "Finding a task means reading the whole list. Add a search field above the task list: typing narrows the list to tasks whose title contains the text, whatever the case, and an empty field shows them all again. When nothing matches, say so.",
     expect: {
       outcome: "pull_request",
       shows: ["film", "app"],
+      hides: ["images"],
       touches: ["src/"],
     },
   },
   {
     name: "bugfix",
     app: "tally",
-    about:
-      "A rule deep in the code that shows on a screen: the screen in that state, the test that failed and passes.",
+    about: "A rule deep in the code that shows on a screen: that screen.",
     title: "Done tasks show as overdue",
     body: 'In the task list, a task that is done but had a due date in the past shows "Overdue · <date>" in red. A done task is not late: show its date plainly.',
     expect: {
       outcome: "pull_request",
-      shows: ["images", "output", "app"],
+      shows: ["images", "app"],
       hides: ["film"],
       touches: ["src/"],
     },
@@ -158,7 +169,7 @@ export const scenarios: Scenario[] = [
   {
     name: "api",
     app: "tally",
-    about: "An API change: the request and its answer, before and after.",
+    about: "An API change: an example of its answer, what changed marked.",
     title: "Return each task's due date from /api/tasks",
     body: "GET /api/tasks leaves out the due date. Add it as `dueOn`, an ISO date (YYYY-MM-DD), or null when the task has none.",
     expect: {
@@ -171,13 +182,12 @@ export const scenarios: Scenario[] = [
   {
     name: "email",
     app: "tally",
-    about:
-      "A job that sends an email: the email as its reader sees it, and the job running.",
+    about: "A job that sends an email: the email as its reader sees it.",
     title: "Put overdue tasks first in the weekly digest",
     body: 'The Monday digest email lists my open tasks in one list, so the overdue ones get lost in the middle. Put the overdue tasks first, under their own heading ("Overdue"), then the rest under "This week and later". If nothing is overdue, no Overdue heading.',
     expect: {
       outcome: "pull_request",
-      shows: ["images", "output"],
+      shows: ["images"],
       hides: ["film"],
       touches: ["src/digest.js"],
     },
@@ -185,13 +195,12 @@ export const scenarios: Scenario[] = [
   {
     name: "migration",
     app: "tally",
-    about:
-      "A database change: the migration run on real data, and what it gives.",
+    about: "A database change behind a feature: the feature, film first.",
     title: "Tasks need a priority",
     body: 'We want to mark some tasks as urgent. Give every task a priority: low, normal or high, normal by default; tasks that exist today become normal. Show high-priority tasks with a small red "High" tag in the list, and add a priority picker to the new-task form. Return it from /api/tasks as `priority`.',
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
+      shows: ["app"],
       showsOneOf: ["images", "film"],
       touches: ["db/migrations/"],
     },
@@ -199,7 +208,7 @@ export const scenarios: Scenario[] = [
   {
     name: "perf",
     app: "tally",
-    about: "Speed: a measure before and after, and how it was measured.",
+    about: "Speed: the number, before and after.",
     title: "The task list is slow for big teams",
     body: "Since we imported our backlog (about 3,000 tasks) the task list takes about a second to load, and it gets worse every week. It should load fast. You can reproduce with `npm run db:seed -- --many`.",
     expect: {
@@ -212,39 +221,37 @@ export const scenarios: Scenario[] = [
   {
     name: "refactor",
     app: "tally",
-    about: "Nothing anyone sees: the checks passing, nothing else.",
+    about: "Nothing anyone sees: no proof, the sentence says it.",
     title: "One date formatter for the app and the digest",
     body: "src/views.js (formatDue) and src/digest.js (dueLabel) each have their own copy of the due-date wording. Keep one, in its own module, used by both, so they can't drift. No change in what people see.",
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images", "app"],
+      hides: ["film", "images", "output", "measure", "app"],
       touches: ["src/"],
     },
   },
   {
     name: "deps",
     app: "tally",
-    about: "A dependency upgrade: the checks and the app starting, no screens.",
+    about: "A dependency upgrade: no proof, the sentence says it.",
     title: "Upgrade pg to the latest 8.x",
     body: "We're on pg 8.11.0, pinned. Upgrade to the latest 8.x and keep it pinned to an exact version.",
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images", "app"],
+      hides: ["film", "images", "output", "measure", "app"],
       touches: ["package.json", "package-lock.json"],
     },
   },
   {
     name: "ci",
     app: "tally",
-    about: "Continuous integration: the workflow's own commands, run.",
+    about: "Continuous integration: GitHub's own checks on the pull request.",
     title: "Run the tests on every pull request",
     body: "Nothing runs our tests when a pull request is opened. Add a GitHub Actions workflow that runs `npm ci` and `npm test` on Node 22 for every pull request and every push to main.",
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images", "app"],
+      shows: ["check"],
+      hides: ["film", "images", "output", "app"],
       touches: [".github/workflows/"],
     },
   },
@@ -272,7 +279,7 @@ export const scenarios: Scenario[] = [
   {
     name: "cli",
     app: "pace",
-    about: "A command line tool: the command and what it prints.",
+    about: "A command line tool: an example of what it prints.",
     title: "`pace list --json` for scripts",
     body: "I want to graph my runs in a notebook. Add `--json` to `pace list`: it prints the runs as a JSON array (date, km, seconds, pace in seconds per km, note), newest first, and still honors `--last`. The table stays the default.",
     expect: {
@@ -285,7 +292,7 @@ export const scenarios: Scenario[] = [
   {
     name: "library",
     app: "tempo",
-    about: "A library: a short example of the new API, run for real.",
+    about: "A library: a short example of the new option, run for real.",
     title: "format(): a `largest` option to round to the biggest units",
     body: 'Durations like "1 hour 30 minutes 30 seconds" are too precise for our UI. Add a `largest` option to `format()`: the number of units kept, starting from the biggest, the last one rounded. `format(5_430_000, { largest: 1 })` gives "2 hours", `{ largest: 2 }` gives "1 hour 31 minutes". Document it in the README.',
     expect: {
@@ -299,7 +306,7 @@ export const scenarios: Scenario[] = [
     name: "ai",
     app: "recap",
     about:
-      "A feature built on a language model: real inputs and its answers, or a stub said plainly.",
+      "A feature built on a language model: an example of its answers, a stub said plainly.",
     title: "Action items should say who and by when",
     body: 'The recap lists action items as plain sentences. When the notes say who owns an item and by when, show them apart: each item gets its task, its owner and its due date ("Friday", "Nov 5"), the owner and date left empty when the notes don\'t say. Show them as a small table on the page and in /api/recap as {task, owner, due}.',
     expect: {
@@ -313,12 +320,13 @@ export const scenarios: Scenario[] = [
   {
     name: "game",
     app: "starfall",
-    about: "A game mechanic: a film of it played, and the game to try.",
+    about: "A game mechanic: the film of it played, and the game to try.",
     title: "Combos for quick catches",
     body: "Catching stars quickly should pay. Stars caught less than a second apart build a combo: x2 for the second, x3 for the third, up to x5, multiplying the star's points. Show the current combo next to the score while it lasts, and the multiplied points where the star was caught. A miss (a star reaching the ground) or a second without a catch ends the combo.",
     expect: {
       outcome: "pull_request",
       shows: ["film", "app"],
+      hides: ["images"],
       touches: ["public/"],
     },
   },

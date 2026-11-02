@@ -8295,6 +8295,11 @@ body:has(.sb-dialog[open]) {
   height: 38px;
   background: rgba(0, 0, 0, 0.36);
 }
+.pv-speed {
+  width: 44px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
 .pv-icon:hover,
 .pv-icon.pv-play:hover {
   background: rgba(255, 255, 255, 0.14);
@@ -8388,8 +8393,7 @@ body:has(.sb-dialog[open]) {
 .pp-take > .pv {
   grid-area: 1 / 1;
 }
-/* The pull request's app at its own address, under the proofs, and the
-   test account beside it, each copied on a click. */
+/* The pull request's app in words, where no proof carries its icon. */
 .pp-preview {
   display: flex;
   flex-wrap: wrap;
@@ -8397,8 +8401,10 @@ body:has(.sb-dialog[open]) {
   gap: 8px;
   min-width: 0;
 }
-.pp-preview-open,
-.pp-preview-copy {
+.pp-preview .pv-icon {
+  color: var(--muted);
+}
+.pp-preview-open {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -8408,118 +8414,270 @@ body:has(.sb-dialog[open]) {
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: none;
+  color: var(--text);
   font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
   text-decoration: none;
-  cursor: pointer;
   transition:
     background-color 0.15s,
     border-color 0.15s;
 }
-.pp-preview-open {
-  color: var(--text);
-  font-weight: 500;
-}
 .pp-preview-open svg:last-child {
   color: var(--muted);
 }
-.pp-preview-copy {
-  color: var(--secondary);
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-}
-.pp-preview-copy svg {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-.pp-preview-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pp-preview-open:hover,
-.pp-preview-copy:hover {
+.pp-preview-open:hover {
   border-color: var(--border-strong);
   background: var(--hover);
 }
-/* What proves the pull request, under its summary: each screen before
-   and after, a measure, the documents, what a command printed. */
-.pf {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
-  min-width: 0;
-}
-.pf-pairs {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: 14px;
-  max-width: 860px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pf-pairs li {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
-}
-.pf-pairs li > span {
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--muted);
-}
-.pf-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.pf-pair.pf-one {
-  grid-template-columns: minmax(0, 1fr);
-}
-.pf-pair button {
+/* One screen as it was and as it is: the film's size, in its place. */
+.pf-hero {
   position: relative;
-  display: block;
-  min-width: 0;
-  padding: 0;
+  max-width: 860px;
+  margin: 4px 0 6px;
   overflow: hidden;
+  aspect-ratio: 16 / 10;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--elevated);
-  cursor: zoom-in;
-  transition: border-color 0.15s ease-out;
+  border-radius: 14px;
+  background: #0f1013;
+  container-type: size;
 }
-.pf-pair button:hover {
-  border-color: var(--border-strong);
+/* The whole page, as large as it fits, a tall one in the stage's middle. */
+.pf-frame {
+  position: absolute;
+  inset: 0;
+  width: min(100cqw, calc(100cqh * var(--ratio)));
+  height: fit-content;
+  margin: auto;
+  overflow: hidden;
+  aspect-ratio: var(--ratio);
 }
-.pf-pair img {
+.pf-tall {
+  width: min(100cqw, calc((100cqh - 32px) * var(--ratio)));
+  border-radius: 14px;
+}
+.pf-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.pf-layer img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  object-position: top;
+  user-select: none;
+  pointer-events: none;
 }
-.pf-phone .pf-pair {
-  max-width: 300px;
-}
-.pf-phone .pf-pair img {
-  aspect-ratio: 390 / 844;
-}
-.pf-side {
+.pf-range {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  padding: 1px 7px;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.pf-cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  pointer-events: none;
+}
+.pf-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  color: #17191d;
+  box-shadow: 0 2px 10px #0000004d;
+  transform: translate(-50%, -50%);
+}
+.pf-range:focus-visible + .pf-cut .pf-grip {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.pf-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  padding: 2px 8px;
   border-radius: 6px;
   background: #0b0c0ecc;
-  font-size: 11.5px;
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}
+.pf-tag.pf-after {
+  right: 10px;
+  left: auto;
+}
+.pf-tools {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  height: auto;
+}
+.pf-tools .pv-glass-pill {
+  background: #0b0c0ecc;
+}
+.pv-tools + .pv-tools {
+  margin-left: 0;
+}
+/* The test account, when the visit's session could not be copied. */
+.pf-account {
+  position: relative;
+  display: inline-flex;
+}
+.pf-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  width: 230px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #1d1f24;
+  box-shadow: 0 22px 55px #00000057;
+}
+.pf-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--secondary);
+  font:
+    12.5px var(--font-geist-mono),
+    monospace;
+  cursor: pointer;
+}
+.pf-menu button:hover {
+  background: var(--hover);
+}
+.pf-menu svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.pf-menu span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The app's icon in a block's head, on the panel rather than on a film. */
+.pf-open {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.pf-open .pv-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+}
+.pf-open .pv-icon:hover {
+  color: var(--text);
+}
+.pf-open [data-tip]::after {
+  right: 0;
+  left: auto;
+  transform: translateY(-2px);
+}
+.pf-open [data-tip]:hover::after,
+.pf-open [data-tip]:focus-visible::after {
+  transform: none;
+}
+.pf-open .pf-menu {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+/* A number: two bars, the change at the end. */
+.pf-num {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+  margin: 0;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--elevated);
+}
+.pf-num figcaption {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 30px;
+  margin-top: -6px;
+  font-size: 13.5px;
   color: var(--secondary);
 }
+.pf-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pf-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.pf-track i {
+  flex-shrink: 1;
+  min-width: 4px;
+  height: 10px;
+  border-radius: 3px;
+}
+.pf-track .pf-was {
+  background: #4a4e57;
+}
+.pf-track .pf-now {
+  background: var(--green);
+}
+.pf-track span {
+  flex-shrink: 0;
+  font:
+    13px var(--font-geist-mono),
+    monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.pf-track b {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--green);
+}
+.pf-track .pf-down {
+  background: var(--red);
+}
+.pf-track b.pf-down {
+  background: none;
+  color: var(--red);
+}
+/* An example: what it gives now, the lines that changed marked. */
 .pf-out {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   max-width: 860px;
   margin: 0;
   min-width: 0;
@@ -8527,41 +8685,20 @@ body:has(.sb-dialog[open]) {
 .pf-out figcaption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--secondary);
-}
-.pf-sides {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-.pf-sides button {
-  height: 24px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.pf-sides button[aria-pressed="true"] {
-  background: var(--hover);
-  color: var(--text);
 }
 .pf-print {
   display: grid;
   max-height: 360px;
-  padding: 8px 0;
+  padding: 10px 0;
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--elevated);
+  border-radius: 12px;
+  background: #0f1013;
   font:
-    12.5px/1.6 var(--font-geist-mono),
+    13px/1.6 var(--font-geist-mono),
     monospace;
 }
 /* Long lines wrap: nothing to scroll sideways for. */
@@ -8577,7 +8714,7 @@ body:has(.sb-dialog[open]) {
   color: var(--text);
 }
 .pf-added {
-  background: #5ccb951a;
+  background: #5ccb951f;
   box-shadow: inset 2px 0 var(--green);
 }
 .pf-removed {
@@ -8598,79 +8735,68 @@ body:has(.sb-dialog[open]) {
 .pf-fold:hover {
   color: var(--text);
 }
-/* Small under the print, for who wants it: never a box of its own (the
-   panel's code style would make it one). */
-.pf .pf-command {
-  overflow: hidden;
+/* A document or a check: one line. */
+.pf-one {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 860px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--elevated);
+  font-size: 14px;
+}
+.pf-one > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.pf-one code {
   padding: 0;
   border: 0;
   background: none;
   font:
-    11.5px var(--font-geist-mono),
-    monospace;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--muted);
-}
-.pf-measure {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  max-width: 860px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 13px;
-  color: var(--secondary);
-}
-.pf-values {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font:
     13px var(--font-geist-mono),
     monospace;
-  font-variant-numeric: tabular-nums;
 }
-.pf-values svg {
+.pf-one small {
+  flex-shrink: 0;
+  font:
+    12px var(--font-geist-mono),
+    monospace;
   color: var(--muted);
 }
-.pf-was {
+.pf-one a {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 13px;
+  text-decoration: none;
   color: var(--muted);
 }
-.pf-values b {
-  font-weight: 500;
+.pf-one a:hover {
   color: var(--text);
 }
-.pf-better,
-.pf-worse {
-  padding: 1px 7px;
-  border-radius: 6px;
-  font:
-    12px var(--font-geist-sans),
-    sans-serif;
+.pf-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #0c1f17;
 }
-.pf-better {
-  background: #5ccb951a;
-  color: var(--green);
+.pf-passed {
+  background: var(--green);
 }
-.pf-worse {
-  background: #ee7b6e1a;
-  color: var(--red);
+.pf-failed {
+  background: var(--red);
 }
-.pf-docs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.pf-docs span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font:
-    12.5px var(--font-geist-mono),
-    monospace;
+.pf-running {
+  background: var(--amber);
 }
 .pv.pv-behind {
   visibility: hidden;
@@ -8767,7 +8893,8 @@ html:has(.pp-stage:modal) {
   padding: 66px 20px;
   container-type: size;
 }
-.pp-stage:modal .pv {
+.pp-stage:modal .pv,
+.pp-stage:modal .pf-hero {
   width: min(100cqw, 100cqh * 1.6);
   max-width: none;
   margin: 0;
@@ -8834,10 +8961,12 @@ html:has(.pp-stage:modal) {
     top: 12px;
     left: 12px;
   }
-  .pp-stage:modal .pv {
+  .pp-stage:modal .pv,
+  .pp-stage:modal .pf-hero {
     width: 100%;
   }
-  .pp-stage:modal .pv-screen {
+  .pp-stage:modal .pv-screen,
+  .pp-stage:modal .pf-hero {
     border-width: 0 0 1px;
     border-radius: 0;
   }
@@ -9317,12 +9446,12 @@ html:has(.pp-stage:modal) {
 .pp-count .del {
   color: var(--red);
 }
-/* What the agents noticed: small cards side by side, never a full line
-   each; the whole card makes the ticket. */
+/* What the agents noticed, in the agent's notes: a card each, the whole
+   card makes the ticket. */
 .pp-ideas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
+  width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -9332,41 +9461,38 @@ html:has(.pp-stage:modal) {
 }
 .pp-idea {
   display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 13px 15px 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #16181c;
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 1.5;
+  background: #1d1f24;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
   text-align: left;
 }
 button.pp-idea {
   cursor: pointer;
   transition:
     background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
+    border-color 0.15s;
 }
 button.pp-idea:hover,
 button.pp-idea:focus-visible {
   border-color: #3a3e46;
   background: var(--hover);
-  color: var(--text);
 }
 .pp-idea-go {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12.5px;
+  gap: 6px;
+  font-size: 13px;
   color: var(--muted);
   transition: color 0.15s;
 }
 button.pp-idea:hover .pp-idea-go,
 button.pp-idea:focus-visible .pp-idea-go {
-  color: var(--amber);
+  color: var(--text);
 }
 /* The files changed: a quiet line each, its changes over the page. */
 .pp-filelist {

@@ -36,6 +36,35 @@ export function criterionMarkdown(item: Criterion): string {
   return `- ${mark} ${item.criterion}${why ? ` _(${why})_` : ""}`;
 }
 
+/**
+ * What the agent tells the owner beside the pull request, each in everyday
+ * words: what is still wrong, what must be done, what could not be checked.
+ * None means all is well, and the agent says so (decided 2026-10-30): the
+ * summary no longer carries any of it.
+ */
+export function agentNotes(input: {
+  blocking: { body: string }[];
+  criteria: Criterion[];
+  risks: string[];
+  notVerified: string[];
+}): string[] {
+  const missing = (status: Criterion["status"], words: string) =>
+    input.criteria
+      .filter((item) => item.status === status)
+      .map(
+        (item) =>
+          `${words}: ${item.criterion}${item.note ? ` (${item.note})` : ""}`,
+      );
+  const lines = [
+    ...input.blocking.map((comment) => comment.body),
+    ...missing("unmet", "Not met"),
+    ...input.risks,
+    ...input.notVerified,
+    ...missing("unchecked", "Not checked"),
+  ].map((line) => splitNote(line).plain);
+  return [...new Set(lines)];
+}
+
 /** A suggestion's first sentence, the title of the ticket made from it. */
 function firstSentence(text: string): string {
   const end = text.search(/[.!?](\s|$)/);

@@ -1,9 +1,12 @@
 /**
  * What proves a pull request does what its ticket asks, chosen by the
- * implementer for the change at hand (decided 2026-10-29): images of a
- * screen before and after, a command or request and what it printed, a
- * measure, the document as its reader sees it, the app's page to try, and a
- * film only for a flow worth watching (src/core/presentation.ts). No I/O here.
+ * implementer for the change at hand (decided 2026-10-29): a screen before
+ * and after, an example of what a request or a command gives, a measure,
+ * the document as its reader sees it, GitHub's own checks, the app's page to
+ * try, and the film (src/core/presentation.ts). The owner is sent one thing,
+ * as a good colleague would (decided 2026-10-30): the film passes over
+ * everything, else `leadProof`. The description keeps the rest for
+ * developers. No I/O here.
  */
 
 import { z } from "zod";
@@ -50,17 +53,20 @@ export const storedProofSchema = z.discriminatedUnion("kind", [
     file: text(300),
   }),
   z.object({ kind: z.literal("app"), path: appPath }),
+  /** The change is the checks themselves: GitHub's own say it, read live. */
+  z.object({ kind: z.literal("check") }),
 ]);
 export type Proof = z.infer<typeof storedProofSchema>;
 export type ProofKind = Proof["kind"];
 
-/** How many of each a pull request shows: past that, the owner stops reading. */
+/** How many of each a description keeps: past that, nobody reads on. */
 const LIMITS: Record<ProofKind, number> = {
   images: 4,
   output: 4,
   measure: 4,
   document: 3,
   app: 1,
+  check: 1,
 };
 
 /** An output as kept: its last characters, where a run prints its result. */
@@ -94,6 +100,7 @@ const agentProofSchema = z.discriminatedUnion("kind", [
   storedProofSchema.options[2],
   storedProofSchema.options[3],
   storedProofSchema.options[4],
+  storedProofSchema.options[5],
 ]);
 export type AgentProof = z.infer<typeof agentProofSchema>;
 
@@ -119,11 +126,102 @@ export function parseAgentProofs(raw: unknown): AgentProof[] {
 }
 
 /**
- * A film proves a flow in the app, so it goes with the app's page: one
- * recorded for any other change (a document, an API) is noise, not voiced.
+ * A film walks the owner through the app, so it goes with the app's page:
+ * one recorded for any other change (a document, an API) is noise, not voiced.
  */
 export function filmFits(proofs: AgentProof[]): boolean {
   return proofs.some((proof) => proof.kind === "app");
+}
+
+/** What the owner sees when there is no film, the most telling first. */
+const LEAD: ProofKind[] = ["images", "measure", "output", "document", "check"];
+
+/** The one proof shown beside no film; none, the sentence says it all. */
+export function leadProof(proofs: Proof[]): Proof | null {
+  for (const kind of LEAD) {
+    const found = proofs.find((proof) => proof.kind === kind);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Where to open the line between a screen as it was and as it is, in percent
+ * of the width: on what changed, so the first look shows it. Two images of
+ * the same size, RGBA. Null when nothing differs.
+ */
+export function changedAt(
+  before: Uint8ClampedArray,
+  after: Uint8ClampedArray,
+  width: number,
+): number | null {
+  let first = width;
+  let last = -1;
+  for (let at = 0; at + 3 < before.length; at += 4) {
+    const moved =
+      Math.abs(before[at]! - after[at]!) +
+      Math.abs(before[at + 1]! - after[at + 1]!) +
+      Math.abs(before[at + 2]! - after[at + 2]!);
+    if (moved < 48) continue;
+    const column = (at / 4) % width;
+    first = Math.min(first, column);
+    last = Math.max(last, column);
+  }
+  if (last < 0) return null;
+  // The grip stays inside the frame.
+  return Math.max(6, Math.min(94, (((first + last + 1) / 2) * 100) / width));
+}
+
+/** GitHub's checks on the pull request's last commit, as one line. */
+export interface PullChecks {
+  /** The first check's name: the one, when `count` is 1. */
+  name: string;
+  count: number;
+  state: "passed" | "failed" | "running";
+  /** How long the one check took, once it ended. */
+  seconds: number | null;
+  url: string;
+}
+
+/** A check run as GitHub gives it. */
+export interface CheckRun {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  html_url: string | null;
+}
+
+/** One line for a commit's check runs, GitHub's latest first for each name. */
+export function pullChecks(
+  runs: CheckRun[],
+  pullRequestUrl: string,
+): PullChecks | null {
+  const newestLast = [...runs].reverse();
+  const latest = [
+    ...new Map(newestLast.map((run) => [run.name, run])).values(),
+  ];
+  if (latest.length === 0) return null;
+  const passed = (run: CheckRun) =>
+    ["success", "neutral", "skipped"].includes(run.conclusion ?? "");
+  const state = latest.some((run) => run.status !== "completed")
+    ? "running"
+    : latest.every(passed)
+      ? "passed"
+      : "failed";
+  const one = latest.length === 1 ? latest[0]! : null;
+  const ended =
+    one?.started_at && one.completed_at
+      ? Date.parse(one.completed_at) - Date.parse(one.started_at)
+      : null;
+  return {
+    name: latest[0]!.name,
+    count: latest.length,
+    state,
+    seconds: ended === null ? null : Math.round(ended / 1000),
+    url: one?.html_url ?? `${pullRequestUrl}/checks`,
+  };
 }
 
 /**
@@ -374,8 +472,11 @@ export function proofsMarkdown(
       parts.push(
         `${mark}\n[${proof.file}](${input.document(proof.file)}), as it reads on this branch`,
       );
-    } else {
+    } else if (proof.kind === "app") {
       parts.push(`${mark}\n[Try it in the app](${input.app(proof.path)})`);
+    } else {
+      // GitHub shows its own checks on the pull request.
+      parts.push(mark);
     }
   }
   if (hidden > 0)

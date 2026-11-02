@@ -36,7 +36,7 @@ import {
 } from "@/server/jira.server";
 import { boardsForProject } from "@/db/trackers";
 import { madeSpottedTicket, pullNumber, pullPanel } from "@/db/pull-panel";
-import { livePull, pullFiles } from "@/server/github/pulls.server";
+import { liveChecks, livePull, pullFiles } from "@/server/github/pulls.server";
 import { kickBrain } from "@/server/brain.server";
 
 /**
@@ -147,12 +147,19 @@ export const getPullPanelFn = createServerFn({ method: "GET" })
         ),
       ]);
       if (!panel) return null;
+      const [messages, checks] = await Promise.all([
+        threadMessages(db, panel.workUnitId),
+        panel.pullRequest && panel.proofs?.some((p) => p.kind === "check")
+          ? liveChecks(project, panel.pullRequest.branch, panel.pullRequest.url)
+          : null,
+      ]);
       return {
         ...panel,
         // Only where the brain runs stages.
         preview: appEnv().BRAIN ? panel.preview : null,
         live,
-        messages: await threadMessages(db, panel.workUnitId),
+        messages,
+        checks,
       };
     });
   });

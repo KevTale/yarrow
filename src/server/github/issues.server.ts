@@ -9,10 +9,15 @@ import { GitHubClient, installationToken, type TokenPermissions } from "./app";
  */
 const readTokens = new Map<string, { token: string; expiresAt: number }>();
 
-/** What each read needs: issues for the table, pull requests for a panel. */
+/**
+ * What each read needs: issues for the table, pull requests for a panel,
+ * checks for the rare one that shows them (apart: an installation that has
+ * not accepted the permission yet would lose its whole token).
+ */
 const READS = {
   issues: { issues: "read", metadata: "read" },
   pulls: { pull_requests: "read", contents: "read", metadata: "read" },
+  checks: { checks: "read", metadata: "read" },
 } as const satisfies Record<string, TokenPermissions>;
 
 export async function readToken(
