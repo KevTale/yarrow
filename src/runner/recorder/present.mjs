@@ -2387,8 +2387,9 @@ class Desktop {
 
 // ---------- The stage: the app live on the desktop ----------
 
-/** Where the brain's Stage reaches the screen, bridged to the page's viewer. */
+/** The screen over VNC, and as a WebSocket, where the brain's Stage reaches it. */
 const VNC_PORT = 5900;
+const SCREEN_PORT = 6080;
 
 const listening = (port) =>
   new Promise((resolve) => {
@@ -2428,8 +2429,8 @@ async function signIn(browser, base, how, file) {
 
 /**
  * `--stage`: the same desktop as the films, the app in its browser and
- * signed in, its screen served over VNC (the pointer drawn into it) until
- * the container stops. Nothing is filmed. The stage file gives the app
+ * signed in, its screen served over VNC (the pointer drawn into it) and as
+ * a WebSocket (websockify) until the container stops. Nothing is filmed. The stage file gives the app
  * ({ url, path, signIn: { path, fields, submit } | null }) and `ready`,
  * written once the screen can be watched.
  */
@@ -2464,6 +2465,12 @@ async function stage(spec) {
   ]);
   if (!(await until(() => listening(VNC_PORT), 15000)))
     throw new Error("the screen is not served (x11vnc)");
+  desktop.spawn("websockify", "websockify", [
+    String(SCREEN_PORT),
+    "127.0.0.1:" + VNC_PORT,
+  ]);
+  if (!(await until(() => listening(SCREEN_PORT), 15000)))
+    throw new Error("the screen is not served as a WebSocket (websockify)");
   fs.writeFileSync(
     spec.ready,
     JSON.stringify({ display: desktop.env.DISPLAY, at: Date.now() }),

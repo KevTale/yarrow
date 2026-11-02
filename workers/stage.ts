@@ -13,7 +13,7 @@ import { RECORDER_PATH } from "../src/runner/presentation";
 /**
  * A pull request's stage (src/core/stage.ts): one container per work unit,
  * the app of its branch running on the recorder's desktop, the screen
- * served over VNC and bridged here to the page's WebSocket. The first boot
+ * served over VNC behind websockify, which the page's WebSocket reaches here. The first boot
  * clones and runs the recipe, then keeps a snapshot of the files; the next
  * ones start from it and run only the restart steps. Like the Meta
  * implementer's machine, it has no Internet of its own (MuseOutbound).
@@ -31,7 +31,8 @@ const DESKTOP_LOG = `${TASK}/stage-desktop.log`;
 const DESKTOP_EXIT = `${TASK}/stage-desktop.exit`;
 const READY = `${TASK}/stage-ready.json`;
 const CA = "/etc/cloudflare/certs/cloudflare-containers-ca.crt";
-const VNC = 5900;
+/** The screen, as a WebSocket (websockify in front of x11vnc). */
+const SCREEN = 6080;
 /** Nobody watching for this long: the stage sleeps (its snapshot stays). */
 const IDLE_MS = 15 * 60_000;
 /** While booting, the machine is looked at this often. */
@@ -216,7 +217,7 @@ export class Stage extends DurableObject<StageEnv> {
       await this.ctx.storage.setAlarm(Date.now() + TICK_MS);
   }
 
-  /** The page's viewer: its WebSocket bridged to the screen's VNC server. */
+  /** The page's viewer: its WebSocket, to the screen's VNC over websockify. */
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket")
       return new Response("A WebSocket only\n", { status: 426 });
@@ -225,59 +226,8 @@ export class Stage extends DurableObject<StageEnv> {
       this.#kv.get<Saved>("saved")?.step !== "ready"
     )
       return new Response("The stage is not up\n", { status: 409 });
-    const socket = this.#container.getTcpPort(VNC).connect(`10.0.0.1:${VNC}`);
-    await socket.opened;
-    const pair = new WebSocketPair();
-    const [client, server] = [pair[0], pair[1]];
-    server.accept();
-    const writer = socket.writable.getWriter();
-    const end = () => {
-      void writer.close().catch(() => {});
-      try {
-        server.close();
-      } catch {
-        // Closed already.
-      }
-    };
-    let sent = 0;
-    server.addEventListener("message", (event) => {
-      const data =
-        typeof event.data === "string"
-          ? new TextEncoder().encode(event.data)
-          : new Uint8Array(event.data);
-      // Spike: why the viewer's bytes do not reach the VNC server.
-      if (sent++ < 4)
-        console.log("stage ws->tcp", typeof event.data, data.length);
-      writer.write(data).then(
-        () => {
-          if (sent <= 4) console.log("stage tcp write ok", data.length);
-        },
-        (error: Error) => {
-          console.log("stage tcp write failed", error.message);
-          end();
-        },
-      );
-    });
-    server.addEventListener("close", end);
-    server.addEventListener("error", end);
-    this.ctx.waitUntil(
-      socket.readable
-        .pipeTo(
-          new WritableStream({
-            write: (chunk: Uint8Array) => server.send(chunk),
-          }),
-        )
-        .catch(() => {})
-        .finally(end),
-    );
-    // noVNC asks for "binary"; an answer without it is refused.
-    const asked = request.headers.get("sec-websocket-protocol");
-    const protocol = asked?.split(",")[0]?.trim();
-    return new Response(null, {
-      status: 101,
-      webSocket: client,
-      headers: protocol ? { "sec-websocket-protocol": protocol } : {},
-    });
+    // websockify in the machine speaks WebSocket: the upgrade goes through as it is.
+    return this.#container.getTcpPort(SCREEN).fetch(request);
   }
 
   /** One look at the machine, one move at a time. */

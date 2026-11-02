@@ -1,7 +1,8 @@
 # The Meta implementer's machine (workers/muse.ts): Muse Code and what a
 # ticket needs to build, test and film. No key is ever in it: the Worker
 # adds Meta's and GitHub's on the way out. A pull request's stage
-# (workers/stage.ts) runs on it too, its screen served by x11vnc.
+# (workers/stage.ts) runs on it too, its screen served by x11vnc and, as a
+# WebSocket, by websockify.
 ARG SANDBOX_TOOLS_IMAGE=docker.io/cloudflare/sandbox:1.0.3
 FROM ${SANDBOX_TOOLS_IMAGE} AS sandbox-tools
 
@@ -14,7 +15,7 @@ RUN apt-get update \
     bash ca-certificates curl git ripgrep jq unzip zip \
     build-essential python3 python3-pip python3-venv \
     xvfb openbox xdotool wmctrl xterm x11-utils ffmpeg dmz-cursor-theme \
-    x11vnc \
+    x11vnc websockify \
     fonts-inter fonts-jetbrains-mono fonts-dejavu-core \
   && rm -rf /var/lib/apt/lists/*
 
