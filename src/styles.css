@@ -8372,9 +8372,6 @@ body:has(.sb-dialog[open]) {
   background: var(--red);
   content: "";
 }
-.pv-icon.on {
-  background: rgba(255, 255, 255, 0.18);
-}
 .pv-icon:disabled {
   opacity: 0.5;
   cursor: default;
@@ -8455,6 +8452,15 @@ body:has(.sb-dialog[open]) {
 .pp-act .pf-mark {
   width: 16px;
   height: 16px;
+}
+/* A phone: the foot holds on one line. */
+@media (max-width: 480px) {
+  .pp-foot .pp-act {
+    padding: 0 8px;
+  }
+  .pp-foot button.pp-act > svg {
+    display: none;
+  }
 }
 /* One screen as it was and as it is: the film's size, in its place. */
 .pf-hero {
@@ -8562,9 +8568,6 @@ body:has(.sb-dialog[open]) {
 }
 .pf-tools .pv-glass-pill {
   background: #0b0c0ecc;
-}
-.pv-tools + .pv-tools {
-  margin-left: 0;
 }
 /* The test account, when the visit's session could not be copied. */
 .pf-account {
@@ -8788,9 +8791,6 @@ body:has(.sb-dialog[open]) {
 .pp-stage:modal .pp-film {
   grid-template-columns: none;
 }
-.pv-icon.ringing svg {
-  animation: pv-ring 1s ease-in-out infinite;
-}
 @keyframes pv-ring {
   0%,
   50%,
@@ -8804,11 +8804,6 @@ body:has(.sb-dialog[open]) {
   20%,
   40% {
     transform: rotate(14deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pv-icon.ringing svg {
-    animation: none;
   }
 }
 .pp-take[hidden] {
@@ -9008,12 +9003,6 @@ html:has(.pp-stage:modal) {
   .pv-big {
     width: 52px;
     height: 52px;
-  }
-}
-/* A phone's film: the buttons take the bar, the chapters show how far it is. */
-@media (max-width: 480px) {
-  .pv-clock {
-    display: none;
   }
 }
 
@@ -9608,6 +9597,7 @@ button.pp-idea:focus-visible .pp-idea-go {
 .pp-diffs-box {
   display: grid;
   grid-template-rows: 46px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
@@ -9757,9 +9747,11 @@ button.pp-idea:focus-visible .pp-idea-go {
   .pp {
     padding: 4px 4px 22px;
   }
-  /* One column: what the change does first, the conversation after it. */
+  /* One column: what the change does first, the conversation after it.
+     Not a grid: its box would stay inside its own row. */
   .pp-grid {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 24px;
   }
   /* Its box stays at the bottom of the screen the whole way down the row. */
