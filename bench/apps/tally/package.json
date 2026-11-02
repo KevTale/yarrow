@@ -1,0 +1,21 @@
+{
+  "name": "tally",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A small team task list.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js",
+    "test": "node --test",
+    "digest": "node scripts/digest.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "8.11.0"
+  }
+}

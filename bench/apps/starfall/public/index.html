@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Starfall</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/game.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Starfall</h1>
+        <dl>
+          <div><dt>Score</dt><dd id="score">0</dd></div>
+          <div><dt>Lives</dt><dd id="lives"></dd></div>
+          <div><dt>Best</dt><dd id="best">0</dd></div>
+        </dl>
+      </header>
+      <div class="board">
+        <canvas width="800" height="600"></canvas>
+        <div id="overlay">
+          <h2>Catch the falling stars</h2>
+          <p>Click a star before it reaches the ground. Gold ones are worth more. Three misses and it's over.</p>
+          <button type="button">Play</button>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

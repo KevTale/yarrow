@@ -1,0 +1,17 @@
+{
+  "name": "recap",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Meeting notes in, a recap and its action items out.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

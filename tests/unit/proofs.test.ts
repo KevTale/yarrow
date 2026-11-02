@@ -221,9 +221,10 @@ describe("proofsMarkdown", () => {
     expect(text).toContain(
       "[docs/setup.md](https://github.com/o/r/blob/yarrow/42/docs/setup.md), as it reads on this branch",
     );
-    expect(text.match(/<!-- yarrow:proof \w+ -->/g)).toEqual([
+    expect(text.match(/<!-- yarrow:proof [\w ]+ -->/g)).toEqual([
       "<!-- yarrow:proof images -->",
-      "<!-- yarrow:proof images -->",
+      // The menu's screens are a phone's.
+      "<!-- yarrow:proof images phone -->",
       "<!-- yarrow:proof output -->",
       "<!-- yarrow:proof measure -->",
       "<!-- yarrow:proof document -->",
@@ -234,7 +235,9 @@ describe("proofsMarkdown", () => {
     const text = proofsMarkdown(proofs, links(false));
     expect(text).not.toContain("evidence");
     expect(text).toContain("[3 images](https://yarrow.run/runs/r), in Yarrow");
-    expect(text.match(/<!-- yarrow:proof images -->/g)).toHaveLength(2);
+    expect(text.match(/<!-- yarrow:proof images( phone)? -->/g)).toHaveLength(
+      2,
+    );
   });
 
   it("links the app, and is empty without proofs", () => {

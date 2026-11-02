@@ -194,8 +194,9 @@ export function proofsMarkdown(
   const parts: string[] = [];
   let hidden = 0;
   for (const proof of proofs) {
-    // A mark per proof, read by the bench (bench/run.ts).
-    const mark = `<!-- yarrow:proof ${proof.kind} -->`;
+    // A mark per proof, read by the bench (bench/run.ts); a phone's screens
+    // say so.
+    const mark = `<!-- yarrow:proof ${proof.kind}${proof.kind === "images" && proof.device === "phone" ? " phone" : ""} -->`;
     if (proof.kind === "images") {
       const after = input.image(proof.after);
       if (!after) {

@@ -1,0 +1,23 @@
+[project]
+name = "pace"
+version = "0.4.0"
+description = "A running log in the terminal."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+pace = "pace.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pace"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

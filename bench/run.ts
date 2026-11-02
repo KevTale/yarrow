@@ -1,14 +1,18 @@
 /**
- * The bench: files a scenario's ticket on a bench repository, waits for
- * Yarrow dev to answer it, checks what came back and writes a report.
+ * The bench: files scenarios' tickets on the bench apps' repositories,
+ * waits for Yarrow dev to answer them, checks what came back (the proofs
+ * first) and writes a report.
  *
- *   pnpm bench <scenario> [--private] [--keep]
- *   pnpm bench sync [--private]     # bench/app onto the repository's main
  *   pnpm bench list
+ *   pnpm bench setup                    # each app's repository, made once
+ *   pnpm bench sync <app> [--private]   # bench/apps/<app> onto its main
+ *   pnpm bench <scenario|app|all>... [--private] [--keep]
  *
- * Runs as you, through the GitHub CLI (`gh auth login`): it only touches the
- * bench repositories. Real models answer, so a scenario costs what a
- * ticket costs. Reports land in bench/reports/ (not committed).
+ * Several scenarios run at once: each repository is cleaned and synced
+ * once, then every ticket is filed and followed together. Runs as you,
+ * through the GitHub CLI (`gh auth login`): it only touches the bench
+ * repositories. Real models answer, so a scenario costs what a ticket
+ * costs. Reports land in bench/reports/ (not committed).
  */
 import { execFileSync } from "node:child_process";
 import {
@@ -21,17 +25,40 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { scenarios, type Scenario } from "./scenarios";
+import {
+  apps,
+  scenarios,
+  type BenchApp,
+  type Scenario,
+  type Shown,
+} from "./scenarios";
 
 const OWNER = process.env.BENCH_OWNER ?? "KevTale";
-const APP = join(import.meta.dirname, "app");
+/** The dev GitHub App: a repository it is installed on becomes a project. */
+const APP_SLUG = process.env.BENCH_APP_SLUG ?? "yarrow-run-dev";
+const APPS = join(import.meta.dirname, "apps");
 const REPORTS = join(import.meta.dirname, "reports");
 const POLL_MS = 30_000;
-const TIMEOUT_MS = 60 * 60_000;
+// Five runs at a time per account: a ticket may wait for others first.
+const TIMEOUT_MS = 150 * 60_000;
+/** Never pushed: installs, builds, local settings. */
+const LOCAL = new Set([
+  "node_modules",
+  ".env",
+  ".env.local",
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".next",
+  "dist",
+  "outbox",
+  "next-env.d.ts",
+]);
 
 const args = process.argv.slice(2);
-const command = args.find((arg) => !arg.startsWith("--")) ?? "list";
-const repo = `${OWNER}/yarrow-bench-app${args.includes("--private") ? "-private" : ""}`;
+const flags = new Set(args.filter((arg) => arg.startsWith("--")));
+const names = args.filter((arg) => !arg.startsWith("--"));
+const command = names[0] ?? "list";
 
 function gh(argv: string[], input?: string): string {
   return execFileSync("gh", argv, {
@@ -48,21 +75,76 @@ const git = (dir: string, ...argv: string[]) =>
 const elapsed = (start: number) =>
   `${Math.round((Date.now() - start) / 60_000)} min`;
 
-/** The repository's main becomes bench/app as it is here. */
-function sync(): void {
+function appNamed(name: string): BenchApp {
+  const app = apps.find((candidate) => candidate.name === name);
+  if (!app) throw new Error(`No app "${name}". pnpm bench list`);
+  return app;
+}
+
+/** Tally also has a private twin, for what a private project shows. */
+const repositoryOf = (app: BenchApp) =>
+  `${OWNER}/${app.repository}${flags.has("--private") && app.name === "tally" ? "-private" : ""}`;
+
+/** Each app's repository, made public with the label Yarrow answers to. */
+function setup(): void {
+  for (const app of apps) {
+    const repo = repositoryOf(app);
+    const exists = (() => {
+      try {
+        gh(["repo", "view", repo, "--json", "name"]);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    if (!exists) {
+      gh([
+        "repo",
+        "create",
+        repo,
+        "--public",
+        "--description",
+        `Yarrow's bench: ${app.about}`,
+      ]);
+      console.log(`${repo}: made`);
+    }
+    sync(app);
+    try {
+      gh(["label", "create", "yarrow", "-R", repo, "--color", "4b3fd8"]);
+    } catch {
+      // Already there.
+    }
+  }
+  console.log(
+    `\nYarrow dev answers a repository once its GitHub App is installed on it: https://github.com/apps/${APP_SLUG}/installations/new`,
+  );
+}
+
+/** The repository's main becomes bench/apps/<app> as it is here. */
+function sync(app: BenchApp): void {
+  const repo = repositoryOf(app);
   const dir = mkdtempSync(join(tmpdir(), "yarrow-bench-"));
   gh(["repo", "clone", repo, dir, "--", "--quiet"]);
   for (const entry of readdirSync(dir))
     if (entry !== ".git") rmSync(join(dir, entry), { recursive: true });
-  cpSync(APP, dir, {
+  cpSync(join(APPS, app.name), dir, {
     recursive: true,
-    filter: (path) => !["node_modules", ".env"].includes(basename(path)),
+    filter: (path) => {
+      const name = basename(path);
+      return !LOCAL.has(name) && !name.endsWith(".egg-info");
+    },
   });
   git(dir, "add", "-A");
   if (!git(dir, "status", "--porcelain").trim()) {
     console.log(`${repo}: main is already the bench app`);
   } else {
-    git(dir, "commit", "--quiet", "-m", "Tally, as the bench starts from");
+    git(
+      dir,
+      "commit",
+      "--quiet",
+      "-m",
+      `${app.name}, as the bench starts from`,
+    );
     git(dir, "branch", "-M", "main");
     git(dir, "push", "--quiet", "origin", "main");
     console.log(`${repo}: main reset to the bench app`);
@@ -71,7 +153,7 @@ function sync(): void {
 }
 
 /** Earlier scenarios' tickets and pull requests, closed. */
-function clean(): void {
+function clean(repo: string): void {
   for (const pull of api<{ number: number }[]>(
     `repos/${repo}/pulls?state=open&per_page=100`,
   ))
@@ -103,11 +185,16 @@ type Outcome =
   | { kind: "abstained"; comment: string }
   | { kind: "timeout" };
 
-async function waitFor(issue: number, start: number): Promise<Outcome> {
+async function waitFor(
+  repo: string,
+  issue: number,
+  start: number,
+  label: string,
+): Promise<Outcome> {
   while (Date.now() - start < TIMEOUT_MS) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
     // Found by the ticket it names, closing it or not (checked later).
-    const pull = api<Pull[]>(`repos/${repo}/pulls?state=all&per_page=30`).find(
+    const pull = api<Pull[]>(`repos/${repo}/pulls?state=all&per_page=50`).find(
       (candidate) =>
         candidate.body?.includes(`Closes #${issue}`) ||
         candidate.body?.includes(`/${repo}/issues/${issue}`),
@@ -117,7 +204,8 @@ async function waitFor(issue: number, start: number): Promise<Outcome> {
       `repos/${repo}/issues/${issue}/comments`,
     ).find((candidate) => candidate.user.type === "Bot");
     if (comment) return { kind: "abstained", comment: comment.body };
-    console.log(`  … ${elapsed(start)}`);
+    if ((Date.now() - start) % (5 * 60_000) < POLL_MS)
+      console.log(`  … ${label}: ${elapsed(start)}`);
   }
   return { kind: "timeout" };
 }
@@ -127,8 +215,22 @@ interface Check {
   what: string;
 }
 
+/** What the description shows: each proof's mark, and the film. */
+export function shownIn(body: string): Set<Shown> {
+  const shown = new Set<Shown>();
+  for (const [, kind, phone] of body.matchAll(
+    /<!-- yarrow:proof (\w+)( phone)? -->/g,
+  )) {
+    shown.add(kind as Shown);
+    if (phone) shown.add("phone");
+  }
+  if (body.includes("## Presentation")) shown.add("film");
+  return shown;
+}
+
 async function check(
   scenario: Scenario,
+  repo: string,
   issue: number,
   outcome: Outcome,
   folder: string,
@@ -166,24 +268,84 @@ async function check(
       what: `Touches ${prefix} (${files.join(", ")})`,
     });
 
-  // Every pull request is presented: the poster in a public description,
-  // the timeline read from the run's page, as the player reads it.
-  const images = [...body.matchAll(/!\[([^\]]*)\]\((https:[^)\s]+)\)/g)];
+  // The proofs: what fits the ticket, and nothing that does not.
+  const shown = shownIn(body);
+  const list = [...shown].join(", ") || "nothing";
+  for (const kind of scenario.expect.shows ?? [])
+    checks.push({ ok: shown.has(kind), what: `Shows ${kind} (${list})` });
+  const oneOf = scenario.expect.showsOneOf;
+  if (oneOf)
+    checks.push({
+      ok: oneOf.some((kind) => shown.has(kind)),
+      what: `Shows ${oneOf.join(" or ")} (${list})`,
+    });
+  for (const kind of scenario.expect.hides ?? [])
+    checks.push({ ok: !shown.has(kind), what: `No ${kind}: noise here` });
+  if (scenario.expect.notVerified)
+    checks.push({
+      ok: body.includes("## Not verified"),
+      what: "Says what could not be verified",
+    });
+
   const runUrl = body.match(/https:\/\/[^\s)/]+\/runs\/[0-9a-f-]{36}/)?.[0];
-  checks.push({
-    ok: body.includes("## Presentation") && Boolean(runUrl),
-    what: "Presents it, linked to the run in Yarrow",
-  });
+  const proof = /## Proof\n\n([\s\S]*?)(\n## |$)/.exec(body)?.[1] ?? "";
+  if (shown.has("app"))
+    checks.push({
+      ok: /\[Try it in the app\]\(https:\/\/[^)\s]+\/preview\/[^)\s]+\?path=%2F[^)\s]*\)/.test(
+        proof,
+      ),
+      what: "Links the app at its page",
+    });
+  if (shown.has("document")) {
+    const link = proof.match(
+      /\]\((https:\/\/github\.com\/[^)\s]+\/blob\/[^)\s]+)\), as it reads on this branch/,
+    )?.[1];
+    const response = link ? await fetch(link, { method: "HEAD" }) : null;
+    checks.push({
+      ok: response?.ok ?? false,
+      what: `Links the document on the branch (${response?.status ?? "no link"})`,
+    });
+  }
+
   if (repo.endsWith("-private")) {
     checks.push({
-      ok: images.length === 0,
+      ok: !/!\[[^\]]*\]\(https:/.test(body),
       what: "No image in a private description",
     });
     return checks;
   }
-  const poster = images.find(([, , url]) => url?.endsWith("-poster.jpg"));
+  // A public project's screens show in the description, served.
+  const image = proof.match(/!\[[^\]]*\]\((https:[^)\s]+)\)/)?.[1];
+  if (shown.has("images") || shown.has("phone")) {
+    const response = image ? await fetch(image) : null;
+    const ok =
+      response?.ok === true &&
+      (response.headers.get("content-type") ?? "").startsWith("image/");
+    if (ok && response)
+      writeFileSync(
+        join(folder, basename(new URL(image!).pathname)),
+        new Uint8Array(await response.arrayBuffer()),
+      );
+    checks.push({
+      ok,
+      what: `Its screens served (${response?.status ?? "no image"})`,
+    });
+  }
+  if (shown.has("film") && runUrl)
+    checks.push(...(await filmChecks(body, runUrl, folder)));
+  return checks;
+}
+
+/** The film, when there is one: its still, every chapter filmed and voiced. */
+async function filmChecks(
+  body: string,
+  runUrl: string,
+  folder: string,
+): Promise<Check[]> {
+  const checks: Check[] = [];
+  const poster = body.match(/\((https:[^)\s]+-poster\.jpg)\)/)?.[1];
   if (poster) {
-    const response = await fetch(poster[2]!);
+    const response = await fetch(poster);
     const ok =
       response.ok && response.headers.get("content-type") === "image/jpeg";
     if (ok)
@@ -191,9 +353,9 @@ async function check(
         join(folder, "poster.jpg"),
         new Uint8Array(await response.arrayBuffer()),
       );
-    checks.push({ ok, what: `Poster served (${response.status})` });
-  } else checks.push({ ok: false, what: "A poster in the description" });
-  if (!runUrl) return checks;
+    checks.push({ ok, what: `The film's still served (${response.status})` });
+  } else
+    checks.push({ ok: false, what: "The film's still in the description" });
   const origin = new URL(runUrl).origin;
   const runId = runUrl.split("/").pop()!;
   // The run keeps its artifacts once the pull request is open: a few
@@ -213,14 +375,17 @@ async function check(
           title: string;
           tab: string;
           before: boolean;
-          say: string;
-          video: { key: string } | null;
+          desktop?: boolean;
+          video: { key: string; width?: number } | null;
           audio: { key: string } | null;
         }[];
       })
     : null;
   if (!timeline) {
-    checks.push({ ok: false, what: "The timeline, from the run's page" });
+    checks.push({
+      ok: false,
+      what: "The film's timeline, from the run's page",
+    });
     return checks;
   }
   writeFileSync(
@@ -231,7 +396,7 @@ async function check(
   checks.push(
     {
       ok: chapters.length >= 2,
-      what: `${chapters.length} chapters: ${chapters.map((chapter) => `${chapter.title} (${chapter.tab})`).join(", ")}`,
+      what: `${chapters.length} chapters: ${chapters.map((chapter) => `${chapter.title} (${chapter.tab}${chapter.before ? ", before" : ""})`).join(", ")}`,
     },
     {
       ok: chapters.every((chapter) => chapter.video),
@@ -241,82 +406,34 @@ async function check(
       ok: Boolean(timeline.voice) && chapters.every((chapter) => chapter.audio),
       what: `Voiced${timeline.voice ? ` by ${timeline.voice.provider}` : ": no"}`,
     },
+    {
+      ok: chapters.some((chapter) => chapter.tab === "app" && !chapter.before),
+      what: "Shows the app as it is now",
+    },
+    {
+      ok: chapters.at(-1)?.tab !== "ticket",
+      what: "Ends on the change, not the ticket",
+    },
   );
-  for (const tab of scenario.expect.shows ?? [])
-    checks.push({
-      ok: chapters.some((chapter) => chapter.tab === tab && !chapter.before),
-      what: `Shows it in the ${tab}`,
-    });
-  // A change one can see opens on the app as it was, never on the ticket.
-  if (scenario.expect.shows?.includes("app"))
-    checks.push({
-      ok: chapters[0]?.tab === "app" && chapters[0].before,
-      what: "Opens on the app as it was",
-    });
-  // A documentation change opens on the document as it was.
-  if (scenario.expect.shows?.includes("document"))
-    checks.push({
-      ok: chapters[0]?.tab === "document" && chapters[0].before,
-      what: "Opens on the document as it was",
-    });
-  checks.push({
-    ok: chapters.at(-1)?.tab !== "ticket",
-    what: "Ends on the change, not the ticket",
-  });
-  // The app and its runs are filmed on the desktop, not as a page alone.
-  const filmable = chapters.filter((chapter) => chapter.tab !== "ticket");
-  checks.push({
-    ok:
-      filmable.length > 0 &&
-      filmable.every(
-        (chapter) => chapter.desktop || (chapter.video?.width ?? 0) < 600,
-      ),
-    what: "Filmed on the desktop",
-  });
-  // The player reads clips in ranges.
-  const clip = chapters.find((chapter) => chapter.video)?.video;
-  if (clip) {
-    const response = await fetch(`${origin}/evidence/${clip.key}`, {
-      headers: { range: "bytes=0-1023" },
-    });
-    await response.body?.cancel();
-    const served = response.headers.get("content-range");
-    const type = response.headers.get("content-type");
-    checks.push({
-      ok:
-        response.status === 206 &&
-        type === (clip.key.endsWith(".mp4") ? "video/mp4" : "video/webm") &&
-        /^bytes 0-1023\/\d+$/.test(served ?? ""),
-      what: `A clip served in ranges (${response.status}, ${type}, ${served})`,
-    });
-  }
   return checks;
 }
 
-async function run(scenario: Scenario): Promise<void> {
-  const start = Date.now();
+interface Filed {
+  scenario: Scenario;
+  repo: string;
+  issue: { number: number; html_url: string };
+  start: number;
+}
+
+async function follow(filed: Filed): Promise<boolean> {
+  const { scenario, repo, issue, start } = filed;
   const folder = join(
     REPORTS,
     `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${scenario.name}${repo.endsWith("-private") ? "-private" : ""}`,
   );
   mkdirSync(folder, { recursive: true });
-  console.log(`${scenario.name} on ${repo}: ${scenario.about}`);
-  if (!args.includes("--keep")) clean();
-  sync();
-  const issue = JSON.parse(
-    gh(
-      ["api", `repos/${repo}/issues`, "--input", "-"],
-      JSON.stringify({
-        title: scenario.title,
-        body: scenario.body,
-        labels: ["yarrow"],
-      }),
-    ),
-  ) as { number: number; html_url: string };
-  console.log(`  ticket ${issue.html_url}, waiting for Yarrow dev`);
-
-  const outcome = await waitFor(issue.number, start);
-  const checks = await check(scenario, issue.number, outcome, folder);
+  const outcome = await waitFor(repo, issue.number, start, scenario.name);
+  const checks = await check(scenario, repo, issue.number, outcome, folder);
   const runUrl =
     outcome.kind === "pull_request"
       ? // The run's page sits at the root, unlike its evidence.
@@ -348,21 +465,71 @@ async function run(scenario: Scenario): Promise<void> {
     .join("\n");
   writeFileSync(join(folder, "report.md"), report);
   console.log(
-    `\n${checks.map((item) => `${item.ok ? "✅" : "❌"} ${item.what}`).join("\n")}\n\n${passed ? "Passed" : "FAILED"} in ${elapsed(start)}. Report: ${folder}`,
+    `\n${scenario.name} ${passed ? "passed" : "FAILED"} in ${elapsed(start)}${outcome.kind === "pull_request" ? `, ${outcome.pull.html_url}` : ""}\n${checks.map((item) => `  ${item.ok ? "✅" : "❌"} ${item.what}`).join("\n")}\n  Report: ${folder}`,
   );
-  if (!passed) process.exitCode = 1;
+  return passed;
+}
+
+/** The scenarios named: by name, by app, or all. */
+function chosen(): Scenario[] {
+  const picked = new Set<Scenario>();
+  for (const name of names) {
+    const matches =
+      name === "all"
+        ? scenarios
+        : scenarios.filter(
+            (scenario) => scenario.name === name || scenario.app === name,
+          );
+    if (matches.length === 0) {
+      console.error(`No scenario or app "${name}". pnpm bench list`);
+      process.exit(1);
+    }
+    for (const scenario of matches) picked.add(scenario);
+  }
+  return [...picked];
+}
+
+async function run(picked: Scenario[]): Promise<void> {
+  const filed: Filed[] = [];
+  for (const name of new Set(picked.map((scenario) => scenario.app))) {
+    const app = appNamed(name);
+    const repo = repositoryOf(app);
+    if (!flags.has("--keep")) clean(repo);
+    sync(app);
+    for (const scenario of picked.filter((item) => item.app === name)) {
+      const issue = JSON.parse(
+        gh(
+          ["api", `repos/${repo}/issues`, "--input", "-"],
+          JSON.stringify({
+            title: scenario.title,
+            body: scenario.body,
+            labels: ["yarrow"],
+          }),
+        ),
+      ) as { number: number; html_url: string };
+      console.log(`${scenario.name}: ${issue.html_url}`);
+      filed.push({ scenario, repo, issue, start: Date.now() });
+    }
+  }
+  console.log(`\nWaiting for Yarrow dev on ${filed.length} ticket(s)`);
+  const results = await Promise.all(filed.map(follow));
+  const failed = filed.filter((_, index) => !results[index]);
+  console.log(
+    `\n${filed.length - failed.length}/${filed.length} passed${failed.length ? `; failed: ${failed.map((item) => item.scenario.name).join(", ")}` : ""}`,
+  );
+  if (failed.length) process.exitCode = 1;
 }
 
 if (command === "list") {
-  for (const scenario of scenarios)
-    console.log(`${scenario.name.padEnd(12)} ${scenario.about}`);
-} else if (command === "sync") {
-  sync();
-} else {
-  const scenario = scenarios.find((candidate) => candidate.name === command);
-  if (!scenario) {
-    console.error(`No scenario "${command}". pnpm bench list`);
-    process.exit(1);
+  for (const app of apps) {
+    console.log(`${app.name} (${OWNER}/${app.repository}): ${app.about}`);
+    for (const scenario of scenarios.filter((item) => item.app === app.name))
+      console.log(`  ${scenario.name.padEnd(12)} ${scenario.about}`);
   }
-  await run(scenario);
+} else if (command === "setup") {
+  setup();
+} else if (command === "sync") {
+  sync(appNamed(names[1] ?? "tally"));
+} else {
+  await run(chosen());
 }

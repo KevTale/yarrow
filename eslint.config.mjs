@@ -14,8 +14,8 @@ export default defineConfig([
     "test-results/**",
     // Vendored agent skills (npx skills add): not our code.
     ".claude/skills/**",
-    // The bench's app: its own project, pushed to the bench repositories.
-    "bench/app/**",
+    // The bench's apps: their own projects, pushed to the bench repositories.
+    "bench/apps/**",
     // What bench runs and throwaway tests leave behind (gitignored).
     "bench/reports/**",
   ]),

@@ -1,0 +1,9 @@
+[
+  {"date": "2026-10-04", "km": 5, "seconds": 1610, "note": "first run back"},
+  {"date": "2026-10-07", "km": 8, "seconds": 2700, "note": ""},
+  {"date": "2026-10-11", "km": 5, "seconds": 1545, "note": "parkrun"},
+  {"date": "2026-10-14", "km": 12, "seconds": 4080, "note": "long and slow"},
+  {"date": "2026-10-18", "km": 5, "seconds": 1512, "note": "parkrun, windy"},
+  {"date": "2026-10-21", "km": 10, "seconds": 3190, "note": ""},
+  {"date": "2026-10-25", "km": 21.1, "seconds": 7020, "note": "half marathon"}
+]

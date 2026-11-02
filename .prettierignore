@@ -12,3 +12,4 @@ playwright-report
 skills-lock.json
 video/out
 src/runner/recorder/source.ts
+bench/apps

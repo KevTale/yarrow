@@ -16,6 +16,12 @@
     "isolatedModules": true,
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "bench/*.ts",
+    "*.ts"
+  ],
   "exclude": ["node_modules", "workers", "dist", ".wrangler"]
 }
