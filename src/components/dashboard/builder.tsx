@@ -826,11 +826,13 @@ function TicketGroup({
  */
 /** The page's scroll padding: what a row brought into view stays under. */
 const OVER_ROW = 100;
+/** What the member does that leaves the page to them. */
+const TAKEN_OVER = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
 
 /**
  * An opened row comes to the middle of the window, or under the header when
  * it is taller, the whole time it and the page settle (what it holds loads,
- * the row closing elsewhere folds), until the member scrolls themselves.
+ * the row closing elsewhere folds), until the member takes over.
  */
 function useOpenedInView(row: RefObject<HTMLElement | null>, open: boolean) {
   useEffect(() => {
@@ -843,16 +845,13 @@ function useOpenedInView(row: RefObject<HTMLElement | null>, open: boolean) {
     settling.observe(opened);
     settling.observe(document.body);
     const stop = () => settling.disconnect();
-    const settled = window.setTimeout(stop, 1200);
-    window.addEventListener("wheel", stop, { passive: true });
-    window.addEventListener("touchmove", stop, { passive: true });
-    window.addEventListener("keydown", stop);
+    const settled = window.setTimeout(stop, 4000);
+    for (const event of TAKEN_OVER)
+      window.addEventListener(event, stop, { passive: true });
     return () => {
       stop();
       window.clearTimeout(settled);
-      window.removeEventListener("wheel", stop);
-      window.removeEventListener("touchmove", stop);
-      window.removeEventListener("keydown", stop);
+      for (const event of TAKEN_OVER) window.removeEventListener(event, stop);
     };
   }, [row, open]);
 }
