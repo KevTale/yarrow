@@ -41,6 +41,13 @@ describe("the presentation's voice heard by the microphone", () => {
       ),
     ).toBe("Attends, stop. Ça, ça gueule.");
     expect(withoutEcho("So eight in all, four to do.", voice)).toBe("");
+    expect(
+      withoutEcho(
+        "So eight in all, four to do. Attends, le compteur Done est juste ?",
+        voice,
+      ),
+    ).toBe("Attends, le compteur Done est juste ?");
+    expect(withoutEcho("¿ Y eso ?", "")).toBe("¿ Y eso ?");
     // A word or two of it, in the member's own sentence, stays theirs.
     expect(withoutEcho("Click Done, please.", voice)).toBe(
       "Click Done, please.",

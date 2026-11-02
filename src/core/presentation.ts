@@ -372,7 +372,16 @@ export function withoutEcho(heard: string, voice: string, run = 3): string {
   const at = new Map<string, number[]>();
   for (const [p, word] of said.entries())
     at.set(word, [...(at.get(word) ?? []), p]);
-  const words = heard.split(/\s+/).filter((word) => heardAs(word));
+  // A mark set apart, as French writes « juste ? », goes with its word.
+  const words: string[] = [];
+  let mark = "";
+  for (const word of heard.split(/\s+/).filter(Boolean)) {
+    if (heardAs(word)) {
+      words.push(mark + word);
+      mark = "";
+    } else if (words.length) words[words.length - 1] += ` ${word}`;
+    else mark += `${word} `;
+  }
   const keys = words.map(heardAs);
   const kept: string[] = [];
   for (let i = 0; i < words.length;) {
