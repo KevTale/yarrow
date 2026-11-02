@@ -1418,6 +1418,23 @@ class Desktop {
     }
   }
 
+  /** Where the window is on the screen, as X places it: in the screen's units. */
+  corner(id, box) {
+    try {
+      const listing = this.x("xdotool", [
+        "getwindowgeometry",
+        "--shell",
+        String(id),
+      ]);
+      const x = listing.match(/^X=(-?\d+)/m);
+      const y = listing.match(/^Y=(-?\d+)/m);
+      if (x && y) return { x: Number(x[1]), y: Number(y[1]) };
+    } catch {
+      // Unread: where it was placed.
+    }
+    return { x: box.x, y: box.y };
+  }
+
   raise(id) {
     try {
       this.x("wmctrl", ["-i", "-a", "0x" + id.toString(16)]);
@@ -2153,21 +2170,20 @@ class Desktop {
    */
   async switchTab(which, clock, marks) {
     const page = this.tabs.pages[which];
-    const frame = await page.evaluate(() => ({
-      x: window.screenX,
-      y: window.screenY,
-    }));
-    const low = (frame.y + TABS.y + 9) * ZOOM;
+    // From X, not the page: a tab behind gives its page's corner as the
+    // window's, the strip aimed 110 px low, in the app.
+    const frame = this.corner(this.ids.browser, WINDOWS.browser);
+    const low = frame.y + (TABS.y + 9) * ZOOM;
     const front = this.frontTab(low);
     let tab = TABS.width * ZOOM;
-    let left = (frame.x + TABS.left) * ZOOM + tab * TWINS.indexOf(which);
+    let left = frame.x + TABS.left * ZOOM + tab * TWINS.indexOf(which);
     if (front) {
       tab = front.end - front.start;
       const step = TWINS.indexOf(which) - TWINS.indexOf(this.tabs.active);
       left = front.start + tab * step;
     }
     // Its title's side, away from its close button.
-    const spot = { x: left + tab * 0.35, y: (frame.y + TABS.y) * ZOOM };
+    const spot = { x: left + tab * 0.35, y: frame.y + TABS.y * ZOOM };
     const on = (shown) =>
       shown && shown.start <= spot.x && spot.x < shown.end;
     let at = 0;
