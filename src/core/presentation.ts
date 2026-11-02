@@ -61,6 +61,9 @@ export const liveActionSchema = z.object({
     "wait",
   ]),
   target: z.string().max(500).optional(),
+  /** Instead of a target: an expression the page answers with a point of it. */
+  at: z.string().max(2000).optional(),
+  times: z.number().optional(),
   text: loose.optional(),
   value: loose.optional(),
   key: z.string().max(100).optional(),

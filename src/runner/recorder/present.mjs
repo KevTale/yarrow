@@ -156,7 +156,18 @@ function check(plan) {
           "type",
           "select",
         ].includes(action.do);
-        if (needs && !action.target)
+        const aimed = ["point", "hover", "click"].includes(action.do);
+        if (
+          action.at !== undefined &&
+          (!aimed || typeof action.at !== "string")
+        )
+          problems.push(
+            at +
+              ".actions[" +
+              j +
+              "].at: an expression, for point, hover or click",
+          );
+        if (needs && !action.target && !(aimed && action.at))
           problems.push(
             at + ".actions[" + j + "].target: a Playwright selector",
           );
@@ -523,6 +534,38 @@ function join(base, route) {
   return base.replace(/\/$/, "") + "/" + String(route).replace(/^\//, "");
 }
 
+/**
+ * Where an "at" action aims: the plan's expression, answered by the page as
+ * a point of it ({x, y}), asked until it has one. For what no selector
+ * reaches: a star on a canvas, a sprite. An arrow function is called.
+ */
+async function aim(page, expression, ms = 4000) {
+  const start = Date.now();
+  for (;;) {
+    const spot = await page
+      .evaluate(
+        `(() => { const v = (${expression}); return typeof v === "function" ? v() : v; })()`,
+      )
+      .catch(() => null);
+    if (spot && Number.isFinite(spot.x) && Number.isFinite(spot.y))
+      return { x: spot.x, y: spot.y };
+    if (Date.now() - start >= ms) return null;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+/** How many times an "at" action goes: a few catches in a row, at most 10. */
+const repeats = (action) =>
+  Math.min(Math.max(Math.round(Number(action.times) || 1), 1), 10);
+
+/** A pointer's mark around an aimed point. */
+const around = (spot) => ({
+  x: Math.round(spot.x) - 14,
+  y: Math.round(spot.y) - 14,
+  width: 28,
+  height: 28,
+});
+
 async function act(page, base, action, marks, clock) {
   const kind = action.do;
   if (kind === "wait")
@@ -545,6 +588,29 @@ async function act(page, base, action, marks, clock) {
       Number(action.y) || 400,
     );
     return page.waitForTimeout(900);
+  }
+  if (action.at) {
+    for (let i = 0; i < repeats(action); i++) {
+      const spot = await aim(page, action.at);
+      if (!spot) throw new Error("nothing to aim at");
+      await moveTo(page, spot.x, spot.y, 260);
+      // A moving target: aimed again once the pointer is there.
+      const now = (await aim(page, action.at, 0)) || spot;
+      if (kind !== "click") {
+        marks.push({ atMs: clock(), kind: "point", box: around(now) });
+        await page.waitForTimeout(Math.min(Number(action.ms) || 1600, 6000));
+        continue;
+      }
+      await moveTo(page, now.x, now.y, 40);
+      marks.push({ atMs: clock(), kind: "click", box: around(now) });
+      await page.evaluate(
+        ([cx, cy]) => window.__yarrow?.tap(cx, cy),
+        [now.x, now.y],
+      );
+      await page.mouse.click(now.x, now.y);
+      await page.waitForTimeout(Math.min(Number(action.ms) || 120, 3000));
+    }
+    return;
   }
   const locator = page.locator(action.target).first();
   await locator.waitFor({ state: "visible", timeout: 8000 });
@@ -2665,6 +2731,28 @@ class Desktop {
         Number(action.y) || 400,
       );
       return sleep(900);
+    }
+    if (action.at) {
+      for (let i = 0; i < repeats(action); i++) {
+        const spot = await aim(page, action.at);
+        if (!spot) throw new Error("nothing to aim at");
+        await this.glideTo(page, spot.x, spot.y, 260);
+        // A moving target: aimed again once the pointer is there.
+        const now = (await aim(page, action.at, 0)) || spot;
+        if (kind !== "click") {
+          marks.push({ atMs: clock(), kind: "point", box: around(now) });
+          await sleep(Math.min(Number(action.ms) || 1600, 6000));
+          continue;
+        }
+        if (now !== spot) {
+          const there = await this.screenOf(page, now.x, now.y);
+          await this.glide(there.x, there.y, 60);
+        }
+        marks.push({ atMs: clock(), kind: "click", box: around(now) });
+        await this.click();
+        await sleep(Math.min(Number(action.ms) || 120, 3000));
+      }
+      return;
     }
     const locator = page.locator(action.target).first();
     await locator.waitFor({ state: "visible", timeout: 8000 });

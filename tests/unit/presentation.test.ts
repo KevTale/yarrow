@@ -529,6 +529,12 @@ describe("the recorder", () => {
     expect(check({ ...now, actions: [{ do: "circle" }] }).stderr).toContain(
       "a Playwright selector",
     );
-    // Four runs of the recorder, slower while every test file runs.
-  }, 30_000);
+    // What no selector reaches, a star on a canvas: a point the page gives.
+    const aimed = { do: "click", at: "() => null", times: 3 };
+    expect(check({ ...now, actions: [aimed] }).status).toBe(0);
+    expect(
+      check({ ...now, actions: [{ ...aimed, do: "fill" }] }).stderr,
+    ).toContain("an expression, for point, hover or click");
+    // Six runs of the recorder, slower while every test file runs.
+  }, 45_000);
 });
