@@ -189,8 +189,12 @@ export async function boardsForProject(db: Database, projectId: string) {
     .where(eq(trackerBoards.projectId, projectId));
 }
 
-/** The Jira sites connected by the accounts a user belongs to. */
-export async function jiraConnectionsForUser(db: Database, userId: string) {
+/** A tracker's connections (Jira sites, Linear workspaces) in a user's accounts. */
+export async function connectionsForUser(
+  db: Database,
+  userId: string,
+  tracker: Tracker,
+) {
   return db
     .select({
       id: trackerConnections.id,
@@ -205,7 +209,7 @@ export async function jiraConnectionsForUser(db: Database, userId: string) {
         eq(accountMembers.userId, userId),
       ),
     )
-    .where(eq(trackerConnections.tracker, "jira"));
+    .where(eq(trackerConnections.tracker, tracker));
 }
 
 /** Where a Jira project is mapped among a user's projects, if anywhere. */
@@ -313,4 +317,21 @@ export async function ticketKnown(
       ),
     );
   return Boolean(row);
+}
+
+/** A tracker's connections to one workspace (a Linear organization). */
+export async function connectionsOfWorkspace(
+  db: Database,
+  tracker: Tracker,
+  externalId: string,
+) {
+  return db
+    .select()
+    .from(trackerConnections)
+    .where(
+      and(
+        eq(trackerConnections.tracker, tracker),
+        eq(trackerConnections.externalId, externalId),
+      ),
+    );
 }

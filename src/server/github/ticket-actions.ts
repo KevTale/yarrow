@@ -107,14 +107,18 @@ export async function closePull(
 
 /**
  * Closes a ticket from the dashboard: a GitHub issue is closed as not
- * planned (a Jira ticket was moved to done by the web Worker already), its
+ * planned (a tracker ticket was moved to done by the web Worker already), its
  * open pull request is closed, and Yarrow stops waiting on it. Work at run
  * is never interrupted.
  */
 export async function closeTicket(
   db: Database,
   credentials: AppCredentials,
-  input: { projectId: string; key: string; source: "github" | "jira" },
+  input: {
+    projectId: string;
+    key: string;
+    source: "github" | "jira" | "linear";
+  },
   fetcher?: Fetch,
 ): Promise<ActionResult> {
   const project = await projectFor(db, input.projectId);

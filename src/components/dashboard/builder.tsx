@@ -33,11 +33,11 @@ import {
   setProjectLogoFn,
   unqueueTicketsFn,
 } from "@/functions/builder.functions";
-import { JiraIcon } from "@/components/brand-icons";
+import { TrackerIcon } from "@/components/brand-icons";
 import { LogoPicker } from "@/components/logo-picker";
 import { longDate, useDateTime } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
-import type { JiraStep } from "@/server/trackers/jira-flow";
+import type { JiraStep } from "@/server/trackers/flow";
 import { JiraCard } from "./jira-card";
 import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
@@ -1057,15 +1057,15 @@ const refColumn = (rows: TicketRow[]) =>
     "--ref-ch": Math.max(3, ...rows.map((row) => row.ref.length)),
   }) as React.CSSProperties;
 
-/** "#42" or a Jira key, with its source's mark in front. */
+/** "#42" or a Jira or Linear key, with its source's mark in front. */
 function TicketRef({ row }: { row: TicketRow }) {
   return (
     <span className={`bd-num ${row.source}`}>
       <span className="bd-source">
-        {row.source === "jira" ? (
-          <JiraIcon size={12} />
-        ) : (
+        {row.source === "github" ? (
           <Github size={12} aria-hidden="true" />
+        ) : (
+          <TrackerIcon tracker={row.source} size={12} />
         )}
       </span>
       {row.ref}

@@ -1,16 +1,16 @@
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { jiraProject } from "@/core/ticket-link";
+import { boardOfKey } from "@/core/ticket-link";
 import {
   dismissConnectFn,
   linkJiraFn,
-  listJiraProjectsFn,
+  listTrackerBoardsFn,
 } from "@/functions/connect.functions";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { JiraIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
-import type { JiraStep } from "@/server/trackers/jira-flow";
+import type { JiraStep } from "@/server/trackers/flow";
 
 /**
  * A Jira link pasted on the landing, or "Connect Jira": which repository
@@ -27,11 +27,11 @@ export function JiraCard({
   onClose: () => void;
 }) {
   const link = useServerFn(linkJiraFn);
-  const listProjects = useServerFn(listJiraProjectsFn);
+  const listProjects = useServerFn(listTrackerBoardsFn);
   const dismiss = useServerFn(dismissConnectFn);
   const [projectId, setProjectId] = useState(step.projects[0]?.id ?? "");
   const [jiraKey, setJiraKey] = useState(
-    step.ticket ? jiraProject(step.ticket) : "",
+    step.ticket ? boardOfKey(step.ticket) : "",
   );
   const [jiraProjects, setJiraProjects] = useState<
     { id: string; name: string }[] | null
@@ -47,7 +47,7 @@ export function JiraCard({
     if (step.ticket || !connectionId) return;
     let stopped = false;
     listProjects({ data: { connectionId } })
-      .then(({ projects, revoked }) => {
+      .then(({ boards: projects, revoked }) => {
         if (stopped) return;
         if (revoked)
           return setError("Jira access was removed. Connect Jira again.");

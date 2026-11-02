@@ -338,8 +338,8 @@ export const answerTicketFn = createServerFn({ method: "POST" })
   });
 
 /**
- * Closes a ticket where it lives (a GitHub issue as not planned, a Jira
- * ticket moved to done) and its open pull request; it leaves the list.
+ * Closes a ticket where it lives (a GitHub issue as not planned, a Jira or
+ * Linear ticket moved to done) and its open pull request; it leaves the list.
  */
 export const closeTicketFn = createServerFn({ method: "POST" })
   .validator(ticketRef)
@@ -350,10 +350,10 @@ export const closeTicketFn = createServerFn({ method: "POST" })
     );
     const brain = appEnv().BRAIN;
     if (!brain) return unavailable;
-    const source = githubKey(data.key) ? "github" : "jira";
-    if (source === "jira")
+    let source: "github" | "jira" | "linear" = "github";
+    if (!githubKey(data.key))
       try {
-        await withDb((db) =>
+        source = await withDb((db) =>
           closeTrackerTicket(db, trackerContext(), project.id, data.key),
         );
       } catch (error) {

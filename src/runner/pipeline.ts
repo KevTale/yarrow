@@ -39,7 +39,7 @@ import {
   type TrackerName,
   type TrackerSecrets,
 } from "../server/trackers/index";
-import { moveTrackerTicket } from "../server/trackers/jira-flow";
+import { moveTrackerTicket } from "../server/trackers/flow";
 import {
   sessionActivity,
   syncRunActivity,

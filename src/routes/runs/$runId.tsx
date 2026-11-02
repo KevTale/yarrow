@@ -13,7 +13,7 @@ import { money } from "@/core/packs";
 import { modelDisplayName } from "@/core/pipeline";
 import { bareTitle, ticketIdentity } from "@/core/tickets";
 import { getRunFn } from "@/functions/public.functions";
-import { JiraIcon } from "@/components/brand-icons";
+import { TrackerIcon } from "@/components/brand-icons";
 import { BackArrow } from "@/components/back-arrow";
 import { Presentation } from "@/components/presentation";
 import { Markdown } from "@/components/markdown";
@@ -64,7 +64,9 @@ function RunPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                {run.source === "jira" && <JiraIcon size={12} />}
+                {run.source !== "github" && (
+                  <TrackerIcon tracker={run.source} size={12} />
+                )}
                 {ticket.ref}
                 <ExternalLink size={11} />
               </a>

@@ -77,6 +77,8 @@ How it runs: "Get a pull request" and "Connect" go to `/connect/github` (GitHub 
 
 All four trackers are built. Until each has run live, the landing marks Linear and Trello as "soon" (decided 2026-10-07).
 
+**Next sources (decided 2026-10-28):** Linear first, then Trello; GitLab and Azure DevOps only when a builder asks, since a team on either keeps its code there too, which means a second code host (branch, commit, merge request, merge), not one more tracker.
+
 **Jira (decided 2026-10-08):** Jira holds the tickets, GitHub holds the code; GitHub stays the only code host (GitLab, Bitbucket and Azure DevOps would each need their own branch, commit, PR and merge plumbing, later and on demand). The landing offers Jira as soon as the deployment has its Atlassian OAuth app. The builder's journey:
 1. Paste a Jira link (`acme.atlassian.net/browse/APP-42`, or a board link with `selectedIssue=`), or choose Jira and Connect.
 2. GitHub first, as for every source: sign in and install the App. A builder who already has a connected repository skips it.
@@ -87,6 +89,8 @@ All four trackers are built. Until each has run live, the landing marks Linear a
 7. Delivery: the branch and the PR title keep the key in capitals (`yarrow/APP-42-…`, `APP-42 Fix…`) so Jira links them to the ticket, and Yarrow comments on the ticket with the PR.
 
 One Jira project maps to one repository. Teams with one Jira project for several repositories wait for a V2 (for example, the repository chosen by the ticket's Component). Jira sites are named by their address (`acme.atlassian.net`).
+
+**Linear (decided 2026-10-28):** as Jira, wherever Jira goes. A team is a board, named by its key (`ENG`), and a ticket by its identifier (`ENG-42`), which Linear's API reads as well as its id; that is how a ticket finds its board, and the identifier in the branch and the PR title is how Linear's GitHub integration links them, so the PR title keeps it. The settings page connects Linear and picks the teams whose tickets the repository takes, then where tickets move as Yarrow works, among the team's own statuses (Linear lets a ticket go to any of them; never backwards, except Yarrow stopped). The dashboard lists the teams' open tickets beside GitHub's issues with Linear's mark, puts and takes the `yarrow` label (created for the team the first time, a workspace label of that name used when there is one), writes new tickets there in Markdown as the person who connected Linear, answers the agents' questions as comments, and closes tickets to the team's first completed status. The agents read the ticket's last 20 comments. Linear's access tokens last 24 hours since April 2026: Yarrow keeps the refresh token and refreshes like Jira's. The webhook is set once in the Linear OAuth app's settings (`/api/webhooks/linear`, Issues, its signing secret as `LINEAR_WEBHOOK_SECRET`) and reaches Yarrow for every workspace that allowed the app; deliveries are checked by signature and must be under a minute old; the 5-minute sync stays as the safety net. No Linear card on the dashboard for a pasted link: pasting is leaving the landing (below). Linear stays "soon" on the landing until it has run live.
 
 Later: appear as an assignable agent in Linear and Jira, so owners can simply assign a ticket to "Yarrow".
 
@@ -293,6 +297,8 @@ Track **cost per merged PR**, **merge rate** and **rejection reasons** from day 
 - Run pages respect the project's visibility tier.
 
 ## Leaderboards and showcase
+
+**Landing to be redone (decided 2026-10-28, the founder):** pasting a ticket link leaves the positioning, since nobody comes with one link to paste in real life. The landing presents the product and leads to one call to action, connecting to Yarrow: a repository and a ticket source among the supported ones (GitHub Issues, Jira, Linear…). What stays of the sponsors' part is open. Until it is redone, the landing below stays as it is.
 
 Reworked 2026-10-09. The landing serves builders and sponsors in that order: the hero is the builder's way in, and beside it the proof a sponsor needs (real work, with sponsors' names on it); then the place a sponsor takes. **The landing is the one place a sponsor's card is made, edited and topped up**, right in their own row on the boards; the dashboard's Sponsor tab shows the numbers and where the money goes (decided 2026-10-09: one entry point, no second board, no second card).
 

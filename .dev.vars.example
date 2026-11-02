@@ -22,6 +22,8 @@ GITHUB_APP_WEBHOOK_SECRET=
 # Tracker OAuth apps. Callback: <APP_URL>/integrations/<linear|jira>/callback
 LINEAR_CLIENT_ID=
 LINEAR_CLIENT_SECRET=
+# The Linear app's webhook: <APP_URL>/api/webhooks/linear, Issues; its signing secret.
+LINEAR_WEBHOOK_SECRET=
 JIRA_CLIENT_ID=
 JIRA_CLIENT_SECRET=
 # trello.com/power-ups/admin. Trello returns to <APP_URL>/integrations/trello-callback

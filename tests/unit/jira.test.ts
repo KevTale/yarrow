@@ -23,17 +23,17 @@ import {
 import {
   closeTrackerTicket,
   createTrackerTicket,
-  JiraAccessError,
-  jiraBoardSettings,
-  jiraProjects,
+  TrackerAccessError,
+  trackerBoardSettings,
+  listTrackerBoards,
   moveTrackerTicket,
-  setJiraMoves,
+  setTrackerMoves,
   labelTrackerTickets,
   openTrackerTickets,
-  setJiraProjects,
+  setTrackerBoards,
   settleJira,
   type TrackerContext,
-} from "../../src/server/trackers/jira-flow";
+} from "../../src/server/trackers/flow";
 import { createTestDatabase } from "./helpers/pglite";
 
 const key = btoa(
@@ -316,36 +316,36 @@ describe("Jira for builders", async () => {
     ]);
     await expect(
       labelTrackerTickets(db, ctx, project, ["OPS-3"], true),
-    ).rejects.toThrow("not in a linked Jira project");
+    ).rejects.toThrow("not in a linked board");
     // From the settings page: no Jira project any more, then APP again.
     const [connection] = await raw
       .select({ id: schema.trackerConnections.id })
       .from(schema.trackerConnections);
     const connectionId = connection!.id;
-    await setJiraProjects(db, ctx, marie.userId, {
+    await setTrackerBoards(db, ctx, marie.userId, {
       projectId,
       connectionId,
-      jiraKeys: [],
+      keys: [],
     });
     expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
     expect(await openTrackerTickets(db, ctx, projectId)).toBeNull();
-    await setJiraProjects(db, ctx, marie.userId, {
+    await setTrackerBoards(db, ctx, marie.userId, {
       projectId,
       connectionId,
-      jiraKeys: ["APP"],
+      keys: ["APP"],
     });
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
     // Access removed in Atlassian: told apart from Jira being down.
     const refusing = (async () =>
       new Response("{}", { status: 401 })) as typeof fetch;
     await expect(
-      jiraProjects(
+      listTrackerBoards(
         db,
         { ...ctx, fetcher: refusing },
         marie.userId,
         connectionId,
       ),
-    ).rejects.toBeInstanceOf(JiraAccessError);
+    ).rejects.toBeInstanceOf(TrackerAccessError);
   });
 
   it("names sites by their address and changes labels in one request", async () => {
@@ -411,11 +411,16 @@ describe("Jira for builders", async () => {
     };
     const connectionId = await connect();
     // No public address on this machine: nothing asked of Jira.
-    await setJiraProjects(db, { ...ctx, fetcher: site.fetcher }, marie.userId, {
-      projectId,
-      connectionId,
-      jiraKeys: ["APP"],
-    });
+    await setTrackerBoards(
+      db,
+      { ...ctx, fetcher: site.fetcher },
+      marie.userId,
+      {
+        projectId,
+        connectionId,
+        keys: ["APP"],
+      },
+    );
     expect(site.calls).toEqual([]);
     expect(await ensureJiraWebhooks(db, live)).toEqual([
       "acme.atlassian.net: registered",
@@ -449,10 +454,10 @@ describe("Jira for builders", async () => {
       await ensureJiraWebhooks(db, live, Date.parse("2026-11-20")),
     ).toEqual(["acme.atlassian.net: registered"]);
     // No linked project left: the webhook goes.
-    await setJiraProjects(db, live, marie.userId, {
+    await setTrackerBoards(db, live, marie.userId, {
       projectId,
       connectionId,
-      jiraKeys: [],
+      keys: [],
     });
     expect(site.hooks.size).toBe(0);
     const [removed] = await raw.select().from(schema.trackerConnections);
@@ -460,11 +465,11 @@ describe("Jira for builders", async () => {
     // A connection made before Yarrow asked for webhooks: linking still
     // works, the refusal is kept and the sync covers it.
     const refusing = withWebhooks(jira.fetcher, true);
-    await setJiraProjects(
+    await setTrackerBoards(
       db,
       { ...live, fetcher: refusing.fetcher },
       marie.userId,
-      { projectId, connectionId, jiraKeys: ["APP"] },
+      { projectId, connectionId, keys: ["APP"] },
     );
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
     const [failed] = await raw.select().from(schema.trackerConnections);
@@ -488,10 +493,10 @@ describe("Jira for builders", async () => {
       fetcher: site.fetcher,
     };
     const connectionId = await connect();
-    await setJiraProjects(db, live, marie.userId, {
+    await setTrackerBoards(db, live, marie.userId, {
       projectId,
       connectionId,
-      jiraKeys: ["APP"],
+      keys: ["APP"],
     });
     const delivery = (key: string) => ({
       webhookEvent: "jira:issue_updated",
@@ -568,10 +573,10 @@ describe("Jira for builders", async () => {
   it("creates a ticket written in Yarrow in the linked Jira project, queued when asked", async () => {
     const { projectId, ctx, jira, connect } = await setup();
     const connectionId = await connect();
-    await setJiraProjects(db, ctx, marie.userId, {
+    await setTrackerBoards(db, ctx, marie.userId, {
       projectId,
       connectionId,
-      jiraKeys: ["APP"],
+      keys: ["APP"],
     });
     const project = { id: projectId, authorizationLabel: "yarrow" };
     const body = openedFromYarrow("Follow the **system** theme.", "marie");
@@ -634,7 +639,7 @@ describe("Jira for builders", async () => {
         { title: "x", body: "" },
         true,
       ),
-    ).rejects.toThrow("OPS is not a linked Jira project.");
+    ).rejects.toThrow("OPS is not a linked board.");
   });
 
   it("writes Markdown in Jira's document format", () => {
@@ -749,7 +754,12 @@ describe("moving Jira tickets", async () => {
     const [board] = await raw.select().from(schema.trackerBoards);
     const [unit] = await raw.select().from(schema.workUnits);
 
-    const settings = await jiraBoardSettings(db, ctx, owner.userId, board!.id);
+    const settings = await trackerBoardSettings(
+      db,
+      ctx,
+      owner.userId,
+      board!.id,
+    );
     expect(
       settings.statuses.map((status) => [status.name, status.category]),
     ).toEqual([
@@ -769,7 +779,7 @@ describe("moving Jira tickets", async () => {
       "APP-1 blocked",
     );
     expect(
-      (await jiraBoardSettings(db, ctx, owner.userId, board!.id)).warning,
+      (await trackerBoardSettings(db, ctx, owner.userId, board!.id)).warning,
     ).toContain("APP-1 could not move to Code review");
     expect(await moveTrackerTicket(db, ctx, unit!.id, "started")).toBe(
       "APP-1 moved",
@@ -780,7 +790,7 @@ describe("moving Jira tickets", async () => {
     expect(await moveTrackerTicket(db, ctx, unit!.id, "merged")).toBe(
       "not moved (builder's choice)",
     );
-    await setJiraMoves(db, owner.userId, board!.id, {
+    await setTrackerMoves(db, owner.userId, board!.id, {
       started: "20",
       pullRequest: "30",
       merged: "40",
@@ -798,7 +808,7 @@ describe("moving Jira tickets", async () => {
     expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
       "not moved (builder's choice)",
     );
-    await setJiraMoves(db, owner.userId, board!.id, {
+    await setTrackerMoves(db, owner.userId, board!.id, {
       started: "20",
       pullRequest: "30",
       merged: "40",
@@ -836,7 +846,7 @@ describe("Jira links, branches and pull requests", () => {
     ).not.toHaveProperty("ticket");
   });
 
-  it("keeps the Jira key in capitals in the branch and the PR title", () => {
+  it("keeps the Jira or Linear key in capitals in the branch and the PR title", () => {
     expect(branchName("APP-42 Fix the export", "1234567890")).toBe(
       "yarrow/APP-42-fix-the-export-12345678",
     );
@@ -848,6 +858,11 @@ describe("Jira links, branches and pull requests", () => {
     expect(
       pullRequestTitle({
         ticket: { ...ticket, title: "ENG-7 Dark mode", source: "linear" },
+      }),
+    ).toBe("ENG-7 Dark mode");
+    expect(
+      pullRequestTitle({
+        ticket: { ...ticket, title: "ENG-7 Dark mode", source: "trello" },
       }),
     ).toBe("Dark mode");
   });

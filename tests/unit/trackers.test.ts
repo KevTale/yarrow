@@ -90,6 +90,9 @@ describe("tracker adapters", () => {
                   title: "Export crashes",
                   description: "Steps",
                   url: "https://linear.app/x/issue/ENG-12",
+                  createdAt: "2026-10-20T09:00:00.000Z",
+                  updatedAt: "2026-10-21T09:00:00.000Z",
+                  creator: { name: "Ada" },
                   state: { type: "started" },
                   labels: { nodes: [{ name: "Yarrow" }] },
                 },
@@ -102,16 +105,19 @@ describe("tracker adapters", () => {
     const tickets = await linearAdapter(fetcher).labeledTickets(
       { externalId: "org", accessToken: "t" },
       { clientId: "", clientSecret: "" },
-      "team-1",
+      "ENG",
       "yarrow",
     );
-    expect(sent!.variables).toEqual({ team: "team-1", label: "yarrow" });
+    expect(sent!.variables).toEqual({ team: "ENG", label: "yarrow" });
     expect(tickets).toEqual([
       {
-        externalId: "uuid-1",
+        externalId: "ENG-12",
         title: "ENG-12 Export crashes",
         body: "Steps",
         url: "https://linear.app/x/issue/ENG-12",
+        createdAt: "2026-10-20T09:00:00.000Z",
+        updatedAt: "2026-10-21T09:00:00.000Z",
+        author: "Ada",
         labels: ["Yarrow"],
         closed: false,
       },

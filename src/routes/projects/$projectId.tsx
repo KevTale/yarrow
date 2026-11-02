@@ -19,17 +19,17 @@ import type { MoveEvent, TrackerStatus } from "@/core/tracker-moves";
 import { z } from "zod";
 import { NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
-import { JiraIcon } from "@/components/brand-icons";
+import { TrackerIcon } from "@/components/brand-icons";
 import {
   SavedState,
   useSavedFades,
   type SaveState,
 } from "@/components/saved-state";
 import {
-  getJiraBoardFn,
-  listJiraProjectsFn,
-  setJiraMovesFn,
-  setJiraProjectsFn,
+  getTrackerBoardFn,
+  listTrackerBoardsFn,
+  setTrackerBoardsFn,
+  setTrackerMovesFn,
 } from "@/functions/connect.functions";
 import {
   getProjectFn,
@@ -88,7 +88,7 @@ function ProjectPage() {
 }
 
 /**
- * A project's settings: where its tickets come from (GitHub, Jira) and who
+ * A project's settings: where its tickets come from (GitHub, Jira, Linear) and who
  * sees it on the public boards. Every change saves itself.
  */
 function ProjectSettings({ data }: { data: Loaded }) {
@@ -149,31 +149,60 @@ function Connections({ data }: { data: Loaded }) {
             {linked ? "Manage" : "Connect"} <ExternalLink size={13} />
           </a>
         </div>
-        {data.trackersAvailable.jira && <JiraConnection data={data} />}
+        {data.trackersAvailable.jira && (
+          <TrackerConnection data={data} tracker="jira" />
+        )}
+        {data.trackersAvailable.linear && (
+          <TrackerConnection data={data} tracker="linear" />
+        )}
       </div>
     </section>
   );
 }
 
+const trackerCopy = {
+  jira: {
+    name: "Jira",
+    boards: "Tickets from Jira projects",
+    owner: "Atlassian",
+    // Atlassian lists the apps each person allowed, and revokes them.
+    manage: "https://id.atlassian.com/manage-profile/apps",
+  },
+  linear: {
+    name: "Linear",
+    boards: "Tickets from Linear teams",
+    owner: "Linear",
+    manage: "https://linear.app/settings",
+  },
+};
+
 /**
- * Jira: Connect opens Atlassian's consent; once connected, the Jira project
- * whose tickets this repository takes is chosen here and saved at once.
+ * Jira or Linear: Connect opens the tracker's consent; once connected, the
+ * Jira projects or Linear teams whose tickets this repository takes are
+ * chosen here and saved at once.
  */
-function JiraConnection({ data }: { data: Loaded }) {
+function TrackerConnection({
+  data,
+  tracker,
+}: {
+  data: Loaded;
+  tracker: "jira" | "linear";
+}) {
   const router = useRouter();
-  const listProjects = useServerFn(listJiraProjectsFn);
-  const saveProjects = useServerFn(setJiraProjectsFn);
+  const listProjects = useServerFn(listTrackerBoardsFn);
+  const saveProjects = useServerFn(setTrackerBoardsFn);
+  const copy = trackerCopy[tracker];
   const { project } = data;
-  const boards = data.boards.filter((item) => item.tracker === "jira");
+  const boards = data.boards.filter((item) => item.tracker === tracker);
   const connection =
     data.connections.find((item) => item.id === boards[0]?.connectionId) ??
-    data.connections.find((item) => item.tracker === "jira");
+    data.connections.find((item) => item.tracker === tracker);
   const connectionId = connection?.id;
   const [options, setOptions] = useState<{ id: string; name: string }[] | null>(
     null,
   );
   const [revoked, setRevoked] = useState(false);
-  // Atlassian did not answer: the linked projects stay listed.
+  // The tracker did not answer: the linked boards stay listed.
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState(boards.map((board) => board.key));
   const [state, setState] = useState<SaveState>("idle");
@@ -186,7 +215,7 @@ function JiraConnection({ data }: { data: Loaded }) {
       .then((result) => {
         if (stopped) return;
         setRevoked(result.revoked);
-        setOptions(result.projects);
+        setOptions(result.boards);
       })
       .catch(() => !stopped && setFailed(true));
     return () => {
@@ -194,14 +223,14 @@ function JiraConnection({ data }: { data: Loaded }) {
     };
   }, [connectionId, listProjects]);
 
-  async function change(jiraKeys: string[]) {
+  async function change(keys: string[]) {
     if (!connectionId) return;
     const before = selected;
-    setSelected(jiraKeys);
+    setSelected(keys);
     setState("saving");
     try {
       await saveProjects({
-        data: { projectId: project.id, connectionId, jiraKeys },
+        data: { projectId: project.id, connectionId, keys },
       });
       await router.invalidate();
       setState("saved");
@@ -212,21 +241,22 @@ function JiraConnection({ data }: { data: Loaded }) {
   }
 
   const connected = Boolean(connection) && !revoked;
-  const connect = `/integrations/jira/connect?projectId=${project.id}`;
+  const connect = `/integrations/${tracker}/connect?projectId=${project.id}`;
   return (
     <div className="st-card-wrap">
       <div className="st-card">
         <span className="st-icon" aria-hidden="true">
-          <JiraIcon size={18} />
+          <TrackerIcon tracker={tracker} size={18} />
         </span>
         <span className="st-card-body">
           <strong>
-            Jira <SavedState state={state} />
+            {copy.name} <SavedState state={state} />
           </strong>
           {connected ? (
             <span className="st-jira">
               <span className="mono muted">{connection!.name}</span>
-              <JiraProjectPicker
+              <BoardPicker
+                tracker={copy.name}
                 options={
                   options ??
                   boards.map((board) => ({ id: board.key, name: board.name }))
@@ -238,10 +268,10 @@ function JiraConnection({ data }: { data: Loaded }) {
             </span>
           ) : revoked ? (
             <span className="muted">
-              Access removed in Atlassian · {connection!.name}
+              Access removed in {copy.owner} · {connection!.name}
             </span>
           ) : (
-            <span className="muted">Tickets from Jira projects</span>
+            <span className="muted">{copy.boards}</span>
           )}
         </span>
         <span
@@ -255,10 +285,9 @@ function JiraConnection({ data }: { data: Loaded }) {
             Reconnect
           </a>
         ) : connected ? (
-          // Atlassian lists the apps each person allowed, and revokes them.
           <a
             className="bd-btn bd-btn-line"
-            href="https://id.atlassian.com/manage-profile/apps"
+            href={copy.manage}
             target="_blank"
             rel="noopener"
           >
@@ -273,7 +302,12 @@ function JiraConnection({ data }: { data: Loaded }) {
       {connected && boards.length > 0 && (
         <div className="st-moves">
           {boards.map((board) => (
-            <JiraMoves key={board.id} boardId={board.id} name={board.name} />
+            <BoardMoves
+              key={board.id}
+              boardId={board.id}
+              name={board.name}
+              tracker={copy.name}
+            />
           ))}
         </div>
       )}
@@ -297,14 +331,22 @@ const moveRows: { event: MoveEvent; label: string; icon: ReactNode }[] = [
 ];
 
 /**
- * Where a Jira project's tickets move as Yarrow works: one status per
- * event, or "Don't move". The project's own status names, saved at once.
+ * Where a board's tickets move as Yarrow works: one status per event, or
+ * "Don't move". The team's own status names, saved at once.
  */
-function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
-  const load = useServerFn(getJiraBoardFn);
-  const save = useServerFn(setJiraMovesFn);
+function BoardMoves({
+  boardId,
+  name,
+  tracker,
+}: {
+  boardId: string;
+  name: string;
+  tracker: string;
+}) {
+  const load = useServerFn(getTrackerBoardFn);
+  const save = useServerFn(setTrackerMovesFn);
   const [board, setBoard] = useState<Awaited<
-    ReturnType<typeof getJiraBoardFn>
+    ReturnType<typeof getTrackerBoardFn>
   > | null>(null);
   const [failed, setFailed] = useState(false);
   const [state, setState] = useState<SaveState>("idle");
@@ -346,7 +388,7 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
       </div>
       {failed ? (
         <p className="muted st-board-note">
-          Jira did not answer. Reload the page in a moment.
+          {tracker} did not answer. Reload the page in a moment.
         </p>
       ) : (
         <div className="st-move-list">
@@ -359,6 +401,7 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
               <ArrowRight size={14} className="st-move-arrow" />
               {board ? (
                 <StatusSelect
+                  tracker={tracker}
                   label={row.label}
                   statuses={board.statuses}
                   value={board.moves[row.event] ?? null}
@@ -383,14 +426,16 @@ function JiraMoves({ boardId, name }: { boardId: string; name: string }) {
 
 /**
  * The status a ticket moves to, or "Don't move": uiarc's morph select, each
- * status marked with its category's color as in Jira.
+ * status marked with its category's color as in its tracker.
  */
 function StatusSelect({
+  tracker,
   label,
   statuses,
   value,
   onChange,
 }: {
+  tracker: string;
   label: string;
   statuses: TrackerStatus[];
   value: string | null;
@@ -400,7 +445,7 @@ function StatusSelect({
   return (
     <div className="ss">
       <MorphSelect
-        label={`${label}: Jira status`}
+        label={`${label}: ${tracker} status`}
         hideLabel
         value={value ?? none}
         onValueChange={(next) => {
@@ -425,13 +470,15 @@ function StatusSelect({
   );
 }
 
-/** Jira projects, ticked in a menu; each tick saves. */
-function JiraProjectPicker({
+/** Jira projects or Linear teams, ticked in a menu; each tick saves. */
+function BoardPicker({
+  tracker,
   options,
   loading,
   selected,
   onChange,
 }: {
+  tracker: string;
   options: { id: string; name: string }[];
   loading: boolean;
   selected: string[];
@@ -442,19 +489,23 @@ function JiraProjectPicker({
     option.name.startsWith(`${option.id} · `)
       ? option.name.slice(option.id.length + 3)
       : option.name;
-  // uiarc's multi select; no clear-all, each project unlinks on its own.
+  const linear = tracker === "Linear";
+  const boards = linear ? "Linear teams" : "Jira projects";
+  // uiarc's multi select; no clear-all, each board unlinks on its own.
   return (
     <MultiSelect
       className="jp"
-      label="Jira projects"
+      label={boards}
       hideLabel
       clearable={false}
       placeholder={
         loading
           ? "Loading…"
           : options.length === 0
-            ? "No Jira project on this site"
-            : "Choose Jira projects"
+            ? linear
+              ? "No Linear team in this workspace"
+              : "No Jira project on this site"
+            : `Choose ${boards}`
       }
       options={options.map((option) => ({
         value: option.id,

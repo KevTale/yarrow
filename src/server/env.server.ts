@@ -24,6 +24,8 @@ export interface AppEnv {
   GITHUB_APP_WEBHOOK_SECRET?: string;
   LINEAR_CLIENT_ID?: string;
   LINEAR_CLIENT_SECRET?: string;
+  /** Signs the OAuth app's webhook (Linear: the app's settings, Webhooks). */
+  LINEAR_WEBHOOK_SECRET?: string;
   JIRA_CLIENT_ID?: string;
   JIRA_CLIENT_SECRET?: string;
   TRELLO_API_KEY?: string;
@@ -75,7 +77,7 @@ export interface AppEnv {
     closeTicket(input: {
       projectId: string;
       key: string;
-      source: "github" | "jira";
+      source: "github" | "jira" | "linear";
     }): Promise<ActionResult>;
     closePullRequest(input: { workUnitId: string }): Promise<ActionResult>;
     /** A pull request's stage, its app live (workers/stage.ts). */

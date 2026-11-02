@@ -1137,13 +1137,13 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   }
 
   /**
-   * A ticket closed from the dashboard: the issue on GitHub (a Jira ticket
+   * A ticket closed from the dashboard: the issue on GitHub (a tracker ticket
    * is moved by the web Worker), its open pull request, Yarrow's copy.
    */
   closeTicket(input: {
     projectId: string;
     key: string;
-    source: "github" | "jira";
+    source: "github" | "jira" | "linear";
   }): Promise<ActionResult> {
     const credentials = this.credentials();
     if (!credentials)

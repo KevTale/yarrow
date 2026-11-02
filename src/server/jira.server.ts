@@ -1,24 +1,24 @@
 import { appEnv } from "./env.server";
-import type { TrackerContext } from "./trackers/jira-flow";
+import type { TrackerContext } from "./trackers/flow";
 import { trackerSecretsFromEnv } from "./trackers/index";
 
 export {
   answerTrackerTicket,
   closeTrackerTicket,
   createTrackerTicket,
-  jiraProjects,
   labelTrackerTickets,
-  linkJiraProject,
+  linkTrackerBoard,
   openTrackerTickets,
-  JiraAccessError,
-  jiraBoardSettings,
   moveTrackerTicket,
-  setJiraMoves,
-  setJiraProjects,
+  setTrackerBoards,
+  setTrackerMoves,
   settleJira,
+  TrackerAccessError,
+  listTrackerBoards,
+  trackerBoardSettings,
   trackerTicketDetail,
   type JiraStep,
-} from "./trackers/jira-flow";
+} from "./trackers/flow";
 
 /** The web Worker's tracker secrets and address, for the functions above. */
 export function trackerContext(): TrackerContext {

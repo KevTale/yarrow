@@ -8,14 +8,14 @@ import { kickBrain } from "@/server/brain.server";
 import { CONNECT_COOKIE, readIntent } from "@/server/connect.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import {
-  jiraProjects,
   jiraReady,
-  linkJiraProject,
-  JiraAccessError,
-  jiraBoardSettings,
-  setJiraMoves,
-  setJiraProjects,
+  linkTrackerBoard,
+  setTrackerBoards,
+  setTrackerMoves,
   settleJira,
+  TrackerAccessError,
+  listTrackerBoards,
+  trackerBoardSettings,
   trackerContext,
   type JiraStep,
 } from "@/server/jira.server";
@@ -77,22 +77,28 @@ export const settleConnectFn = createServerFn({ method: "POST" })
   });
 
 /**
- * The Jira projects of a connected site. `revoked` when Atlassian refuses
- * the token: the person removed Yarrow's access there.
+ * The boards of a connected tracker (a Jira site's projects, a Linear
+ * workspace's teams). `revoked` when the tracker refuses the token: the
+ * person removed Yarrow's access there.
  */
-export const listJiraProjectsFn = createServerFn({ method: "GET" })
+export const listTrackerBoardsFn = createServerFn({ method: "GET" })
   .validator(z.object({ connectionId: z.uuid() }))
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     try {
-      const projects = await withDb((db) =>
-        jiraProjects(db, trackerContext(), viewer.userId, data.connectionId),
+      const boards = await withDb((db) =>
+        listTrackerBoards(
+          db,
+          trackerContext(),
+          viewer.userId,
+          data.connectionId,
+        ),
       );
-      return { projects, revoked: false };
+      return { boards, revoked: false };
     } catch (error) {
-      if (error instanceof JiraAccessError)
+      if (error instanceof TrackerAccessError)
         return {
-          projects: [] as { id: string; name: string }[],
+          boards: [] as { id: string; name: string }[],
           revoked: true,
         };
       throw error;
@@ -112,44 +118,49 @@ export const linkJiraFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     const linked = await withDb((db) =>
-      linkJiraProject(db, trackerContext(), viewer.userId, data),
+      linkTrackerBoard(db, trackerContext(), viewer.userId, {
+        projectId: data.projectId,
+        connectionId: data.connectionId,
+        boardKey: data.jiraKey,
+        ticket: data.ticket,
+      }),
     );
     forget();
     if (data.ticket) await kickBrain();
     return linked;
   });
 
-/** The settings page's Jira projects, saved at each tick. */
-export const setJiraProjectsFn = createServerFn({ method: "POST" })
+/** The settings page's Jira projects or Linear teams, saved at each tick. */
+export const setTrackerBoardsFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       projectId: z.uuid(),
       connectionId: z.uuid(),
-      jiraKeys: z.array(z.string().regex(/^[A-Z][A-Z0-9_]{0,9}$/)).max(50),
+      keys: z.array(z.string().regex(/^[A-Z][A-Z0-9_]{0,9}$/)).max(50),
     }),
   )
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     await withDb((db) =>
-      setJiraProjects(db, trackerContext(), viewer.userId, data),
+      setTrackerBoards(db, trackerContext(), viewer.userId, data),
     );
     return { saved: true };
   });
 
-/** A linked Jira project's statuses and where its tickets move. */
-export const getJiraBoardFn = createServerFn({ method: "GET" })
+/** A linked board's statuses and where its tickets move. */
+export const getTrackerBoardFn = createServerFn({ method: "GET" })
   .validator(z.object({ boardId: z.uuid() }))
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     return withDb((db) =>
-      jiraBoardSettings(db, trackerContext(), viewer.userId, data.boardId),
+      trackerBoardSettings(db, trackerContext(), viewer.userId, data.boardId),
     );
   });
 
 const statusId = z.string().max(40).nullable();
 
 /** Where the tickets move, saved at each change. */
-export const setJiraMovesFn = createServerFn({ method: "POST" })
+export const setTrackerMovesFn = createServerFn({ method: "POST" })
   .validator(
     z.object({
       boardId: z.uuid(),
@@ -164,7 +175,7 @@ export const setJiraMovesFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
     await withDb((db) =>
-      setJiraMoves(db, viewer.userId, data.boardId, data.moves),
+      setTrackerMoves(db, viewer.userId, data.boardId, data.moves),
     );
     return { saved: true };
   });

@@ -1,4 +1,4 @@
-import { jiraProject } from "../../core/ticket-link";
+import { boardOfKey } from "../../core/ticket-link";
 import { bareTitle, ticketIdentity, type OpenIssue } from "../../core/tickets";
 import { requireProjectMember } from "../../db/accounts";
 import type { Database } from "../../db/client";
@@ -6,9 +6,9 @@ import { projectsForUser } from "../../db/github-tasks";
 import {
   addBoard,
   boardsForProject,
+  connectionsForUser,
   getConnection,
   jiraBoardFor,
-  jiraConnectionsForUser,
   removeBoard,
 } from "../../db/trackers";
 import { upsertTicket } from "../../db/workunits";
@@ -26,10 +26,26 @@ import { ensureJiraWebhook } from "./jira-webhooks";
 export type { TrackerContext } from "./context";
 
 /**
- * Jira for builders: the open tickets of a linked Jira project, the label
- * put on or taken off from the dashboard, and the link between a Jira
- * project and the repository that holds its code.
+ * Trackers for builders: the open tickets of a linked board, the label put
+ * on or taken off from the dashboard, and the link between a board and the
+ * repository that holds its code. Jira and Linear name a ticket by its
+ * board's key ("APP-42" in the Jira project APP, "ENG-42" in the Linear
+ * team ENG), which is how a ticket finds its board.
  */
+
+type Board = Awaited<ReturnType<typeof boardsForProject>>[number];
+const keyedTrackers = ["jira", "linear"];
+
+/** The linked board holding a keyed ticket, if any. */
+const boardOf = (boards: Board[], key: string) =>
+  boards.find(
+    ({ board, connection }) =>
+      keyedTrackers.includes(connection.tracker) &&
+      board.externalBoardId === boardOfKey(key),
+  );
+
+const trackerTitle = (name: string) =>
+  `${name[0]!.toUpperCase()}${name.slice(1)}`;
 
 /** Open tickets of the project's linked boards. Null without any board. */
 export async function openTrackerTickets(
@@ -81,12 +97,7 @@ export async function trackerTicketDetail(
   labels: string[];
   url: string;
 } | null> {
-  const boards = await boardsForProject(db, projectId);
-  const entry = boards.find(
-    ({ board, connection }) =>
-      connection.tracker === "jira" &&
-      board.externalBoardId === jiraProject(key),
-  );
+  const entry = boardOf(await boardsForProject(db, projectId), key);
   if (!entry) return null;
   try {
     const tracker = await api(db, ctx, entry.connection);
@@ -110,21 +121,17 @@ export async function trackerTicketDetail(
   }
 }
 
-/** The linked Jira project holding a ticket, with its connection. */
-async function jiraEntry(db: Database, projectId: string, key: string) {
-  const boards = await boardsForProject(db, projectId);
-  const entry = boards.find(
-    ({ board, connection }) =>
-      connection.tracker === "jira" &&
-      board.externalBoardId === jiraProject(key),
-  );
-  if (!entry) throw new Error(`${key} is not in a linked Jira project`);
+/** The linked board holding a ticket, with its connection. */
+async function trackerEntry(db: Database, projectId: string, key: string) {
+  const entry = boardOf(await boardsForProject(db, projectId), key);
+  if (!entry) throw new Error(`${key} is not in a linked board`);
   return entry;
 }
 
 /**
- * The agents' questions answered from the dashboard: a comment on the Jira
- * ticket (as the person who connected Jira), which the agents read next.
+ * The agents' questions answered from the dashboard: a comment on the
+ * ticket (as the person who connected its tracker), which the agents read
+ * next.
  */
 export async function answerTrackerTicket(
   db: Database,
@@ -133,13 +140,13 @@ export async function answerTrackerTicket(
   key: string,
   text: string,
 ): Promise<void> {
-  const entry = await jiraEntry(db, projectId, key);
+  const entry = await trackerEntry(db, projectId, key);
   const tracker = await api(db, ctx, entry.connection);
   await tracker.adapter.comment(tracker.scope, tracker.credentials, key, text);
 }
 
 /**
- * Closes a Jira ticket from the dashboard: moved to the first status of
+ * Closes a tracker ticket from the dashboard: moved to the first status of
  * the "done" category its workflow can reach. Says so when none can be.
  */
 export async function closeTrackerTicket(
@@ -147,9 +154,10 @@ export async function closeTrackerTicket(
   ctx: TrackerContext,
   projectId: string,
   key: string,
-): Promise<void> {
-  const entry = await jiraEntry(db, projectId, key);
+): Promise<"jira" | "linear"> {
+  const entry = await trackerEntry(db, projectId, key);
   const tracker = await api(db, ctx, entry.connection);
+  const name = tracker.name as "jira" | "linear";
   const { statuses, moveTo } = tracker.adapter;
   if (!statuses || !moveTo) throw new Error(`${key} cannot be closed here`);
   const done = (
@@ -166,15 +174,17 @@ export async function closeTrackerTicket(
       key,
       status.id,
     );
-    if (moved !== "blocked") return;
+    if (moved !== "blocked") return name;
   }
-  throw new Error(`Jira's workflow has no way to close ${key} from its status`);
+  throw new Error(
+    `${trackerTitle(tracker.name)}'s workflow has no way to close ${key} from its status`,
+  );
 }
 
 /**
  * Queues (on) or unqueues (off) tracker tickets from the dashboard: the
- * label goes on or off the ticket in Jira, and Yarrow's copy follows at
- * once. The 5-minute sync would come to the same result.
+ * label goes on or off the ticket in its tracker, and Yarrow's copy follows
+ * at once. The 5-minute sync would come to the same result.
  */
 export async function labelTrackerTickets(
   db: Database,
@@ -185,12 +195,8 @@ export async function labelTrackerTickets(
 ): Promise<void> {
   const boards = await boardsForProject(db, project.id);
   for (const key of keys) {
-    const entry = boards.find(
-      ({ board, connection }) =>
-        connection.tracker === "jira" &&
-        board.externalBoardId === jiraProject(key),
-    );
-    if (!entry) throw new Error(`${key} is not in a linked Jira project`);
+    const entry = boardOf(boards, key);
+    if (!entry) throw new Error(`${key} is not in a linked board`);
     const tracker = await api(db, ctx, entry.connection);
     await tracker.adapter.setLabel!(
       tracker.scope,
@@ -204,7 +210,8 @@ export async function labelTrackerTickets(
       tracker.credentials,
       key,
     );
-    if (!ticket) throw new Error(`${key} was not found in Jira`);
+    if (!ticket)
+      throw new Error(`${key} was not found in ${trackerTitle(tracker.name)}`);
     await upsertTicket(db, {
       projectId: project.id,
       source: tracker.name,
@@ -220,28 +227,29 @@ export async function labelTrackerTickets(
 }
 
 /**
- * A ticket written in Yarrow, created in a linked Jira project (as the
- * person who connected Jira) and queued at once when asked. Yarrow's copy
- * is kept either way, so the row shows before Jira's search has it.
+ * A ticket written in Yarrow, created on a linked board (as the person who
+ * connected its tracker) and queued at once when asked. Yarrow's copy is
+ * kept either way, so the row shows before the tracker's search has it.
  */
 export async function createTrackerTicket(
   db: Database,
   ctx: TrackerContext,
   project: { id: string; authorizationLabel: string },
-  projectKey: string,
+  boardKey: string,
   ticket: { title: string; body: string },
   queue: boolean,
 ): Promise<string> {
   const entry = (await boardsForProject(db, project.id)).find(
     ({ board, connection }) =>
-      connection.tracker === "jira" && board.externalBoardId === projectKey,
+      keyedTrackers.includes(connection.tracker) &&
+      board.externalBoardId === boardKey,
   );
-  if (!entry) throw new Error(`${projectKey} is not a linked Jira project.`);
+  if (!entry) throw new Error(`${boardKey} is not a linked board.`);
   const tracker = await api(db, ctx, entry.connection);
   const key = await tracker.adapter.createTicket!(
     tracker.scope,
     tracker.credentials,
-    projectKey,
+    boardKey,
     ticket,
   );
   if (queue)
@@ -272,18 +280,18 @@ export async function createTrackerTicket(
 }
 
 /**
- * Links a Jira project to a repository (a Yarrow project): its labeled
- * tickets are synced from then on, and Jira's webhook covers it too. A
- * pasted ticket is queued right away.
+ * Links a board (a Jira project, a Linear team) to a repository (a Yarrow
+ * project): its labeled tickets are synced from then on, and its tracker's
+ * webhook covers it too. A pasted ticket is queued right away.
  */
-export async function linkJiraProject(
+export async function linkTrackerBoard(
   db: Database,
   ctx: TrackerContext,
   userId: string,
   input: {
     projectId: string;
     connectionId: string;
-    jiraKey: string;
+    boardKey: string;
     ticket?: string | null;
   },
   /** False when the caller updates the webhook once for several links. */
@@ -293,47 +301,50 @@ export async function linkJiraProject(
   const connection = await getConnection(db, input.connectionId);
   if (
     !connection ||
-    connection.tracker !== "jira" ||
+    !keyedTrackers.includes(connection.tracker) ||
     connection.accountId !== project.accountId
   )
-    throw new Error("Connect Jira for this repository first.");
+    throw new Error("Connect the tracker for this repository first.");
   const tracker = await api(db, ctx, connection);
   const board = (
     await tracker.adapter.listBoards(tracker.scope, tracker.credentials)
-  ).find((item) => item.id === input.jiraKey);
+  ).find((item) => item.id === input.boardKey);
   if (!board)
-    throw new Error(`${input.jiraKey} is not a project of ${connection.name}.`);
+    throw new Error(`${input.boardKey} is not on ${connection.name}.`);
   await addBoard(db, {
     connectionId: connection.id,
     projectId: project.id,
     externalBoardId: board.id,
     name: board.name,
   });
-  if (listen) await ensureJiraWebhook(db, ctx, connection.id);
+  if (listen && connection.tracker === "jira")
+    await ensureJiraWebhook(db, ctx, connection.id);
   if (input.ticket)
     await labelTrackerTickets(db, ctx, project, [input.ticket], true);
   return { projectId: project.id, key: input.ticket ?? null };
 }
 
 /**
- * The settings page's Jira projects: the repository takes the tickets of
- * exactly these (none at all with an empty list). Queued tickets of a
- * project taken off leave the queue.
+ * The settings page's boards of one tracker (Jira projects, Linear teams):
+ * the repository takes the tickets of exactly these (none at all with an
+ * empty list). Queued tickets of a board taken off leave the queue.
  */
-export async function setJiraProjects(
+export async function setTrackerBoards(
   db: Database,
   ctx: TrackerContext,
   userId: string,
-  input: { projectId: string; connectionId: string; jiraKeys: string[] },
+  input: { projectId: string; connectionId: string; keys: string[] },
 ): Promise<void> {
   const project = await requireProjectMember(db, userId, input.projectId);
+  const chosen = await getConnection(db, input.connectionId);
+  if (!chosen) throw new Error("Connection not found");
   const kept = new Set<string>();
   const touched = new Set<string>();
   for (const { board, connection } of await boardsForProject(db, project.id)) {
-    if (connection.tracker !== "jira") continue;
+    if (connection.tracker !== chosen.tracker) continue;
     if (
       connection.id === input.connectionId &&
-      input.jiraKeys.includes(board.externalBoardId)
+      input.keys.includes(board.externalBoardId)
     )
       kept.add(board.externalBoardId);
     else {
@@ -341,48 +352,55 @@ export async function setJiraProjects(
       touched.add(connection.id);
     }
   }
-  for (const jiraKey of input.jiraKeys)
-    if (!kept.has(jiraKey)) {
-      await linkJiraProject(
+  for (const boardKey of input.keys)
+    if (!kept.has(boardKey)) {
+      await linkTrackerBoard(
         db,
         ctx,
         userId,
-        { projectId: project.id, connectionId: input.connectionId, jiraKey },
+        { projectId: project.id, connectionId: input.connectionId, boardKey },
         false,
       );
       touched.add(input.connectionId);
     }
-  // Each webhook follows its connection's projects, once for all changes.
-  for (const connectionId of touched)
-    await ensureJiraWebhook(db, ctx, connectionId);
+  // Each Jira webhook follows its connection's projects, once for all changes.
+  if (chosen.tracker === "jira")
+    for (const connectionId of touched)
+      await ensureJiraWebhook(db, ctx, connectionId);
 }
 
-/** Atlassian refused the token: the person removed Yarrow's access. */
-export class JiraAccessError extends Error {
+/** The tracker refused the token: the person removed Yarrow's access. */
+export class TrackerAccessError extends Error {
   constructor() {
-    super("Jira access was removed in Atlassian");
+    super("Access was removed in the tracker");
   }
 }
 const refused = (error: unknown) =>
   error instanceof Error && /\((401|403)\)/.test(error.message);
 
-/** The Jira projects a connection reaches, for the dashboard's link card. */
-export async function jiraProjects(
+/** The boards a connection reaches (Jira projects, Linear teams). */
+export async function listTrackerBoards(
   db: Database,
   ctx: TrackerContext,
   userId: string,
   connectionId: string,
 ): Promise<{ id: string; name: string }[]> {
   const connection = await getConnection(db, connectionId);
-  const reachable = (await jiraConnectionsForUser(db, userId)).some(
-    (row) => row.id === connectionId,
-  );
+  const reachable =
+    connection &&
+    (
+      await connectionsForUser(
+        db,
+        userId,
+        connection.tracker as "jira" | "linear",
+      )
+    ).some((row) => row.id === connectionId);
   if (!connection || !reachable) throw new Error("Connection not found");
   try {
     const tracker = await api(db, ctx, connection);
     return await tracker.adapter.listBoards(tracker.scope, tracker.credentials);
   } catch (error) {
-    throw refused(error) ? new JiraAccessError() : error;
+    throw refused(error) ? new TrackerAccessError() : error;
   }
 }
 
@@ -421,7 +439,7 @@ export async function settleJira(
     const mapped = await jiraBoardFor(
       db,
       userId,
-      jiraProject(ticket),
+      boardOfKey(ticket),
       site ?? undefined,
     );
     if (mapped) {
@@ -430,7 +448,7 @@ export async function settleJira(
       return { queued: { projectId: project.id, key: ticket } };
     }
   }
-  const connections = await jiraConnectionsForUser(db, userId);
+  const connections = await connectionsForUser(db, userId, "jira");
   const projects = (await projectsForUser(db, userId)).filter(
     (project) => project.linked,
   );
@@ -441,17 +459,17 @@ export async function settleJira(
   const chosen = projects.find((project) => project.id === projectId);
   const [only, ...others] = chosen ? connectionFor(chosen.accountId) : [];
   if (chosen && only && others.length === 0) {
-    const jiraKey = ticket
-      ? jiraProject(ticket)
-      : await jiraProjects(db, ctx, userId, only.id).then((list) =>
+    const boardKey = ticket
+      ? boardOfKey(ticket)
+      : await listTrackerBoards(db, ctx, userId, only.id).then((list) =>
           list.length === 1 ? list[0]!.id : null,
         );
-    if (jiraKey)
+    if (boardKey)
       return {
-        queued: await linkJiraProject(db, ctx, userId, {
+        queued: await linkTrackerBoard(db, ctx, userId, {
           projectId: chosen.id,
           connectionId: only.id,
-          jiraKey,
+          boardKey,
           ticket,
         }),
       };
@@ -486,11 +504,11 @@ async function memberBoard(db: Database, userId: string, boardId: string) {
 }
 
 /**
- * The settings page's "Board" block: the Jira project's statuses, where
- * tickets move (the builder's choice, or the defaults), and the last move
- * Jira refused.
+ * The settings page's "Board" block: the board's statuses, where tickets
+ * move (the builder's choice, or the defaults), and the last move the
+ * tracker refused.
  */
-export async function jiraBoardSettings(
+export async function trackerBoardSettings(
   db: Database,
   ctx: TrackerContext,
   userId: string,
@@ -516,7 +534,7 @@ export async function jiraBoardSettings(
   };
 }
 
-export async function setJiraMoves(
+export async function setTrackerMoves(
   db: Database,
   userId: string,
   boardId: string,

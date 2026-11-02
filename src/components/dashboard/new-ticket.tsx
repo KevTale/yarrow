@@ -2,7 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, Github, Play, X } from "lucide-react";
 import { createContext, useEffect, useRef, useState } from "react";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
-import { JiraIcon } from "@/components/brand-icons";
+import { TrackerIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
 import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
@@ -75,14 +75,16 @@ export function NewTicket({
   onClose: () => void;
 }) {
   const create = useServerFn(createTicketFn);
-  const jira = boards.filter((board) => board.tracker === "jira");
-  const destinations = ["github", ...jira.map((board) => board.key)];
+  const tracked = boards.filter(
+    (board) => board.tracker === "jira" || board.tracker === "linear",
+  );
+  const destinations = ["github", ...tracked.map((board) => board.key)];
   const [destination, setDestination] = useState(() => {
     const last = remembered(projectId);
-    // A team that links Jira files its tickets there.
+    // A team that links Jira or Linear files its tickets there.
     return last && destinations.includes(last)
       ? last
-      : (jira[0]?.key ?? "github");
+      : (tracked[0]?.key ?? "github");
   });
   const [title, setTitle] = useState(draft?.title ?? "");
   const [body, setBody] = useState(draft?.body ?? "");
@@ -184,7 +186,7 @@ export function NewTicket({
         }}
       >
         <div className="nt-head">
-          {jira.length > 0 ? (
+          {tracked.length > 0 ? (
             <MorphSelect
               label="Create in"
               hideLabel
@@ -196,10 +198,10 @@ export function NewTicket({
                   label: "GitHub",
                   icon: <Github size={14} />,
                 },
-                ...jira.map((board) => ({
+                ...tracked.map((board) => ({
                   value: board.key,
                   label: board.key,
-                  icon: <JiraIcon size={14} />,
+                  icon: <TrackerIcon tracker={board.tracker} size={14} />,
                   meta: board.site,
                 })),
               ]}

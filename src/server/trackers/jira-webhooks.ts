@@ -1,4 +1,3 @@
-import { jiraProject } from "../../core/ticket-link";
 import type { Database } from "../../db/client";
 import {
   boardsOfConnection,
@@ -6,12 +5,10 @@ import {
   getConnection,
   jiraConnections,
   saveWebhook,
-  ticketKnown,
 } from "../../db/trackers";
-import { signalIssues } from "../../db/tickets";
-import { upsertTicket } from "../../db/workunits";
 import { safeEqual } from "../github/app";
 import { trackerApi, type Connection, type TrackerContext } from "./context";
+import { followTicket } from "./follow";
 import { json, type Fetch } from "./types";
 
 /**
@@ -267,60 +264,24 @@ export interface JiraDelivery {
   matchedWebhookIds?: number[];
 }
 
-/**
- * One delivery: the ticket is read again from Jira (the payload only says
- * which one changed) and Yarrow's copy follows, as the sync would do it.
- * Returns whether a ticket entered the queue, so the brain is kicked.
- */
+/** One delivery, followed on each connection whose webhook it matched. */
 export async function handleJiraDelivery(
   db: Database,
   ctx: TrackerContext,
   delivery: JiraDelivery,
 ): Promise<{ queued: boolean; log: string[] }> {
   const key = delivery.issue?.key;
-  const log: string[] = [];
-  let queued = false;
-  if (!key) return { queued, log: ["no issue"] };
+  if (!key) return { queued: false, log: ["no issue"] };
   const connections = await connectionsByWebhook(
     db,
     (delivery.matchedWebhookIds ?? []).map(String),
   );
+  let queued = false;
+  const log: string[] = [];
   for (const connection of connections) {
-    const boards = (await boardsOfConnection(db, connection.id)).filter(
-      ({ board, project }) =>
-        board.externalBoardId === jiraProject(key) && !project.suspendedAt,
-    );
-    if (boards.length === 0) continue;
-    // Created, renamed or closed: the dashboards' open tickets read again.
-    for (const { project } of boards) await signalIssues(db, project.id);
-    const tracker = await trackerApi(db, ctx, connection);
-    const ticket = await tracker.adapter.getTicket(
-      tracker.scope,
-      tracker.credentials,
-      key,
-    );
-    for (const { board, project } of boards) {
-      const label = project.authorizationLabel.toLowerCase();
-      const labeled = Boolean(
-        ticket?.labels.some((value) => value.toLowerCase() === label),
-      );
-      // An unlabeled ticket Yarrow never held stays out of its tables.
-      if (!labeled && !(await ticketKnown(db, project.id, "jira", key)))
-        continue;
-      const result = await upsertTicket(db, {
-        projectId: project.id,
-        source: "jira",
-        boardId: board.id,
-        externalId: key,
-        title: ticket?.title ?? "(deleted ticket)",
-        body: ticket?.body ?? "",
-        url: ticket?.url ?? "",
-        labeled,
-        closed: !ticket || ticket.closed,
-      });
-      queued ||= result.queued;
-      log.push(`${key} ${labeled ? "labeled" : "unlabeled"}`);
-    }
+    const result = await followTicket(db, ctx, connection, key);
+    queued ||= result.queued;
+    log.push(...result.log);
   }
   return { queued, log };
 }

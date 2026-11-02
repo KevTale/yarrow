@@ -52,8 +52,8 @@ export type TicketLink = {
 
 /** A Jira issue key: project key, dash, number ("APP-42"). */
 export const jiraKeyPattern = /^[A-Z][A-Z0-9_]{0,9}-\d{1,9}$/;
-/** The Jira project of an issue key: "APP-42" → "APP". */
-export const jiraProject = (key: string) => key.replace(/-\d+$/, "");
+/** The board of a ticket key: "APP-42" → "APP" (a Jira project, a Linear team). */
+export const boardOfKey = (key: string) => key.replace(/-\d+$/, "");
 
 const bySource = (id: TicketSource["id"]) =>
   ticketSources.find((source) => source.id === id)!;
