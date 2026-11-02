@@ -51,6 +51,7 @@ import {
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
+import { branchFileUrl, Proofs } from "@/components/proofs";
 import { DraftTicket } from "./new-ticket";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
@@ -394,11 +395,24 @@ export function PullPanel({
               </dialog>
             </>
           )}
+          {panel.proofs && (
+            <Proofs
+              proofs={panel.proofs}
+              document={(file) =>
+                branchFileUrl(
+                  pullRequest?.url ?? null,
+                  pullRequest?.branch ?? null,
+                  file,
+                )
+              }
+            />
+          )}
           {panel.preview && (
             <PreviewLink
               projectId={projectId}
               rowKey={rowKey}
               signIn={panel.preview.signIn}
+              path={panel.preview.path}
             />
           )}
           {panel.implementation?.ask && (
@@ -444,16 +458,19 @@ function PreviewLink({
   projectId,
   rowKey,
   signIn,
+  path,
 }: {
   projectId: string;
   rowKey: string;
   signIn: { login: string; password: string } | null;
+  /** The page a proof names. */
+  path: string | null;
 }) {
   return (
     <div className="pp-preview">
       <a
         className="pp-preview-open"
-        href={previewHref(projectId, rowKey)}
+        href={`${previewHref(projectId, rowKey)}${path ? `?path=${encodeURIComponent(path)}` : ""}`}
         target="_blank"
         rel="noopener"
       >

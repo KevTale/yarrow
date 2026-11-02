@@ -41,6 +41,24 @@ function fakeProviders() {
           kind: "screenshot",
         },
       ],
+      proofs: [
+        {
+          kind: "images",
+          label: "Exporting an empty list",
+          before: "proof/empty-before.png",
+          after: "proof/empty-after.png",
+        },
+        {
+          kind: "output",
+          label: "The export tests",
+          command: "pnpm test export",
+          before: "1 failed",
+          after: "3 passed",
+        },
+        { kind: "app", path: "/exports" },
+        // Dropped: not a page of the app.
+        { kind: "app", path: "//evil.example" },
+      ],
       recipe: {
         mode: "build",
         steps: ["pnpm install", "pnpm build", "pnpm start &"],
@@ -66,6 +84,9 @@ function fakeProviders() {
       ],
     }),
     "export.png": new Uint8Array([137, 80, 78, 71]),
+    // One by its path in the outputs, one by its name alone.
+    "proof/empty-before.png": new Uint8Array([137, 80, 78, 71]),
+    "empty-after.png": new Uint8Array([137, 80, 78, 71]),
     // What the recorder writes (src/runner/recorder/present.mjs).
     "presentation/presentation.json": encode({
       version: 1,
@@ -480,7 +501,8 @@ describe("run pipeline", async () => {
     // The task carries the evidence rules; no recipe yet for this project.
     const task = JSON.stringify(created.body);
     expect(task).toContain("Evidence (these rules replace");
-    expect(task).toContain("Presentation: every pull request gets one");
+    expect(task).toContain("Proof: what makes the owner sure");
+    expect(task).toContain("Presentation (only when the proof is a film)");
     expect(task).toContain(
       "node /mnt/session/uploads/yarrow/present.mjs /tmp/presentation.json",
     );
@@ -595,8 +617,30 @@ describe("run pipeline", async () => {
       url: "https://github.com/marie/halyard/pull/9",
       number: 9,
     });
-    // Two clips, two voice lines, the still and the timeline; the screenshot.
-    expect(stored).toHaveLength(7);
+    // Two clips, two voice lines, the still and the timeline; the
+    // screenshot; the two proof images.
+    expect(stored).toHaveLength(9);
+    expect(delivered.proofs).toEqual([
+      {
+        kind: "images",
+        label: "Exporting an empty list",
+        before: expect.stringMatching(
+          /^runs\/[0-9a-f-]+\/[0-9a-f]{8}-empty-before\.png$/,
+        ),
+        after: expect.stringMatching(
+          /^runs\/[0-9a-f-]+\/[0-9a-f]{8}-empty-after\.png$/,
+        ),
+        device: "desktop",
+      },
+      {
+        kind: "output",
+        label: "The export tests",
+        command: "pnpm test export",
+        before: "1 failed",
+        after: "3 passed",
+      },
+      { kind: "app", path: "/exports" },
+    ]);
     expect(delivered.artifacts.map((artifact) => artifact.kind)).toEqual([
       "presentation",
       "screenshot",
@@ -610,6 +654,19 @@ describe("run pipeline", async () => {
       /## Presentation\n\n\[!\[Empty exports\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-k1-poster\.jpg\)\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)\n\n\[Watch it in Yarrow\]\(https:\/\/yarrow\.run\/runs\/[0-9a-f-]+\)/,
     );
     expect(body).toContain("pnpm test → 42 passed");
+    // The proofs, right after the film: images shown on a public project.
+    expect(body).toMatch(
+      /## Proof\n\n<!-- yarrow:proof images -->\n\*\*Exporting an empty list\*\*\n\n\| Before \| After \|\n\| --- \| --- \|\n\| !\[Before\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-empty-before\.png\) \| !\[After\]/,
+    );
+    expect(body).toContain(
+      "<!-- yarrow:proof output -->\n**The export tests**\n\n`pnpm test export`\n\nBefore:\n\n```\n1 failed\n```\n\nAfter:\n\n```\n3 passed\n```",
+    );
+    expect(body).toMatch(
+      /<!-- yarrow:proof app -->\n\[Try it in the app\]\(https:\/\/yarrow\.run\/preview\/[0-9a-f-]+\/5\?path=%2Fexports\)/,
+    );
+    expect(body.indexOf("## Presentation")).toBeLessThan(
+      body.indexOf("## Proof"),
+    );
     // A public project's screenshots show in the description.
     expect(body).toMatch(
       /## Screenshots\n\n\*\*Export dialog\*\*\n\n!\[Export dialog\]\(https:\/\/yarrow\.run\/evidence\/runs\/[0-9a-f-]+\/[0-9a-f]{8}-export\.png\)/,
@@ -741,7 +798,9 @@ describe("run pipeline", async () => {
     });
     // Claude's rules and task, word for word.
     expect(spec.prompt).toMatch(/^You are the implementer of Yarrow/);
-    expect(spec.prompt).toContain("Presentation: every pull request gets one");
+    expect(spec.prompt).toContain(
+      "Presentation (only when the proof is a film)",
+    );
     const [row] = await raw.select().from(schema.agentRuns);
     expect(row).toMatchObject({
       implementer: "muse-wonder-1.0:high",

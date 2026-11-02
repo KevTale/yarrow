@@ -233,6 +233,10 @@ export async function runDetail(
       evidence: results.evidence,
       review: results.review,
       artifacts: results.artifacts,
+      details: results.details,
+      branch: sql<
+        string | null
+      >`(select ${pullRequests.branch} from ${pullRequests} where ${pullRequests.workUnitId} = ${workUnits.id})`,
       // Its maintainers can still ask for changes on it.
       pullRequestOpen: sql<boolean>`exists (select 1 from ${pullRequests} where ${pullRequests.workUnitId} = ${workUnits.id} and ${pullRequests.state} = 'open')`,
     })
@@ -245,7 +249,7 @@ export async function runDetail(
   const member = await isMember(db, viewerUserId, row.accountId);
   if (row.visibility === "hidden" && !member) return null;
   const detailed = member || row.visibility === "public";
-  const { pullRequestOpen, ...rest } = row;
+  const { pullRequestOpen, details, branch, ...rest } = row;
   const redacted = redactRun(rest, member);
   return {
     ...redacted,
@@ -256,6 +260,8 @@ export async function runDetail(
     evidence: detailed ? (row.evidence ?? []) : [],
     review: detailed ? (row.review as StoredReview | null) : null,
     artifacts: detailed ? ((row.artifacts ?? []) as StoredArtifact[]) : [],
+    proofs: detailed ? (details?.proofs ?? []) : [],
+    branch: detailed ? branch : null,
     sponsors: await runSponsors(db, runId),
   };
 }

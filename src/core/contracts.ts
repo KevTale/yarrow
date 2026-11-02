@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { storedProofSchema } from "./proofs";
 import { storedReviewFields } from "./review";
 
 export const runKindSchema = z.enum(["implementation", "correction"]);
@@ -84,6 +85,8 @@ export const resultDetailsSchema = z.object({
   notVerified: z.array(z.string()).default([]),
   risks: z.array(z.string()).default([]),
   spotted: z.array(z.string()).default([]),
+  /** What proves it (src/core/proofs.ts); absent before 2026-10-29. */
+  proofs: z.array(storedProofSchema).optional(),
 });
 export type ResultDetails = z.infer<typeof resultDetailsSchema>;
 

@@ -1,6 +1,14 @@
 import { pullRequestFooter } from "../core/attribution";
 import { PROD_APP_SLUG } from "../core/corrections";
 import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
+import { previewHref } from "../core/preview";
+import {
+  proofImages,
+  proofsMarkdown,
+  storedProofs,
+  type AgentProof,
+  type Proof,
+} from "../core/proofs";
 import {
   blockingComments,
   type Review,
@@ -877,6 +885,36 @@ export class RunPipeline {
   }
 
   /**
+   * The proofs as stored: their images copied to R2 under the run, each
+   * found by its path in the outputs, else by its name.
+   */
+  private async storeProofs(
+    run: PreparedRun,
+    implementerSessionId: string,
+    proofs: AgentProof[],
+  ): Promise<Proof[]> {
+    const keys = new Map<string, string>();
+    if (this.deps.evidence)
+      for (const file of proofImages(proofs)) {
+        const name = file.split("/").at(-1)!;
+        const data =
+          (await this.readOutput(implementerSessionId, file)) ??
+          (file === name
+            ? null
+            : await this.readOutput(implementerSessionId, name));
+        if (!data) continue;
+        const key = `runs/${run.runId}/${crypto.randomUUID().slice(0, 8)}-${name}`;
+        await this.deps.evidence.put(key, data, {
+          httpMetadata: {
+            contentType: /\.jpe?g$/i.test(name) ? "image/jpeg" : "image/png",
+          },
+        });
+        keys.set(file, key);
+      }
+    return storedProofs(proofs, keys);
+  }
+
+  /**
    * The implementer's recorded presentation, voiced and stored, with who
    * wrote and reviewed it said at the end. Null when it recorded none.
    */
@@ -913,6 +951,7 @@ export class RunPipeline {
     number: number;
     branch: string;
     artifacts: StoredArtifact[];
+    proofs: Proof[];
   }> {
     const files = await this.changes(implementerSessionId);
     if (files.length === 0) throw new Error("The implementer changed no file");
@@ -942,6 +981,20 @@ export class RunPipeline {
     const evidenceInYarrow = shown
       ? null
       : { count: screenshots.length, url: this.runUrl(run.runId) };
+    const proofs = await this.storeProofs(
+      run,
+      implementerSessionId,
+      snapshot.proofs,
+    );
+    const context = await runContext(this.deps.db, run.runId);
+    const proof = proofsMarkdown(proofs, {
+      image: (key) => (shown ? `${this.deps.appUrl}/evidence/${key}` : null),
+      document: (file) =>
+        `https://github.com/${run.repository}/blob/${encodeURIComponent(run.workBranch).replace(/%2F/g, "/")}/${file.split("/").map(encodeURIComponent).join("/")}`,
+      app: (path) =>
+        `${this.deps.appUrl}${previewHref(run.projectId, context.workUnit.externalId)}?path=${encodeURIComponent(path)}`,
+      runUrl: this.runUrl(run.runId),
+    });
     const presented = presentation && {
       title: presentation.label,
       url: this.runUrl(run.runId),
@@ -962,7 +1015,6 @@ export class RunPipeline {
         correction: run.instruction,
       }),
     });
-    const context = await runContext(this.deps.db, run.runId);
     let pull: { number: number; url: string };
     if (context.pullRequest) {
       pull = {
@@ -1006,6 +1058,7 @@ export class RunPipeline {
             evidence: evidenceLinks,
             evidenceInYarrow,
             presentation: presented,
+            proof,
           }),
         );
         if (body)
@@ -1030,6 +1083,7 @@ export class RunPipeline {
           evidence: evidenceLinks,
           evidenceInYarrow,
           presentation: presented,
+          proof,
           roles: this.rolesFor(run),
           sponsors,
           runUrl: this.runUrl(run.runId),
@@ -1050,6 +1104,7 @@ export class RunPipeline {
       number: pull.number,
       branch: run.workBranch,
       artifacts,
+      proofs,
     };
   }
 

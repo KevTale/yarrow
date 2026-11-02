@@ -4,6 +4,7 @@ import {
   type AppRecipe,
   type Criterion,
 } from "../core/contracts";
+import { parseAgentProofs } from "../core/proofs";
 import { blockingComments, reviewSchema, type Review } from "../core/review";
 import { RECORDER_PATH } from "./presentation";
 import type { FileChange } from "../server/github/delivery";
@@ -43,14 +44,15 @@ PY`;
  * Sent with every task, so it applies without re-registering the agent.
  */
 export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". Its shape:
-{"status": "done" | "unclear" | "cannot_do", "ask": "...", "summary": "...", "pr_summary": "...", "questions": [], "criteria": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "artifacts": []}
+{"status": "done" | "unclear" | "cannot_do", "ask": "...", "summary": "...", "pr_summary": "...", "questions": [], "criteria": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "proofs": []}
 - ask: Yarrow shows it under "What the ticket asks": the need, as the owner would explain it to a teammate, in one or two short sentences under 200 characters, plain prose: who wants what and why it matters to them, never how you solved it ("People working through their tasks lose the ones in progress in one long list: the ticket asks for a way to see only one status."). Leave it out for a correction: the ticket has not changed.
 - summary: what the reviewer reads first, and the commit message: never restate the ticket, the ask says it. Two or three short sentences, under 300 characters, plain prose with no list, as you would tell a teammate: what you did, as what people using the app now see or can do, then a choice the ticket left open only when people using the app will notice it, then how you saw it work, in a few words ("I checked it in the app, and a new test covers it."). Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried: the owner asks for details in Yarrow's conversation.
-- criteria: the ticket's acceptance criteria, as the product manager would tick them: one per thing the ticket asks, at most six, each {"criterion": "...", "status": "met" | "unmet" | "unchecked", "proof": "app" | "test" | "request" | "none", "note": "..."}. criterion is the behavior in everyday words ("A reload keeps the filter"), never a command. proof is how you saw it hold on the final change: "app" seen working in the running app (the presentation shows it), "test" an automated test checks it, "request" a real request shows it. "unchecked" when you could not check it here, with proof "none"; never "met" without a proof. note only when unchecked or unmet: why, in everyday words. Empty only when the ticket asks for no behavior (a refactor, a dependency bump).
+- criteria: the ticket's acceptance criteria, as the product manager would tick them: one per thing the ticket asks, at most six, each {"criterion": "...", "status": "met" | "unmet" | "unchecked", "proof": "app" | "test" | "request" | "none", "note": "..."}. criterion is the behavior in everyday words ("A reload keeps the filter"), never a command. proof is how you saw it hold on the final change: "app" seen working in the running app (a proof shows it), "test" an automated test checks it, "request" a real request shows it. "unchecked" when you could not check it here, with proof "none"; never "met" without a proof. note only when unchecked or unmet: why, in everyday words. Empty only when the ticket asks for no behavior (a refactor, a dependency bump).
 - verification: the automated checks run on the final change (tests, type check, build, lint), at most three, each one line: what it shows in everyday words ("All six tests pass, one of them new for the filters"), then " — " and the command with its result ("npm test → 6 passed"). What the ticket asks goes in criteria, not here.
 - not_verified: a check that matters, is not one of the criteria and could not run here (a missing tool, no network), one line each, at most three: what is unknown in everyday words, then " — " and the technical reason. Empty when what matters ran.
 - risks: only what the owner must do or decide before or after merging: a leaked key to rotate, a new required setting, a change users will notice. Usually empty. At most three, one line each, in everyday words, then " — " and the technical pointer when it helps.
 - spotted: existing problems outside the ticket that you saw and left alone, at most three, each one string. Each is offered to the owner as a ticket of its own, so it stands alone: two or three short sentences in everyday words, what happens, when, and why it matters to people using the app, the first sentence able to stand as the ticket's title; then " — " and where it comes from in the code, kept in the ticket for whoever takes it. Example: "Adding a task brings you back to All, even with a filter picked. Someone working through their Doing tasks loses their place each time they add one. — POST /tasks redirects to / without the status". Empty when none.
+- proofs: what proves the change, as the proof rules say. Empty only when nothing could be shown or run, with a not_verified line saying why.
 - Say each thing once, in one field. The ask says what the ticket asks: no other field restates it. Empty lists are normal.
 - For a correction: summary is only what this correction changed, one or two short sentences. pr_summary is the whole pull request as it stands now, shaped like summary above (what was done, then how you saw it work), written as if it had been delivered at once, with no history of corrections. criteria, verification, not_verified, risks and spotted describe the whole pull request now. Leave pr_summary out otherwise.`;
 
@@ -60,27 +62,51 @@ export const RESULT_STYLE = `How to write result.json: the owner reads it in Yar
  * projects (2026-10-15): the agent ran all 16, signed in on 13.
  */
 export const EVIDENCE_GUIDE = `Evidence (these rules replace any earlier rule about screenshots and video):
-- The code change comes first. Then get the app running, whatever the ticket touches (a screen, an API, a rule deep in the code, a document): the owner sees the change in the running app, and Yarrow puts the app live from your recipe for the owner's call. Spend at most about 15 minutes on it. If it still does not run, stop trying, keep your change, and say in one not_verified line what blocked it. A repository with no app (a library, a command-line tool) has none to run.
+- The code change comes first. Then get the app running when the change is in its code (a screen, an API, a rule deep in the code, a job): the proofs come from it, and Yarrow puts the app live from your recipe for the owner. Spend at most about 15 minutes on it. If it still does not run, stop trying, keep your change, and say in one not_verified line what blocked it. A change to documents only, and a repository with no app (a library, a command-line tool), have none to run.
 - Running the app: use the recipe below when there is one. Otherwise find how in the project (README, CONTRIBUTING, package scripts, .env.example, devcontainer, docker-compose). Docker does not run here: the sandbox has PostgreSQL 16 and Redis 7 binaries to start yourself (MySQL through apt), and Chromium for Playwright under /opt/pw-browsers. Newer runtimes can be downloaded (nodejs.org, go.dev, GitHub releases).
 - Build and serve the app as in production when it builds with placeholder settings; use the dev server only when it does not. Placeholder values for required settings are fine; real credentials are never needed.
 - Data and sign-in: use the project's own seed and demo user when it has them. Otherwise insert what the screen needs straight into the local database, and sign in by creating the user there and minting a session with the app's own local secret. Never sign up through the UI, never call a real third-party service: fake what the screen needs with a local stub.
 - When the app ran, write the recipe in result.json so the next run starts it without searching: "recipe": {"mode": "build" | "dev", "steps": ["shell commands from a fresh checkout to the app answering, in order, long-running ones in the background"], "url": "http://localhost:<port>/<page>", "sign_in": "how a signed-in session is obtained, or null", "notes": ["what tripped you, one line each"]}. Correct it when it no longer worked. Leave it out when you did not run the app. No secret values in it.`;
 
 /**
- * Every pull request is presented: the agent's screen, recorded chapter by
- * chapter with its words, voiced by the brain after the review (decided
- * 2026-10-21, docs/mvp/BUILD.md "Evidence").
+ * What proves the change, picked for it (decided 2026-10-29, docs/mvp/BUILD.md
+ * "Proof"): images, outputs, measures, the document, the app's page, and a
+ * film only for a flow. Sent with every task.
  */
-export function presentationGuide(baseBranch: string): string {
-  return `Presentation: every pull request gets one, instead of screenshots. It is your screen, recorded, with your words over it, like a colleague presenting their pull request in a few minutes: the owner sees it work instead of reading the code. You write a plan; the recorder plays it on a real desktop (the browser and a terminal in their windows, a dock, the real pointer) and films it. Yarrow voices your words after the review, in English.
-- Who watches: often a product manager or a designer who reads no code and no terminal. By its end, they are sure the ticket is solved from what they saw: the change where the people it is for meet it, never a function's output. So every film shows something, whatever the ticket:
-  - Something on screen (a fix, a feature): in the app.
-  - A rule deep in the code (a game's scoring, a limit, an error case, a later state): in the app, brought to the moment it shows. Get there with test data or the app's own state (seed it, set it in the local database or browser storage, play the few steps quickly, a setting or address the project already has), then show it on screen. Never change the app's code for the film.
-  - An API or back-end change: through the screen that uses it. When none does yet, the API's answer opened in the browser (tab "app", "path" to the endpoint), and your words say what it means in everyday terms.
-  - A command or tool people run in a terminal: in the terminal, as its users see it, your words saying what its output means.
-  - A document: as the document (below).
-  - Nothing anyone sees (a refactor, a dependency, tests): the app still doing what the change could have broken, then the checks passing in one short terminal chapter.
-  The terminal shows what people run in a terminal, or supports a chapter that has shown the change: never node -e calling the code's functions, never a test run as the only proof of something people see.
+export function proofGuide(baseBranch: string, film: boolean): string {
+  return `Proof: what makes the owner sure the ticket is done in under a minute, without reading code. The owner is often a product manager or a designer. Pick the proof from what the change is, never by habit: most changes need one or two kinds, and what does not help them judge is noise. The kinds, in result.json "proofs":
+- {"kind": "images", "label": "...", "before": "proof/<name>-before.png", "after": "proof/<name>-after.png", "device": "desktop" | "phone"}: the same screen as it was and as it is now, in the same state. "before": null only for a screen that did not exist.
+- {"kind": "output", "label": "...", "command": "the command or request, as typed", "before": "what it printed on the code as it was", "after": "what it prints now"}: copied exactly as printed, cut to the part that matters (at most 40 lines). "before": null when there was nothing to run before.
+- {"kind": "measure", "label": "...", "unit": "ms", "before": 2900, "after": 140, "better": "lower" | "higher"}: the same measurement on the same data and machine, the median of a few runs; the output of how you measured goes with it.
+- {"kind": "document", "file": "README.md"}: a document of the repository, which Yarrow shows as it reads on the branch.
+- {"kind": "app", "path": "/tasks?status=doing"}: the page of the running app where the owner tries the change themselves; Yarrow opens the app there, signed in with the recipe's account. Only when the change is in the app and can be tried there.
+- A film: the presentation below${film ? "" : " (not available on this run: use the other kinds)"}. It is the only proof that takes the owner minutes: only for a flow worth watching.
+What proves what:
+- A flow people go through in the app (a feature used in several steps, an interaction, something that moves, a game mechanic): a film, and "app".
+- A change on one screen (a fix, a layout, a removal, wording, a translation, a color): images of that screen, at the size that matters ("phone" for a phone layout), and "app". No film.
+- A rule deep in the code that shows on a screen (a wrong date, a limit, an error case): images of the screen where it shows, brought to that state with test data or the app's own state (never by changing the code); and an output of the test that failed before and passes now. "app".
+- An API: an output of the request and its answer before and after, cut to what changed. "app" only when a screen shows it.
+- Something that runs in the background or sends something (a job, an email, a webhook): images of what it produces as its reader sees it (the email rendered), and an output of it running.
+- A database change: an output of the migration run on data like production's, and of the data before and after.
+- Speed: a measure, and the output of how you measured.
+- A command people run in a terminal: an output of the command and what it prints, before and after when it changes an existing one.
+- A library or SDK: an output of a short example that uses what changed, run for real.
+- A document: the document. No film, no app.
+- A feature built on a language model: an output of real inputs and the model's real answers when the project gives a key for it; otherwise the answers come from a stub, and a not_verified line says so.
+- Nothing anyone sees (a refactor, a dependency, the CI, tests): an output of the checks passing (the tests, the build, the workflow's commands run here). No images, no film, no app.
+- Labels are plain words a product manager understands ("What the API returns for a task", not "curl /api/tasks"). Proofs show the final change; record them again after a fix round or a correction when what they show changed.
+- Images: Playwright, 1280x800, or 390x844 for "phone", PNG, saved under ${OUTPUTS}/proof/ with plain distinct names. Look at each before keeping it: never an error, a login page, a loading state or a dev overlay. In "proofs", name them "proof/<name>.png".
+- Before: what the code did before your change comes from the base branch: git worktree add /tmp/before HEAD (for a correction: git fetch --depth=1 origin ${baseBranch}, then git worktree add /tmp/before FETCH_HEAD). For the app as it was, start it from /tmp/before on another port with the same data; link node_modules when the lockfile did not change. Skip it when it would take more than about five minutes, and say so in a not_verified line. Then add to the recipe how you started it, so Yarrow can show it live too: "before": {"steps": ["commands run in /tmp/before, once the app above runs, to the app as it was answering, long-running ones in the background"], "url": "http://localhost:3001"}. Leave out the git worktree and fetch: Yarrow makes /tmp/before from the base branch itself.`;
+}
+
+/**
+ * The film, when the proof is one: the agent's screen, recorded chapter by
+ * chapter with its words, voiced by the brain after the review (decided
+ * 2026-10-21; only for a flow since 2026-10-29).
+ */
+export function presentationGuide(): string {
+  return `Presentation (only when the proof is a film): your screen, recorded, with your words over it, like a colleague presenting their pull request in a few minutes. You write a plan; the recorder plays it on a real desktop (the browser and a terminal in their windows, a dock, the real pointer) and films it. Yarrow voices your words after the review, in English.
+- Who watches: often a product manager or a designer who reads no code and no terminal. By its end, they are sure the ticket is solved from what they saw: the flow where the people it is for go through it. A rule the flow reaches is shown in the app, brought to the moment it shows with test data or the app's own state; never change the app's code for the film. The terminal only supports a chapter that has shown the change: never node -e calling the code's functions.
 - Chapters, in this order:
   1. Open on the problem. A change you can see: the app as it was (tab "app", "app": "before"), pointing at what is wrong or missing while you say the ask; only when the app as it was cannot run, the app as it is now, saying the ask before showing the change, with the reason in the plan's "noBefore". Never a ticket chapter in a film that shows the app: the recorder refuses it, and an opening on the app as it is now without "noBefore". A change to a document (a README, a guide, any Markdown file of the repository): the document as it was (tab "document", "before": true), at the place where what the ticket asks is missing. Anything else: the ticket (tab "ticket"), which shows its title alone; say the ask in a sentence or two. A bug outside the UI can also be shown failing (tab "terminal", "before": true).
   2. One chapter per thing the ticket asks (its Done-when criteria, or what it asks when it lists none), showing it work where people meet it, as above: in the app (tab "app"), in the document as a reader sees it (tab "document": the new or changed part, scrolled to and circled), or run for real (tab "terminal": the command its users run). A document is shown as the document, never as text in a terminal (no cat, grep or head of it); a terminal chapter in a documentation change runs a command the document tells readers to run, to show it works. A risky change also shows what must still be refused or fail.
@@ -98,19 +124,13 @@ export function presentationGuide(baseBranch: string): string {
   {"title": "The API", "tab": "terminal", "command": "curl -s localhost:3000/api/tasks.csv | head -5", "say": "..."}]}
  A document chapter: {"title": "Run it locally", "tab": "document", "file": "README.md", "say": "...", "actions": [{"do": "scroll", "target": "text=Run it locally"}, {"do": "circle", "target": "h2:has-text('Run it locally')"}]}
 - Chapter titles: one to three words. Actions, spread over the words: point (the pointer goes to it and rests there while you talk about it; nothing is drawn around it), circle (the pointer loops around it, as you would on a shared screen: for the thing a sentence is about, a few times in a presentation, not on every action), click, fill {"target", "text"}, select {"target", "value"}, press {"key"}, hover, scroll {"y"} or {"target"}, goto {"path"} (typed in the address bar), reload (the browser's button), wait {"ms"}. Targets are Playwright selectors: prefer role= and text=. A phone layout: "device": "phone" on the chapter. A signed-in app: sign in once with Playwright, save context.storageState({path}) and give that path as "storage".
-- Before: git worktree add /tmp/before HEAD (for a correction: git fetch --depth=1 origin ${baseBranch}, then git worktree add /tmp/before FETCH_HEAD), started on another port with the same data; link node_modules when the lockfile did not change. Skip it when it would take more than about five minutes. Then add to the recipe how you started it, so Yarrow can show it live too: "before": {"steps": ["commands run in /tmp/before, once the app above runs, to the app as it was answering, long-running ones in the background"], "url": "http://localhost:3001"}. Leave out the git worktree and fetch: Yarrow makes /tmp/before from the base branch itself. The app as it was and as it is now are two tabs of one browser: the chapter after the before one opens with a click on the other tab, so its words can mark the switch ("and here it is with the change").
+- Before: the app as it was, started as the proof rules say. It and the app as it is now are two tabs of one browser: the chapter after the before one opens with a click on the other tab, so its words can mark the switch ("and here it is with the change").
 - Document: "file" is its path in the repository. The browser shows it as on the repository's page, Markdown rendered, what the change added or rewrote marked in the margin. As it was ("before": true), it is read from /tmp/before when you made it (see Before), else from the last commit: the file as the branch started. Its actions: point, circle, scroll, hover; targets as on the app (text=, h2:has-text(...)). Skip the "as it was" chapter for a new file.
 - Terminal: the command is typed in the terminal and runs for real on film, from /workspace/repo or "cwd", for at most four minutes; a run longer than a second or two is cut to its start and its end. For a long run you already did, give its "output" instead, copied exactly.
 - Record: node ${RECORDER_PATH} /tmp/presentation.json (add --check to check the plan only). It sets up the desktop, Playwright and Chromium itself (or films each page alone when the desktop cannot start). The film is the desktop: never set YARROW_DESKTOP, Yarrow's own switch. Each "problem:" line it prints is an action that failed: fix the plan or the app and run it again; "a click missed the page" is no problem, Playwright clicked instead. Then look at the poster it saved (${OUTPUTS}/presentation/*-poster.jpg): it must show the change, not an error, a login page or a dev overlay.
 - Record it again after a fix round or a correction when what it shows changed. A correction's presentation shows the whole pull request as it stands; its first chapter says what this correction changed.
 - Spend at most about 20 minutes on the presentation beyond running the app. If the recorder cannot run at all, say why in one not_verified line. Nothing goes in artifacts or in the checks for it: Yarrow finds it, and recording it proves nothing about the change.`;
 }
-
-/** Without the recorder (its upload failed): screenshots, as before. */
-const SCREENSHOT_GUIDE = `Screenshots:
-- Decide what proves the change. A change people can see in a UI: screenshots of the changed screens. A change to an API or a command: one real request or run and its output, as a verification line. Anything else (refactors, internals, tests, docs, config): no evidence beyond the checks you run.
-- Screenshots: Playwright, 1280x800, PNG, at most four, each showing the change in a realistic state, signed in when the screen needs it. Save them under ${OUTPUTS}/evidence/ with plain, distinct names (settings-dark-mode.png). Look at each image before keeping it: drop any that shows an error, a login page, a loading skeleton or a dev overlay. A part of the screen you had to fake, or that stayed empty, gets one not_verified line. No video.
-- List each kept file in artifacts: {"file": "evidence/<name>", "label": "what it shows, in a few words", "kind": "screenshot"}.`;
 
 export const IMPLEMENTER_SYSTEM = `You are the implementer of Yarrow: you resolve one software ticket in the repository checked out at /workspace/repo. A reviewer from another AI lab reads your change before the owner sees it.
 
@@ -140,7 +160,7 @@ export interface TaskContext {
   pullRequestSummary?: string | null;
   /** The branch the pull request goes into: a correction's "before". */
   baseBranch?: string;
-  /** The recorder is mounted: the change is presented, not screenshotted. */
+  /** The recorder is mounted: a film is one of the proofs. */
   presentation?: boolean;
   runConfig?: {
     setupCommand: string | null;
@@ -233,7 +253,13 @@ ${ticket}
 
 ${EVIDENCE_GUIDE}
 
-${context.presentation ? presentationGuide(context.baseBranch ?? "main") : SCREENSHOT_GUIDE}
+${proofGuide(context.baseBranch ?? "main", context.presentation === true)}${
+    context.presentation
+      ? `
+
+${presentationGuide()}`
+      : ""
+  }
 
 ${runConfigText(context.runConfig, context.recipe)}
 
@@ -432,6 +458,11 @@ export const implementationResultSchema = z.object({
       }),
     )
     .default([]),
+  // A proof that does not parse is dropped, never the run.
+  proofs: z
+    .unknown()
+    .optional()
+    .transform((raw) => parseAgentProofs(raw)),
   // A recipe that does not parse is dropped: the run keeps its change.
   recipe: z
     .unknown()

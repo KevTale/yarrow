@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pullRequestNow } from "../../src/db/pull-panel";
+import { pullRequestNow, standingProofs } from "../../src/db/pull-panel";
 import { implementationResultSchema } from "../../src/runner/prompts";
 import {
   BLOCK_END,
@@ -210,5 +210,28 @@ describe("the pull request's summary", () => {
     ).toBeUndefined();
     expect(result.not_verified).toEqual([]);
     expect(result.spotted).toEqual([]);
+  });
+});
+
+describe("standingProofs", () => {
+  const run = (proofs?: unknown[], outcome = "pull_request") => ({
+    outcome,
+    details: proofs ? { notVerified: [], risks: [], spotted: [], proofs } : {},
+  });
+  const app = { kind: "app", path: "/tasks" };
+  const doc = { kind: "document", file: "README.md" };
+
+  it("is null for a pull request delivered before proofs", () => {
+    expect(standingProofs([run(), run()])).toBeNull();
+  });
+
+  it("keeps the latest run's that recorded some", () => {
+    expect(standingProofs([run([app]), run([doc])])).toEqual([doc]);
+    // A correction with nothing new to show keeps the earlier ones.
+    expect(standingProofs([run([app]), run([])])).toEqual([app]);
+    expect(standingProofs([run([]), run([])])).toEqual([]);
+    expect(standingProofs([run([app]), run([doc], "abstained")])).toEqual([
+      app,
+    ]);
   });
 });

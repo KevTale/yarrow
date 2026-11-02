@@ -29,7 +29,10 @@ export const Route = createFileRoute("/preview/$projectId/$key")({
         }).catch(() => null);
         if (panel?.pullRequest?.state !== "open")
           return new Response("Not found", { status: 404 });
-        const found = await env.BRAIN.preview({ workUnitId: panel.workUnitId });
+        const found = await env.BRAIN.preview({
+          workUnitId: panel.workUnitId,
+          path: new URL(request.url).searchParams.get("path"),
+        });
         if ("error" in found)
           return new Response(
             previewPage("failed", {

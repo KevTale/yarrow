@@ -91,6 +91,7 @@ export interface AppEnv {
     /** Its app at its own address: the link that signs the visit in, once. */
     preview(input: {
       workUnitId: string;
+      path?: string | null;
     }): Promise<{ url: string } | { error: string }>;
     /** The presentation, played live on the stage a cue at a time. */
     stageCue(input: {

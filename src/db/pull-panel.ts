@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Criterion, ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
 import { previewSignIn } from "../core/preview";
+import type { Proof } from "../core/proofs";
 import {
   blockingComments,
   type ReviewComment,
@@ -157,6 +158,7 @@ export interface PanelData {
     number: number;
     url: string;
     state: "open" | "merged" | "closed";
+    branch: string;
   } | null;
   implementation: ({ by: string } & PullRequestNow) | null;
   review: {
@@ -182,7 +184,34 @@ export interface PanelData {
    * The open pull request's app at its own address (src/core/preview.ts),
    * once Yarrow knows how to run it; with the recipe's test sign-in.
    */
-  preview: { signIn: { login: string; password: string } | null } | null;
+  preview: {
+    signIn: { login: string; password: string } | null;
+    /** The page a proof names; the recipe's own before proofs. */
+    path: string | null;
+  } | null;
+  /**
+   * What proves the pull request (src/core/proofs.ts), from the latest run
+   * that recorded some; null when it was delivered before proofs.
+   */
+  proofs: Proof[] | null;
+}
+
+/**
+ * The proofs that stand: the latest run's that recorded some (a correction
+ * that changed nothing to show keeps the earlier ones); none recorded since
+ * proofs exist, an empty list; delivered before them, null.
+ */
+export function standingProofs(
+  runs: { outcome: string | null; details: unknown }[],
+): Proof[] | null {
+  let proofs: Proof[] | null = null;
+  for (const run of runs) {
+    if (run.outcome !== "pull_request") continue;
+    const recorded = (run.details as ResultDetails | null)?.proofs;
+    if (!recorded) continue;
+    if (recorded.length > 0 || proofs === null) proofs = recorded;
+  }
+  return proofs;
 }
 
 export async function pullPanel(
@@ -281,11 +310,20 @@ export async function pullPanel(
 
   const running = runs.find((run) => run.status === "running");
   const now = pullRequestNow(runs);
+  const proofs = standingProofs(runs);
+  // The app is offered where a proof names its page, or on a pull request
+  // delivered before proofs.
+  const page = proofs?.find((proof) => proof.kind === "app");
   return {
     workUnitId: unit.id,
     runId: delivered?.id ?? null,
     pullRequest: pull
-      ? { number: pull.number, url: pull.url, state: pull.state }
+      ? {
+          number: pull.number,
+          url: pull.url,
+          state: pull.state,
+          branch: pull.branch,
+        }
       : null,
     implementation:
       delivered && now
@@ -355,9 +393,13 @@ export async function pullPanel(
         .find((run) => run.outcome === "pull_request" && run.artifacts?.length)
         ?.artifacts as StoredArtifact[] | undefined) ?? [],
     preview:
-      pull?.state === "open" && config?.recipe
-        ? { signIn: previewSignIn(config.recipe.signIn) }
+      pull?.state === "open" && config?.recipe && (proofs === null || page)
+        ? {
+            signIn: previewSignIn(config.recipe.signIn),
+            path: page?.path ?? null,
+          }
         : null,
+    proofs,
   };
 }
 

@@ -649,6 +649,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               notVerified: snapshot.not_verified,
               risks: snapshot.risks,
               spotted: snapshot.spotted,
+              proofs: delivered.proofs,
             },
           });
         }),
@@ -1262,6 +1263,8 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
    */
   async preview(input: {
     workUnitId: string;
+    /** The app's page to open, checked by the stage. */
+    path?: string | null;
   }): Promise<{ url: string } | { error: string }> {
     const suffix = this.env.PREVIEW_SUFFIX;
     if (!this.env.STAGE || !suffix)
@@ -1272,7 +1275,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     await stage.open(spec);
     const code = await stage.enter();
     return {
-      url: `https://${previewHost(input.workUnitId, suffix)}${ENTER_PATH}?code=${code}`,
+      url: `https://${previewHost(input.workUnitId, suffix)}${ENTER_PATH}?code=${code}${input.path ? `&to=${encodeURIComponent(input.path)}` : ""}`,
     };
   }
 

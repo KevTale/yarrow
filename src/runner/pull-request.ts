@@ -56,6 +56,8 @@ export interface PullRequestInput {
   evidenceInYarrow?: { count: number; url: string } | null;
   /** Played on the run's page; a public project's still shows here. */
   presentation?: { title: string; url: string; poster: string | null } | null;
+  /** What proves it, rendered (src/core/proofs.ts): "## Proof", or empty. */
+  proof?: string;
   roles: PipelineRoles;
   sponsors: RunSponsor[];
   runUrl: string;
@@ -110,6 +112,7 @@ export function pullRequestBlock(
           : ""
       }[Watch it in Yarrow](${presentation.url})`,
     );
+  if (input.proof) sections.push(input.proof);
   if (input.evidence.length > 0)
     sections.push(
       `## Screenshots\n\n${input.evidence

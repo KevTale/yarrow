@@ -16,6 +16,7 @@ import { getRunFn } from "@/functions/public.functions";
 import { TrackerIcon } from "@/components/brand-icons";
 import { BackArrow } from "@/components/back-arrow";
 import { Presentation } from "@/components/presentation";
+import { branchFileUrl, Proofs } from "@/components/proofs";
 import { Markdown } from "@/components/markdown";
 import { RunFeed, StopReason } from "@/components/run-activity";
 import { capitalize, duration, RunStatus, timeAgo } from "@/components/ui";
@@ -178,6 +179,16 @@ function RunPage() {
                 </ul>
               )}
             </section>
+          )}
+          {run.proofs.length > 0 && (
+            <div className="rp-panel">
+              <Proofs
+                proofs={run.proofs}
+                document={(file) =>
+                  branchFileUrl(run.pullRequestUrl, run.branch, file)
+                }
+              />
+            </div>
           )}
           {run.artifacts.length > 0 && (
             <section className="rp-panel">

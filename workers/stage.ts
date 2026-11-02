@@ -13,6 +13,7 @@ import {
   toApp,
   type PreviewPage,
 } from "../src/core/preview";
+import { isAppPath } from "../src/core/proofs";
 import {
   stageLog,
   stageScript,
@@ -382,6 +383,8 @@ export class Stage extends DurableObject<StageEnv> {
     const visits = this.#visits();
     if (url.pathname === ENTER_PATH) {
       const code = url.searchParams.get("code") ?? "";
+      // The page a proof names (src/core/proofs.ts), else the recipe's.
+      const to = url.searchParams.get("to") ?? "";
       if (!visits.codes[code] || !spec) return page("signed-out", 403);
       delete visits.codes[code];
       const session = randomToken();
@@ -390,7 +393,7 @@ export class Stage extends DurableObject<StageEnv> {
       return new Response(null, {
         status: 302,
         headers: {
-          location: spec.path || "/",
+          location: isAppPath(to) ? to : spec.path || "/",
           "set-cookie": `${PREVIEW_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${PREVIEW_SESSION_S}`,
           "cache-control": "no-store",
         },
