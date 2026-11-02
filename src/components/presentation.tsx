@@ -51,15 +51,16 @@ export function loadPresentation(key: string): Promise<Timeline | null> {
 }
 
 const VOICE_KEY = "yarrow.presentation.voice";
-const CAPTIONS_KEY = "yarrow.presentation.captions";
-function saved(key: string): boolean {
+/** Captions on or off, for the film and the live stage alike. */
+export const CAPTIONS_KEY = "yarrow.presentation.captions";
+export function saved(key: string): boolean {
   try {
     return localStorage.getItem(key) !== "off";
   } catch {
     return true;
   }
 }
-function save(key: string, on: boolean) {
+export function save(key: string, on: boolean) {
   try {
     localStorage.setItem(key, on ? "on" : "off");
   } catch {
@@ -125,6 +126,7 @@ export function Presentation({
   cinema = false,
   onCinema,
   seekRef,
+  onStart,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -132,6 +134,8 @@ export function Presentation({
   onCinema?: () => void;
   /** Set to play the film from a moment: the conversation's `0:56`. */
   seekRef?: RefObject<((ms: number) => void) | null>;
+  /** The film started: the live stage no longer takes its place. */
+  onStart?: () => void;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -151,6 +155,7 @@ export function Presentation({
       cinema={cinema}
       onCinema={onCinema}
       seekRef={seekRef}
+      onStart={onStart}
     />
   );
 }
@@ -161,12 +166,14 @@ function Player({
   cinema,
   onCinema,
   seekRef,
+  onStart,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
   cinema: boolean;
   onCinema?: () => void;
   seekRef?: RefObject<((ms: number) => void) | null>;
+  onStart?: () => void;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -202,6 +209,12 @@ function Player({
     if (audio.current) audio.current.muted = !voice;
     hearing.current = voice;
   }, [voice]);
+
+  useEffect(() => {
+    if (started) onStart?.();
+    // Once, as it starts: the page's handler is new at each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started]);
 
   const chapters = timeline?.chapters ?? [];
   const chapter = chapters[index];

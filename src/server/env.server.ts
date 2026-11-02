@@ -83,6 +83,8 @@ export interface AppEnv {
       workUnitId: string;
       action: "open" | "status" | "close";
       fresh?: boolean;
+      /** Opened only if its presentation can be played on it. */
+      live?: boolean;
     }): Promise<StageStatus>;
     /** The presentation, played live on the stage a cue at a time. */
     stageCue(input: {

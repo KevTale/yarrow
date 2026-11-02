@@ -1202,12 +1202,15 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   /**
    * A pull request's stage, its app live (workers/stage.ts). The web Worker
    * has checked the viewer is a member of the ticket's project. `fresh`
-   * forgets the snapshot: the next boot runs the whole recipe again.
+   * forgets the snapshot: the next boot runs the whole recipe again;
+   * `live` opens it only if its presentation can be played on it (the
+   * dashboard's panel: else the film plays, and no machine is worth it).
    */
   async stage(input: {
     workUnitId: string;
     action: "open" | "status" | "close";
     fresh?: boolean;
+    live?: boolean;
   }): Promise<StageStatus> {
     const off = (error: string): StageStatus => ({
       phase: "failed",
@@ -1225,6 +1228,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     }
     const spec = await stageSpec(this.env, input.workUnitId);
     if (typeof spec === "string") return off(spec);
+    if (input.live && !spec.script) return stage.status();
     return stage.open(spec, input.fresh);
   }
 

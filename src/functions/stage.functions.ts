@@ -37,6 +37,7 @@ export const stageFn = createServerFn({ method: "POST" })
       ...ticket,
       action: z.enum(["open", "status", "close"]),
       fresh: z.boolean().optional(),
+      live: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }): Promise<StageView> => {
@@ -54,6 +55,7 @@ export const stageFn = createServerFn({ method: "POST" })
       workUnitId: found.workUnitId,
       action: data.action,
       fresh: data.fresh,
+      live: data.live,
     });
     const film = found.panel.screens.find(
       (screen) => screen.kind === "presentation",

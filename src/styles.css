@@ -8355,6 +8355,43 @@ body:has(.sb-dialog[open]) {
   flex: 1;
   aspect-ratio: auto;
 }
+/* The stage live in the film's place: its screen over VNC, the film kept
+   behind it, ready for a moment of the conversation. */
+.pv-glass > .pv-live {
+  position: absolute;
+  inset: 0;
+}
+.pv-chapter.still {
+  cursor: default;
+}
+.pv-live-tag {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  font-size: 13px;
+}
+.pv-live-tag::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--red);
+  content: "";
+}
+.pv-icon.on {
+  background: rgba(255, 255, 255, 0.18);
+}
+.pv-icon:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pp-take {
+  display: contents;
+}
+.pp-take[hidden] {
+  display: none;
+}
 /* Cinema: a modal dialog filling the window, the film as large as it
    fits beside the conversation. Closed, it is the panel's player. */
 .pp-stage {

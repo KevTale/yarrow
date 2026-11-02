@@ -33,6 +33,7 @@ import {
   requestChangeFn,
 } from "@/functions/builder.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
+import { LivePlayer, useLiveStage } from "@/components/live-stage";
 import { loadPresentation, Presentation } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
@@ -199,7 +200,9 @@ export function usePullPanel(projectId: string, rowKey: string) {
 /**
  * A ticket's row, opened: what the agents did, what to watch and the files
  * changed on the left, the conversation on the right; a change asked from
- * there goes to the pull request. Who paid is on the row's line.
+ * there goes to the pull request. Who paid is on the row's line. The
+ * presentation plays live on the pull request's stage once it is up, in
+ * the film's place.
  */
 export function PullPanel({
   projectId,
@@ -215,6 +218,27 @@ export function PullPanel({
   useEffect(() => {
     void loadFiles(projectId, rowKey).catch(() => {});
   }, [projectId, rowKey]);
+
+  // The stage comes up as the row opens, for an open pull request on a
+  // window wide enough: the film plays until it is up, once it was started,
+  // and on a phone.
+  const [wide] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 761px)").matches,
+  );
+  const [film, setFilm] = useState(false);
+  const stage = useLiveStage({
+    projectId,
+    rowKey,
+    start: Boolean(
+      wide &&
+      panel?.pullRequest?.state === "open" &&
+      panel.screens.some((screen) => screen.kind === "presentation"),
+    ),
+    messages: panel?.messages.length ?? 0,
+    refresh,
+  });
 
   // Cinema: the film fills the window beside the conversation, which goes
   // with it; the page under it held where it was.
@@ -251,7 +275,22 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  // The conversation, the panel's right column, beside the film in cinema.
+  const onStage = Boolean(
+    presentation &&
+    !film &&
+    stage.phase === "ready" &&
+    stage.status?.live &&
+    stage.timeline,
+  );
+  // The film from a moment: the stage's voice and call end.
+  const toFilm = (ms: number) => {
+    stage.stop();
+    stage.endTalk();
+    setFilm(true);
+    seek.current?.(ms);
+  };
+  // The conversation, the panel's right column, beside the film in cinema;
+  // beside the stage, the agent acts on it.
   const talk = (
     <Conversation
       panel={panel}
@@ -261,11 +300,18 @@ export function PullPanel({
       onDraft={setDraft}
       onPanel={setPanel}
       onRefresh={refresh}
-      onSeek={presentation ? (ms) => seek.current?.(ms) : null}
+      onSeek={
+        presentation
+          ? (ms) => (onStage ? toFilm(ms) : seek.current?.(ms))
+          : null
+      }
       onMade={() => {
         void refresh();
         onChanged();
       }}
+      stage={onStage}
+      turn={stage.turn}
+      onAsking={stage.hold}
     />
   );
   return (
@@ -292,12 +338,24 @@ export function PullPanel({
                   </button>
                 )}
                 <div className="pp-film">
-                  <Presentation
-                    artifact={presentation}
-                    cinema={cinema}
-                    onCinema={flipCinema}
-                    seekRef={seek}
-                  />
+                  {onStage && (
+                    <LivePlayer
+                      stage={stage}
+                      cinema={cinema}
+                      onCinema={flipCinema}
+                      onFilm={() => toFilm(0)}
+                    />
+                  )}
+                  {/* Kept behind the stage: a moment of it plays at once. */}
+                  <div className="pp-take" hidden={onStage}>
+                    <Presentation
+                      artifact={presentation}
+                      cinema={cinema}
+                      onCinema={flipCinema}
+                      seekRef={seek}
+                      onStart={() => setFilm(true)}
+                    />
+                  </div>
                 </div>
                 {cinema && talk}
               </dialog>
