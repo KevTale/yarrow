@@ -246,12 +246,31 @@ export function stageNote(state: StageState | null): string {
     : "[On the stage: the presentation is not playing.]";
 }
 
+/**
+ * ElevenLabs drops the call when its LLM says nothing for 15 s (its
+ * cascade timeout, 15 s at most; an empty chunk does not count), and the
+ * stage can take longer: past this, the brain says one of these.
+ */
+export const TALK_SILENCE_MS = 8000;
+const FILLERS: Record<string, string[]> = {
+  fr: ["Une seconde.", "J'y suis presque.", "Encore un instant."],
+  en: ["One moment.", "Almost there.", "Just a second."],
+};
+
+/** What fills the nth silence of a turn, in the member's language. */
+export function talkFiller(language: string, nth: number): string {
+  const fillers = FILLERS[language.slice(0, 2)] ?? FILLERS.en!;
+  return `${fillers[nth % fillers.length]} `;
+}
+
 export interface TalkAnswer {
   /** The agent asked for the presentation to go on (a tool of the page). */
   resume: boolean;
   usage: ChatUsage;
   /** The first words, from the request: ms. */
   firstWordMs: number | null;
+  /** Where the turn's time went: each answer of Claude's, each tool. */
+  steps: { what: string; ms: number }[];
 }
 
 /**
@@ -285,6 +304,7 @@ export async function talkTurn(input: {
   const last = messages.at(-1);
   if (last?.role === "user")
     last.content = `${last.content as string}\n\n${stageNote(input.state)}`;
+  const steps: TalkAnswer["steps"] = [];
   let usage: ChatUsage = {
     model: TALK_MODEL,
     input: 0,
@@ -293,6 +313,7 @@ export async function talkTurn(input: {
     cacheWrite: 0,
   };
   for (let step = 0; ; step++) {
+    const asked = Date.now();
     const stream = client.beta.messages.stream({
       model: TALK_MODEL,
       max_tokens: 4000,
@@ -311,6 +332,7 @@ export async function talkTurn(input: {
       speak(delta);
     });
     const response = await stream.finalMessage();
+    steps.push({ what: "claude", ms: Date.now() - asked });
     usage = addUsage(usage, {
       model: response.model,
       input: response.usage.input_tokens,
@@ -324,19 +346,21 @@ export async function talkTurn(input: {
         block.type === "tool_use",
     );
     if (response.stop_reason !== "tool_use" || calls.length === 0)
-      return { resume: false, usage, firstWordMs };
+      return { resume: false, usage, firstWordMs, steps };
     if (calls.some((call) => call.name === "resume_presentation"))
-      return { resume: true, usage, firstWordMs };
+      return { resume: true, usage, firstWordMs, steps };
     messages.push({ role: "assistant", content: response.content });
     // One move on the stage at a time, in the order asked.
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
+      const ran = Date.now();
       const result = await runTalkTool(call, context, sources, stage).catch(
         (error: Error) => ({
           text: `That failed: ${error.message.slice(0, 200)}`,
           error: true,
         }),
       );
+      steps.push({ what: call.name, ms: Date.now() - ran });
       results.push({
         type: "tool_result",
         tool_use_id: call.id,
@@ -400,13 +424,6 @@ async function runTalkTool(
 export const completion = {
   words(id: string, text: string): string {
     return chunk(id, { content: text }, null);
-  },
-  /**
-   * Nothing said: ElevenLabs drops the call after 15 s without a chunk
-   * (its cascade timeout, 15 s at most), and the stage can take longer.
-   */
-  wait(id: string): string {
-    return chunk(id, { content: "" }, null);
   },
   resume(id: string): string {
     return (

@@ -94,6 +94,8 @@ import {
 import {
   completion,
   stageNote,
+  TALK_SILENCE_MS,
+  talkFiller,
   talkGrantOf,
   talkMessages,
   talkRequestSchema,
@@ -1329,15 +1331,19 @@ async function talkRoute(
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
-  let wrote = Date.now();
-  const write = (text: string) => {
-    wrote = Date.now();
-    return writer.write(encoder.encode(text)).catch(() => {});
+  let said = Date.now();
+  let fillers = 0;
+  const write = (text: string) =>
+    writer.write(encoder.encode(text)).catch(() => {});
+  const say = (text: string) => {
+    said = Date.now();
+    return write(completion.words(id, text));
   };
-  // While the agent works on the stage in silence, ElevenLabs keeps waiting.
-  const waiting = setInterval(() => {
-    if (Date.now() - wrote >= 4000) void write(completion.wait(id));
-  }, 1000);
+  // While the agent works on the stage in silence, a few words keep the call.
+  const silence = setInterval(() => {
+    if (Date.now() - said >= TALK_SILENCE_MS)
+      void say(talkFiller(grant.language, fillers++));
+  }, 500);
   const turn = (async () => {
     try {
       const [kept, state] = await Promise.all([
@@ -1369,7 +1375,7 @@ async function talkRoute(
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
         stage: (hand) => stage.present(hand),
-        say: (text) => void write(completion.words(id, text)),
+        say: (text) => void say(text),
       });
       await write(
         answer.resume
@@ -1382,6 +1388,8 @@ async function talkRoute(
         firstWordMs: answer.firstWordMs,
         ms: Date.now() - started,
         resume: answer.resume,
+        fillers,
+        steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
         cents: Number(chatCostCents(answer.usage).toFixed(3)),
         usage: answer.usage,
       });
@@ -1396,7 +1404,7 @@ async function talkRoute(
         ) + completion.end(id),
       );
     } finally {
-      clearInterval(waiting);
+      clearInterval(silence);
       await writer.close().catch(() => {});
     }
   })();

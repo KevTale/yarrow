@@ -6,6 +6,7 @@ import {
   completion,
   stageNote,
   talkGrantOf,
+  talkFiller,
   talkMessages,
   talkRequestSchema,
   talkTurn,
@@ -216,6 +217,13 @@ describe("the live call's turn", () => {
     );
     expect(answer.resume).toBe(false);
     expect(answer.firstWordMs).not.toBeNull();
+    expect(answer.steps.map((step) => step.what)).toEqual([
+      "claude",
+      "look_at_screen",
+      "claude",
+      "act_on_screen",
+      "claude",
+    ]);
     expect(answer.usage).toMatchObject({ input: 300, output: 60 });
     expect(asked).toEqual([
       { action: "look" },
@@ -429,12 +437,14 @@ describe("what ElevenLabs sends the brain", () => {
     expect(completion.end("1")).toMatch(
       /"finish_reason":"stop".*\n\ndata: \[DONE\]\n\n$/s,
     );
-    // Silence while the stage works, a chunk all the same.
-    expect(JSON.parse(completion.wait("1").slice(6)).choices[0]).toEqual({
-      index: 0,
-      delta: { content: "" },
-      finish_reason: null,
-    });
+  });
+
+  it("hears a few words while the stage works, in the member's language", () => {
+    expect(talkFiller("fr", 0)).toBe("Une seconde. ");
+    expect(talkFiller("fr", 1)).toBe("J'y suis presque. ");
+    expect(talkFiller("fr", 3)).toBe("Une seconde. ");
+    expect(talkFiller("en-GB", 0)).toBe("One moment. ");
+    expect(talkFiller("ja", 2)).toBe("Just a second. ");
   });
 });
 
