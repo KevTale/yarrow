@@ -158,9 +158,10 @@ describe("the live call's models", () => {
       messages: [{ role: "user", content: "Montre-moi." }],
       last: false,
       onText: (text) => said.push(text),
+      onBreak: (next) => said.push(`[${next}]`),
     });
 
-    expect(said.join("")).toBe("Je regarde.");
+    expect(said.join("")).toBe("Je regarde.[look_at_screen]");
     expect(step.toolUse).toBe(true);
     expect(step.calls).toEqual([
       { type: "tool_use", id: "call_a", name: "look_at_screen", input: {} },

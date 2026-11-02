@@ -54,6 +54,8 @@ export async function talkStep(input: {
   /** The last one: words only, no more tools. */
   last: boolean;
   onText: (delta: string) => void;
+  /** The words stop for something else: a tool (its name), or thinking. */
+  onBreak?: (next: string) => void;
 }): Promise<TalkStep> {
   return TALK_MODELS[input.model].provider === "meta"
     ? museStep(input)
@@ -86,6 +88,12 @@ async function claudeStep(
     messages,
   });
   stream.on("text", onText);
+  stream.on("streamEvent", (event) => {
+    if (event.type !== "content_block_start") return;
+    const block = event.content_block;
+    if (block.type === "tool_use") input.onBreak?.(block.name);
+    else if (block.type !== "text") input.onBreak?.(block.type);
+  });
   const response = await stream.finalMessage();
   const calls = response.content.filter(
     (block): block is Anthropic.Beta.BetaToolUseBlock =>
@@ -259,7 +267,10 @@ async function museStep(
         args: "",
       });
       if (part.id) call.id = part.id;
-      if (part.function?.name) call.name += part.function.name;
+      if (part.function?.name) {
+        if (!call.name) input.onBreak?.(part.function.name);
+        call.name += part.function.name;
+      }
       if (part.function?.arguments) call.args += part.function.arguments;
     }
   };

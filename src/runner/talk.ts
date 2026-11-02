@@ -378,17 +378,23 @@ export async function talkTurn(input: {
         wrote = true;
         speak(delta);
       },
+      // Words before a tool or thinking end there, and are heard then.
+      onBreak: (next) => {
+        if (!wrote || next === "resume_presentation") return;
+        wrote = false;
+        speak(untilTool(words));
+      },
     });
     steps.push({
       what: TALK_MODELS[model].provider === "meta" ? "muse" : "claude",
       ms: Date.now() - asked,
     });
     usage = addUsage(usage, response.usage);
+    if (wrote) speak(" ");
     const { calls } = response;
-    const resumes = calls.some((call) => call.name === "resume_presentation");
-    if (wrote) speak(response.toolUse && !resumes ? untilTool(words) : " ");
     if (!response.toolUse) return answer(false);
-    if (resumes) return answer(true);
+    if (calls.some((call) => call.name === "resume_presentation"))
+      return answer(true);
     messages.push({ role: "assistant", content: response.content });
     // One move on the stage at a time, in the order asked.
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
