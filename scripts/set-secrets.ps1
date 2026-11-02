@@ -2,12 +2,13 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts/set-secrets.ps1 -Target dev
 #   ... -Target dev -Jira    only the Jira app's two values
+#   ... -Target dev -Linear    only the Linear app's three values
 #   ... -Target dev -Providers    only the Anthropic, OpenAI and Resend keys
 #
 # Each value is typed once, hidden, and sent to every Worker that needs it
 # through `wrangler secret bulk` on stdin: nothing is written to disk.
 # Empty answers are skipped. Run `pnpm exec wrangler login` first.
-param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira, [switch]$Providers)
+param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira, [switch]$Linear, [switch]$Providers)
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
@@ -30,6 +31,13 @@ function Add-Jira {
   Add JIRA_CLIENT_ID (Read-Host "Atlassian app Client ID") -Web -Brain
   Add JIRA_CLIENT_SECRET (Read-Secret "Atlassian app Secret") -Web -Brain
 }
+# Linear's OAuth app (linear.app/settings/api/applications): both Workers
+# use it; its webhook's signing secret only reaches the web Worker.
+function Add-Linear {
+  Add LINEAR_CLIENT_ID (Read-Host "Linear app Client ID") -Web -Brain
+  Add LINEAR_CLIENT_SECRET (Read-Secret "Linear app Client secret") -Web -Brain
+  Add LINEAR_WEBHOOK_SECRET (Read-Secret "Linear app webhook signing secret") -Web
+}
 # The AI providers' platform keys, and Resend (sponsor emails, the brain's alerts).
 function Add-Providers {
   $anthropic = Read-Secret "Anthropic API key"
@@ -44,7 +52,7 @@ function Add-Providers {
   Add OPENAI_API_KEY (Read-Secret "OpenAI API key") -Brain
   Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web -Brain
 }
-if ($Jira) { Add-Jira } elseif ($Providers) { Add-Providers } else {
+if ($Jira) { Add-Jira } elseif ($Linear) { Add-Linear } elseif ($Providers) { Add-Providers } else {
   Add DATABASE_URL (Read-Secret "Supabase DATABASE_URL (Connect > Transaction pooler, port 6543)") -Web -Brain
   Add-Providers
   $stripeKey = if ($Target -eq "production") { "sk_live_..." } else { "sk_test_..." }
@@ -61,6 +69,7 @@ if ($Jira) { Add-Jira } elseif ($Providers) { Add-Providers } else {
     Add TOKEN_ENCRYPTION_KEY (node -e "console.log(require('crypto').randomBytes(32).toString('base64'))") -Web -Brain
   }
   Add-Jira
+  Add-Linear
 }
 
 if ($webSecrets.Count) { $webSecrets | ConvertTo-Json -Compress | pnpm exec wrangler secret bulk --env $Target }
