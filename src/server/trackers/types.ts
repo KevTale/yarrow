@@ -97,6 +97,12 @@ export interface TrackerAdapter {
     credentials: TrackerCredentials,
     boardId: string,
   ): Promise<TrackerStatus[]>;
+  /** The status a ticket is in now (Jira, Linear). */
+  currentStatus?(
+    connection: { externalId: string; accessToken: string },
+    credentials: TrackerCredentials,
+    externalId: string,
+  ): Promise<string | null>;
   /**
    * Moves a ticket to a status, never backwards unless `backwards`:
    * "already" when it is there (or further), "blocked" when the workflow

@@ -15,7 +15,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { MultiSelect } from "@/components/arc/multi-select/multi-select";
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
-import type { MoveEvent, TrackerStatus } from "@/core/tracker-moves";
+import { BACK, type MoveEvent, type TrackerStatus } from "@/core/tracker-moves";
 import { z } from "zod";
 import { NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
@@ -404,6 +404,7 @@ function BoardMoves({
                   tracker={tracker}
                   label={row.label}
                   statuses={board.statuses}
+                  back={row.event === "stopped"}
                   value={board.moves[row.event] ?? null}
                   onChange={(statusId) => void change(row.event, statusId)}
                 />
@@ -425,19 +426,22 @@ function BoardMoves({
 }
 
 /**
- * The status a ticket moves to, or "Don't move": uiarc's morph select, each
- * status marked with its category's color as in its tracker.
+ * The status a ticket moves to, or "Don't move" (or, when Yarrow stops,
+ * back where it was): uiarc's morph select, each status marked with its
+ * category's color as in its tracker.
  */
 function StatusSelect({
   tracker,
   label,
   statuses,
+  back = false,
   value,
   onChange,
 }: {
   tracker: string;
   label: string;
   statuses: TrackerStatus[];
+  back?: boolean;
   value: string | null;
   onChange: (statusId: string | null) => void;
 }) {
@@ -453,6 +457,7 @@ function StatusSelect({
           if (statusId !== value) onChange(statusId);
         }}
         items={[
+          ...(back ? [{ value: BACK, label: "Back where it was" }] : []),
           { value: none, label: "Don't move" },
           ...statuses.map((status) => ({
             value: status.id,

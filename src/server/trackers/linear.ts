@@ -279,6 +279,19 @@ export function linearAdapter(fetcher: Fetch = fetch): TrackerAdapter {
           category: categoryOf(state.type),
         }));
     },
+    async currentStatus({ accessToken }, _credentials, key) {
+      try {
+        const data = await query<{ issue: { state: { id: string } } }>(
+          accessToken,
+          `query($id: String!) { issue(id: $id) { state { id } } }`,
+          { id: key },
+        );
+        return data.issue.state.id;
+      } catch (error) {
+        if (notFound(error)) return null;
+        throw error;
+      }
+    },
     async moveTo(
       { accessToken },
       _credentials,

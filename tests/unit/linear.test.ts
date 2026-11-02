@@ -411,6 +411,21 @@ describe("Linear for builders", async () => {
       "ENG-1 moved",
     );
     expect(linear.issues.get("ENG-1")!.state).toBe("s-progress");
+    // Yarrow stops: back to Todo, where it found the ticket.
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
+      "ENG-1 moved",
+    );
+    expect(linear.issues.get("ENG-1")!.state).toBe("s-todo");
+    // Started again once a person had moved it further: nothing to undo.
+    linear.issues.get("ENG-1")!.state = "s-done";
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "started")).toBe(
+      "ENG-1 already",
+    );
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
+      "not moved (Yarrow had not moved it)",
+    );
+    expect(linear.issues.get("ENG-1")!.state).toBe("s-done");
+    linear.issues.get("ENG-1")!.state = "s-progress";
     const created = await createTrackerTicket(
       db,
       ctx,

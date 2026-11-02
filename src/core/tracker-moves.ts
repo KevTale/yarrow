@@ -12,8 +12,16 @@ export const moveEvents: MoveEvent[] = [
 ];
 
 /**
- * Target status per event (its id in the tracker); null: don't move.
- * "stopped" may be missing from moves saved before it existed.
+ * Yarrow stopped: the ticket goes back to the status it had before Yarrow
+ * moved it on starting (decided 2026-10-28), unless the builder chose a
+ * status or "Don't move". Nothing moves when Yarrow did not move it.
+ */
+export const BACK = "back";
+
+/**
+ * Target status per event (its id in the tracker), or BACK for "stopped";
+ * null: don't move. "stopped" may be missing from moves saved before it
+ * existed: it is then BACK.
  */
 export type TicketMoves = Record<
   Exclude<MoveEvent, "stopped">,
@@ -49,7 +57,13 @@ export function defaultMoves(statuses: TrackerStatus[]): TicketMoves {
     started: started?.id ?? null,
     pullRequest: review?.id ?? null,
     merged: null,
-    // Where an abandoned ticket goes is the builder's call.
-    stopped: null,
+    stopped: BACK,
   };
 }
+
+/** The builder's moves, or the defaults; "stopped" filled in when missing. */
+export const movesOf = (
+  saved: TicketMoves | null,
+  statuses: TrackerStatus[],
+): TicketMoves =>
+  saved ? { stopped: BACK, ...saved } : defaultMoves(statuses);

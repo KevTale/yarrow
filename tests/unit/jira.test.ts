@@ -768,9 +768,15 @@ describe("moving Jira tickets", async () => {
       ["Code review", "progress"],
       ["Done", "done"],
     ]);
-    // Defaults: work → In Progress, PR → the review status, merge → stay.
+    // Defaults: work → In Progress, PR → the review status, merge → stay,
+    // stopped → back where it was.
     expect(settings).toMatchObject({
-      moves: { started: "20", pullRequest: "30", merged: null, stopped: null },
+      moves: {
+        started: "20",
+        pullRequest: "30",
+        merged: null,
+        stopped: "back",
+      },
       chosen: false,
     });
 
@@ -804,10 +810,21 @@ describe("moving Jira tickets", async () => {
       "APP-1 already",
     );
     expect(jira.issues.get("APP-1")!.status).toBe("40");
-    // Stopped: nowhere by default, then where the builder said, even back.
+    // Stopped: back to To Do, where Yarrow found it, by default; this
+    // workflow has no way there from Done.
+    expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
+      "APP-1 blocked",
+    );
+    await setTrackerMoves(db, owner.userId, board!.id, {
+      started: "20",
+      pullRequest: "30",
+      merged: "40",
+      stopped: null,
+    });
     expect(await moveTrackerTicket(db, ctx, unit!.id, "stopped")).toBe(
       "not moved (builder's choice)",
     );
+    // Then where the builder said, even back.
     await setTrackerMoves(db, owner.userId, board!.id, {
       started: "20",
       pullRequest: "30",

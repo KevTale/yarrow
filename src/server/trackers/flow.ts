@@ -15,7 +15,8 @@ import { upsertTicket } from "../../db/workunits";
 import { eq } from "drizzle-orm";
 import { trackerBoards, trackerConnections, workUnits } from "../../db/schema";
 import {
-  defaultMoves,
+  BACK,
+  movesOf,
   type MoveEvent,
   type TicketMoves,
   type TrackerStatus,
@@ -528,7 +529,7 @@ export async function trackerBoardSettings(
   );
   return {
     statuses,
-    moves: board.moves ?? defaultMoves(statuses),
+    moves: movesOf(board.moves, statuses),
     chosen: board.moves !== null,
     warning: board.moveWarning,
   };
@@ -568,6 +569,7 @@ export async function moveTrackerTicket(
   const [row] = await db
     .select({
       key: workUnits.externalId,
+      before: workUnits.trackerStatusBefore,
       board: trackerBoards,
       connection: trackerConnections,
     })
@@ -588,8 +590,17 @@ export async function moveTrackerTicket(
     credentials,
     row.board.externalBoardId,
   );
-  const target = (row.board.moves ?? defaultMoves(statuses))[event] ?? null;
-  if (!target) return "not moved (builder's choice)";
+  const chosen = movesOf(row.board.moves, statuses)[event] ?? null;
+  // Back where it was before Yarrow moved it; nowhere if Yarrow did not.
+  const target = chosen === BACK ? row.before : chosen;
+  if (!target)
+    return chosen === BACK
+      ? "not moved (Yarrow had not moved it)"
+      : "not moved (builder's choice)";
+  const from =
+    event === "started"
+      ? await adapter.currentStatus?.(scope, credentials, row.key)
+      : null;
   // A stopped ticket goes where the builder said, back to "to do" included.
   const result = await adapter.moveTo(
     scope,
@@ -598,6 +609,17 @@ export async function moveTrackerTicket(
     target,
     event === "stopped",
   );
+  // Kept until Yarrow stops, so a stop after a retry goes back there too.
+  if (event === "started" && result === "moved" && from)
+    await db
+      .update(workUnits)
+      .set({ trackerStatusBefore: from })
+      .where(eq(workUnits.id, workUnitId));
+  if (event === "stopped" && chosen === BACK && result !== "blocked")
+    await db
+      .update(workUnits)
+      .set({ trackerStatusBefore: null })
+      .where(eq(workUnits.id, workUnitId));
   if (result === "blocked") {
     const name = statuses.find((status) => status.id === target)?.name;
     await db

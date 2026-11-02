@@ -421,6 +421,18 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
         (a, b) => categoryRank[a.category] - categoryRank[b.category],
       );
     },
+    async currentStatus({ externalId, accessToken }, _credentials, key) {
+      const response = await fetcher(
+        `${base(externalId)}/issue/${encodeURIComponent(key)}?fields=status`,
+        { headers: headers(accessToken) },
+      );
+      if (response.status === 404) return null;
+      const issue = await json<{ fields: { status: { id: string } } }>(
+        response,
+        "Jira issue",
+      );
+      return issue.fields.status.id;
+    },
     async moveTo(
       { externalId, accessToken },
       _credentials,

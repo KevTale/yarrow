@@ -410,6 +410,9 @@ export const workUnits = pgTable(
     url: text("url").notNull(),
     authorized: boolean("authorized").default(false).notNull(),
     status: workStatusEnum("status").default("queued").notNull(),
+    // Where the tracker ticket was before Yarrow moved it on starting, to
+    // put it back there when Yarrow stops (see core/tracker-moves).
+    trackerStatusBefore: text("tracker_status_before"),
     queuedAt: timestamp("queued_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
