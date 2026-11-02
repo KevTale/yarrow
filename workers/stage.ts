@@ -340,6 +340,10 @@ export class Stage extends DurableObject<StageEnv> {
         });
         return;
       }
+      // Opened while it was being prepared (open clears it, maybe while
+      // this step waited on the machine): someone is watching, it stays up.
+      const prepare = () => Boolean(this.#kv.get<Saved>("saved")?.prepare);
+      saved.prepare = prepare();
       if (!marks.some((mark) => mark.label === "served")) {
         this.#save(saved);
         return;
@@ -347,9 +351,11 @@ export class Stage extends DurableObject<StageEnv> {
       if (saved.prepare) {
         this.#save(saved);
         await this.#keep();
-        this.#save({ ...this.#kv.get<Saved>("saved")!, step: "ready" });
-        await this.#container.destroy();
-        return;
+        if (prepare()) {
+          this.#save({ ...this.#kv.get<Saved>("saved")!, step: "ready" });
+          await this.#container.destroy();
+          return;
+        }
       }
       const spec = this.#kv.get<StageSpec>("spec")!;
       await this.#files.mkdir(
@@ -373,7 +379,12 @@ export class Stage extends DurableObject<StageEnv> {
       await this.#background(
         `cd ${REPO} && node ${RECORDER_PATH} ${TASK}/stage.json --stage >> ${DESKTOP_LOG} 2>&1; echo $? > ${DESKTOP_EXIT}`,
       );
-      this.#save({ ...saved, step: "desktop" });
+      // As it is now: the snapshot's marks kept.
+      this.#save({
+        ...this.#kv.get<Saved>("saved")!,
+        prepare: false,
+        step: "desktop",
+      });
       this.#mark("desktop starting");
       // The files as they are now, for the next boot, while the desktop starts.
       if (!saved.warm && !this.#kv.get("snapshot")) void this.#keep();

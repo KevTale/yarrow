@@ -252,6 +252,19 @@ export function useLiveStage({
     return () => clearInterval(timer);
   }, [phase, call]);
 
+  // A boot that ended asleep (the one after delivery, made for later):
+  // asked up again, once.
+  const lastPhase = useRef(phase);
+  const reopened = useRef(false);
+  useEffect(() => {
+    const before = lastPhase.current;
+    lastPhase.current = phase;
+    if (!start || reopened.current || before !== "booting" || phase !== "off")
+      return;
+    reopened.current = true;
+    void call("open", false, true);
+  }, [phase, start, call]);
+
   const presentation = status?.presentation;
   useEffect(() => {
     if (!presentation) return;
