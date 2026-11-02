@@ -2489,21 +2489,22 @@ async function signIn(browser, base, how, file) {
       waitUntil: "load",
       timeout: 45000,
     });
-    const fields = Object.entries(how.fields);
-    for (const [selector, value] of fields) await page.fill(selector, value);
-    await Promise.all([
-      page.waitForLoadState("load").catch(() => {}),
-      how.submit
-        ? page.click(how.submit)
-        : page.press(fields.at(-1)[0], "Enter"),
-    ]);
-    await page
-      .waitForLoadState("networkidle", { timeout: 6000 })
-      .catch(() => {});
+    await fillSignIn(page, how);
     await context.storageState({ path: file });
   } finally {
     await context.close().catch(() => {});
   }
+}
+
+/** The recipe's sign-in form, filled and sent on the page showing it. */
+async function fillSignIn(page, how) {
+  const fields = Object.entries(how.fields);
+  for (const [selector, value] of fields) await page.fill(selector, value);
+  await Promise.all([
+    page.waitForLoadState("load").catch(() => {}),
+    how.submit ? page.click(how.submit) : page.press(fields.at(-1)[0], "Enter"),
+  ]);
+  await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
 }
 
 /** Same address: the page a tab shows and the one a chapter asks for. */
@@ -2532,9 +2533,11 @@ async function answers(url) {
  * page asks: the voice plays there, the gestures here, spread over it.
  */
 class Presenter {
-  constructor(desktop, plan) {
+  constructor(desktop, plan, signIn = null) {
     this.desktop = desktop;
     this.plan = plan;
+    /** How the seeded user signs in: the recipe's form, or none. */
+    this.signIn = signIn;
     /** The opening is on screen, nothing played since: it stays. */
     this.untouched = false;
     /** The chapter playing: its index, null between chapters. */
@@ -2560,25 +2563,40 @@ class Presenter {
     while (this.hold) await this.hold.resumed;
   }
 
-  pause() {
+  async pause() {
     if (this.hold) return [];
     const { tabs, front } = this.desktop;
     const tab = tabs?.active ?? null;
     let release;
     const resumed = new Promise((resolve) => (release = resolve));
-    this.hold = {
+    const hold = {
       since: Date.now(),
       resumed,
       release,
       front,
       tab,
       url: tab ? (tabs.pages[tab]?.url() ?? null) : null,
+      signedOut: false,
     };
+    this.hold = hold;
     log(
       "held" +
         (this.playing === null ? "" : " in chapter " + (this.playing + 1)),
     );
+    // Signed out already: the presentation shows it so, it stays so.
+    hold.signedOut = await this.signedOut(tab ? tabs.pages[tab] : null);
     return [];
+  }
+
+  /** The recipe's sign-in form is on the page: its first field shows. */
+  async signedOut(page) {
+    const first = this.signIn && Object.keys(this.signIn.fields)[0];
+    if (!first || !page) return false;
+    return page
+      .locator(first)
+      .first()
+      .isVisible()
+      .catch(() => false);
   }
 
   /** Back to the screen as the talk found it, then the chapter goes on. */
@@ -2604,6 +2622,14 @@ class Presenter {
         await page.bringToFront();
         if (hold.url && !samePage(page.url(), hold.url))
           await desktop.address(page, hold.url, marks, clock);
+        // Signed out while held (the member asked for it): the voice goes
+        // on as the stage was, so in again, then back to the page.
+        if (!hold.signedOut && (await this.signedOut(page))) {
+          await fillSignIn(page, this.signIn);
+          log("signed in again");
+          if (hold.url && !samePage(page.url(), hold.url))
+            await desktop.address(page, hold.url, marks, clock);
+        }
       } else if (hold.front === "terminal")
         await desktop.show("terminal", clock, marks);
     } catch (error) {
@@ -2917,7 +2943,7 @@ function serve(presenter) {
             ),
           };
         case "/pause":
-          return { ok: true, problems: presenter.pause() };
+          return { ok: true, problems: await presenter.pause() };
         case "/resume":
           return { ok: true, problems: await presenter.resume() };
         case "/state":
@@ -3018,7 +3044,7 @@ async function stage(spec) {
     },
     chapters: script ? script.chapters : [],
   };
-  const presenter = new Presenter(desktop, plan);
+  const presenter = new Presenter(desktop, plan, spec.signIn ?? null);
   // The app alone, on the recipe's page.
   const plain = () =>
     desktop.openWindow(

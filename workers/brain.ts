@@ -1326,6 +1326,9 @@ async function talkContext(
     text: `${chatContextText(context, { presentation, diff })}\n\n${conversationSoFar(context.history)}`,
     project: context.project,
     pullRequest: pull,
+    voice: (presentation?.chapters ?? [])
+      .map((chapter) => chapter.say)
+      .join(" "),
   };
 }
 
@@ -1355,7 +1358,6 @@ async function talkRoute(
   const grant = pass ? await readTalkGrant(secret, pass) : null;
   if (!grant) return refused();
   const stage = STAGE.getByName(grant.workUnitId);
-  const messages = talkMessages(parsed.data.messages);
   const id = crypto.randomUUID().slice(0, 12);
   const headers = {
     "content-type": "text/event-stream",
@@ -1391,6 +1393,13 @@ async function talkRoute(
       ]);
       const context = kept ?? (await talkContext(env, grant.workUnitId));
       if (!context) throw new Error("no pull request");
+      // Only the presentation's voice was heard, through the speakers: not
+      // the member's turn.
+      const messages = talkMessages(parsed.data.messages, context.voice);
+      if (messages.at(-1)?.role !== "user") {
+        await write(completion.end(id));
+        return;
+      }
       const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
       const projectId = context.project.id;
       const answer = await talkTurn({

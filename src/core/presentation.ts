@@ -343,3 +343,47 @@ export function wordsSaid(cue: Cue, ms: number): number {
   if (cue.words.length === 0) return Infinity;
   return cue.words.filter((word) => word.startMs <= ms).length;
 }
+
+/** The voice's sentence at `ms` and the one before, as they are written. */
+export function voiceAround(cues: Cue[], ms: number): string {
+  let now = -1;
+  for (const [i, cue] of cues.entries()) if (cue.startMs <= ms) now = i;
+  return cues
+    .slice(Math.max(0, now - 1), now + 1)
+    .map((cue) => cue.text)
+    .join(" ");
+}
+
+/** A word as the ear compares it: no case, accents or punctuation. */
+const heardAs = (word: string) =>
+  word
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * What the member said, without what the microphone caught of the
+ * presentation's own voice from the speakers: each run of `run` words or
+ * more that the voice says in that order goes, wherever it falls.
+ */
+export function withoutEcho(heard: string, voice: string, run = 3): string {
+  const said = voice.split(/\s+/).map(heardAs).filter(Boolean);
+  const at = new Map<string, number[]>();
+  for (const [p, word] of said.entries())
+    at.set(word, [...(at.get(word) ?? []), p]);
+  const words = heard.split(/\s+/).filter((word) => heardAs(word));
+  const keys = words.map(heardAs);
+  const kept: string[] = [];
+  for (let i = 0; i < words.length;) {
+    let longest = 0;
+    for (const p of at.get(keys[i]!) ?? []) {
+      let n = 0;
+      while (i + n < keys.length && said[p + n] === keys[i + n]) n++;
+      longest = Math.max(longest, n);
+    }
+    if (longest >= run) i += longest;
+    else kept.push(words[i++]!);
+  }
+  return kept.join(" ");
+}

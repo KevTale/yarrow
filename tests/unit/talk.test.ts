@@ -560,6 +560,21 @@ describe("what ElevenLabs sends the brain", () => {
     expect(memberWords(messages.slice(0, 2))).toBe("");
   });
 
+  it("leaves out the presentation's voice the microphone caught", () => {
+    const voice = "So eight in all, four to do, two doing and two done.";
+    const heard = (content: string) =>
+      talkMessages(
+        talkRequestSchema.parse({ messages: [{ role: "user", content }] })
+          .messages,
+        voice,
+      );
+    expect(memberWords(heard("So eight in all, four to do. Attends."))).toBe(
+      "Attends.",
+    );
+    // Only the voice: not the member's turn, nothing to answer.
+    expect(heard("Two doing and two done.")).toEqual([]);
+  });
+
   it("knows what was written and said before the call", () => {
     expect(conversationSoFar([])).toBe(
       "Nothing was written or said before this call.",

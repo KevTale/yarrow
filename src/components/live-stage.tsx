@@ -26,6 +26,8 @@ import {
 import {
   cueAt,
   estimateSpeechMs,
+  voiceAround,
+  withoutEcho,
   wordsSaid,
   type Presentation,
   type PresentationChapter,
@@ -128,6 +130,12 @@ export function useLiveStage({
   useEffect(() => {
     known.current = messages;
   }, [messages]);
+  /**
+   * The presentation's words, and those its voice says now: what the
+   * microphone catches of them through the speakers is not the member's.
+   */
+  const script = useRef("");
+  const saying = useRef("");
 
   const cue = useCallback(
     (data: Cue) =>
@@ -178,7 +186,11 @@ export function useLiveStage({
     if (!presentation) return;
     let gone = false;
     void loadPresentation(presentation).then((loaded) => {
-      if (!gone) setTimeline(loaded);
+      if (gone) return;
+      setTimeline(loaded);
+      script.current = (loaded?.chapters ?? [])
+        .map((chapter) => chapter.say)
+        .join(" ");
     });
     return () => {
       gone = true;
@@ -277,23 +289,29 @@ export function useLiveStage({
             void settle();
           },
         },
-        // Their first words, still being heard, already hold it.
+        // Their first words, still being heard, already hold it; the
+        // voice's own, from the speakers, do not.
         onIncomingEvent: (event: {
           type?: string;
           tentative_user_transcription_event?: { user_transcript?: string };
         }) => {
           const heard =
             event.tentative_user_transcription_event?.user_transcript ?? "";
-          if (
-            event.type === "tentative_user_transcript" &&
-            /\p{L}/u.test(heard)
-          )
+          const own = withoutEcho(
+            withoutEcho(heard, script.current),
+            saying.current,
+            1,
+          );
+          if (event.type === "tentative_user_transcript" && /\p{L}/u.test(own))
             hold();
         },
         onMessage: ({ source, message }) => {
-          if (source === "user") hold();
-          const text = message.trim();
+          const text =
+            source === "user"
+              ? withoutEcho(message.trim(), script.current)
+              : message.trim();
           if (!text) return;
+          if (source === "user") hold();
           before.current ??= known.current;
           setLines((now) => [
             ...now,
@@ -392,12 +410,14 @@ export function useLiveStage({
           } else silent();
         },
       };
+      const last = timeline?.chapters[index - 1]?.cues.at(-1)?.text ?? "";
       const tick = () => {
         const spokenMs =
           audio && !audio.error
             ? audio.currentTime * 1000
             : (pausedAt ?? performance.now()) - started;
         setShow({ index, spokenMs });
+        saying.current = `${last} ${voiceAround(chapter.cues, spokenMs)}`;
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);

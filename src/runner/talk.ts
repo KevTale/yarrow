@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
+import { withoutEcho } from "../core/presentation";
 import type { StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
@@ -35,6 +36,8 @@ export interface TalkContext {
   text: string;
   project: ChatContext["project"];
   pullRequest: ChatContext["pullRequest"];
+  /** The presentation's words: what the microphone may catch of them goes. */
+  voice?: string;
 }
 
 const INSTRUCTIONS = `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
@@ -154,14 +157,20 @@ const resumed = (message: z.infer<typeof incomingSchema>) =>
  * said back, the words alone, and each time the presentation went on (else
  * "go on" then "thanks" read as one turn asking to go on again).
  * ElevenLabs' own prompt and the stage's tools stay out: each turn looks
- * at the stage afresh.
+ * at the stage afresh. The presentation's own words, heard through the
+ * member's speakers, are not theirs: they go (`voice`).
  */
-export function talkMessages(messages: TalkRequest["messages"]): Said[] {
+export function talkMessages(
+  messages: TalkRequest["messages"],
+  voice = "",
+): Said[] {
   const said: Said[] = [];
   let resumes = 0;
   for (const message of messages) {
     if (message.role !== "user" && message.role !== "assistant") continue;
-    const text = textOf(message.content).trim();
+    const words = textOf(message.content).trim();
+    const text =
+      message.role === "user" && voice ? withoutEcho(words, voice) : words;
     const last = said.at(-1);
     if (message.role === "assistant" && resumed(message)) {
       const content: Anthropic.Beta.BetaContentBlockParam[] = [
