@@ -1,13 +1,12 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
-  AppWindow,
   ArrowLeft,
   ArrowUp,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
-  FileText,
+  FileDiff,
   GitCommitHorizontal,
   Phone,
   PhoneOff,
@@ -49,7 +48,7 @@ import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { LiveCall, useLiveStage } from "@/components/live-stage";
 import {
-  CallButton,
+  clockTime,
   loadPresentation,
   Presentation,
   type FilmCall,
@@ -58,10 +57,10 @@ import {
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
 import {
-  Account,
   branchFileUrl,
   OpenApp,
   ProofBlock,
+  ProofLink,
   Slider,
   type AppLink,
 } from "@/components/proofs";
@@ -250,12 +249,13 @@ function useSessionLost(
 
 /**
  * A ticket's row, opened: what the ticket asks, what changed with the one
- * thing that proves it, and the files on the left; the agent's notes and the
- * conversation on the right, where a change asked goes to the pull request.
- * Who paid is on the row's line. The film plays first when there is one; the
- * member calls the agent from it or from the conversation, and the pull
- * request's stage takes its place, the app live where the film was paused,
- * until the film plays on. Before the stage is up, the call is by voice alone.
+ * thing that proves it, and at its foot the files and what opens elsewhere;
+ * the agent's notes and the conversation on the right, where a change asked
+ * goes to the pull request. Who paid is on the row's line. The film plays
+ * first when there is one; the member calls the agent from the conversation,
+ * and the pull request's stage takes the film's place, the app live where it
+ * was paused, until the film plays on. Before the stage is up, the call is by
+ * voice alone.
  */
 export function PullPanel({
   projectId,
@@ -337,21 +337,20 @@ export function PullPanel({
   );
   // Up: what is written in the conversation acts on it.
   const onStage = stage.phase === "ready";
-  // On a call from the film, once the stage is where it was paused.
+  // On a call over the film, once the stage is where it was paused.
   const onCall = Boolean(presentation && stage.reached && stage.talk !== "off");
   // The film from a moment: the call ends.
   const toFilm = (ms: number) => {
     stage.endTalk();
     seek.current?.(ms);
   };
-  // The agent called from the film's player or the conversation's phone:
-  // over the stage once it is up, by voice alone before.
+  // The agent called from the conversation: over the stage once it is up,
+  // by voice alone before.
   const call: FilmCall | undefined = pullRequest
     ? {
         state: stage.talk,
         onCall: (at) => void stage.callFrom(at),
         onHangUp: () => stage.endTalk(),
-        onWarm: () => stage.warm(),
       }
     : undefined;
   // The conversation, the panel's right column, beside the film in cinema;
@@ -376,11 +375,12 @@ export function PullPanel({
       call={
         call && {
           state: call.state,
+          since: call.state === "on" ? stage.talkSince : null,
           // Through the film, paused where it is; without one, from here.
           onCall: () =>
             phone.current ? phone.current() : void stage.callFrom(null),
           onHangUp: call.onHangUp,
-          onWarm: call.onWarm,
+          onWarm: () => stage.warm(),
         }
       }
     />
@@ -391,12 +391,12 @@ export function PullPanel({
         signIn: lost ? panel.preview.signIn : null,
       }
     : undefined;
-  const actions = app && <OpenApp app={app} />;
   // The one thing that shows (decided 2026-10-30): the film passes over
   // everything; an image takes its place, cinema mode included.
   const lead = presentation ? null : leadProof(panel.proofs ?? []);
   const image = lead?.kind === "images" ? lead : null;
-  const block = lead && lead.kind !== "images" ? lead : null;
+  const block =
+    lead?.kind === "measure" || lead?.kind === "output" ? lead : null;
   const proven = (
     <>
       {(presentation || image) && (
@@ -408,13 +408,20 @@ export function PullPanel({
             aria-label="Full screen"
             onClose={() => setCinema(false)}
           >
-            {cinema && (
-              <button type="button" className="pp-back" onClick={flipCinema}>
-                <ArrowLeft size={16} aria-hidden="true" />
-                Back
-              </button>
-            )}
             <div className="pp-film">
+              {cinema && (
+                <div className="pp-stage-head">
+                  <button
+                    type="button"
+                    className="pp-back"
+                    onClick={flipCinema}
+                  >
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Back
+                  </button>
+                  {app && <OpenApp app={app} />}
+                </div>
+              )}
               {/* Up, its screen already drawn behind the film. */}
               {presentation && onStage && (
                 <LiveCall
@@ -423,7 +430,6 @@ export function PullPanel({
                   cinema={cinema}
                   onCinema={flipCinema}
                   onFilm={() => play.current?.(null)}
-                  actions={actions}
                 />
               )}
               {/* Kept behind the stage, paused where the call began. */}
@@ -437,7 +443,6 @@ export function PullPanel({
                     playRef={play}
                     phoneRef={phone}
                     call={call}
-                    actions={actions}
                   />
                 </div>
               )}
@@ -445,37 +450,19 @@ export function PullPanel({
                 <Slider
                   proof={image}
                   tools={
-                    <>
-                      {!cinema && (
-                        <span className="pv-glass-pill pv-tools">
-                          <button
-                            type="button"
-                            className="pv-icon"
-                            onClick={flipCinema}
-                            aria-label="Full screen"
-                            data-tip="Full screen"
-                          >
-                            <RectangleHorizontal size={18} aria-hidden="true" />
-                          </button>
-                        </span>
-                      )}
-                      {(call || actions) && (
-                        <span className="pv-glass-pill pv-tools">
-                          {call && (
-                            <CallButton
-                              state={call.state}
-                              onClick={
-                                call.state === "off"
-                                  ? () => void stage.callFrom(null)
-                                  : call.onHangUp
-                              }
-                              onWarm={call.onWarm}
-                            />
-                          )}
-                          {actions}
-                        </span>
-                      )}
-                    </>
+                    !cinema && (
+                      <span className="pv-glass-pill pv-tools">
+                        <button
+                          type="button"
+                          className="pv-icon"
+                          onClick={flipCinema}
+                          aria-label="Full screen"
+                          data-tip="Full screen"
+                        >
+                          <RectangleHorizontal size={18} aria-hidden="true" />
+                        </button>
+                      </span>
+                    )
                   }
                 />
               )}
@@ -484,26 +471,7 @@ export function PullPanel({
           </dialog>
         </>
       )}
-      {block && (
-        <ProofBlock
-          proof={block}
-          document={(file) =>
-            branchFileUrl(
-              pullRequest?.url ?? null,
-              pullRequest?.branch ?? null,
-              file,
-            )
-          }
-          checks={panel.checks}
-          app={app}
-        />
-      )}
-      {/* The app with nothing to sit on. */}
-      {app &&
-        !presentation &&
-        !image &&
-        block?.kind !== "measure" &&
-        block?.kind !== "output" && <PreviewLink app={app} />}
+      {block && <ProofBlock proof={block} />}
     </>
   );
   return (
@@ -525,37 +493,39 @@ export function PullPanel({
             proven
           )}
 
-          {pullRequest && (
-            <ChangedFiles
-              projectId={projectId}
-              rowKey={rowKey}
-              size={size}
-              url={pullRequest.url}
-            />
+          {/* In line with the chat's box: what stays here, what opens elsewhere. */}
+          {(pullRequest || app) && (
+            <div className="pp-foot">
+              {pullRequest && (
+                <ChangedFiles
+                  projectId={projectId}
+                  rowKey={rowKey}
+                  size={size}
+                  url={pullRequest.url}
+                />
+              )}
+              <span className="pp-foot-away">
+                {lead && (
+                  <ProofLink
+                    proof={lead}
+                    document={(file) =>
+                      branchFileUrl(
+                        pullRequest?.url ?? null,
+                        pullRequest?.branch ?? null,
+                        file,
+                      )
+                    }
+                    checks={panel.checks}
+                  />
+                )}
+                {app && <OpenApp app={app} />}
+              </span>
+            </div>
           )}
         </div>
 
         {!cinema && talk}
       </div>
-    </div>
-  );
-}
-
-/** The pull request's app in words, where no proof carries its icon. */
-function PreviewLink({ app }: { app: AppLink }) {
-  return (
-    <div className="pp-preview">
-      <a
-        className="pp-preview-open"
-        href={app.href}
-        target="_blank"
-        rel="noopener"
-      >
-        <AppWindow size={15} aria-hidden="true" />
-        Open the app
-        <ArrowUpRight size={14} aria-hidden="true" />
-      </a>
-      {app.signIn && <Account signIn={app.signIn} />}
     </div>
   );
 }
@@ -1032,9 +1002,11 @@ export function Conversation({
   );
 }
 
-/** The call from the conversation: the film's own when there is one. */
+/** The call, from the conversation: from the film's moment when there is one. */
 export interface ConversationCall {
   state: FilmCall["state"];
+  /** When it came on: how long it has lasted shows beside the hang up. */
+  since: number | null;
   onCall: () => void;
   onHangUp: () => void;
   onWarm?: () => void;
@@ -1321,7 +1293,7 @@ function Proposal({
 /**
  * The question box, one line as in any chat, growing with what is typed:
  * Enter sends, Shift+Enter goes to the next line. Send shows once there is
- * something to send; the phone until then, and while a call is on.
+ * something to send; the call until then, its hang up and clock while it is on.
  */
 function Ask({
   projectId,
@@ -1398,8 +1370,8 @@ function Ask({
       >
         <textarea
           ref={box}
-          aria-label="Ask about this pull request"
-          placeholder="Ask about this pull request…"
+          aria-label="Ask about this ticket"
+          placeholder="Ask about this ticket…"
           rows={1}
           value={text}
           maxLength={4000}
@@ -1415,21 +1387,21 @@ function Ask({
             }
           }}
         />
+        {call?.since && <CallClock since={call.since} />}
         {call && (call.state !== "off" || !text.trim()) && (
           <button
             type="button"
-            className={`pp-phone ${call.state === "off" ? "" : call.state === "starting" ? "on ringing" : "on"}`}
+            className={`pp-call ${call.state === "off" ? "" : call.state === "starting" ? "hang ringing" : "hang"}`}
             onClick={call.state === "off" ? call.onCall : call.onHangUp}
             onPointerEnter={call.onWarm}
             onFocus={call.onWarm}
-            aria-label={call.state === "off" ? "Call" : "Hang up"}
-            data-tip={call.state === "off" ? "Call" : "Hang up"}
           >
             {call.state === "on" ? (
-              <PhoneOff size={17} aria-hidden="true" />
+              <PhoneOff size={15} aria-hidden="true" />
             ) : (
-              <Phone size={17} aria-hidden="true" />
+              <Phone size={15} aria-hidden="true" />
             )}
+            {call.state === "off" ? "Call" : "Hang up"}
           </button>
         )}
         {text.trim() && (
@@ -1452,14 +1424,38 @@ function Ask({
   );
 }
 
+/** How long the call has lasted. */
+function CallClock({ since }: { since: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <span className="pp-call-time">{clockTime(now - since)}</span>;
+}
+
+/** Lines added and taken away. */
+function Count({ added, removed }: { added: number; removed: number }) {
+  return (
+    <span className="pp-count">
+      <span className="add">+{added}</span>
+      {removed > 0 && (
+        <>
+          {" "}
+          <span className="del">−{removed}</span>
+        </>
+      )}
+    </span>
+  );
+}
+
 /**
- * The files a pull request changed, last in the panel: how many and their
- * lines, closed; opened, a quiet line per file in the order a builder reads
- * them (the code, its tests, its documentation, what tools generated, the
- * assets).
- * A file opens on its changes over the page, its header's arrows and the
- * keyboard's going from one file to the next, so the panel and its
- * conversation never move.
+ * The files a pull request changed, a button at the panel's foot: how many
+ * and their lines. They open over the page, at one size and in one place
+ * whatever the file, the list on the left in the order a builder reads them
+ * (the code, its tests, its documentation, what tools generated, the assets),
+ * the header's arrows and the keyboard's going from one file to the next, so
+ * the panel and its conversation never move.
  */
 function ChangedFiles({
   projectId,
@@ -1475,27 +1471,45 @@ function ChangedFiles({
 }) {
   const files = usePullFiles(projectId, rowKey, size);
   const dialog = useRef<HTMLDialogElement>(null);
-  const [listed, setListed] = useState(false);
+  const rail = useRef<HTMLElement>(null);
   const [open, setOpen] = useState<number | null>(null);
   useEffect(() => {
-    if (open !== null && !dialog.current?.open) dialog.current?.showModal();
+    if (open === null) return;
+    if (!dialog.current?.open) dialog.current?.showModal();
+    rail.current?.querySelector(".on")?.scrollIntoView({ block: "nearest" });
   }, [open]);
 
-  if (files === undefined) return <FilesSkeleton />;
+  if (files === undefined)
+    return (
+      <span
+        className="sk"
+        style={{ width: 170 }}
+        role="status"
+        aria-label="Loading the changes"
+      />
+    );
   if (files === null)
     return (
-      <section className="pp-section">
-        <p className="pp-none">
-          <a href={`${url}/files`} target="_blank" rel="noopener">
-            See the changes on GitHub
-          </a>
-        </p>
-      </section>
+      <a
+        className="pp-act"
+        href={`${url}/files`}
+        target="_blank"
+        rel="noopener"
+      >
+        See the changes on GitHub
+        <ArrowUpRight size={14} aria-hidden="true" />
+      </a>
     );
+  if (!files.length) return null;
   // One list, the code first: the groups' order without their names.
   const ordered = groupFiles(files).flatMap((group) => group.files);
-  const additions = files.reduce((sum, file) => sum + file.additions, 0);
-  const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+  const total = (
+    <Count
+      added={files.reduce((sum, file) => sum + file.additions, 0)}
+      removed={files.reduce((sum, file) => sum + file.deletions, 0)}
+    />
+  );
+  const title = `${files.length} ${files.length === 1 ? "file" : "files"} changed`;
   const shown = open === null ? null : ordered[open];
   // The previous or next file, round the list.
   const go = (step: number) => {
@@ -1505,56 +1519,16 @@ function ChangedFiles({
     );
   };
   return (
-    <section className="pp-section">
-      <h3>
-        <button
-          type="button"
-          className="pp-files-open"
-          aria-expanded={listed}
-          onClick={() => setListed(!listed)}
-        >
-          {files.length} {files.length === 1 ? "file" : "files"} changed
-          <span className="pp-count">
-            <span className="add">+{additions}</span>
-            {deletions > 0 && (
-              <>
-                {" "}
-                <span className="del">−{deletions}</span>
-              </>
-            )}
-          </span>
-          <ChevronRight size={14} aria-hidden="true" />
-        </button>
-      </h3>
-      {listed && (
-        <ul className="pp-filelist">
-          {ordered.map((file, i) => {
-            const slash = file.path.lastIndexOf("/");
-            return (
-              <li key={file.path}>
-                <button
-                  type="button"
-                  className="pp-fileline"
-                  title={file.path}
-                  onClick={() => setOpen(i)}
-                >
-                  <FileText size={13} aria-hidden="true" />
-                  <b>{file.path.slice(slash + 1)}</b>
-                  {slash > 0 && <span>{file.path.slice(0, slash)}</span>}
-                  <span className="pp-count">
-                    <span className="add">+{file.additions}</span>{" "}
-                    <span className="del">−{file.deletions}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+    <>
+      <button type="button" className="pp-act" onClick={() => setOpen(0)}>
+        <FileDiff size={15} aria-hidden="true" />
+        {title}
+        {total}
+      </button>
       <dialog
         ref={dialog}
         className="pp-diffs"
-        aria-label={shown?.path ?? "Changes"}
+        aria-label="The changes"
         onClose={() => setOpen(null)}
         // A click beside the changes closes them.
         onClick={(event) => {
@@ -1567,87 +1541,111 @@ function ChangedFiles({
         }}
       >
         {shown && (
-          <div className="pp-diffs-box">
-            <div className="pp-diffs-head">
-              <span className="pp-path">
-                {shown.path.slice(0, shown.path.lastIndexOf("/") + 1)}
-                <b>{shown.path.slice(shown.path.lastIndexOf("/") + 1)}</b>
-              </span>
-              <span className="pp-count">
-                <span className="add">+{shown.additions}</span>{" "}
-                <span className="del">−{shown.deletions}</span>
-              </span>
-              {ordered.length > 1 && (
-                <span className="pp-diffs-at">
+          <>
+            <nav ref={rail} className="pp-rail" aria-label="Files">
+              <p className="pp-rail-title">
+                {title}
+                {total}
+              </p>
+              {ordered.map((file, i) => {
+                const slash = file.path.lastIndexOf("/");
+                return (
                   <button
+                    key={file.path}
                     type="button"
-                    className="tix-icon-btn"
-                    aria-label="Previous file"
-                    onClick={() => go(-1)}
+                    className={i === open ? "pp-rail-file on" : "pp-rail-file"}
+                    title={file.path}
+                    aria-current={i === open}
+                    onClick={() => setOpen(i)}
                   >
-                    <ChevronLeft size={15} />
+                    <span className="pp-rail-name">
+                      <b>{file.path.slice(slash + 1)}</b>
+                      {slash > 0 && <small>{file.path.slice(0, slash)}</small>}
+                    </span>
+                    <Count added={file.additions} removed={file.deletions} />
                   </button>
-                  {open! + 1} / {ordered.length}
-                  <button
-                    type="button"
-                    className="tix-icon-btn"
-                    aria-label="Next file"
-                    onClick={() => go(1)}
-                  >
-                    <ChevronRight size={15} />
-                  </button>
+                );
+              })}
+            </nav>
+            <div className="pp-diffs-box">
+              <div className="pp-diffs-head">
+                <span className="pp-path">
+                  {shown.path.slice(0, shown.path.lastIndexOf("/") + 1)}
+                  <b>{shown.path.slice(shown.path.lastIndexOf("/") + 1)}</b>
                 </span>
-              )}
-              <button
-                type="button"
-                className="tix-icon-btn"
-                aria-label="Close"
-                onClick={() => dialog.current?.close()}
-              >
-                <X size={15} />
-              </button>
+                <Count added={shown.additions} removed={shown.deletions} />
+                {ordered.length > 1 && (
+                  <span className="pp-diffs-at">
+                    <button
+                      type="button"
+                      className="tix-icon-btn"
+                      aria-label="Previous file"
+                      onClick={() => go(-1)}
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    {open! + 1} / {ordered.length}
+                    <button
+                      type="button"
+                      className="tix-icon-btn"
+                      aria-label="Next file"
+                      onClick={() => go(1)}
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="tix-icon-btn"
+                  aria-label="Close"
+                  onClick={() => dialog.current?.close()}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              {/* Keyed: each file opens at its top. */}
+              <div key={shown.path} className="pp-diffs-body">
+                {shown.lines ? (
+                  <div className="pp-diff" role="table" aria-label={shown.path}>
+                    {shown.lines.map((line, i) =>
+                      line.kind === "hunk" ? (
+                        <div key={i} className="pp-hunk" role="row">
+                          {line.text}
+                        </div>
+                      ) : (
+                        <div
+                          key={i}
+                          className={`pp-line ${line.kind}`}
+                          role="row"
+                        >
+                          <span className="n">
+                            {line.kind === "add" ? "" : line.old}
+                          </span>
+                          <span className="n">
+                            {line.kind === "del" ? "" : line.new}
+                          </span>
+                          <span className="s">
+                            {line.kind === "add"
+                              ? "+"
+                              : line.kind === "del"
+                                ? "−"
+                                : ""}
+                          </span>
+                          <span className="c">{line.text}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="pp-none muted">No preview for this file</p>
+                )}
+              </div>
             </div>
-            {/* Keyed: each file opens at its top. */}
-            <div key={shown.path} className="pp-diffs-body">
-              {shown.lines ? (
-                <div className="pp-diff" role="table" aria-label={shown.path}>
-                  {shown.lines.map((line, i) =>
-                    line.kind === "hunk" ? (
-                      <div key={i} className="pp-hunk" role="row">
-                        {line.text}
-                      </div>
-                    ) : (
-                      <div
-                        key={i}
-                        className={`pp-line ${line.kind}`}
-                        role="row"
-                      >
-                        <span className="n">
-                          {line.kind === "add" ? "" : line.old}
-                        </span>
-                        <span className="n">
-                          {line.kind === "del" ? "" : line.new}
-                        </span>
-                        <span className="s">
-                          {line.kind === "add"
-                            ? "+"
-                            : line.kind === "del"
-                              ? "−"
-                              : ""}
-                        </span>
-                        <span className="c">{line.text}</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <p className="pp-none muted">No preview for this file</p>
-              )}
-            </div>
-          </div>
+          </>
         )}
       </dialog>
-    </section>
+    </>
   );
 }
 
@@ -1679,21 +1677,5 @@ function PanelSkeleton() {
         </div>
       </div>
     </div>
-  );
-}
-
-/** The files' shape while GitHub answers: the title, then their lines. */
-function FilesSkeleton() {
-  return (
-    <section
-      className="pp-section"
-      aria-busy="true"
-      aria-label="Loading the changes"
-    >
-      <span className="sk sk-title" style={{ width: "26%" }} />
-      {["36%", "48%", "30%"].map((width, i) => (
-        <span key={i} className="sk" style={{ width }} />
-      ))}
-    </section>
   );
 }

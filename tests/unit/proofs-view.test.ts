@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { branchFileUrl, ProofBlock, Proofs } from "../../src/components/proofs";
+import { branchFileUrl, ProofLink, Proofs } from "../../src/components/proofs";
 import type { Proof, PullChecks } from "../../src/core/proofs";
 
 const render = (proofs: Proof[]) =>
@@ -113,10 +113,24 @@ describe("Proofs", () => {
     expect(html).toContain(">2,500 kB<");
   });
 
-  it("links a document on the branch", () => {
-    expect(render([{ kind: "document", file: "docs/API guide.md" }])).toContain(
+  it("links a document on the branch, by its name", () => {
+    const html = render([{ kind: "document", file: "docs/API guide.md" }]);
+    expect(html).toContain(
       'href="https://github.com/o/r/blob/yarrow/9-readme/docs/API%20guide.md"',
     );
+    expect(html).toContain('title="docs/API guide.md"');
+    expect(html).toContain(">API guide.md<");
+  });
+
+  it("offers no button for a document it cannot link", () => {
+    expect(
+      renderToStaticMarkup(
+        createElement(ProofLink, {
+          proof: { kind: "document", file: "README.md" },
+          document: () => null,
+        }),
+      ),
+    ).toBe("");
   });
 
   it("says GitHub's checks when they are there, nothing otherwise", () => {
@@ -127,22 +141,22 @@ describe("Proofs", () => {
       seconds: 6,
       url: "https://github.com/o/r/runs/1",
     };
-    const block = (input: PullChecks | null) =>
+    const link = (input: PullChecks | null) =>
       renderToStaticMarkup(
-        createElement(ProofBlock, {
+        createElement(ProofLink, {
           proof: { kind: "check" },
           document: () => null,
           checks: input,
         }),
       );
-    const html = block(checks);
-    expect(html).toContain("<code>test</code> passed on this pull request");
+    const html = link(checks);
+    expect(html).toContain("test passed");
     expect(html).toContain("<small>6s</small>");
     expect(html).toContain('href="https://github.com/o/r/runs/1"');
     expect(
-      block({ ...checks, count: 3, state: "failed", seconds: null }),
-    ).toContain("3 checks failed on this pull request");
-    expect(block(null)).toBe("");
+      link({ ...checks, count: 3, state: "failed", seconds: null }),
+    ).toContain("3 checks failed");
+    expect(link(null)).toBe("");
   });
 
   it("shows nothing for the app's page alone: the preview's link is it", () => {

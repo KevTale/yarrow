@@ -7868,9 +7868,9 @@ body:has(.sb-dialog[open]) {
   gap: 32px;
 }
 .pp-main {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 26px;
-  align-content: start;
   min-width: 0;
 }
 /* A section is the column's width, never its content's: the screenshots'
@@ -7903,25 +7903,6 @@ body:has(.sb-dialog[open]) {
     12px var(--font-geist-mono),
     monospace;
 }
-.pp-files-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.pp-files-open svg {
-  color: var(--muted);
-  transition: transform 0.15s ease;
-}
-.pp-files-open[aria-expanded="true"] svg {
-  transform: rotate(90deg);
-}
-
 .pp-text {
   margin: 0;
 }
@@ -8410,18 +8391,30 @@ body:has(.sb-dialog[open]) {
 .pp-take > .pv {
   grid-area: 1 / 1;
 }
-/* The pull request's app in words, where no proof carries its icon. */
-.pp-preview {
+/* The panel's foot, in line with the chat's box: on the left what stays
+   here, on the right what opens elsewhere, its arrow saying so. */
+.pp-foot {
   display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: auto;
+}
+.pp-foot .sk {
+  height: 30px;
+  border-radius: 8px;
+}
+.pp-foot-away {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  margin-left: auto;
 }
-.pp-preview .pv-icon {
-  color: var(--muted);
-}
-.pp-preview-open {
+.pp-act {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -8431,21 +8424,37 @@ body:has(.sb-dialog[open]) {
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: none;
   color: var(--text);
-  font-size: 13px;
-  font-weight: 500;
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
   white-space: nowrap;
   text-decoration: none;
+  cursor: pointer;
   transition:
     background-color 0.15s,
     border-color 0.15s;
 }
-.pp-preview-open svg:last-child {
+.pp-act svg:last-child {
   color: var(--muted);
 }
-.pp-preview-open:hover {
+.pp-act:hover {
   border-color: var(--border-strong);
   background: var(--hover);
+}
+.pp-act .pp-count {
+  margin-left: 2px;
+}
+.pp-act small {
+  color: var(--muted);
+  font:
+    12px var(--font-geist-mono),
+    monospace;
+}
+.pp-act .pf-mark {
+  width: 16px;
+  height: 16px;
 }
 /* One screen as it was and as it is: the film's size, in its place. */
 .pf-hero {
@@ -8603,32 +8612,28 @@ body:has(.sb-dialog[open]) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The app's icon in a block's head, on the panel rather than on a film. */
-.pf-open {
+/* The app, its test account beside it. */
+.pf-app {
   display: inline-flex;
-  flex-shrink: 0;
-  margin-left: auto;
+  align-items: center;
+  gap: 4px;
 }
-.pf-open .pv-icon {
+.pf-app .pv-icon {
   width: 30px;
   height: 30px;
   color: var(--muted);
 }
-.pf-open .pv-icon:hover {
+.pf-app .pv-icon:hover {
   color: var(--text);
 }
-.pf-open [data-tip]::after {
+.pf-app [data-tip]::after {
   right: 0;
   left: auto;
   transform: translateY(-2px);
 }
-.pf-open [data-tip]:hover::after,
-.pf-open [data-tip]:focus-visible::after {
+.pf-app [data-tip]:hover::after,
+.pf-app [data-tip]:focus-visible::after {
   transform: none;
-}
-.pf-open .pf-menu {
-  top: calc(100% + 8px);
-  bottom: auto;
 }
 /* A number: two bars, the change at the end. */
 .pf-num {
@@ -8758,51 +8763,6 @@ body:has(.sb-dialog[open]) {
 .pf-fold:hover {
   color: var(--text);
 }
-/* A document or a check: one line. */
-.pf-one {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 860px;
-  min-width: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--elevated);
-  font-size: 14px;
-}
-.pf-one > svg {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-.pf-one code {
-  padding: 0;
-  border: 0;
-  background: none;
-  font:
-    13px var(--font-geist-mono),
-    monospace;
-}
-.pf-one small {
-  flex-shrink: 0;
-  font:
-    12px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.pf-one a {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  font-size: 13px;
-  text-decoration: none;
-  color: var(--muted);
-}
-.pf-one a:hover {
-  color: var(--text);
-}
 .pf-mark {
   display: grid;
   flex-shrink: 0;
@@ -8887,12 +8847,24 @@ body:has(.sb-dialog[open]) {
 html:has(.pp-stage:modal) {
   overflow: hidden;
 }
-/* Back to the panel, in plain sight (the player's own button is small). */
-.pp-back {
+/* Back to the panel, in plain sight (the player's own button is small),
+   and the app at the other end of the line. */
+.pp-stage-head {
   position: absolute;
   top: 16px;
+  right: 20px;
   left: 16px;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pp-stage-head .pf-menu {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+.pp-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -8910,6 +8882,7 @@ html:has(.pp-stage:modal) {
   background: var(--hover);
 }
 .pp-stage:modal .pp-film {
+  position: relative;
   display: grid;
   place-items: center;
   min-width: 0;
@@ -8979,8 +8952,9 @@ html:has(.pp-stage:modal) {
     padding: 58px 0 0;
     container-type: normal;
   }
-  .pp-back {
+  .pp-stage-head {
     top: 12px;
+    right: 12px;
     left: 12px;
   }
   .pp-stage:modal .pv,
@@ -9420,36 +9394,50 @@ html:has(.pp-stage:modal) {
   color: #141714;
   cursor: pointer;
 }
-.pp-phone {
-  display: grid;
+/* The only way to call, whatever the proof. */
+.pp-call {
+  display: inline-flex;
   flex: none;
-  place-items: center;
-  width: 34px;
+  align-items: center;
+  gap: 6px;
   height: 34px;
-  padding: 0;
+  padding: 0 13px 0 10px;
   border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
+  border-radius: 17px;
+  background: #ffffff14;
+  color: var(--text);
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
   cursor: pointer;
-  transition:
-    color 0.15s,
-    background 0.15s;
+  transition: background 0.15s;
 }
-.pp-phone:hover {
-  color: var(--text);
+.pp-call:hover {
+  background: #ffffff24;
 }
-.pp-phone.on {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text);
+.pp-call.hang {
+  background: #ee7b6e29;
+  color: var(--red);
 }
-.pp-phone.ringing svg {
+.pp-call.hang:hover {
+  background: #ee7b6e40;
+}
+.pp-call.ringing svg {
   animation: pv-ring 1s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .pp-phone.ringing svg {
+  .pp-call.ringing svg {
     animation: none;
   }
+}
+.pp-call-time {
+  flex: none;
+  padding: 0 8px;
+  color: var(--muted);
+  font:
+    12.5px/34px var(--font-geist-mono),
+    monospace;
+  font-variant-numeric: tabular-nums;
 }
 .pp-go[aria-disabled="true"] {
   opacity: 0.45;
@@ -9522,60 +9510,12 @@ button.pp-idea:hover .pp-idea-go,
 button.pp-idea:focus-visible .pp-idea-go {
   color: var(--text);
 }
-/* The files changed: a quiet line each, its changes over the page. */
-.pp-filelist {
-  display: grid;
-  margin: 0 0 0 -8px;
-  padding: 0;
-  list-style: none;
-}
-.pp-fileline {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  min-width: 0;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.pp-fileline:hover {
-  background: var(--hover);
-}
-.pp-fileline svg {
-  flex: none;
-  color: var(--muted);
-}
-.pp-fileline b {
-  flex: none;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-.pp-fileline > span:not(.pp-count) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
-}
-.pp-fileline .pp-count {
-  flex: none;
-  margin-left: auto;
-  padding-left: 12px;
-  opacity: 0.8;
-}
+/* One size and one place whatever the file: a long one scrolls inside. */
 .pp-diffs {
   width: min(1100px, calc(100vw - 32px));
+  height: min(712px, calc(100dvh - 48px));
   max-width: none;
-  max-height: calc(100dvh - 48px);
+  max-height: none;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -9585,6 +9525,8 @@ button.pp-idea:focus-visible .pp-idea-go {
   box-shadow: var(--shadow-floating);
 }
 .pp-diffs[open] {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
   animation: nt-rise 0.22s var(--ease-enter);
 }
 .pp-diffs:focus,
@@ -9595,16 +9537,85 @@ button.pp-idea:focus-visible .pp-idea-go {
   background: #05060899;
   animation: nt-fade 0.16s ease-out;
 }
+.pp-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 12px 8px;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.pp-rail-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 2px 8px 10px;
+  color: var(--text);
+  font:
+    500 15px var(--font-display),
+    var(--font-geist-sans),
+    sans-serif;
+}
+.pp-rail-file {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.pp-rail-file:hover,
+.pp-rail-file.on {
+  background: var(--hover);
+}
+.pp-rail-file.on {
+  color: var(--text);
+}
+.pp-rail-file .pp-count {
+  flex: none;
+}
+.pp-rail-name {
+  display: grid;
+  min-width: 0;
+}
+.pp-rail-name b,
+.pp-rail-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp-rail-name b {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.pp-rail-name small {
+  color: var(--muted);
+  font-size: 12px;
+}
 .pp-diffs-box {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  max-height: calc(100dvh - 50px);
+  grid-template-rows: 46px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
 }
 .pp-diffs-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 8px 16px;
+  padding: 0 8px 0 16px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
@@ -9623,7 +9634,16 @@ button.pp-idea:focus-visible .pp-idea-go {
   font-variant-numeric: tabular-nums;
 }
 .pp-diffs-body {
+  min-height: 0;
   overflow: auto;
+}
+@media (max-width: 760px) {
+  .pp-diffs[open] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pp-rail {
+    display: none;
+  }
 }
 .pp-diffs-body > .pp-none {
   padding: 18px 16px;
@@ -9742,21 +9762,38 @@ button.pp-idea:focus-visible .pp-idea-go {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
-  .pp-grid > .pp-talk {
-    position: static;
-    min-height: 0;
-    max-height: none;
-    padding-top: 22px;
-    border-top: 1px solid #ffffff0f;
-    border-left: 0;
+  /* Its box stays at the bottom of the screen the whole way down the row. */
+  .pp-grid > .pp-talk:not(.tp-talk) {
+    display: contents;
   }
   .pp-grid > .pp-talk .pp-talk-thread {
     max-height: 65vh;
-    padding: 0 6px 22px 0;
+    padding: 22px 6px 0 0;
+    border-top: 1px solid #ffffff0f;
+  }
+  .pp-grid > .pp-talk .pp-talk-thread:not(:has(li)) {
+    display: none;
+  }
+  .pp-grid > .pp-talk > .pp-asking {
+    position: sticky;
+    bottom: 10px;
+    z-index: 2;
   }
   .pp-grid > .pp-talk > .pp-asking,
   .pp .sk-ask {
     margin-left: 0;
+  }
+  .pp-grid > .pp-talk.tp-talk {
+    padding-top: 22px;
+    border-top: 1px solid #ffffff0f;
+    border-left: 0;
+  }
+  .pp-grid > .pp-talk.tp-talk .pp-talk-thread {
+    padding: 0 6px 22px 0;
+    border-top: 0;
+  }
+  .pp-grid > .pp-talk.tp-talk > .pp-asking {
+    position: static;
   }
 }
 

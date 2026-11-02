@@ -2,8 +2,6 @@ import {
   Captions,
   CaptionsOff,
   Pause,
-  Phone,
-  PhoneOff,
   Play,
   RectangleHorizontal,
   RotateCcw,
@@ -16,7 +14,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -32,14 +29,12 @@ import type { StoredArtifact } from "@/core/review";
 
 const evidence = (key: string) => `/evidence/${key}`;
 
-/** The call to the agent from the film's player: its button, and the film's moment. */
+/** The call to the agent, from the conversation: the film's moment goes with it. */
 export interface FilmCall {
   state: "off" | "starting" | "on";
   /** Called, the film paused in chapter `index`, `part` of it seen (0 to 1). */
   onCall: (at: { index: number; part: number }) => void;
   onHangUp: () => void;
-  /** About to be called: the call made ready. */
-  onWarm?: () => void;
 }
 
 /** The film played on by the page: from a chapter's start, or where it was. */
@@ -99,7 +94,7 @@ function savedSpeed(): number {
 const SKIP_MS = 3000;
 let keyed: object | null = null;
 
-const clockTime = (ms: number) => {
+export const clockTime = (ms: number) => {
   const seconds = Math.floor(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
@@ -155,7 +150,6 @@ export function Presentation({
   playRef,
   phoneRef,
   call,
-  actions,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -165,12 +159,10 @@ export function Presentation({
   seekRef?: RefObject<((ms: number) => void) | null>;
   /** Set to play the film on: the agent's resume_presentation. */
   playRef?: RefObject<FilmControl | null>;
-  /** Set to call (or hang up) as its phone does: the conversation's. */
+  /** Set to call (or hang up) from where it is: the conversation's. */
   phoneRef?: RefObject<(() => void) | null>;
   /** The agent can be called from it. */
   call?: FilmCall;
-  /** The pull request's own actions, beside the call. */
-  actions?: ReactNode;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -193,41 +185,11 @@ export function Presentation({
       playRef={playRef}
       phoneRef={phoneRef}
       call={call}
-      actions={actions}
     />
   );
 }
 
 /** The agent called, from the film's bar or from over an image. */
-export function CallButton({
-  state,
-  onClick,
-  onWarm,
-}: {
-  state: FilmCall["state"];
-  onClick: () => void;
-  onWarm?: () => void;
-}) {
-  const label = state === "off" ? "Call" : "Hang up";
-  return (
-    <button
-      type="button"
-      className={`pv-icon ${state === "off" ? "" : state === "starting" ? "on ringing" : "on"}`}
-      onClick={onClick}
-      onPointerEnter={onWarm}
-      onFocus={onWarm}
-      aria-label={label}
-      data-tip={label}
-    >
-      {state === "on" ? (
-        <PhoneOff size={18} aria-hidden="true" />
-      ) : (
-        <Phone size={18} aria-hidden="true" />
-      )}
-    </button>
-  );
-}
-
 function Player({
   timeline,
   poster,
@@ -237,7 +199,6 @@ function Player({
   playRef,
   phoneRef,
   call,
-  actions,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
@@ -247,7 +208,6 @@ function Player({
   playRef?: RefObject<FilmControl | null>;
   phoneRef?: RefObject<(() => void) | null>;
   call?: FilmCall;
-  actions?: ReactNode;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -802,18 +762,6 @@ function Player({
                       </button>
                     )}
                   </span>
-                  {(call || actions) && (
-                    <span className="pv-glass-pill pv-tools">
-                      {call && (
-                        <CallButton
-                          state={call.state}
-                          onClick={phone}
-                          onWarm={call.onWarm}
-                        />
-                      )}
-                      {actions}
-                    </span>
-                  )}
                 </div>
               </div>
             )}

@@ -3,7 +3,6 @@ import {
   Check,
   ChevronsLeftRight,
   CircleDashed,
-  ExternalLink,
   FileText,
   KeyRound,
   UserRound,
@@ -63,38 +62,39 @@ export function Proofs({
 }) {
   const lead = leadProof(proofs);
   if (!lead) return null;
-  return lead.kind === "images" ? (
-    <Slider proof={lead} />
+  if (lead.kind === "images") return <Slider proof={lead} />;
+  return lead.kind === "measure" || lead.kind === "output" ? (
+    <ProofBlock proof={lead} />
   ) : (
-    <ProofBlock proof={lead} document={document} />
+    <ProofLink proof={lead} document={document} />
   );
 }
 
-/** A proof that reads in place: a number, an example, a document, a check. */
-export function ProofBlock({
+/** A proof that reads in place: a number, an example. */
+export function ProofBlock({ proof }: { proof: MeasureProof | OutputProof }) {
+  return proof.kind === "measure" ? (
+    <Measure proof={proof} />
+  ) : (
+    <Example proof={proof} />
+  );
+}
+
+/** A proof that opens elsewhere, a button: a document, GitHub's check. */
+export function ProofLink({
   proof,
   document,
   checks = null,
-  app,
 }: {
-  proof: Exclude<Proof, ImagesProof>;
+  proof: Proof;
   document: (file: string) => string | null;
   /** GitHub's checks, read live: none, nothing to say. */
   checks?: PullChecks | null;
-  app?: AppLink;
 }) {
-  switch (proof.kind) {
-    case "measure":
-      return <Measure proof={proof} app={app} />;
-    case "output":
-      return <Example proof={proof} app={app} />;
-    case "document":
-      return <DocumentLine file={proof.file} href={document(proof.file)} />;
-    case "check":
-      return checks && <CheckLine checks={checks} />;
-    default:
-      return null;
+  if (proof.kind === "document") {
+    const href = document(proof.file);
+    return href && <DocumentLink file={proof.file} href={href} />;
   }
+  return proof.kind === "check" && checks && <CheckLink checks={checks} />;
 }
 
 const load = (src: string) =>
@@ -134,7 +134,7 @@ export function Slider({
   tools,
 }: {
   proof: ImagesProof;
-  /** The actions, over the image as over the film. */
+  /** Its button, over the image as over the film. */
   tools?: ReactNode;
 }) {
   const before = proof.before && `/evidence/${proof.before}`;
@@ -212,31 +212,42 @@ export function Slider({
   );
 }
 
+/** What opens elsewhere: a button whose arrow says so. */
+function Away({
+  href,
+  title,
+  children,
+}: {
+  href: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      className="pp-act"
+      href={href}
+      title={title}
+      target="_blank"
+      rel="noopener"
+    >
+      {children}
+      <ArrowUpRight size={14} aria-hidden="true" />
+    </a>
+  );
+}
+
 /** The pull request's app in a new tab; its account beside it when it is needed. */
 export function OpenApp({ app }: { app: AppLink }) {
   return (
-    <>
-      <a
-        className="pv-icon"
-        href={app.href}
-        target="_blank"
-        rel="noopener"
-        aria-label="Open the app"
-        data-tip="Open the app"
-      >
-        <ExternalLink size={18} aria-hidden="true" />
-      </a>
+    <span className="pf-app">
       {app.signIn && <Account signIn={app.signIn} />}
-    </>
+      <Away href={app.href}>Open the app</Away>
+    </span>
   );
 }
 
 /** The test account, once the visit's session could not be copied. */
-export function Account({
-  signIn,
-}: {
-  signIn: NonNullable<AppLink["signIn"]>;
-}) {
+function Account({ signIn }: { signIn: NonNullable<AppLink["signIn"]> }) {
   const [open, setOpen] = useState(false);
   return (
     <span
@@ -308,7 +319,7 @@ function Copy({
  * now, the lines that changed marked, the rest folded until asked for. The
  * command stays in the description, for developers.
  */
-function Example({ proof, app }: { proof: OutputProof; app?: AppLink }) {
+function Example({ proof }: { proof: OutputProof }) {
   const [whole, setWhole] = useState(false);
   const lines = useMemo(
     () =>
@@ -326,14 +337,7 @@ function Example({ proof, app }: { proof: OutputProof; app?: AppLink }) {
   const shown = whole ? now : foldOutput(now);
   return (
     <figure className="pf-out">
-      <figcaption>
-        <span>{proof.label}</span>
-        {app && (
-          <span className="pf-open">
-            <OpenApp app={app} />
-          </span>
-        )}
-      </figcaption>
+      <figcaption>{proof.label}</figcaption>
       <div className="pf-print">
         {shown.map((line, index) =>
           "folded" in line ? (
@@ -359,7 +363,7 @@ function Example({ proof, app }: { proof: OutputProof; app?: AppLink }) {
 const amount = (value: number) => value.toLocaleString("en-US");
 
 /** A measure as it was and is, as two bars, and how far it moved. */
-function Measure({ proof, app }: { proof: MeasureProof; app?: AppLink }) {
+function Measure({ proof }: { proof: MeasureProof }) {
   const change = measureChange(proof);
   const improved =
     proof.better === "lower"
@@ -374,14 +378,7 @@ function Measure({ proof, app }: { proof: MeasureProof; app?: AppLink }) {
   );
   return (
     <figure className="pf-num">
-      <figcaption>
-        <span>{proof.label}</span>
-        {app && (
-          <span className="pf-open">
-            <OpenApp app={app} />
-          </span>
-        )}
-      </figcaption>
+      <figcaption>{proof.label}</figcaption>
       <div className="pf-row">
         Before
         <div className="pf-track">
@@ -407,25 +404,19 @@ function Measure({ proof, app }: { proof: MeasureProof; app?: AppLink }) {
   );
 }
 
-function DocumentLine({ file, href }: { file: string; href: string | null }) {
+function DocumentLink({ file, href }: { file: string; href: string }) {
   return (
-    <div className="pf-one">
+    <Away href={href} title={file}>
       <FileText size={15} aria-hidden="true" />
-      <code>{file}</code>
-      {href && (
-        <a href={href} target="_blank" rel="noopener">
-          Read it
-          <ArrowUpRight size={14} aria-hidden="true" />
-        </a>
-      )}
-    </div>
+      {file.slice(file.lastIndexOf("/") + 1)}
+    </Away>
   );
 }
 
 const CHECK_MARK = { passed: Check, failed: X, running: CircleDashed } as const;
 
 /** GitHub's own word on the pull request: what its checks say now. */
-function CheckLine({ checks }: { checks: PullChecks }) {
+function CheckLink({ checks }: { checks: PullChecks }) {
   const Mark = CHECK_MARK[checks.state];
   const one = checks.count === 1;
   const word =
@@ -435,19 +426,12 @@ function CheckLine({ checks }: { checks: PullChecks }) {
         ? "is running"
         : "are running";
   return (
-    <div className="pf-one">
+    <Away href={checks.url}>
       <em className={`pf-mark pf-${checks.state}`}>
-        <Mark size={12} strokeWidth={2.6} aria-hidden="true" />
+        <Mark size={10} strokeWidth={3} aria-hidden="true" />
       </em>
-      <span>
-        {one ? <code>{checks.name}</code> : `${checks.count} checks`} {word} on
-        this pull request
-      </span>
+      {one ? checks.name : `${checks.count} checks`} {word}
       {checks.seconds !== null && <small>{checks.seconds}s</small>}
-      <a href={checks.url} target="_blank" rel="noopener">
-        GitHub
-        <ArrowUpRight size={14} aria-hidden="true" />
-      </a>
-    </div>
+    </Away>
   );
 }

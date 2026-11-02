@@ -1,12 +1,11 @@
 import type { Language } from "@elevenlabs/client";
-import { PhoneOff, Play, RectangleHorizontal } from "lucide-react";
+import { Play, RectangleHorizontal } from "lucide-react";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
 import { asCall } from "@/components/call-voice";
@@ -137,6 +136,7 @@ export function useLiveStage({
   const [problems, setProblems] = useState<string[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
+  const [talkSince, setTalkSince] = useState(0);
   /** Called from the film: the stage is where the film was paused. */
   const [reached, setReached] = useState(false);
   const [held, setHeld] = useState(false);
@@ -680,6 +680,7 @@ export function useLiveStage({
         }
       }
       setTalk("on");
+      setTalkSince(Date.now());
     } catch (error) {
       calling.current = false;
       setTalk("off");
@@ -910,6 +911,7 @@ export function useLiveStage({
     held,
     led,
     talk,
+    talkSince,
     reached,
     hearing,
     problems,
@@ -994,7 +996,6 @@ export function LiveCall({
   cinema,
   onCinema,
   onFilm,
-  actions,
 }: {
   stage: LiveStage;
   /** Off a call: behind the film, its screen drawn, ready to take its place. */
@@ -1003,8 +1004,6 @@ export function LiveCall({
   onCinema: () => void;
   /** The film on, where it was paused. */
   onFilm: () => void;
-  /** The pull request's own actions, beside the call, as on the film. */
-  actions?: ReactNode;
 }) {
   const { setScreen } = stage;
   return (
@@ -1049,18 +1048,6 @@ export function LiveCall({
                   >
                     <RectangleHorizontal size={18} aria-hidden="true" />
                   </button>
-                </span>
-                <span className="pv-glass-pill pv-tools">
-                  <button
-                    type="button"
-                    className="pv-icon on"
-                    onClick={() => stage.endTalk()}
-                    aria-label="Hang up"
-                    data-tip="Hang up"
-                  >
-                    <PhoneOff size={18} aria-hidden="true" />
-                  </button>
-                  {actions}
                 </span>
               </div>
             </div>
