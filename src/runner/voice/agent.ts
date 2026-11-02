@@ -22,7 +22,7 @@ export const RESUME_TOOL = {
   type: "client",
   name: "resume_presentation",
   description:
-    "The film plays on and the call ends: where the member paused it, or from the start of a chapter.",
+    "The video plays on and the call ends: where the member paused it, or from the start of a chapter.",
   expects_response: false,
   parameters: {
     type: "object",

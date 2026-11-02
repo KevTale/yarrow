@@ -39,8 +39,10 @@ const TALK_MAX_STEPS = 10;
 
 /** What the turn knows of the pull request, kept for the call by the stage. */
 export interface TalkContext {
-  /** The pull request, its ticket, its review, the film, the diff. */
+  /** The pull request, its ticket, its review, what the page shows, the diff. */
   text: string;
+  /** The change has a video: its rules and its tool are the agent's. */
+  video: boolean;
   project: ChatContext["project"];
   pullRequest: ChatContext["pullRequest"];
 }
@@ -51,12 +53,15 @@ export interface TalkContext {
  */
 const instructions = (
   onStage: boolean,
+  video: boolean,
 ) => `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
 
 ${
   onStage
-    ? "They were watching the change's presentation: a film of the app, your recorded voice over it. They paused it to call you. The film stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the film had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
-    : "They called you from the pull request's page, by voice: the change's presentation, a film of it with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its film and its review, and they see the film and the conversation."
+    ? "They were watching the change's video: the app, your recorded voice over it. They paused it to call you. The video stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the video had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
+    : video
+      ? "They called you from the ticket's page, by voice: the change's video, the app with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its video and its review, and they see the video and the conversation."
+      : "They called you from the ticket's page, by voice. No live app is on this call: you answer from the pull request, its code and its review, and they see what the page shows and the conversation."
 }
 
 How you talk:
@@ -67,7 +72,8 @@ How you talk:
 - Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.`
     : ""
 }
-- Answer what they asked, then stop: no question to end on, no offer of what you could do next, never "shall the film play on?".
+- Answer what they asked, then stop: no question to end on, no offer of what you could do next${video ? ', never "shall the video play on?"' : ""}.
+- Talk about what the page shows (below), and never mention a video, an image or anything else it does not show.${video ? " Call it a video, never a film." : ""}
 - Your earlier answers in the conversation may break these rules: follow these rules, not them.
 - Never guess how the code or the app behaves: ${onStage ? "read the code, or try it on the stage" : "read the code"}.
 ${
@@ -80,20 +86,24 @@ The stage:
 `
     : ""
 }
-The film:
-- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the film plays on where they paused it and the call ends; they call again to talk.
-- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the film plays from there, its recorded voice with it.${onStage ? " Never play the film's chapters yourself on the stage.\n- On the stage, show what the film does not." : " To show them something, point them to its moment in the film."}
+${
+  video
+    ? `The video:
+- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the video plays on where they paused it and the call ends; they call again to talk.
+- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the video plays from there, its recorded voice with it.${onStage ? " Never play the video's chapters yourself on the stage.\n- On the stage, show what the video does not." : " To show them something, point them to its moment in the video."}
 
-The conversation:
-- Beside ${onStage ? "the stage" : "the film"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
+`
+    : ""
+}The conversation:
+- Beside ${onStage ? "the stage" : video ? "the video" : "what the page shows"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
 - The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
-/** The page's tool: the film plays on, and the call ends. */
+/** The page's tool: the video plays on, and the call ends. */
 const RESUME: Anthropic.Beta.BetaTool = {
   name: "resume_presentation",
   description:
-    "The film plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
+    "The video plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
   input_schema: {
     type: "object",
     properties: {
@@ -112,8 +122,12 @@ const eager = (tools: Anthropic.Beta.BetaTool[]) =>
   tools.map((tool) => ({ ...tool, eager_input_streaming: true }));
 // The code, the tickets and the changes, as in the written conversation;
 // the stage's hands when it is up.
-const TOOLS = eager([...CHAT_TOOLS, ...STAGE_TOOLS, RESUME]);
-const VOICE_TOOLS = eager([...CHAT_TOOLS, RESUME]);
+const talkTools = (onStage: boolean, video: boolean) =>
+  eager([
+    ...CHAT_TOOLS,
+    ...(onStage ? STAGE_TOOLS : []),
+    ...(video ? [RESUME] : []),
+  ]);
 
 /** What was written and said before the call, as the agent reads it. */
 export function conversationSoFar(history: ChatContext["history"]): string {
@@ -352,7 +366,7 @@ export async function talkTurn(input: {
     steps,
   });
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: instructions(stage !== null) },
+    { type: "text", text: instructions(stage !== null, context.video) },
     { type: "text", text: context.text, cache_control: { type: "ephemeral" } },
   ];
   const messages = input.messages.map((message) => ({ ...message }));
@@ -383,7 +397,7 @@ export async function talkTurn(input: {
       model,
       clients: { anthropic: client, meta: input.meta },
       system,
-      tools: stage ? TOOLS : VOICE_TOOLS,
+      tools: talkTools(stage !== null, context.video),
       messages,
       last: step >= TALK_MAX_STEPS,
       onText: (delta) => {

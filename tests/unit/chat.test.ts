@@ -27,7 +27,11 @@ import { projectsForUser } from "../../src/db/github-tasks";
 import { pullPanel } from "../../src/db/pull-panel";
 import * as schema from "../../src/db/schema";
 import { upsertTicket } from "../../src/db/workunits";
-import { answerQuestion, type ChatSources } from "../../src/runner/chat";
+import {
+  answerQuestion,
+  chatContextText,
+  type ChatSources,
+} from "../../src/runner/chat";
 import { requestCorrection } from "../../src/server/github/pull-actions";
 import type { RepoReader } from "../../src/server/github/repo-reads";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -436,6 +440,68 @@ function sources(): ChatSources & { reads: string[] } {
   };
 }
 
+describe("what the agent knows the page shows", () => {
+  const shown = (panel: Partial<NonNullable<ChatContext["panel"]>>) =>
+    chatContextText(
+      {
+        ...context,
+        panel: {
+          corrections: [],
+          screens: [],
+          proofs: [],
+          preview: null,
+          ...panel,
+        } as never,
+      },
+      { presentation: null, diff: null },
+    );
+
+  it("names the one thing there, and that there is no video", () => {
+    expect(
+      shown({
+        proofs: [
+          {
+            kind: "measure",
+            label: "Loading the list",
+            unit: "ms",
+            before: 1240,
+            after: 23,
+            better: "lower",
+          },
+        ],
+      }),
+    ).toContain(
+      "and a number, Loading the list: 1240 ms before, 23 ms now. There is no video on this ticket.",
+    );
+    expect(
+      shown({
+        proofs: [
+          {
+            kind: "images",
+            label: "Settings",
+            before: "a.png",
+            after: "b.png",
+            device: "desktop",
+          },
+        ],
+      }),
+    ).toContain("an image to slide across, the screen before and after");
+    expect(
+      shown({ proofs: [{ kind: "document", file: "README.md" }] }),
+    ).toContain("a button to the document README.md");
+    expect(shown({})).toContain("and nothing else. There is no video");
+  });
+
+  it("names the video when there is one, and the app's button", () => {
+    const text = shown({
+      screens: [{ kind: "presentation", key: "runs/r/film.json" }] as never,
+      preview: { path: null, signIn: null } as never,
+    });
+    expect(text).toContain("a button that opens the app, and the video below.");
+    expect(text).not.toContain("no video");
+  });
+});
+
 describe("the agent that answers", () => {
   it("reads the code at the branch, proposes the change, then answers", async () => {
     const { client, requests } = claude((body) => {
@@ -498,6 +564,7 @@ describe("the agent that answers", () => {
       tool_choice: { type: "auto" },
     });
     expect(JSON.stringify(first.body.system)).toContain("+const b = 2;");
+    expect(JSON.stringify(first.body.system)).not.toContain("[at 0:56]");
     const second = requests[1]!.body.messages as {
       role: string;
       content: unknown;

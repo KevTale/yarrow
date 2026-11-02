@@ -181,7 +181,7 @@ export async function runStageTool(
 export function stageNote(state: StageState | null): string {
   if (!state) return "[The stage does not answer right now.]";
   if (state.film !== null && state.film !== undefined)
-    return `[The film is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the film had it there.]`;
+    return `[The video is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the video had it there.]`;
   if (state.over)
     return `[On the stage: the presentation stopped${state.cut === null || state.cut === undefined ? "" : ` in chapter ${state.cut + 1} of ${state.chapters}`} when they spoke.]`;
   if (state.chapter)

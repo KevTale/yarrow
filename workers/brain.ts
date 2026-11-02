@@ -91,6 +91,7 @@ import { isMuseSession, MUSE_EFFORT, MUSE_MODEL } from "../src/runner/muse";
 import {
   answerQuestion,
   chatContextText,
+  hasVideo,
   type ChatAnswer,
 } from "../src/runner/chat";
 import { restoreStage } from "../src/runner/stage-restore";
@@ -1425,6 +1426,7 @@ async function talkContext(
   ]);
   return {
     text: `${chatContextText(context, { presentation, diff })}\n\n${conversationSoFar(context.history)}`,
+    video: hasVideo(context.panel),
     project: context.project,
     pullRequest: pull,
   };

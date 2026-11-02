@@ -128,6 +128,7 @@ function claude(
 
 const context: TalkContext = {
   text: "Pull request #4 of marie/halyard: a status filter above the list.",
+  video: true,
   project: {
     id: "p",
     name: "Halyard",
@@ -175,6 +176,35 @@ const held = {
 };
 
 describe("the live call's turn", () => {
+  it("talks of a video only when the ticket has one", async () => {
+    const { client, requests } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "It returns the due date." }],
+    }));
+    const turn = (video: boolean) =>
+      talkTurn({
+        client,
+        context: { ...context, video },
+        messages: [{ role: "user", content: "What am I looking at?" }],
+        state: null,
+        sources,
+        stage: null,
+        say: () => {},
+      });
+    await turn(false);
+    await turn(true);
+    const rules = (at: number) =>
+      (requests[at]!.body.system as { text: string }[])[0]!.text;
+    const tools = (at: number) =>
+      (requests[at]!.body.tools as { name: string }[]).map((tool) => tool.name);
+    expect(rules(0)).toContain("never mention a video");
+    expect(rules(0)).not.toMatch(/film|resume_presentation|stands still/);
+    expect(tools(0)).not.toContain("resume_presentation");
+    expect(rules(1)).toContain("resume_presentation");
+    expect(rules(1)).toContain("Call it a video, never a film.");
+    expect(tools(1)).toContain("resume_presentation");
+  });
+
   it("speaks first, looks, acts on the stage, then answers", async () => {
     const { client, requests } = claude((body) => {
       const turns = (body.messages as unknown[]).length;
@@ -408,7 +438,7 @@ describe("the live call's turn", () => {
     expect(requests).toHaveLength(1);
     const first = (requests[0]!.body.messages as { content: string }[])[0]!;
     expect(first.content).toContain(
-      "The film is paused in chapter 2 of 3; the stage shows the app as the film had it there.",
+      "The video is paused in chapter 2 of 3; the stage shows the app as the video had it there.",
     );
     const tools = (requests[0]!.body.tools as { name: string }[]).map(
       (tool) => tool.name,
@@ -755,9 +785,9 @@ describe("the call's pass", () => {
     const signature = createHmac("sha256", "secret")
       .update(`grant ${body}`)
       .digest("base64url");
-    expect(
-      (await readTalkGrant("secret", `${body}.${signature}`))?.stage,
-    ).toBe(true);
+    expect((await readTalkGrant("secret", `${body}.${signature}`))?.stage).toBe(
+      true,
+    );
   });
 
   it("is refused when changed or signed by another secret", async () => {

@@ -9,6 +9,7 @@ import {
   type ChatUsage,
 } from "../core/chat";
 import { chapterMs, type Presentation } from "../core/presentation";
+import { leadProof } from "../core/proofs";
 import type { StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import type { RepoReader } from "../server/github/repo-reads";
@@ -52,14 +53,21 @@ export interface ChatAnswer {
   usage: ChatUsage;
 }
 
-const INSTRUCTIONS = `You are Yarrow's agent on a pull request that Yarrow's agents opened. A member of the project asks you about it on Yarrow's dashboard, next to the film in which the agent presented the change. Answer as a colleague who knows the change and the code.
+const instructions = (
+  video: boolean,
+) => `You are Yarrow's agent on a pull request that Yarrow's agents opened. A member of the project asks you about it on Yarrow's dashboard, next to what the change shows. Answer as a colleague who knows the change and the code.
 
 How you answer:
 - In the language of the question, in plain words, short: two to five sentences unless they ask for more. No headings, no filler, no praise of the question. A list only when you list several things.
 - Never guess how the code behaves: read it with your tools first. When you could not check something, say so.
 - The repository is read at the pull request's branch. Code search only covers the default branch; read files to see the branch.
 - The project's other tickets are there to spot duplicates, overlaps and what is already planned.
-- When a moment of the film shows what you talk about, point to it with its time written exactly like [at 0:56] (the times are below). At most two per answer, only where they help.
+- Talk about what the page shows (below), and never mention a video, an image or anything else it does not show.${
+  video
+    ? `
+- When a moment of the video shows what you talk about, point to it with its time written exactly like [at 0:56] (the times are below). At most two per answer, only where they help. Call it a video, never a film.`
+    : ""
+}
 
 Changes:
 - You never change code yourself. When the member asks for a change to this pull request, or says yes to one you suggested, call propose_change. The member sees it as a card and updates the pull request with one click; your text is then one short sentence at most, without repeating the card.
@@ -69,7 +77,7 @@ Changes:
 
 /** When the member writes beside the stage, the app running live. */
 const ON_STAGE = `The stage:
-- The member writes to you beside the stage: the app of the pull request's branch running live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The presentation may play there; it stops while you answer.
+- The member writes to you beside the stage: the app of the pull request's branch running live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The video may play there; it stops while you answer.
 - When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. They see the pointer move and click as you do it. Then say in your answer what you did and what you saw.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
@@ -191,6 +199,41 @@ export function presentationLines(timeline: Presentation): string {
   return lines.join("\n");
 }
 
+/** The change has a video, on the page and for the agent. */
+export const hasVideo = (panel: ChatContext["panel"]) =>
+  Boolean(panel?.screens.some((screen) => screen.kind === "presentation"));
+
+/** The one thing the page shows of the change beside no video (src/core/proofs.ts). */
+function shownBesideNoVideo(panel: ChatContext["panel"]): string {
+  const lead = leadProof(panel?.proofs ?? []);
+  switch (lead?.kind) {
+    case "images":
+      return lead.before
+        ? `an image to slide across, the screen before and after: ${lead.label}`
+        : `an image of the screen: ${lead.label}`;
+    case "measure":
+      return `a number, ${lead.label}: ${lead.before} ${lead.unit} before, ${lead.after} ${lead.unit} now`;
+    case "output":
+      return `an example, ${lead.label}:\n${clip(lead.after, 2000)}`;
+    case "document":
+      return `a button to the document ${lead.file}`;
+    case "check":
+      return "a button to GitHub's check";
+    default:
+      return panel && !panel.proofs && panel.screens.length
+        ? "screenshots of the app"
+        : "nothing else";
+  }
+}
+
+/** What the member has in front of them: the agent talks about this alone. */
+function pageShows(panel: ChatContext["panel"]): string {
+  const page = `On the page, beside the conversation: the ticket, the summary, the files changed${panel?.preview ? ", a button that opens the app" : ""}`;
+  return hasVideo(panel)
+    ? `${page}, and the video below.`
+    : `${page}, and ${shownBesideNoVideo(panel)}. There is no video on this ticket.`;
+}
+
 /** Everything about the pull request, before the conversation. */
 export function chatContextText(
   context: Omit<ChatContext, "answerId" | "history">,
@@ -256,9 +299,10 @@ export function chatContextText(
         )
         .join("\n")}`,
     );
+  parts.push(pageShows(panel));
   if (extra.presentation)
     parts.push(
-      `The film (the agent's screen with its voice; what is said, with its time):\n${presentationLines(extra.presentation)}`,
+      `The video (your screen with your voice; what is said, with its time):\n${presentationLines(extra.presentation)}`,
     );
   if (extra.diff) {
     const files = extra.diff
@@ -427,7 +471,7 @@ export async function answerQuestion(input: {
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     {
       type: "text",
-      text: stage ? `${INSTRUCTIONS}\n\n${ON_STAGE}` : INSTRUCTIONS,
+      text: `${instructions(hasVideo(context.panel))}${stage ? `\n\n${ON_STAGE}` : ""}`,
     },
     {
       type: "text",

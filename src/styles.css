@@ -4374,6 +4374,11 @@ tbody tr:hover {
     overflow-y: hidden;
     container-type: inline-size;
   }
+  /* Nothing slides sideways with a row open: a list that scrolls would hold
+     the conversation's box inside it, away from the bottom of the screen. */
+  .tix-rows:has(.tix-item.open) {
+    overflow: clip;
+  }
   .tix-item,
   .tix-older {
     min-width: 100cqw;
@@ -8907,19 +8912,22 @@ html:has(.pp-stage:modal) {
 .pp-talk > .pp-asking {
   margin: 0 18px 18px;
 }
-/* In the panel, the same column beside the film and the review: as tall as
-   they are, never taller than the window under the site's header (60px),
-   held in view while the page scrolls past them. */
-/* What the agent says shows whole, the row growing for it up to the window;
-   past that it scrolls inside. A light line beside it. */
+/* In the panel, the same column beside the film and the review, as tall as
+   they are, held in view while the page scrolls past them. What the agent
+   says as the row opens shows whole (--talk-opened, measured then), the row
+   growing for it up to what leaves it whole in the window: 194px are the
+   header's room and the row's own line and margins. What comes after scrolls
+   inside: the conversation never moves the row. A light line beside it. */
 .pp-grid > .pp-talk {
+  --talk-room: max(380px, calc(100dvh - 194px));
   position: sticky;
   top: 72px;
-  min-height: 380px;
-  max-height: calc(100dvh - 84px);
+  min-height: min(var(--talk-room), max(380px, var(--talk-opened, 0px)));
+  max-height: var(--talk-room);
   border-left-color: #ffffff0f;
 }
 .pp-grid > .pp-talk .pp-talk-thread {
+  contain: size;
   padding: 0 6px 24px 22px;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
@@ -9759,6 +9767,7 @@ button.pp-idea:focus-visible .pp-idea-go {
     display: contents;
   }
   .pp-grid > .pp-talk .pp-talk-thread {
+    contain: none;
     max-height: 65vh;
     padding: 22px 6px 0 0;
     border-top: 1px solid #ffffff0f;

@@ -950,6 +950,18 @@ export function Conversation({
   /** The agent can be called from here. */
   call?: ConversationCall;
 }) {
+  // What it says as it opens sets the panel's column (--talk-opened in the
+  // styles); what comes after scrolls inside, so the row never moves.
+  const column = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const aside = column.current;
+    if (!aside) return;
+    const height = [...aside.children].reduce(
+      (sum, part) => sum + part.scrollHeight,
+      0,
+    );
+    aside.style.setProperty("--talk-opened", `${height}px`);
+  }, []);
   const { live, pullRequest } = panel;
   if (!pullRequest) return null;
   const open = pullRequest.state === "open" && live?.open !== false;
@@ -957,7 +969,7 @@ export function Conversation({
     (message) => message.status === "pending",
   );
   return (
-    <aside className="pp-talk" aria-label="Conversation">
+    <aside ref={column} className="pp-talk" aria-label="Conversation">
       <div className="pp-talk-thread">
         <Thread
           panel={
@@ -1039,12 +1051,14 @@ function Thread({
   const working = workingText(panel);
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
-  const latest = `${shown.length}:${last?.kind === "message" ? last.message.status : ""}`;
-  // The latest in view, the page left where it is: the column scrolls.
+  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : ""}`;
+  // The latest in view as it comes, the page left where it is: the column
+  // scrolls. With nothing said yet, the agent's notes from their top.
+  const said = shown.length > 0;
   useLayoutEffect(() => {
     const box = list.current?.parentElement;
-    if (box) box.scrollTop = box.scrollHeight;
-  }, [latest]);
+    if (box && said) box.scrollTop = box.scrollHeight;
+  }, [latest, said]);
   return (
     <ol className="pp-chat" ref={list}>
       <Notes

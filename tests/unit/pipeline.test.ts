@@ -502,7 +502,7 @@ describe("run pipeline", async () => {
     const task = JSON.stringify(created.body);
     expect(task).toContain("Evidence (these rules replace");
     expect(task).toContain("Proof: you send the owner one thing");
-    expect(task).toContain("Presentation (only when the proof is a film)");
+    expect(task).toContain("Presentation (only when the proof is a video)");
     expect(task).toContain(
       "node /mnt/session/uploads/yarrow/present.mjs /tmp/presentation.json",
     );
@@ -807,7 +807,7 @@ describe("run pipeline", async () => {
     // Claude's rules and task, word for word.
     expect(spec.prompt).toMatch(/^You are the implementer of Yarrow/);
     expect(spec.prompt).toContain(
-      "Presentation (only when the proof is a film)",
+      "Presentation (only when the proof is a video)",
     );
     const [row] = await raw.select().from(schema.agentRuns);
     expect(row).toMatchObject({
