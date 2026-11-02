@@ -17,6 +17,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
+import { asCall } from "@/components/call-voice";
 import {
   CAPTIONS_KEY,
   loadPresentation,
@@ -26,8 +27,6 @@ import {
 import {
   cueAt,
   estimateSpeechMs,
-  voiceAround,
-  withoutEcho,
   wordsSaid,
   type Presentation,
   type PresentationChapter,
@@ -108,6 +107,8 @@ export function useLiveStage({
   const [lines, setLines] = useState<Line[]>([]);
   const [screen, setScreen] = useState<HTMLDivElement | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
+  /** The voice played as a call's, so the microphone does not hear it. */
+  const routed = useRef<Promise<() => void> | null>(null);
   const stopped = useRef(false);
   /** Ends the voice playing now. */
   const hush = useRef<(() => void) | null>(null);
@@ -130,12 +131,6 @@ export function useLiveStage({
   useEffect(() => {
     known.current = messages;
   }, [messages]);
-  /**
-   * The presentation's words, and those its voice says now: what the
-   * microphone catches of them through the speakers is not the member's.
-   */
-  const script = useRef("");
-  const saying = useRef("");
 
   const cue = useCallback(
     (data: Cue) =>
@@ -186,11 +181,7 @@ export function useLiveStage({
     if (!presentation) return;
     let gone = false;
     void loadPresentation(presentation).then((loaded) => {
-      if (gone) return;
-      setTimeline(loaded);
-      script.current = (loaded?.chapters ?? [])
-        .map((chapter) => chapter.say)
-        .join(" ");
+      if (!gone) setTimeline(loaded);
     });
     return () => {
       gone = true;
@@ -235,12 +226,15 @@ export function useLiveStage({
     void cue({ action: "pause" });
   };
 
-  /** On again: the screen as the talk found it, then the voice from its sentence. */
+  /**
+   * On again: the app put back as the talk found it (the brain's agent
+   * undoes what the talk changed), then the voice from its sentence.
+   */
   const goOn = async () => {
     const holdNow = holding.current;
     goOnAsked.current = false;
     if (!holdNow) return;
-    const result = await cue({ action: "resume" });
+    const result = await cue({ action: "resume", restore: true });
     if (result.problems.length)
       setProblems((now) => [...now, ...result.problems]);
     holding.current = null;
@@ -289,27 +283,21 @@ export function useLiveStage({
             void settle();
           },
         },
-        // Their first words, still being heard, already hold it; the
-        // voice's own, from the speakers, do not.
+        // Their first words, still being heard, already hold it.
         onIncomingEvent: (event: {
           type?: string;
           tentative_user_transcription_event?: { user_transcript?: string };
         }) => {
           const heard =
             event.tentative_user_transcription_event?.user_transcript ?? "";
-          const own = withoutEcho(
-            withoutEcho(heard, script.current),
-            saying.current,
-            1,
-          );
-          if (event.type === "tentative_user_transcript" && /\p{L}/u.test(own))
+          if (
+            event.type === "tentative_user_transcript" &&
+            /\p{L}/u.test(heard)
+          )
             hold();
         },
         onMessage: ({ source, message }) => {
-          const text =
-            source === "user"
-              ? withoutEcho(message.trim(), script.current)
-              : message.trim();
+          const text = message.trim();
           if (!text) return;
           if (source === "user") hold();
           before.current ??= known.current;
@@ -385,10 +373,12 @@ export function useLiveStage({
       if (chapter.audio) {
         audio = voice.current ?? new Audio();
         voice.current = audio;
+        routed.current ??= asCall(audio);
         audio.onended = done;
         audio.onerror = silent;
         audio.src = evidence(chapter.audio.key);
-        void audio.play().catch(silent);
+        const sound = audio;
+        void routed.current.then(() => sound.play()).catch(silent);
       } else silent();
       const playing = audio;
       voiceHold.current = {
@@ -410,14 +400,12 @@ export function useLiveStage({
           } else silent();
         },
       };
-      const last = timeline?.chapters[index - 1]?.cues.at(-1)?.text ?? "";
       const tick = () => {
         const spokenMs =
           audio && !audio.error
             ? audio.currentTime * 1000
             : (pausedAt ?? performance.now()) - started;
         setShow({ index, spokenMs });
-        saying.current = `${last} ${voiceAround(chapter.cues, spokenMs)}`;
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
@@ -435,6 +423,9 @@ export function useLiveStage({
     setProblems([]);
     setNotes([]);
     setShow({ index: 0, spokenMs: 0 });
+    // Its voice ready before its first word, while the click still counts.
+    voice.current ??= new Audio();
+    routed.current ??= asCall(voice.current);
     // The member can stop it by speaking from the first word.
     if (!conversation.current) void startTalk();
     const heard = (at: string, result: StageCueResult) =>
@@ -478,10 +469,17 @@ export function useLiveStage({
     }
   };
 
+  /** The voice's own call hung up, its element with it: a new one next time. */
+  const hangUpVoice = () => {
+    void routed.current?.then((hangUp) => hangUp());
+    routed.current = null;
+    voice.current = null;
+  };
+
   // The stage gone, or the page: the voice and the call with it.
-  const ending = useRef({ stop, endTalk });
+  const ending = useRef({ stop, endTalk, hangUpVoice });
   useEffect(() => {
-    ending.current = { stop, endTalk };
+    ending.current = { stop, endTalk, hangUpVoice };
   });
   useEffect(() => {
     if (phase === "ready") return;
@@ -492,6 +490,7 @@ export function useLiveStage({
     () => () => {
       ending.current.stop();
       ending.current.endTalk();
+      ending.current.hangUpVoice();
     },
     [],
   );

@@ -58,9 +58,8 @@ export function talkAgentConfig(input: {
           temperature: null,
           max_tokens: -1,
           tool_ids: [input.toolId],
-          // A turn that was only the presentation's voice, caught through
-          // the member's speakers, is skipped: ElevenLabs drops a call
-          // whose LLM says nothing.
+          // A turn with no word in it (a noise heard as one) is skipped:
+          // ElevenLabs drops a call whose LLM says nothing.
           built_in_tools: {
             skip_turn: {
               type: "system",

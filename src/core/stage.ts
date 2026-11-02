@@ -97,7 +97,8 @@ export type StageCue =
   | { action: "set" }
   | { action: "chapter"; index: number; voiceMs: number }
   | { action: "pause" }
-  | { action: "resume" };
+  // `restore`: what the talk changed in the app put back first.
+  | { action: "resume"; restore?: boolean };
 
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
@@ -108,7 +109,18 @@ export type StageHand =
   | { action: "look" }
   | { action: "act"; actions: LiveAction[] }
   | { action: "window"; window: "after" | "before" | "terminal" }
-  | { action: "run"; command: string; cwd?: string };
+  | { action: "run"; command: string; cwd?: string }
+  // While held: each window the talk changed (src/runner/stage-restore.ts).
+  | { action: "changes" }
+  // The recipe's sign-in, on the window in front.
+  | { action: "sign-in" };
+
+/** A window as the presentation left it when held, and as it is now. */
+export interface StageChange {
+  window: "after" | "before";
+  then: { url: string; screen: string };
+  now: { url: string; screen: string };
+}
 
 export interface StageCueResult {
   ok: boolean;
@@ -118,6 +130,7 @@ export interface StageCueResult {
   /** The screen as text, after the agent's move. */
   screen?: string;
   state?: StageState;
+  changes?: StageChange[];
 }
 
 /** Where the presentation stands on the stage. */

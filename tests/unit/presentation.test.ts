@@ -8,8 +8,6 @@ import {
   estimateSpeechMs,
   posterChapter,
   urlAt,
-  voiceAround,
-  withoutEcho,
   wordsSaid,
 } from "../../src/core/presentation";
 import { ManagedAgentsClient } from "../../src/runner/anthropic";
@@ -27,49 +25,6 @@ function alignment(text: string) {
     ends: characters.map((_, i) => (i + 1) * 0.05),
   };
 }
-
-describe("the presentation's voice heard by the microphone", () => {
-  const voice =
-    "You've got the four filters right above the list, and each one shows how many tasks it has. So eight in all, four to do, two doing and two done. All is picked by default. So nothing changes until you choose something.";
-
-  it("is not the member's: only their own words stay", () => {
-    // Said on a live call with speakers, 2026-10-28.
-    expect(
-      withoutEcho(
-        "And each one shows how many tasks- Attends, stop. So eight in all, four to do, two doing and two done. All is picked by default- Ça, ça gueule. So nothing changes until you choose something.",
-        voice,
-      ),
-    ).toBe("Attends, stop. Ça, ça gueule.");
-    expect(withoutEcho("So eight in all, four to do.", voice)).toBe("");
-    expect(
-      withoutEcho(
-        "So eight in all, four to do. Attends, le compteur Done est juste ?",
-        voice,
-      ),
-    ).toBe("Attends, le compteur Done est juste ?");
-    expect(withoutEcho("¿ Y eso ?", "")).toBe("¿ Y eso ?");
-    // A word or two of it, in the member's own sentence, stays theirs.
-    expect(withoutEcho("Click Done, please.", voice)).toBe(
-      "Click Done, please.",
-    );
-    expect(withoutEcho("Anything.", "")).toBe("Anything.");
-  });
-
-  it("while it plays, even a word of what it says now", () => {
-    const cues = [
-      { startMs: 0, endMs: 900, text: "Here is the list.", words: [] },
-      { startMs: 1000, endMs: 1900, text: "And each one counts.", words: [] },
-      { startMs: 2000, endMs: 2900, text: "All is picked.", words: [] },
-    ];
-    expect(voiceAround(cues, 1500)).toBe(
-      "Here is the list. And each one counts.",
-    );
-    expect(voiceAround(cues, 0)).toBe("Here is the list.");
-    const now = voiceAround(cues, 2500);
-    expect(withoutEcho("and", now, 1)).toBe("");
-    expect(withoutEcho("Wait", now, 1)).toBe("Wait");
-  });
-});
 
 describe("subtitles", () => {
   it("follow the voice, a sentence at a time, without delivery tags", () => {

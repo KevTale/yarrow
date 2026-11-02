@@ -79,7 +79,10 @@ export const stageCueFn = createServerFn({ method: "POST" })
           voiceMs: z.number().int().min(0).max(120_000),
         }),
         z.object({ action: z.literal("pause") }),
-        z.object({ action: z.literal("resume") }),
+        z.object({
+          action: z.literal("resume"),
+          restore: z.boolean().optional(),
+        }),
       ]),
     }),
   )

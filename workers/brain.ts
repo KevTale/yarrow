@@ -93,6 +93,7 @@ import {
   chatContextText,
   type ChatAnswer,
 } from "../src/runner/chat";
+import { restoreStage } from "../src/runner/stage-restore";
 import {
   completion,
   conversationSoFar,
@@ -1232,14 +1233,49 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     return stage.open(spec, input.fresh);
   }
 
-  /** The page's cue to the stage's presenter: the opening, or a chapter. */
+  /**
+   * The page's cue to the stage's presenter: the opening, a chapter, held
+   * or on again. On again after a talk, what the talk changed in the app
+   * is put back first (src/runner/stage-restore.ts), so the voice goes on
+   * about the screen it left; Yarrow pays for it, as for the talk.
+   */
   async stageCue(input: {
     workUnitId: string;
     cue: StageCue;
   }): Promise<StageCueResult> {
-    if (!this.env.STAGE)
+    const { env } = this;
+    if (!env.STAGE)
       return { ok: false, problems: ["No stage on this environment."] };
-    return this.env.STAGE.getByName(input.workUnitId).present(input.cue);
+    const stage = env.STAGE.getByName(input.workUnitId);
+    if (input.cue.action !== "resume" || !input.cue.restore)
+      return stage.present(input.cue);
+    const found = await stage.present({ action: "changes" });
+    const problems = [...found.problems];
+    if (found.changes?.length && env.ANTHROPIC_API_KEY) {
+      const started = Date.now();
+      const restored = await restoreStage({
+        client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
+        changes: found.changes,
+        stage: (hand) => stage.present(hand),
+      }).catch((error: Error) => ({
+        problems: [`putting the stage back: ${error.message.slice(0, 200)}`],
+        usage: null,
+        steps: [],
+      }));
+      problems.push(...restored.problems);
+      console.log(
+        "stage put back",
+        JSON.stringify({
+          workUnitId: input.workUnitId,
+          windows: found.changes.map((change) => change.window),
+          ms: Date.now() - started,
+          steps: restored.steps,
+          usage: restored.usage,
+        }),
+      );
+    }
+    const resumed = await stage.present({ action: "resume" });
+    return { ...resumed, problems: [...problems, ...resumed.problems] };
   }
 
   /**
@@ -1326,9 +1362,6 @@ async function talkContext(
     text: `${chatContextText(context, { presentation, diff })}\n\n${conversationSoFar(context.history)}`,
     project: context.project,
     pullRequest: pull,
-    voice: (presentation?.chapters ?? [])
-      .map((chapter) => chapter.say)
-      .join(" "),
   };
 }
 
@@ -1393,9 +1426,8 @@ async function talkRoute(
       ]);
       const context = kept ?? (await talkContext(env, grant.workUnitId));
       if (!context) throw new Error("no pull request");
-      // Only the presentation's voice was heard, through the speakers: not
-      // the member's turn.
-      const messages = talkMessages(parsed.data.messages, context.voice);
+      // A noise heard as a turn, no word in it: not the member's turn.
+      const messages = talkMessages(parsed.data.messages);
       if (messages.at(-1)?.role !== "user") {
         await write(completion.skip(id) + completion.done);
         return;

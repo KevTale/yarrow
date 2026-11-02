@@ -2507,6 +2507,17 @@ async function fillSignIn(page, how) {
   await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
 }
 
+/**
+ * A page as a person reads it: its elements as text, without the refs and
+ * pointer hints that change from one reading to the next.
+ */
+async function pageText(page) {
+  const snapshot = await page
+    .ariaSnapshot({ mode: "ai", timeout: 5000 })
+    .catch(() => "");
+  return snapshot.replace(/ \[(?:ref=[^\]]*|cursor=[^\]]*|active)\]/g, "");
+}
+
 /** Same address: the page a tab shows and the one a chapter asks for. */
 function samePage(a, b) {
   try {
@@ -2576,27 +2587,82 @@ class Presenter {
       front,
       tab,
       url: tab ? (tabs.pages[tab]?.url() ?? null) : null,
-      signedOut: false,
+      /** Each tab as the presentation shows it, to put back after the talk. */
+      pages: {},
     };
     this.hold = hold;
     log(
       "held" +
         (this.playing === null ? "" : " in chapter " + (this.playing + 1)),
     );
-    // Signed out already: the presentation shows it so, it stays so.
-    hold.signedOut = await this.signedOut(tab ? tabs.pages[tab] : null);
+    hold.read = (async () => {
+      for (const [which, page] of Object.entries(tabs?.pages ?? {}))
+        hold.pages[which] = { url: page.url(), screen: await pageText(page) };
+    })();
+    await hold.read;
     return [];
   }
 
-  /** The recipe's sign-in form is on the page: its first field shows. */
-  async signedOut(page) {
-    const first = this.signIn && Object.keys(this.signIn.fields)[0];
-    if (!first || !page) return false;
-    return page
-      .locator(first)
-      .first()
-      .isVisible()
-      .catch(() => false);
+  /**
+   * While held: each tab the talk changed, as it was and as it is. An
+   * address changed is typed back first; what still differs is told, for
+   * the brain's agent to put back (src/runner/stage-restore.ts).
+   */
+  async changes() {
+    const hold = this.hold;
+    if (!hold) return { problems: [], changes: [] };
+    await hold.read;
+    const { desktop } = this;
+    const changes = [];
+    for (const [which, then] of Object.entries(hold.pages)) {
+      const page = desktop.tabs?.pages[which];
+      if (!page) continue;
+      if (!samePage(page.url(), then.url)) {
+        await this.bring(which);
+        await desktop.address(page, then.url, [], () => 0);
+      }
+      await page
+        .waitForLoadState("networkidle", { timeout: 3000 })
+        .catch(() => {});
+      const screen = await pageText(page);
+      if (screen !== then.screen)
+        changes.push({ window: which, then, now: { url: page.url(), screen } });
+    }
+    log(
+      changes.length
+        ? "changed while held: " + changes.map((c) => c.window).join(", ")
+        : "nothing changed while held",
+    );
+    return { problems: [], changes };
+  }
+
+  /** The recipe's sign-in on the window in front: the seeded user in again. */
+  async signInAgain() {
+    const { desktop, plan, signIn } = this;
+    const which = desktop.tabs?.active;
+    const page = which && desktop.tabs.pages[which];
+    const problems = [];
+    if (!signIn) problems.push("the app has no sign-in in its recipe");
+    else if (desktop.front !== "browser" || !page)
+      problems.push("the browser is not in front");
+    else
+      try {
+        const first = Object.keys(signIn.fields)[0];
+        const shown = await page
+          .locator(first)
+          .first()
+          .isVisible()
+          .catch(() => false);
+        if (!shown) {
+          const base = plan.apps[which]?.url ?? new URL(page.url()).origin;
+          await desktop.address(page, join(base, signIn.path), [], () => 0);
+        }
+        await fillSignIn(page, signIn);
+        log("signed in again");
+      } catch (error) {
+        problems.push("sign in: " + String(error?.message).split("\n")[0]);
+      }
+    return { problems, screen: await this.look() };
   }
 
   /** Back to the screen as the talk found it, then the chapter goes on. */
@@ -2622,14 +2688,6 @@ class Presenter {
         await page.bringToFront();
         if (hold.url && !samePage(page.url(), hold.url))
           await desktop.address(page, hold.url, marks, clock);
-        // Signed out while held (the member asked for it): the voice goes
-        // on as the stage was, so in again, then back to the page.
-        if (!hold.signedOut && (await this.signedOut(page))) {
-          await fillSignIn(page, this.signIn);
-          log("signed in again");
-          if (hold.url && !samePage(page.url(), hold.url))
-            await desktop.address(page, hold.url, marks, clock);
-        }
       } else if (hold.front === "terminal")
         await desktop.show("terminal", clock, marks);
     } catch (error) {
@@ -2761,13 +2819,21 @@ class Presenter {
         ],
         screen: await this.look(),
       };
+    await this.bring(which);
+    return { problems: [], screen: await this.look() };
+  }
+
+  /** The browser in front, on this tab. */
+  async bring(which) {
+    const { desktop } = this;
+    const marks = [];
+    const clock = () => 0;
     await desktop.show("browser", clock, marks);
     if (desktop.tabs.active !== which) {
       await desktop.switchTab(which, clock, marks);
       desktop.tabs.active = which;
     }
     await desktop.tabs.pages[which].bringToFront();
-    return { problems: [], screen: await this.look() };
   }
 
   /** A command typed in the terminal, as the member watches: its output. */
@@ -2928,6 +2994,8 @@ function serve(presenter) {
     "/window": "hands",
     "/run": "hands",
     "/resume": "hands",
+    "/changes": "hands",
+    "/sign-in": "hands",
   };
   const answer = async (url, asked) => {
     try {
@@ -2946,6 +3014,10 @@ function serve(presenter) {
           return { ok: true, problems: await presenter.pause() };
         case "/resume":
           return { ok: true, problems: await presenter.resume() };
+        case "/changes":
+          return { ok: true, ...(await presenter.changes()) };
+        case "/sign-in":
+          return { ok: true, ...(await presenter.signInAgain()) };
         case "/state":
           return { ok: true, problems: [], state: presenter.state() };
         case "/look":
