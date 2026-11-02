@@ -8345,16 +8345,6 @@ body:has(.sb-dialog[open]) {
   color: rgba(255, 255, 255, 0.5);
   content: "•";
 }
-.pv-screen:fullscreen {
-  display: flex;
-  flex-direction: column;
-  border: 0;
-  border-radius: 0;
-}
-.pv-screen:fullscreen .pv-view {
-  flex: 1;
-  aspect-ratio: auto;
-}
 /* The stage live in the film's place: its screen over VNC, the film kept
    behind it, ready for a moment of the conversation. */
 .pv-glass > .pv-live {
@@ -8988,6 +8978,37 @@ html:has(.pp-stage:modal) {
   background: var(--amber);
   color: #141714;
   cursor: pointer;
+}
+.pp-phone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.pp-phone:hover {
+  color: var(--text);
+}
+.pp-phone.on {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+.pp-phone.ringing svg {
+  animation: pv-ring 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-phone.ringing svg {
+    animation: none;
+  }
 }
 .pp-go[aria-disabled="true"] {
   opacity: 0.45;

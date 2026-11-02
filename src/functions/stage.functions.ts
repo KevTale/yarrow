@@ -115,6 +115,7 @@ export type TalkCall =
 /**
  * A live call about the pull request, by voice: what the page starts it
  * with (src/runner/talk.ts). The member's language picks the one heard.
+ * Over the stage when it is up; otherwise by voice alone.
  */
 export const stageTalkFn = createServerFn({ method: "POST" })
   .validator(
@@ -124,15 +125,17 @@ export const stageTalkFn = createServerFn({ method: "POST" })
         .string()
         .regex(/^[a-z]{2,3}$/)
         .default("en"),
+      stage: z.boolean().default(true),
     }),
   )
   .handler(async ({ data }): Promise<TalkCall> => {
     const viewer = await requireViewer();
     const found = await stageOf(data);
-    if (!found) return { ok: false, reason: "No stage for this ticket here." };
+    if (!found) return { ok: false, reason: "No call for this ticket here." };
     return found.brain.talkCall({
       workUnitId: found.workUnitId,
       userId: viewer.userId,
       language: data.language,
+      stage: data.stage,
     });
   });

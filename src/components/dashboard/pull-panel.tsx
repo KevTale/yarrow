@@ -7,6 +7,8 @@ import {
   CircleDashed,
   FileText,
   GitCommitHorizontal,
+  Phone,
+  PhoneOff,
   Play,
   Plus,
   X,
@@ -37,6 +39,7 @@ import { LiveCall, useLiveStage } from "@/components/live-stage";
 import {
   loadPresentation,
   Presentation,
+  type FilmCall,
   type FilmControl,
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
@@ -205,9 +208,10 @@ export function usePullPanel(projectId: string, rowKey: string) {
  * A ticket's row, opened: what the agents did, what to watch and the files
  * changed on the left, the conversation on the right; a change asked from
  * there goes to the pull request. Who paid is on the row's line. The film
- * plays first; the member calls the agent from it, and the pull request's
- * stage takes its place, the app live where the film was paused, until the
- * film plays on.
+ * plays first; the member calls the agent from it or from the
+ * conversation, and the pull request's stage takes its place, the app live
+ * where the film was paused, until the film plays on. Before the stage is
+ * up, the call is by voice alone.
  */
 export function PullPanel({
   projectId,
@@ -233,6 +237,7 @@ export function PullPanel({
       window.matchMedia("(min-width: 761px)").matches,
   );
   const play = useRef<FilmControl | null>(null);
+  const phone = useRef<(() => void) | null>(null);
   const stage = useLiveStage({
     projectId,
     rowKey,
@@ -290,6 +295,16 @@ export function PullPanel({
     stage.endTalk();
     seek.current?.(ms);
   };
+  // The agent called from the film's player or the conversation's phone:
+  // over the stage once it is up, by voice alone before.
+  const call: FilmCall | undefined = pullRequest
+    ? {
+        state: stage.talk,
+        onCall: (at) => void stage.callFrom(at),
+        onHangUp: () => stage.endTalk(),
+        onWarm: () => stage.warm(),
+      }
+    : undefined;
   // The conversation, the panel's right column, beside the film in cinema;
   // beside the stage, the agent acts on it.
   const talk = (
@@ -309,6 +324,16 @@ export function PullPanel({
       stage={onStage}
       turn={stage.turn}
       onAsking={stage.hold}
+      call={
+        call && {
+          state: call.state,
+          // Through the film, paused where it is; without one, from here.
+          onCall: () =>
+            phone.current ? phone.current() : void stage.callFrom(null),
+          onHangUp: call.onHangUp,
+          onWarm: call.onWarm,
+        }
+      }
     />
   );
   return (
@@ -353,18 +378,8 @@ export function PullPanel({
                       onCinema={flipCinema}
                       seekRef={seek}
                       playRef={play}
-                      // A call only where the stage can take the film's
-                      // place: a film recorded with its live steps.
-                      call={
-                        stage.status?.live
-                          ? {
-                              state: stage.talk,
-                              onCall: (at) => void stage.callFrom(at),
-                              onHangUp: () => stage.endTalk(),
-                              onWarm: () => stage.warm(),
-                            }
-                          : undefined
-                      }
+                      phoneRef={phone}
+                      call={call}
                     />
                   </div>
                 </div>
@@ -752,6 +767,7 @@ export function Conversation({
   stage = false,
   turn = [],
   onAsking,
+  call,
 }: {
   panel: Panel;
   projectId: string;
@@ -771,6 +787,8 @@ export function Conversation({
   turn?: Message[];
   /** A question is on its way. */
   onAsking?: () => void;
+  /** The agent can be called from here. */
+  call?: ConversationCall;
 }) {
   const { live, pullRequest } = panel;
   if (!pullRequest) return null;
@@ -801,6 +819,7 @@ export function Conversation({
         onText={onDraft}
         waiting={answering}
         stage={stage}
+        call={call}
         onSending={(question) => {
           onAsking?.();
           onPanel((shown) => {
@@ -820,6 +839,14 @@ export function Conversation({
       />
     </aside>
   );
+}
+
+/** The call from the conversation: the film's own when there is one. */
+export interface ConversationCall {
+  state: FilmCall["state"];
+  onCall: () => void;
+  onHangUp: () => void;
+  onWarm?: () => void;
 }
 
 /** The builder's words in a bubble on the right, the agent's as text on the left. */
@@ -1093,7 +1120,7 @@ function Proposal({
 /**
  * The question box, one line as in any chat, growing with what is typed:
  * Enter sends, Shift+Enter goes to the next line. Send shows once there is
- * something to send.
+ * something to send; the phone until then, and while a call is on.
  */
 function Ask({
   projectId,
@@ -1102,6 +1129,7 @@ function Ask({
   onText: setText,
   waiting,
   stage,
+  call,
   onSending,
   onSettled,
 }: {
@@ -1112,6 +1140,7 @@ function Ask({
   /** An answer is being written: the next question waits for it. */
   waiting: boolean;
   stage: boolean;
+  call?: ConversationCall;
   /** The question shows in the thread before the brain has it. */
   onSending: (question: string) => void;
   onSettled: () => void;
@@ -1185,6 +1214,23 @@ function Ask({
             }
           }}
         />
+        {call && (call.state !== "off" || !text.trim()) && (
+          <button
+            type="button"
+            className={`pp-phone ${call.state === "off" ? "" : call.state === "starting" ? "on ringing" : "on"}`}
+            onClick={call.state === "off" ? call.onCall : call.onHangUp}
+            onPointerEnter={call.onWarm}
+            onFocus={call.onWarm}
+            aria-label={call.state === "off" ? "Call" : "Hang up"}
+            data-tip={call.state === "off" ? "Call" : "Hang up"}
+          >
+            {call.state === "on" ? (
+              <PhoneOff size={17} aria-hidden="true" />
+            ) : (
+              <Phone size={17} aria-hidden="true" />
+            )}
+          </button>
+        )}
         {text.trim() && (
           <button
             type="submit"

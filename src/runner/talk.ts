@@ -45,30 +45,47 @@ export interface TalkContext {
   pullRequest: ChatContext["pullRequest"];
 }
 
-const INSTRUCTIONS = `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
+/**
+ * The agent's rules: over the stage, or by voice alone when it is not up
+ * (no recipe yet, still coming up, a phone).
+ */
+const instructions = (
+  onStage: boolean,
+) => `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
 
-They were watching the change's presentation: a film of the app, your recorded voice over it. They paused it to call you. The film stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the film had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo).
+${
+  onStage
+    ? "They were watching the change's presentation: a film of the app, your recorded voice over it. They paused it to call you. The film stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the film had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
+    : "They called you from the pull request's page, by voice: the change's presentation, a film of it with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its film and its review, and they see the film and the conversation."
+}
 
 How you talk:
-- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
+- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.${
+  onStage
+    ? `
 - When they ask you to do something on the stage, your answer starts with the tool call itself, no text before it: they see it happen, and your voice would come after the gesture. Then say what it shows, only if it is worth saying.
-- Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.
+- Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.`
+    : ""
+}
 - Answer what they asked, then stop: no question to end on, no offer of what you could do next, never "shall the film play on?".
 - Your earlier answers in the conversation may break these rules: follow these rules, not them.
-- Never guess how the code or the app behaves: read the code, or try it on the stage.
-
+- Never guess how the code or the app behaves: ${onStage ? "read the code, or try it on the stage" : "read the code"}.
+${
+  onStage
+    ? `
 The stage:
 - When seeing it helps, show it: look at the screen, then act on it. They see the pointer move and click as you do it.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
-
+`
+    : ""
+}
 The film:
 - It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the film plays on where they paused it and the call ends; they call again to talk.
-- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the film plays from there, its recorded voice with it. Never play the film's chapters yourself on the stage.
-- On the stage, show what the film does not.
+- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the film plays from there, its recorded voice with it.${onStage ? " Never play the film's chapters yourself on the stage.\n- On the stage, show what the film does not." : " To show them something, point them to its moment in the film."}
 
 The conversation:
-- Beside the stage, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
+- Beside ${onStage ? "the stage" : "the film"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
 - The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
@@ -91,12 +108,12 @@ const RESUME: Anthropic.Beta.BetaTool = {
   },
 };
 
-const TOOLS: Anthropic.Beta.BetaTool[] = [
-  // The code, the tickets and the changes, as in the written conversation.
-  ...CHAT_TOOLS,
-  ...STAGE_TOOLS,
-  RESUME,
-].map((tool) => ({ ...tool, eager_input_streaming: true }));
+const eager = (tools: Anthropic.Beta.BetaTool[]) =>
+  tools.map((tool) => ({ ...tool, eager_input_streaming: true }));
+// The code, the tickets and the changes, as in the written conversation;
+// the stage's hands when it is up.
+const TOOLS = eager([...CHAT_TOOLS, ...STAGE_TOOLS, RESUME]);
+const VOICE_TOOLS = eager([...CHAT_TOOLS, RESUME]);
 
 /** What was written and said before the call, as the agent reads it. */
 export function conversationSoFar(history: ChatContext["history"]): string {
@@ -307,7 +324,8 @@ export async function talkTurn(input: {
   /** The screen as the member spoke, as a look returns it: no look first. */
   screen?: string | null;
   sources: ChatSources;
-  stage: StageHands;
+  /** The stage's hands; null on a call by voice alone. */
+  stage: StageHands | null;
   say: (text: string) => void;
   /** Said when the agent goes to a tool before any word ("Une seconde. "). */
   leadIn?: string;
@@ -334,15 +352,17 @@ export async function talkTurn(input: {
     steps,
   });
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
-    { type: "text", text: INSTRUCTIONS },
+    { type: "text", text: instructions(stage !== null) },
     { type: "text", text: context.text, cache_control: { type: "ephemeral" } },
   ];
   const messages = input.messages.map((message) => ({ ...message }));
   const last = messages.at(-1);
-  const note = input.screen
-    ? `${stageNote(input.state)}\n[The screen as they spoke, as a look returns it: act on its refs without looking first.]\n${input.screen}`
-    : stageNote(input.state);
-  if (last?.role === "user")
+  const note = !stage
+    ? null
+    : input.screen
+      ? `${stageNote(input.state)}\n[The screen as they spoke, as a look returns it: act on its refs without looking first.]\n${input.screen}`
+      : stageNote(input.state);
+  if (note && last?.role === "user")
     last.content =
       typeof last.content === "string"
         ? `${last.content}\n\n${note}`
@@ -363,7 +383,7 @@ export async function talkTurn(input: {
       model,
       clients: { anthropic: client, meta: input.meta },
       system,
-      tools: TOOLS,
+      tools: stage ? TOOLS : VOICE_TOOLS,
       messages,
       last: step >= TALK_MAX_STEPS,
       onText: (delta) => {
@@ -416,7 +436,9 @@ export async function talkTurn(input: {
       const ran = Date.now();
       const result: { text: string; error?: boolean; change?: string } = await (
         isStageTool(call.name)
-          ? runStageTool(call, stage)
+          ? stage
+            ? runStageTool(call, stage)
+            : Promise.resolve({ text: "No stage on this call.", error: true })
           : runChatTool(call, context, sources)
       ).catch((error: Error) => ({
         text: `That failed: ${error.message.slice(0, 200)}`,

@@ -24,6 +24,7 @@ const CALL = {
   workUnitId: "af23af70-9959-4740-91b2-d41bf099fbf6",
   userId: "3e69e3c3-14d6-4194-8c80-d1c1dc139281",
   language: "fr",
+  stage: true,
 };
 
 const VARIANTS: Record<string, Omit<TalkBench, "reset">> = {

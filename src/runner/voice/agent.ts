@@ -171,6 +171,8 @@ export interface TalkGrant {
   userId: string;
   /** The member's language, as the page gave it (fr, en…). */
   language: string;
+  /** Over the stage: without, by voice alone (no live app on the call). */
+  stage: boolean;
   expires: number;
 }
 
@@ -216,6 +218,8 @@ export async function readTalkGrant(
       workUnitId: read.workUnitId,
       userId: read.userId,
       language: typeof read.language === "string" ? read.language : "en",
+      // Passes made before it were all over the stage.
+      stage: read.stage !== false,
       expires: read.expires,
     };
   } catch {

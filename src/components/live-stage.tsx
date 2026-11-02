@@ -83,7 +83,9 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
  * and the member's call to the agent over it (src/runner/talk.ts). From
  * the film (`callFrom`): the stage brought to where the film was paused,
- * the agent greeting them, until it plays the film on (`onResume`). Or the
+ * the agent greeting them, until it plays the film on (`onResume`); by
+ * voice alone while the stage is not up (no recipe yet, still coming up, a
+ * phone), the film paused where it was. Or the
  * presentation played live on it, the voice here, the gestures there: their
  * first words end it there. Or they write to it in the pull request's
  * conversation beside it. The thread keeps what was said as what was
@@ -196,9 +198,10 @@ export function useLiveStage({
   /** Turns the thread has (or never will): a late copy of their lines goes. */
   const keptTurns = useRef(new Set<number>());
   const settling = useRef(new Set<number>());
-  /** The next call's pass, asked for before the click. */
+  /** The next call's pass, asked for before the click, over the stage or not. */
   const pass = useRef<{
     at: number;
+    stage: boolean;
     made: ReturnType<typeof stageTalkFn>;
   } | null>(null);
   /** Up, its presentation playable: a call can be made. */
@@ -470,20 +473,22 @@ export function useLiveStage({
 
   /**
    * The call's pass (its ElevenLabs token and the brain's grant), and the
-   * client: asked for before the click, so the call starts at once.
+   * client: asked for before the click, so the call starts at once. Over
+   * the stage once it is up, by voice alone before.
    */
   const language = () => (navigator.language || "en").slice(0, 2).toLowerCase();
   const warm = () => {
-    if (!up.current) return;
     void import("@elevenlabs/client");
-    if (pass.current && Date.now() - pass.current.at < PASS_MS) return;
+    const stage = up.current;
+    const kept = pass.current;
+    if (kept && kept.stage === stage && Date.now() - kept.at < PASS_MS) return;
     const made = stageTalkFn({
-      data: { projectId, key: rowKey, language: language() },
+      data: { projectId, key: rowKey, language: language(), stage },
     });
     made.catch(() => {
       if (pass.current?.made === made) pass.current = null;
     });
-    pass.current = { at: Date.now(), made };
+    pass.current = { at: Date.now(), stage, made };
   };
   /**
    * Their words as they say them, in their bubble: shown while their voice
@@ -655,7 +660,7 @@ export function useLiveStage({
           setLines((now) => now.filter((line) => line.turn !== -1));
           setReached(false);
           setTalk("off");
-          warm();
+          if (up.current) warm();
         },
         onError: (message) =>
           setProblems((now) => [...now, `call: ${message}`]),
@@ -691,18 +696,20 @@ export function useLiveStage({
     setTalk("off");
     setVoicing(false);
     setLines((now) => now.filter((line) => line.turn !== -1));
-    // The next call's pass: a pass is for one call.
-    warm();
+    // The next call's pass, the stage up: a pass is for one call. Without
+    // it, the phone's hover asks for one.
+    if (up.current) warm();
   };
 
   /**
    * The member calls from the film, paused in chapter `index`, `part` of it
-   * seen: the agent greets them at once, while the stage is brought there;
-   * once it is, the stage takes the film's place.
+   * seen, or from the conversation without a film (null): the agent greets
+   * them at once, while the stage is brought there; once it is, the stage
+   * takes the film's place. Not up, the call is by voice alone.
    */
-  const callFrom = async (at: { index: number; part: number }) => {
+  const callFrom = async (at: { index: number; part: number } | null) => {
     const talking = startTalk(CALL_GREETING);
-    if (phase === "ready" && status?.live) {
+    if (at && up.current) {
       const result = await cue({ action: "reach", ...at });
       if (result.problems.length)
         setProblems((now) => [...now, ...result.problems]);
@@ -864,13 +871,15 @@ export function useLiveStage({
     latest.current = { onResume, play };
   });
   useEffect(() => {
+    const was = up.current;
     up.current = phase === "ready" && live;
     if (up.current) {
       // Up: the call's pass asked for now, so the click starts it at once.
       ending.current.warm();
       return;
     }
-    if (phase === "ready") return;
+    // A call by voice alone goes on while the stage comes up, or never does.
+    if (phase === "ready" || !was) return;
     ending.current.stop();
     ending.current.endTalk();
   }, [phase, live]);

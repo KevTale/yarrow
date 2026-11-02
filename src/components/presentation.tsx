@@ -1,8 +1,6 @@
 import {
   Captions,
   CaptionsOff,
-  Maximize,
-  Minimize,
   Pause,
   Phone,
   PhoneOff,
@@ -142,6 +140,7 @@ export function Presentation({
   onCinema,
   seekRef,
   playRef,
+  phoneRef,
   call,
 }: {
   artifact: StoredArtifact;
@@ -152,6 +151,8 @@ export function Presentation({
   seekRef?: RefObject<((ms: number) => void) | null>;
   /** Set to play the film on: the agent's resume_presentation. */
   playRef?: RefObject<FilmControl | null>;
+  /** Set to call (or hang up) as its phone does: the conversation's. */
+  phoneRef?: RefObject<(() => void) | null>;
   /** The agent can be called from it. */
   call?: FilmCall;
 }) {
@@ -174,6 +175,7 @@ export function Presentation({
       onCinema={onCinema}
       seekRef={seekRef}
       playRef={playRef}
+      phoneRef={phoneRef}
       call={call}
     />
   );
@@ -186,6 +188,7 @@ function Player({
   onCinema,
   seekRef,
   playRef,
+  phoneRef,
   call,
 }: {
   timeline: Timeline | undefined;
@@ -194,6 +197,7 @@ function Player({
   onCinema?: () => void;
   seekRef?: RefObject<((ms: number) => void) | null>;
   playRef?: RefObject<FilmControl | null>;
+  phoneRef?: RefObject<(() => void) | null>;
   call?: FilmCall;
 }) {
   const screen = useRef<HTMLDivElement>(null);
@@ -207,7 +211,6 @@ function Player({
   // The timeline loads in the browser: the button never renders on the server.
   const [voice, setVoice] = useState(() => saved(VOICE_KEY));
   const [captions, setCaptions] = useState(() => saved(CAPTIONS_KEY));
-  const [full, setFull] = useState(false);
   // The controls hide while it plays and the pointer rests.
   const [awake, setAwake] = useState(true);
   const rest = useRef(0);
@@ -355,13 +358,6 @@ function Player({
   }, [playing, playMedia]);
 
   useEffect(() => {
-    const onChange = () =>
-      setFull(document.fullscreenElement === screen.current);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
-
-  useEffect(() => {
     const self = me.current;
     keyed ??= self;
     return () => {
@@ -469,10 +465,6 @@ function Player({
       save(CAPTIONS_KEY, !on);
       return !on;
     });
-  const flipFull = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void screen.current?.requestFullscreen().catch(() => {});
-  };
 
   const cue = chapter ? cueAt(chapter.cues, time.spoken) : null;
   const said = cue ? wordsSaid(cue, time.spoken) : 0;
@@ -513,6 +505,7 @@ function Player({
           setPlaying(true);
         }
       };
+    if (phoneRef) phoneRef.current = phone;
   });
   const idle = playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.
@@ -531,7 +524,7 @@ function Player({
 
   return (
     <div className="pv">
-      <div className={`pv-screen ${full ? "full" : ""}`} ref={screen}>
+      <div className="pv-screen" ref={screen}>
         <div
           className={`pv-view ${idle ? "idle" : ""} ${desktop ? "desktop" : ""}`}
           onPointerMove={(event) => {
@@ -724,7 +717,7 @@ function Player({
                         )}
                       </button>
                     )}
-                    {onCinema && !full && (
+                    {onCinema && (
                       <button
                         type="button"
                         className="pv-icon"
@@ -734,21 +727,6 @@ function Player({
                         data-tip={cinema ? "Exit cinema mode" : "Cinema mode"}
                       >
                         <RectangleHorizontal size={18} aria-hidden="true" />
-                      </button>
-                    )}
-                    {document.fullscreenEnabled && (
-                      <button
-                        type="button"
-                        className="pv-icon"
-                        onClick={flipFull}
-                        aria-label={full ? "Exit full screen" : "Full screen"}
-                        data-tip={full ? "Exit full screen" : "Full screen"}
-                      >
-                        {full ? (
-                          <Minimize size={18} aria-hidden="true" />
-                        ) : (
-                          <Maximize size={18} aria-hidden="true" />
-                        )}
                       </button>
                     )}
                   </span>

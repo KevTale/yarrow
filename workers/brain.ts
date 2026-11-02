@@ -1292,12 +1292,15 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   /**
    * A live call about the pull request, for a member of its project: the
    * token the page starts it with, and the pass it carries to each turn.
-   * What the agent knows of the pull request is gathered now, once.
+   * What the agent knows of the pull request is gathered now, once. Over
+   * the stage, or by voice alone when it is not up: the stage keeps the
+   * call's context either way.
    */
   async talkCall(input: {
     workUnitId: string;
     userId: string;
     language: string;
+    stage: boolean;
   }): Promise<
     | {
         ok: true;
@@ -1473,14 +1476,18 @@ async function talkRoute(
         started = Date.now();
       }
       const looked = Date.now();
+      // By voice alone: no live app to stop or look at.
+      const onStage = grant.stage || Boolean(bench);
       const [kept, state, screen] = await Promise.all([
         stage.talk(),
         // They spoke: a presentation playing live ends there.
-        stage
-          .present({ action: "stop" })
-          .then((result) => result.state ?? null)
-          .catch(() => null),
-        screenFirst
+        onStage
+          ? stage
+              .present({ action: "stop" })
+              .then((result) => result.state ?? null)
+              .catch(() => null)
+          : null,
+        screenFirst && onStage
           ? stage
               .present({ action: "look" })
               .then((result) => (result.ok ? (result.screen ?? null) : null))
@@ -1518,10 +1525,12 @@ async function talkRoute(
           ticket: (key) =>
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
-        stage: (hand) =>
-          dropped
-            ? Promise.reject(new Error("turn dropped"))
-            : stage.present(hand),
+        stage: onStage
+          ? (hand) =>
+              dropped
+                ? Promise.reject(new Error("turn dropped"))
+                : stage.present(hand)
+          : null,
         say: (text) => void say(text),
         leadIn: talkFiller(grant.language, fillers++),
       });

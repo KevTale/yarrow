@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import type { StageCueResult, StageHand } from "../../src/core/stage";
@@ -345,6 +346,34 @@ describe("the live call's turn", () => {
     expect(first.content).toContain("without looking first");
     expect(first.content).toContain('- link "Doing 1" [ref=e7]');
     expect(asked).toEqual([]);
+  });
+
+  it("answers by voice alone when the stage is not up: no hands, no stage", async () => {
+    const { client, requests } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "The filter keeps the done tasks." }],
+    }));
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "What does the filter do?" }],
+      state: null,
+      sources,
+      stage: null,
+      say: () => {},
+    });
+    expect(answer.words).toBe("The filter keeps the done tasks.");
+    const body = requests[0]!.body as {
+      tools: { name: string }[];
+      system: { text: string }[];
+      messages: { content: string }[];
+    };
+    const tools = body.tools.map((tool) => tool.name);
+    expect(tools).toContain("resume_presentation");
+    expect(tools).not.toContain("look_at_screen");
+    expect(body.system[0]!.text).toContain("No live app is on this call");
+    expect(body.system[0]!.text).not.toContain("The stage:");
+    expect(body.messages[0]!.content).toBe("What does the filter do?");
   });
 
   it("plays the film on when they want it, from a chapter, after its words", async () => {
@@ -704,7 +733,7 @@ describe("what ElevenLabs sends the brain", () => {
 });
 
 describe("the call's pass", () => {
-  const grant = { workUnitId: "w", userId: "u", language: "fr" };
+  const grant = { workUnitId: "w", userId: "u", language: "fr", stage: false };
 
   it("is good for two hours, for this pull request and member", async () => {
     const now = 1_800_000_000_000;
@@ -716,6 +745,19 @@ describe("the call's pass", () => {
     expect(
       await readTalkGrant("secret", pass, now + TALK_GRANT_MS + 1),
     ).toBeNull();
+  });
+
+  it("is over the stage when made before it said", async () => {
+    const { stage: _, ...before } = grant;
+    const body = Buffer.from(
+      JSON.stringify({ ...before, expires: Date.now() + 1e6 }),
+    ).toString("base64url");
+    const signature = createHmac("sha256", "secret")
+      .update(`grant ${body}`)
+      .digest("base64url");
+    expect(
+      (await readTalkGrant("secret", `${body}.${signature}`))?.stage,
+    ).toBe(true);
   });
 
   it("is refused when changed or signed by another secret", async () => {
