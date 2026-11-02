@@ -173,7 +173,6 @@ function StagePage() {
             onMade={() => void refresh()}
             stage={phase === "ready"}
             turn={stage.turn}
-            hearing={stage.hearing}
             onAsking={stage.hold}
           />
         )}

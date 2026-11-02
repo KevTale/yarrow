@@ -33,12 +33,22 @@ interface Show {
   spokenMs: number;
 }
 
-/** A line of the call, as it was heard, until the thread has it. */
+/**
+ * A line of the call, as it was heard, until the thread has its turn: the
+ * member's words and the agent's answer to them (-1: the page's greeting).
+ */
 interface Line {
   who: "member" | "agent";
   text: string;
   at: number;
+  turn: number;
 }
+
+/** The call's pass, fetched before the click, used while this fresh. */
+const PASS_MS = 4 * 60_000;
+
+/** Words compared as said, whatever their case and spacing. */
+const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -126,6 +136,8 @@ export function useLiveStage({
   const [led, setLed] = useState<number | null>(null);
   /** What the microphone hears of the member, as they say it. */
   const [hearing, setHearing] = useState("");
+  /** A voice in the microphone, no word of it heard yet. */
+  const [voicing, setVoicing] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [screen, setScreen] = useState<HTMLDivElement | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
@@ -166,8 +178,21 @@ export function useLiveStage({
   } | null>(null);
   /** Pauses on a voice no word came of: past a few, the voice's own echo. */
   const unvoiced = useRef(0);
-  /** The thread's length when the call's turn under way began. */
-  const before = useRef<number | null>(null);
+  /** Since when, and last when, a voice is heard on the call. */
+  const voicedOnCall = useRef<{ since: number; last: number } | null>(null);
+  /** The call's turns: the one under way, and the line before it. */
+  const turnNow = useRef(0);
+  const lastWho = useRef<Line["who"] | null>(null);
+  /** Each turn: the thread's length when it began, the member's words. */
+  const turns = useRef(new Map<number, { base: number; said: string }>());
+  /** Turns the thread has (or never will): a late copy of their lines goes. */
+  const keptTurns = useRef(new Set<number>());
+  const settling = useRef(new Set<number>());
+  /** The next call's pass, asked for before the click. */
+  const pass = useRef<{
+    at: number;
+    made: ReturnType<typeof stageTalkFn>;
+  } | null>(null);
   const known = useRef(0);
   useEffect(() => {
     known.current = messages;
@@ -367,29 +392,82 @@ export function useLiveStage({
   };
 
   /**
-   * The turn is over: the brain kept it in the thread before it ended.
-   * Read back, its lines go; a turn kept with no words (going on) too.
+   * The turn is answered: the brain kept it in the thread before its voice
+   * ended. Read back, the member's words in it, its lines go, and any copy
+   * of them heard later; a turn kept with no words (going on) too, in time.
    */
-  const settle = useCallback(async () => {
-    const from = before.current ?? known.current;
-    const begun = Date.now();
-    let fresh: Awaited<ReturnType<typeof refresh>>;
-    for (let attempt = 0; attempt < 6; attempt++) {
-      fresh = await refresh();
-      if (fresh && fresh.messages.length > from) break;
-      await sleep(2000);
+  const settle = useCallback(
+    async (turn: number) => {
+      if (settling.current.has(turn)) return;
+      settling.current.add(turn);
+      const { base = known.current, said = "" } = turns.current.get(turn) ?? {};
+      const asked = plain(said);
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const fresh = await refresh();
+        const added = (fresh?.messages ?? []).slice(base) as {
+          author?: unknown;
+          body?: unknown;
+        }[];
+        const kept = added.some(
+          (message) =>
+            message.author === "builder" &&
+            plain(String(message.body ?? "")).includes(asked),
+        );
+        // Their words heard otherwise than kept: an answer after them does.
+        const answered =
+          attempt >= 3 && added.some((message) => message.author === "agent");
+        if ((kept && added.length >= 2) || answered) break;
+        await sleep(750);
+      }
+      keptTurns.current.add(turn);
+      settling.current.delete(turn);
+      setLines((now) => now.filter((line) => line.turn !== turn));
+    },
+    [refresh],
+  );
+
+  /**
+   * A voice on the call while the agent is quiet: the member's bubble shows
+   * at once, before any word of it, until their turn is heard or they are
+   * quiet a while.
+   */
+  const sense = (score: number) => {
+    const now = performance.now();
+    const heard = voicedOnCall.current;
+    if (heard && score >= STILL_VOICED) heard.last = now;
+    if (heard && now - heard.last > 2 * UNVOICED_MS) {
+      voicedOnCall.current = null;
+      setVoicing(false);
+      return;
     }
-    before.current = null;
-    // What the thread has now, a line heard twice included, goes.
-    const kept = new Set(
-      (fresh?.messages ?? []).map((message) =>
-        String((message as { body?: unknown }).body ?? "").trim(),
-      ),
-    );
-    setLines((now) =>
-      now.filter((line) => line.at > begun && !kept.has(line.text)),
-    );
-  }, [refresh]);
+    if (speaking.current || score < VOICED) return;
+    if (!heard) voicedOnCall.current = { since: now, last: now };
+    else if (now - heard.since >= VOICED_MS) setVoicing(true);
+  };
+
+  /**
+   * The call's pass (its ElevenLabs token and the brain's grant), and the
+   * client: asked for before the click, so the call starts at once.
+   */
+  const language = () => (navigator.language || "en").slice(0, 2).toLowerCase();
+  const warm = () => {
+    void import("@elevenlabs/client");
+    if (pass.current && Date.now() - pass.current.at < PASS_MS) return;
+    const made = stageTalkFn({
+      data: { projectId, key: rowKey, language: language() },
+    });
+    made.catch(() => {
+      if (pass.current?.made === made) pass.current = null;
+    });
+    pass.current = { at: Date.now(), made };
+  };
+  /** A pass for one call: the one asked for before, if still fresh. */
+  const passNow = () => {
+    warm();
+    const { made } = pass.current!;
+    pass.current = null;
+    return made;
+  };
 
   /** The agent asked for the film: the call ends, the film plays on. */
   const resumeNow = () => {
@@ -413,23 +491,22 @@ export function useLiveStage({
     speaking.current = false;
     setTalk("starting");
     try {
-      const language = (navigator.language || "en").slice(0, 2).toLowerCase();
-      const pass = await stageTalkFn({
-        data: { projectId, key: rowKey, language },
-      });
-      if (!pass.ok) throw new Error(pass.reason);
-      const eleven = await import("@elevenlabs/client");
+      const [given, eleven] = await Promise.all([
+        passNow(),
+        import("@elevenlabs/client"),
+      ]);
+      if (!given.ok) throw new Error(given.reason);
       const session = await eleven.Conversation.startSession({
-        conversationToken: pass.conversationToken,
+        conversationToken: given.conversationToken,
         connectionType: "webrtc",
         overrides: {
           agent: {
-            language: language as Language,
+            language: language() as Language,
             ...(greeting ? { firstMessage: greeting } : {}),
           },
         },
         // ?brain=spark&screen=1: another brain, heeded on dev only.
-        customLlmExtraBody: { yarrow: pass.grant, brain: brainAsked() },
+        customLlmExtraBody: { yarrow: given.grant, brain: brainAsked() },
         clientTools: {
           resume_presentation: (parameters: { chapter?: unknown }) => {
             const chapter = Number(parameters?.chapter);
@@ -444,7 +521,10 @@ export function useLiveStage({
           speaking.current = mode === "speaking";
           if (!speaking.current) resumeNow();
         },
-        onVadScore: ({ vadScore }) => listen(vadScore),
+        onVadScore: ({ vadScore }) => {
+          sense(vadScore);
+          listen(vadScore);
+        },
         // Their first words, still being heard, already hold it, and show
         // in the box as they come.
         onIncomingEvent: (event: {
@@ -458,25 +538,54 @@ export function useLiveStage({
           if (/\p{L}/u.test(heard)) hold();
         },
         onMessage: ({ source, message }) => {
-          if (source === "user") setHearing("");
+          const who = source === "user" ? "member" : "agent";
+          if (who === "member") {
+            setHearing("");
+            setVoicing(false);
+            voicedOnCall.current = null;
+          }
           const text = message.trim();
           if (!text) return;
-          if (source === "user") takeOver();
-          before.current ??= known.current;
-          const who = source === "user" ? "member" : "agent";
-          setLines((now) =>
-            // ElevenLabs may send the same answer twice.
-            now.at(-1)?.who === who && now.at(-1)?.text === text
-              ? now
-              : [...now, { who, text, at: Date.now() }],
-          );
           // The greeting is the page's own: the thread never has it.
-          if (source !== "user" && text !== greeting) void settle();
+          const greeted = who === "agent" && text === greeting;
+          if (who === "member") {
+            takeOver();
+            if (lastWho.current !== "member") {
+              turnNow.current += 1;
+              turns.current.set(turnNow.current, {
+                base: known.current,
+                said: "",
+              });
+            }
+            const now = turns.current.get(turnNow.current)!;
+            now.said = now.said ? `${now.said}\n${text}` : text;
+          }
+          lastWho.current = who;
+          const turn = greeted ? -1 : turnNow.current;
+          // The thread has its turn: a copy heard late.
+          if (keptTurns.current.has(turn)) return;
+          setLines((now) => {
+            const last = now.at(-1);
+            if (last?.who !== who || last.turn !== turn)
+              return [...now, { who, text, at: Date.now(), turn }];
+            // One bubble a turn: ElevenLabs may send an answer twice, or
+            // again whole, the words said while the agent worked in it.
+            if (plain(last.text).includes(plain(text))) return now;
+            const joined = plain(text).includes(plain(last.text))
+              ? text
+              : `${last.text}${who === "member" ? "\n" : " "}${text}`;
+            return [...now.slice(0, -1), { ...last, text: joined }];
+          });
+          if (who === "agent" && !greeted) void settle(turn);
         },
         onDisconnect: () => {
           conversation.current = null;
           calling.current = false;
           setHearing("");
+          setVoicing(false);
+          voicedOnCall.current = null;
+          lastWho.current = null;
+          setLines((now) => now.filter((line) => line.turn !== -1));
           setReached(false);
           setTalk("off");
         },
@@ -504,6 +613,8 @@ export function useLiveStage({
     resumeAsked.current = null;
     setReached(false);
     setTalk("off");
+    setVoicing(false);
+    setLines((now) => now.filter((line) => line.turn !== -1));
   };
 
   /**
@@ -668,16 +779,21 @@ export function useLiveStage({
   };
 
   // The stage gone, or the page: the voice and the call with it.
-  const ending = useRef({ stop, endTalk, hangUpVoice });
+  const ending = useRef({ stop, endTalk, hangUpVoice, warm });
+  const live = Boolean(status?.live);
   useEffect(() => {
-    ending.current = { stop, endTalk, hangUpVoice };
+    ending.current = { stop, endTalk, hangUpVoice, warm };
     latest.current = { onResume, play };
   });
   useEffect(() => {
-    if (phase === "ready") return;
+    if (phase === "ready") {
+      // Up: the call's pass asked for now, so the click starts it at once.
+      if (live) ending.current.warm();
+      return;
+    }
     ending.current.stop();
     ending.current.endTalk();
-  }, [phase]);
+  }, [phase, live]);
   useEffect(
     () => () => {
       ending.current.stop();
@@ -707,16 +823,34 @@ export function useLiveStage({
     hearing,
     problems,
     notes,
-    /** The call's lines the thread does not have yet. */
-    turn: lines.map((line, i): ThreadMessage => ({
-      id: `call${line.at}${i}`,
-      author: line.who === "member" ? "builder" : "agent",
-      body: line.text,
-      status: "done",
-      change: null,
-      correctionRequestId: null,
-      createdAt: new Date(line.at).toISOString(),
-    })),
+    /**
+     * The call's lines the thread does not have yet, then the member's
+     * words as they are heard (pending, last), a voice before any word.
+     */
+    turn: [
+      ...lines.map((line, i): ThreadMessage => ({
+        id: `call${line.at}${i}`,
+        author: line.who === "member" ? "builder" : "agent",
+        body: line.text,
+        status: "done",
+        change: null,
+        correctionRequestId: null,
+        createdAt: new Date(line.at).toISOString(),
+      })),
+      ...(hearing || voicing
+        ? [
+            {
+              id: "heard",
+              author: "builder",
+              body: hearing,
+              status: "pending",
+              change: null,
+              correctionRequestId: null,
+              createdAt: "9999-12-31T23:59:59.999Z",
+            } satisfies ThreadMessage,
+          ]
+        : []),
+    ],
     /** Where the screen goes. */
     setScreen,
     call,
@@ -728,6 +862,7 @@ export function useLiveStage({
     startTalk,
     endTalk,
     callFrom,
+    warm,
   };
 }
 
@@ -764,11 +899,14 @@ export function LiveCaption({
  */
 export function LiveCall({
   stage,
+  shown,
   cinema,
   onCinema,
   onFilm,
 }: {
   stage: LiveStage;
+  /** Off a call: behind the film, its screen drawn, ready to take its place. */
+  shown: boolean;
   cinema: boolean;
   onCinema: () => void;
   /** The film on, where it was paused. */
@@ -776,7 +914,7 @@ export function LiveCall({
 }) {
   const { setScreen } = stage;
   return (
-    <div className="pv">
+    <div className={shown ? "pv" : "pv pv-behind"} aria-hidden={!shown}>
       <div className="pv-screen">
         <div className="pv-view desktop">
           <div

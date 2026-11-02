@@ -308,7 +308,6 @@ export function PullPanel({
       }}
       stage={onStage}
       turn={stage.turn}
-      hearing={stage.hearing}
       onAsking={stage.hold}
     />
   );
@@ -336,9 +335,11 @@ export function PullPanel({
                   </button>
                 )}
                 <div className="pp-film">
-                  {onCall && (
+                  {/* Up, its screen already drawn behind the film. */}
+                  {onStage && (
                     <LiveCall
                       stage={stage}
+                      shown={onCall}
                       cinema={cinema}
                       onCinema={flipCinema}
                       onFilm={() => play.current?.(null)}
@@ -356,6 +357,7 @@ export function PullPanel({
                         state: stage.talk,
                         onCall: (at) => void stage.callFrom(at),
                         onHangUp: () => stage.endTalk(),
+                        onWarm: () => stage.warm(),
                       }}
                     />
                   </div>
@@ -743,7 +745,6 @@ export function Conversation({
   onMade,
   stage = false,
   turn = [],
-  hearing = "",
   onAsking,
 }: {
   panel: Panel;
@@ -760,9 +761,8 @@ export function Conversation({
   onMade: () => void;
   /** Asked beside the stage: the agent may act on it. */
   stage?: boolean;
+  /** Last, pending: the member's words as the call hears them. */
   turn?: Message[];
-  /** What the call hears of the member while they speak. */
-  hearing?: string;
   /** A question is on its way. */
   onAsking?: () => void;
 }) {
@@ -793,7 +793,6 @@ export function Conversation({
         rowKey={rowKey}
         text={draft}
         onText={onDraft}
-        heard={hearing}
         waiting={answering}
         stage={stage}
         onSending={(question) => {
@@ -859,8 +858,22 @@ function Thread({
             </li>
           </Fragment>
         ) : line.message.author === "builder" ? (
-          <li key={line.message.id} className="pp-me">
-            <p className="pp-bubble">{line.message.body}</p>
+          <li
+            key={line.message.id}
+            className={
+              line.message.status === "pending" ? "pp-me pp-hearing" : "pp-me"
+            }
+          >
+            <p className="pp-bubble">
+              {line.message.body ||
+                (line.message.status === "pending" && (
+                  <span className="pp-dots" aria-label="Listening">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                ))}
+            </p>
           </li>
         ) : (
           <li key={line.message.id} className="pp-it">
@@ -1081,7 +1094,6 @@ function Ask({
   rowKey,
   text,
   onText: setText,
-  heard,
   waiting,
   stage,
   onSending,
@@ -1091,8 +1103,6 @@ function Ask({
   rowKey: string;
   text: string;
   onText: (text: string) => void;
-  /** Said aloud on the call, shown as it is heard while nothing is typed. */
-  heard: string;
   /** An answer is being written: the next question waits for it. */
   waiting: boolean;
   stage: boolean;
@@ -1104,14 +1114,12 @@ function Ask({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
-  const hearing = !text && heard !== "";
-  const shown = hearing ? heard : text;
   useLayoutEffect(() => {
     const area = box.current;
     if (!area) return;
     area.style.height = "auto";
     area.style.height = `${area.scrollHeight}px`;
-  }, [shown]);
+  }, [text]);
   const blocked = pending || waiting;
 
   async function submit() {
@@ -1157,9 +1165,7 @@ function Ask({
           aria-label="Ask about this pull request"
           placeholder="Ask about this pull request…"
           rows={1}
-          value={shown}
-          readOnly={hearing}
-          className={hearing ? "pp-heard" : undefined}
+          value={text}
           maxLength={4000}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {

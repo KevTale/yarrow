@@ -39,6 +39,8 @@ export interface FilmCall {
   /** Called, the film paused in chapter `index`, `part` of it seen (0 to 1). */
   onCall: (at: { index: number; part: number }) => void;
   onHangUp: () => void;
+  /** About to be called: the call made ready. */
+  onWarm?: () => void;
 }
 
 /** The film played on by the page: from a chapter's start, or where it was. */
@@ -677,13 +679,14 @@ function Player({
                     {call && (
                       <button
                         type="button"
-                        className={`pv-icon ${call.state === "off" ? "" : "on"}`}
-                        disabled={call.state === "starting"}
+                        className={`pv-icon ${call.state === "off" ? "" : call.state === "starting" ? "on ringing" : "on"}`}
                         onClick={phone}
+                        onPointerEnter={call.onWarm}
+                        onFocus={call.onWarm}
                         aria-label={call.state === "off" ? "Call" : "Hang up"}
                         data-tip={call.state === "off" ? "Call" : "Hang up"}
                       >
-                        {call.state === "off" ? (
+                        {call.state === "off" || call.state === "starting" ? (
                           <Phone size={18} aria-hidden="true" />
                         ) : (
                           <PhoneOff size={18} aria-hidden="true" />

@@ -8389,6 +8389,45 @@ body:has(.sb-dialog[open]) {
 .pp-take {
   display: contents;
 }
+/* The film and the live stage in one place, the stage behind until called. */
+.pp-film {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.pp-film > .pv,
+.pp-take > .pv {
+  grid-area: 1 / 1;
+}
+.pv.pv-behind {
+  visibility: hidden;
+  pointer-events: none;
+}
+.pp-stage:modal .pp-film {
+  grid-template-columns: none;
+}
+.pv-icon.ringing svg {
+  animation: pv-ring 1s ease-in-out infinite;
+}
+@keyframes pv-ring {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30% {
+    transform: rotate(-14deg);
+  }
+  20%,
+  40% {
+    transform: rotate(14deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-icon.ringing svg {
+    animation: none;
+  }
+}
 .pp-take[hidden] {
   display: none;
 }
@@ -8901,8 +8940,41 @@ html:has(.pp-stage:modal) {
 .pp-input textarea::placeholder {
   color: var(--muted);
 }
-.pp-input textarea.pp-heard {
+.pp-hearing .pp-bubble {
   color: var(--muted);
+}
+.pp-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 7px 0;
+}
+.pp-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: pp-dot 1.2s ease-in-out infinite;
+}
+.pp-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.pp-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes pp-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-dots i {
+    animation: none;
+  }
 }
 .pp-go {
   display: grid;
