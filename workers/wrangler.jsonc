@@ -78,11 +78,10 @@
         "PREVIEW_SUFFIX": "-dev.yarrow.page",
       },
       // yarrow.page is apart from yarrow.run: a preview's app never shares
-      // Yarrow's cookies. Its wildcard DNS record is proxied; the more
-      // specific route wins over production's.
-      "routes": [
-        { "pattern": "*-dev.yarrow.page/*", "zone_name": "yarrow.page" },
-      ],
+      // Yarrow's cookies. Its wildcard DNS record is proxied, and its routes
+      // (*-dev.yarrow.page/* here, *.yarrow.page/* for production: the more
+      // specific wins) were made once through the Cloudflare API, not here:
+      // the deploy's token reaches yarrow.run's zone only.
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },
       ],
@@ -140,7 +139,6 @@
         // Pull requests' previews: <work unit id>.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": ".yarrow.page",
       },
-      "routes": [{ "pattern": "*.yarrow.page/*", "zone_name": "yarrow.page" }],
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" },
       ],
