@@ -30,7 +30,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      # They pass in two minutes; vitest once stayed open after passing.
       - run: pnpm test
+        timeout-minutes: 10
       - name: Deploy
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: pnpm deploy:$TARGET

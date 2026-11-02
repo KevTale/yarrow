@@ -88,7 +88,7 @@ export const scenarios: Scenario[] = [
       outcome: "pull_request",
       shows: ["images", "app"],
       hides: ["film"],
-      touches: ["public/", "src/"],
+      touches: ["public/"],
     },
   },
   {

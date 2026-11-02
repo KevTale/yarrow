@@ -119,6 +119,14 @@ export function parseAgentProofs(raw: unknown): AgentProof[] {
 }
 
 /**
+ * A film proves a flow in the app, so it goes with the app's page: one
+ * recorded for any other change (a document, an API) is noise, not voiced.
+ */
+export function filmFits(proofs: AgentProof[]): boolean {
+  return proofs.some((proof) => proof.kind === "app");
+}
+
+/**
  * The image files a run's proofs name, each once: what the brain copies
  * to the evidence store.
  */

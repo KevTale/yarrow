@@ -560,8 +560,16 @@ describe("run pipeline", async () => {
       reviewer: defaultPipelineRoles.reviewer,
       rounds: 1,
     };
+    // A film proves a flow in the app: one recorded for a document is noise.
+    expect(
+      await runner.presentation(run, sessionId, [
+        { kind: "document", file: "README.md" },
+      ]),
+    ).toBeNull();
     // The recording is voiced after the review, in the agent's words alone.
-    const presentation = await runner.presentation(run, sessionId);
+    const presentation = await runner.presentation(run, sessionId, [
+      { kind: "app", path: "/" },
+    ]);
     expect(presentation).toMatchObject({
       kind: "presentation",
       label: "Empty exports",
@@ -824,7 +832,9 @@ describe("run pipeline", async () => {
 
     const reviewerId = await runner.startReview(run, sessionId, snapshot);
     const review = await runner.readReview(reviewerId);
-    const presentation = await runner.presentation(run, sessionId);
+    const presentation = await runner.presentation(run, sessionId, [
+      { kind: "app", path: "/" },
+    ]);
     expect(presentation).toMatchObject({ kind: "presentation" });
     await runner.deliver(
       run,
