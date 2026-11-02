@@ -1397,7 +1397,7 @@ async function talkRoute(
       // the member's turn.
       const messages = talkMessages(parsed.data.messages, context.voice);
       if (messages.at(-1)?.role !== "user") {
-        await write(completion.end(id));
+        await write(completion.skip(id) + completion.done);
         return;
       }
       const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;

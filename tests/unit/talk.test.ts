@@ -628,6 +628,11 @@ describe("what ElevenLabs sends the brain", () => {
       arguments: "{}",
     });
     expect(resume[1].choices[0].finish_reason).toBe("tool_calls");
+    // A turn that was not the member's: ElevenLabs' own skip_turn.
+    expect(
+      JSON.parse(completion.skip("1").split("\n\n")[0]!.slice(6)).choices[0]
+        .delta.tool_calls[0].function.name,
+    ).toBe("skip_turn");
     expect(completion.end("1")).toMatch(
       /"finish_reason":"stop".*\n\ndata: \[DONE\]\n\n$/s,
     );
@@ -703,6 +708,9 @@ describe("the ElevenLabs agent", () => {
       },
       tool_ids: ["t1"],
       backup_llm_config: { preference: "disabled" },
+      built_in_tools: {
+        skip_turn: { params: { system_tool_type: "skip_turn" } },
+      },
     });
     expect(config.conversation_config.turn.silence_end_call_timeout).toBe(-1);
   });

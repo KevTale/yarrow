@@ -58,6 +58,17 @@ export function talkAgentConfig(input: {
           temperature: null,
           max_tokens: -1,
           tool_ids: [input.toolId],
+          // A turn that was only the presentation's voice, caught through
+          // the member's speakers, is skipped: ElevenLabs drops a call
+          // whose LLM says nothing.
+          built_in_tools: {
+            skip_turn: {
+              type: "system",
+              name: "skip_turn",
+              description: "",
+              params: { system_tool_type: "skip_turn", wait_timeout_secs: -1 },
+            },
+          },
           backup_llm_config: { preference: "disabled" },
           cascade_timeout_seconds: 15,
         },

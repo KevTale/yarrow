@@ -396,7 +396,8 @@ export async function talkTurn(input: {
 
 /**
  * The chat completion stream ElevenLabs reads: the words as they come,
- * a call to the page's resume_presentation tool, the end.
+ * a call to the page's resume_presentation tool, or to ElevenLabs'
+ * skip_turn when the turn was not the member's, the end.
  * https://elevenlabs.io/docs/agents-platform/customization/llm/custom-llm
  */
 export const completion = {
@@ -404,28 +405,35 @@ export const completion = {
     return chunk(id, { content: text }, null);
   },
   resume(id: string): string {
-    return (
-      chunk(
-        id,
-        {
-          tool_calls: [
-            {
-              index: 0,
-              id: `call_${id}`,
-              type: "function",
-              function: { name: "resume_presentation", arguments: "{}" },
-            },
-          ],
-        },
-        null,
-      ) + chunk(id, {}, "tool_calls")
-    );
+    return toolCall(id, "resume_presentation");
+  },
+  skip(id: string): string {
+    return toolCall(id, "skip_turn");
   },
   end(id: string): string {
     return `${chunk(id, {}, "stop")}data: [DONE]\n\n`;
   },
   done: "data: [DONE]\n\n",
 };
+
+function toolCall(id: string, name: string): string {
+  return (
+    chunk(
+      id,
+      {
+        tool_calls: [
+          {
+            index: 0,
+            id: `call_${id}`,
+            type: "function",
+            function: { name, arguments: "{}" },
+          },
+        ],
+      },
+      null,
+    ) + chunk(id, {}, "tool_calls")
+  );
+}
 
 function chunk(
   id: string,
