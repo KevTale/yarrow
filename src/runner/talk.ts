@@ -13,6 +13,7 @@ import {
   type StageHands,
 } from "./stage-tools";
 import {
+  isTalkModel,
   OPUS_FAST_RATE,
   TALK_MODELS,
   talkStep,
@@ -144,6 +145,29 @@ export function talkGrantOf(request: TalkRequest): string | null {
     if (typeof grant === "string") return grant;
   }
   return null;
+}
+
+/**
+ * Dev only (TALK_BENCH): who answers this call, as the stage's page asks
+ * (?brain=spark&screen=1), to try each by voice.
+ */
+export function talkBrainOf(request: TalkRequest): {
+  model?: TalkModelName;
+  screen?: boolean;
+} {
+  for (const extra of [
+    request.elevenlabs_extra_body,
+    request.custom_llm_extra_body,
+  ]) {
+    const brain = (extra as { brain?: unknown } | undefined)?.brain as
+      { model?: unknown; screen?: unknown } | undefined;
+    if (!brain || typeof brain !== "object") continue;
+    return {
+      ...(isTalkModel(brain.model) ? { model: brain.model } : {}),
+      ...(typeof brain.screen === "boolean" ? { screen: brain.screen } : {}),
+    };
+  }
+  return {};
 }
 
 const textOf = (content: z.infer<typeof incomingSchema>["content"]) =>

@@ -77,6 +77,17 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * keeps what was said as what was written. The call and the voice end with
  * the stage, and with the page or the panel.
  */
+/** The brain the address asks for, to try each by voice (dev). */
+function brainAsked(): { model?: string; screen?: boolean } {
+  const query = new URLSearchParams(window.location.search);
+  const model = query.get("brain");
+  const screen = query.get("screen");
+  return {
+    ...(model ? { model } : {}),
+    ...(screen !== null ? { screen: screen === "1" } : {}),
+  };
+}
+
 export function useLiveStage({
   projectId,
   rowKey,
@@ -277,7 +288,8 @@ export function useLiveStage({
         conversationToken: pass.conversationToken,
         connectionType: "webrtc",
         overrides: { agent: { language: language as Language } },
-        customLlmExtraBody: { yarrow: pass.grant },
+        // ?brain=spark&screen=1: another brain, heeded on dev only.
+        customLlmExtraBody: { yarrow: pass.grant, brain: brainAsked() },
         clientTools: {
           resume_presentation: () => {
             goOnAsked.current = true;

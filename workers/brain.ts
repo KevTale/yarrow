@@ -103,6 +103,7 @@ import {
   stageNote,
   TALK_SILENCE_MS,
   talkBenchSchema,
+  talkBrainOf,
   talkFiller,
   talkGrantOf,
   talkMessages,
@@ -1400,14 +1401,17 @@ async function talkRoute(
   const grant = pass ? await readTalkGrant(secret, pass) : null;
   if (!grant) return refused();
   const stage = STAGE.getByName(grant.workUnitId);
-  const bench =
-    env.TALK_BENCH === "on"
-      ? talkBenchSchema.safeParse(parsed.data.yarrow_bench).data
-      : undefined;
+  const trying = env.TALK_BENCH === "on";
+  const bench = trying
+    ? talkBenchSchema.safeParse(parsed.data.yarrow_bench).data
+    : undefined;
+  // On dev, the page may ask for another brain, to try each by voice.
+  const asked = trying ? talkBrainOf(parsed.data) : {};
   const model =
     bench?.model ??
+    asked.model ??
     (isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL);
-  const screenFirst = bench?.screen ?? env.TALK_SCREEN === "on";
+  const screenFirst = bench?.screen ?? asked.screen ?? env.TALK_SCREEN === "on";
   const id = crypto.randomUUID().slice(0, 12);
   const headers = {
     "content-type": "text/event-stream",
