@@ -8,6 +8,7 @@ import {
   type Presentation,
   type PresentationChapter,
 } from "@/core/presentation";
+import type { StageCueResult } from "@/core/stage";
 import {
   stageCueFn,
   stageFn,
@@ -41,6 +42,7 @@ function StagePage() {
   const [timeline, setTimeline] = useState<Presentation | null>(null);
   const [show, setShow] = useState<Show | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
+  const [notes, setNotes] = useState<string[]>([]);
   const screen = useRef<HTMLDivElement>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   const stopped = useRef(false);
@@ -135,12 +137,22 @@ function StagePage() {
     if (!timeline) return;
     stopped.current = false;
     setProblems([]);
+    setNotes([]);
     setShow({ index: 0, spokenMs: 0 });
     const cue = (data: Parameters<typeof stageCueFn>[0]["data"]["cue"]) =>
       stageCueFn({ data: { projectId, key, cue: data } }).catch(
-        (error: Error) => ({ ok: false, problems: [error.message] }),
+        (error: Error): StageCueResult => ({
+          ok: false,
+          problems: [error.message],
+        }),
       );
+    const heard = (at: string, result: StageCueResult) =>
+      setNotes((now) => [
+        ...now,
+        ...(result.notes ?? []).map((note) => `${at}: ${note}`),
+      ]);
     const opening = await cue({ action: "set" });
+    heard("opening", opening);
     const found = [...opening.problems];
     if (opening.ok)
       for (const [index, chapter] of timeline.chapters.entries()) {
@@ -153,6 +165,7 @@ function StagePage() {
           speak(chapter, index),
         ]);
         found.push(...played.problems);
+        heard(`${index + 1}`, played);
       }
     setProblems(found);
     setShow(null);
@@ -248,6 +261,13 @@ function StagePage() {
       </div>
       {problems.length > 0 && (
         <pre className="stage-error">{problems.join("\n")}</pre>
+      )}
+      {notes.length > 0 && (
+        <ol className="stage-events">
+          {notes.map((note, i) => (
+            <li key={i}>{note}</li>
+          ))}
+        </ol>
       )}
       {status.events.length > 0 && (
         <ol className="stage-events">

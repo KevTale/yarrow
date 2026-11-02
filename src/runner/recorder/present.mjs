@@ -61,7 +61,12 @@ const COLORS = {
 const FONTS =
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Jost:wght@500&display=swap">';
 
-const log = (message) => console.log("recorder: " + message);
+/** What the presenter said while it played a cue: sent back with it. */
+let heard = null;
+const log = (message) => {
+  console.log("recorder: " + message);
+  heard?.push(message);
+};
 
 function estimateMs(text) {
   const words = String(text).trim().split(/\s+/).filter(Boolean).length;
@@ -2541,6 +2546,8 @@ class Presenter {
       tabs.active = which;
     }
     const page = tabs.pages[which];
+    // Every tab tells Playwright it is visible: in front, whatever the click did.
+    await page.bringToFront();
     // Where the last chapter left it (a redirect included), or there already.
     const there =
       (tabs.urls[which] === url && tabs.seen?.[which] === page.url()) ||
@@ -2559,6 +2566,15 @@ class Presenter {
       marks,
       fail,
     );
+    for (const [name, shown] of Object.entries(tabs.pages))
+      log(
+        name +
+          (name === which ? " (in front)" : "") +
+          ": " +
+          shown.url() +
+          ", " +
+          (await shown.title().catch(() => "?")),
+      );
     return problems;
   }
 }
@@ -2596,7 +2612,9 @@ function serve(presenter) {
         } catch {
           // An empty request.
         }
-        const result = await answer(request.url, asked);
+        heard = [];
+        const result = { ...(await answer(request.url, asked)), notes: heard };
+        heard = null;
         for (const problem of result.problems)
           console.error("problem: " + problem);
         response.writeHead(200, { "content-type": "application/json" });

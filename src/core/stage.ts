@@ -96,6 +96,8 @@ export type StageCue =
 export interface StageCueResult {
   ok: boolean;
   problems: string[];
+  /** What the presenter said while it played it. */
+  notes?: string[];
 }
 
 /** A recipe step that leaves something running: a database, a server. */
