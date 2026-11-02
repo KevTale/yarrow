@@ -261,6 +261,29 @@ describe("the live call's turn", () => {
     });
   });
 
+  it("gives the screen with the member's words, to act without a look", async () => {
+    const { client, requests } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "One is in Doing." }],
+    }));
+    const { stage: hands, hands: asked } = stage({});
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "How many are in Doing?" }],
+      state: held,
+      screen: 'Address: http://localhost:4173/\n- link "Doing 1" [ref=e7]',
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    const first = (requests[0]!.body.messages as { content: string }[])[0]!;
+    expect(first.content).toContain("How many are in Doing?");
+    expect(first.content).toContain("without looking first");
+    expect(first.content).toContain('- link "Doing 1" [ref=e7]');
+    expect(asked).toEqual([]);
+  });
+
   it("asks the page to go on, without a word more", async () => {
     const { client, requests } = claude(() => ({
       stop_reason: "tool_use",

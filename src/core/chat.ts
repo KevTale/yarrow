@@ -30,6 +30,32 @@ const RATES: Record<
   { input: number; output: number; cacheRead: number; cacheWrite: number }
 > = {
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+  // The live call's other voices (src/runner/talk-models.ts).
+  "claude-opus-5-5:fast": {
+    input: 8,
+    output: 40,
+    cacheRead: 0.4,
+    cacheWrite: 10,
+  },
+  "claude-sonnet-5-5": {
+    input: 2,
+    output: 10,
+    cacheRead: 0.2,
+    cacheWrite: 2.5,
+  },
+  "claude-haiku-5-5": {
+    input: 0.1,
+    output: 0.5,
+    cacheRead: 0.01,
+    cacheWrite: 0.125,
+  },
+  "muse-wonder-1.0": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 4 },
+  "muse-spark-1.3": {
+    input: 1.25,
+    output: 4.25,
+    cacheRead: 0.15,
+    cacheWrite: 1.25,
+  },
 };
 
 /** What an answer cost Yarrow, in cents (fractions kept: most cost under one). */

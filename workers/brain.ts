@@ -97,10 +97,12 @@ import { restoreStage } from "../src/runner/stage-restore";
 import {
   completion,
   conversationSoFar,
+  DEFAULT_TALK_MODEL,
   memberSpoke,
   memberWords,
   stageNote,
   TALK_SILENCE_MS,
+  talkBenchSchema,
   talkFiller,
   talkGrantOf,
   talkMessages,
@@ -108,6 +110,7 @@ import {
   talkTurn,
   type TalkContext,
 } from "../src/runner/talk";
+import { isTalkModel } from "../src/runner/talk-models";
 import {
   conversationToken,
   readTalkGrant,
@@ -201,6 +204,12 @@ export interface BrainEnv {
    */
   ELEVENLABS_AGENT_ID?: string;
   VOICE_SECRET?: string;
+  /** Who answers on the call (src/runner/talk-models.ts); Opus by default. */
+  TALK_MODEL?: string;
+  /** "on": the screen comes with the member's words, no look first. */
+  TALK_SCREEN?: string;
+  /** "on" (dev only): the bench's turns may choose both (scripts/talk-bench.ts). */
+  TALK_BENCH?: string;
 }
 
 async function withDb<T>(
@@ -1391,6 +1400,14 @@ async function talkRoute(
   const grant = pass ? await readTalkGrant(secret, pass) : null;
   if (!grant) return refused();
   const stage = STAGE.getByName(grant.workUnitId);
+  const bench =
+    env.TALK_BENCH === "on"
+      ? talkBenchSchema.safeParse(parsed.data.yarrow_bench).data
+      : undefined;
+  const model =
+    bench?.model ??
+    (isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL);
+  const screenFirst = bench?.screen ?? env.TALK_SCREEN === "on";
   const id = crypto.randomUUID().slice(0, 12);
   const headers = {
     "content-type": "text/event-stream",
@@ -1417,13 +1434,28 @@ async function talkRoute(
   }, 500);
   const turn = (async () => {
     try {
-      const [kept, state] = await Promise.all([
+      if (bench?.reset) {
+        await stage.present({ action: "window", window: "after" });
+        await stage.present({
+          action: "act",
+          actions: [{ do: "goto", path: bench.reset }],
+        });
+      }
+      const looked = Date.now();
+      const [kept, state, screen] = await Promise.all([
         stage.talk(),
         stage
           .present({ action: "state" })
           .then((result) => result.state ?? null)
           .catch(() => null),
+        screenFirst
+          ? stage
+              .present({ action: "look" })
+              .then((result) => (result.ok ? (result.screen ?? null) : null))
+              .catch(() => null)
+          : null,
       ]);
+      const screenMs = screenFirst ? Date.now() - looked : null;
       const context = kept ?? (await talkContext(env, grant.workUnitId));
       if (!context) throw new Error("no pull request");
       // A noise heard as a turn, no word in it: not the member's turn.
@@ -1436,9 +1468,12 @@ async function talkRoute(
       const projectId = context.project.id;
       const answer = await talkTurn({
         client: new Anthropic({ apiKey }),
+        meta: env.META_API_KEY,
+        model,
         context,
         messages,
         state,
+        screen,
         started,
         sources: {
           reader:
@@ -1455,8 +1490,8 @@ async function talkRoute(
         say: (text) => void say(text),
       });
       // In the conversation's thread before the turn ends: the page reads
-      // it back as soon as the voice is done.
-      if (answer.words || answer.change)
+      // it back as soon as the voice is done. The bench's turns stay out.
+      if (!bench && (answer.words || answer.change))
         await withDb(env, (db) =>
           saveSpokenTurn(
             db,
@@ -1471,6 +1506,27 @@ async function talkRoute(
             new Date(started),
           ),
         ).catch((error) => console.warn("talk:save", describe(error)));
+      const ms = Date.now() - started;
+      // The bench reads what the turn did, and the screen it left, as a
+      // comment of the stream.
+      if (bench) {
+        const after = await stage.present({ action: "look" }).catch(() => null);
+        await write(
+          `: yarrow ${JSON.stringify({
+            model,
+            screenMs,
+            firstWordMs: answer.firstWordMs,
+            ms,
+            steps: answer.steps,
+            usage: answer.usage,
+            cents: chatCostCents(answer.usage),
+            words: answer.words,
+            change: answer.change,
+            resume: answer.resume,
+            screen: after?.screen?.slice(0, 6000) ?? null,
+          })}\n\n`,
+        );
+      }
       await write(
         answer.resume
           ? completion.resume(id) + completion.done
@@ -1478,9 +1534,11 @@ async function talkRoute(
       );
       console.log("talk", {
         workUnitId: grant.workUnitId,
+        model,
         stage: stageNote(state),
+        screenMs,
         firstWordMs: answer.firstWordMs,
-        ms: Date.now() - started,
+        ms,
         resume: answer.resume,
         fillers,
         steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
@@ -1489,6 +1547,8 @@ async function talkRoute(
       });
     } catch (error) {
       console.warn("talk", describe(error));
+      if (bench)
+        await write(`: yarrow-error ${JSON.stringify(describe(error))}\n\n`);
       await write(
         completion.words(
           id,

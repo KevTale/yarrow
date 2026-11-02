@@ -70,6 +70,10 @@
         // default. Switched with pnpm implementer <claude|meta>.
         "META_MODEL": "muse-wonder-1.0",
         "META_EFFORT": "high",
+        // The live call: who answers (src/runner/talk-models.ts), and the
+        // bench's turns may choose (pnpm bench:talk).
+        "TALK_MODEL": "opus",
+        "TALK_BENCH": "on",
       },
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence-dev" },

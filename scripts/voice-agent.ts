@@ -8,12 +8,12 @@
  * name: the secret holding the brain's key, the page's resume tool, the
  * agent. Nothing else of the workspace is read or touched. A new
  * VOICE_SECRET each time: the dev brain gets it with the agent's id, as
- * secrets (a deploy keeps them). Needs CLOUDFLARE_API_TOKEN, as any
+ * secrets (a deploy keeps them), and workers/.dev.vars for the talk bench. Needs CLOUDFLARE_API_TOKEN, as any
  * wrangler command outside an interactive login.
  */
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   RESUME_TOOL,
   talkAgentConfig,
@@ -74,6 +74,17 @@ function putSecret(name: string, value: string) {
     ],
     { input: value, stdio: ["pipe", "inherit", "inherit"], shell: true },
   );
+}
+
+/** Dev's secret, in workers/.dev.vars (ignored by git) for the scripts. */
+function keepLocally(name: string, value: string) {
+  const file = "workers/.dev.vars";
+  const lines = existsSync(file)
+    ? readFileSync(file, "utf8")
+        .split("\n")
+        .filter((line) => line && !line.startsWith(`${name}=`))
+    : [];
+  writeFileSync(file, `${[...lines, `${name}=${value}`].join("\n")}\n`);
 }
 
 const voiceSecret = randomBytes(32).toString("base64url");
@@ -142,4 +153,6 @@ else
 
 putSecret("VOICE_SECRET", voiceSecret);
 putSecret("ELEVENLABS_AGENT_ID", agentId);
+// The talk bench (pnpm bench:talk) signs its turns with it.
+keepLocally("VOICE_SECRET", voiceSecret);
 console.log(`Yarrow dev: live review agent ${agentId}, its LLM ${LLM_URL}.`);

@@ -28,6 +28,7 @@
     "bootstrap:anthropic": "tsx scripts/bootstrap-anthropic.ts",
     "brand:assets": "tsx scripts/brand-assets.ts",
     "bench": "tsx bench/run.ts",
+    "bench:talk": "tsx bench/talk.ts",
     "implementer": "tsx scripts/implementer.ts",
     "recorder:embed": "tsx scripts/embed-recorder.ts",
     "voice:agent": "tsx scripts/voice-agent.ts"

@@ -12,6 +12,12 @@ import {
   stageStepName,
   type StageHands,
 } from "./stage-tools";
+import {
+  OPUS_FAST_RATE,
+  TALK_MODELS,
+  talkStep,
+  type TalkModelName,
+} from "./talk-models";
 
 export { stageNote };
 
@@ -23,9 +29,10 @@ export { stageNote };
  * Yarrow pays for it, as for the written conversation.
  */
 
-/** Who answers: quick back and forth, aloud. */
+/** Who answers: quick back and forth, aloud. The others: talk-models.ts. */
 export const TALK_MODEL = "claude-opus-5-5";
 export const TALK_EFFORT = "low";
+export const DEFAULT_TALK_MODEL: TalkModelName = "opus";
 /** Tool calls one answer may make before it must answer with what it has. */
 const TALK_MAX_STEPS = 10;
 
@@ -112,6 +119,20 @@ export const talkRequestSchema = z
   })
   .passthrough();
 export type TalkRequest = z.infer<typeof talkRequestSchema>;
+
+/**
+ * Dev only (TALK_BENCH): a turn of the bench (scripts/talk-bench.ts) names
+ * who answers and whether the screen comes with the member's words, starts
+ * from a page of the app, and stays out of the thread.
+ */
+export const talkBenchSchema = z.object({
+  model: z.enum(
+    Object.keys(TALK_MODELS) as [TalkModelName, ...TalkModelName[]],
+  ),
+  screen: z.boolean(),
+  reset: z.string().max(200).optional(),
+});
+export type TalkBench = z.infer<typeof talkBenchSchema>;
 
 /** The call's pass the page gave ElevenLabs, carried in its requests. */
 export function talkGrantOf(request: TalkRequest): string | null {
@@ -276,15 +297,21 @@ export interface TalkAnswer {
  */
 export async function talkTurn(input: {
   client: Anthropic;
+  /** Meta's key, when Muse answers. */
+  meta?: string;
+  model?: TalkModelName;
   context: TalkContext;
   messages: Anthropic.Beta.BetaMessageParam[];
   state: StageState | null;
+  /** The screen as the member spoke, as a look returns it: no look first. */
+  screen?: string | null;
   sources: ChatSources;
   stage: StageHands;
   say: (text: string) => void;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
+  const model = input.model ?? DEFAULT_TALK_MODEL;
   const started = input.started ?? Date.now();
   let firstWordMs: number | null = null;
   let words = "";
@@ -309,14 +336,17 @@ export async function talkTurn(input: {
   ];
   const messages = input.messages.map((message) => ({ ...message }));
   const last = messages.at(-1);
+  const note = input.screen
+    ? `${stageNote(input.state)}\n[The screen as they spoke, as a look returns it: act on its refs without looking first.]\n${input.screen}`
+    : stageNote(input.state);
   if (last?.role === "user")
     last.content =
       typeof last.content === "string"
-        ? `${last.content}\n\n${stageNote(input.state)}`
-        : [...last.content, { type: "text", text: stageNote(input.state) }];
+        ? `${last.content}\n\n${note}`
+        : [...last.content, { type: "text", text: note }];
   const steps: TalkAnswer["steps"] = [];
   let usage: ChatUsage = {
-    model: TALK_MODEL,
+    model: model === "opus-fast" ? OPUS_FAST_RATE : TALK_MODELS[model].id,
     input: 0,
     output: 0,
     cacheRead: 0,
@@ -324,39 +354,28 @@ export async function talkTurn(input: {
   };
   for (let step = 0; ; step++) {
     const asked = Date.now();
-    const stream = client.beta.messages.stream({
-      model: TALK_MODEL,
-      max_tokens: 4000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: TALK_EFFORT },
-      system,
-      tools: TOOLS,
-      tool_choice: step >= TALK_MAX_STEPS ? { type: "none" } : { type: "auto" },
-      messages,
-    });
     // Spoken as it is written; a space between two runs of words.
     let wrote = false;
-    stream.on("text", (delta) => {
-      wrote = true;
-      speak(delta);
+    const response = await talkStep({
+      model,
+      clients: { anthropic: client, meta: input.meta },
+      system,
+      tools: TOOLS,
+      messages,
+      last: step >= TALK_MAX_STEPS,
+      onText: (delta) => {
+        wrote = true;
+        speak(delta);
+      },
     });
-    const response = await stream.finalMessage();
-    steps.push({ what: "claude", ms: Date.now() - asked });
-    usage = addUsage(usage, {
-      model: response.model,
-      input: response.usage.input_tokens,
-      output: response.usage.output_tokens,
-      cacheRead: response.usage.cache_read_input_tokens ?? 0,
-      cacheWrite: response.usage.cache_creation_input_tokens ?? 0,
+    steps.push({
+      what: TALK_MODELS[model].provider === "meta" ? "muse" : "claude",
+      ms: Date.now() - asked,
     });
+    usage = addUsage(usage, response.usage);
     if (wrote) speak(" ");
-    const calls = response.content.filter(
-      (block): block is Anthropic.Beta.BetaToolUseBlock =>
-        block.type === "tool_use",
-    );
-    if (response.stop_reason !== "tool_use" || calls.length === 0)
-      return answer(false);
+    const { calls } = response;
+    if (!response.toolUse) return answer(false);
     if (calls.some((call) => call.name === "resume_presentation"))
       return answer(true);
     messages.push({ role: "assistant", content: response.content });
