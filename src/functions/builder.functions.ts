@@ -149,6 +149,8 @@ export const getPullPanelFn = createServerFn({ method: "GET" })
       if (!panel) return null;
       return {
         ...panel,
+        // Only where the brain runs stages.
+        preview: appEnv().BRAIN ? panel.preview : null,
         live,
         messages: await threadMessages(db, panel.workUnitId),
       };

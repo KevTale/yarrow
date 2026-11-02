@@ -131,6 +131,12 @@ import { sendOutOfCreditAlert } from "./alerts";
 import { museClient, type MuseSandbox } from "./muse";
 import type { Stage } from "./stage";
 import {
+  ENTER_PATH,
+  PREVIEW_HEADER,
+  previewHost,
+  previewUnit,
+} from "../src/core/preview";
+import {
   restartSteps,
   stageAddress,
   stagePlan,
@@ -199,6 +205,11 @@ export interface BrainEnv {
   META_EFFORT?: string;
   /** Pull requests' stages (workers/stage.ts); dev only for now. */
   STAGE?: DurableObjectNamespace<Stage>;
+  /**
+   * Their previews' hosts: the work unit's id, then this ("-dev.yarrow.page"),
+   * routed to this Worker (src/core/preview.ts). Absent: no preview.
+   */
+  PREVIEW_SUFFIX?: string;
   /**
    * The live review's call (src/runner/talk.ts): the ElevenLabs agent made by
    * scripts/voice-agent.ts, and the secret its passes and its key to the
@@ -1245,6 +1256,27 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   }
 
   /**
+   * A pull request's preview (src/core/preview.ts) for a member the web
+   * Worker has checked: its stage asked up, and the address that signs
+   * the visit in, once.
+   */
+  async preview(input: {
+    workUnitId: string;
+  }): Promise<{ url: string } | { error: string }> {
+    const suffix = this.env.PREVIEW_SUFFIX;
+    if (!this.env.STAGE || !suffix)
+      return { error: "No preview on this environment." };
+    const spec = await stageSpec(this.env, input.workUnitId);
+    if (typeof spec === "string") return { error: spec };
+    const stage = this.env.STAGE.getByName(input.workUnitId);
+    await stage.open(spec);
+    const code = await stage.enter();
+    return {
+      url: `https://${previewHost(input.workUnitId, suffix)}${ENTER_PATH}?code=${code}`,
+    };
+  }
+
+  /**
    * The page's cue to the stage's presenter: the opening, a chapter, held
    * or on again. On again after a talk, what the talk changed in the app
    * is put back first (src/runner/stage-restore.ts), so the voice goes on
@@ -1694,8 +1726,16 @@ export class Admin extends WorkerEntrypoint<BrainEnv> {
 }
 
 export default {
-  fetch() {
-    return Response.json({ service: "yarrow-brain", status: "ok" });
+  /** A pull request's preview, on its own host; anything else, the health check. */
+  fetch(request, env) {
+    const unit =
+      env.STAGE && env.PREVIEW_SUFFIX
+        ? previewUnit(new URL(request.url).hostname, env.PREVIEW_SUFFIX)
+        : null;
+    if (!unit) return Response.json({ service: "yarrow-brain", status: "ok" });
+    const forwarded = new Request(request);
+    forwarded.headers.set(PREVIEW_HEADER, env.APP_URL);
+    return env.STAGE!.getByName(unit).fetch(forwarded);
   },
   async scheduled(
     controller: ScheduledController,

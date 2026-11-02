@@ -88,6 +88,10 @@ export interface AppEnv {
       /** Opened only if its presentation can be played on it. */
       live?: boolean;
     }): Promise<StageStatus>;
+    /** Its app at its own address: the link that signs the visit in, once. */
+    preview(input: {
+      workUnitId: string;
+    }): Promise<{ url: string } | { error: string }>;
     /** The presentation, played live on the stage a cue at a time. */
     stageCue(input: {
       workUnitId: string;

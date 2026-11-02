@@ -1,17 +1,23 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AppWindow,
   ArrowLeft,
   ArrowUp,
+  ArrowUpRight,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
   FileText,
   GitCommitHorizontal,
+  KeyRound,
   Phone,
   PhoneOff,
   Play,
   Plus,
+  UserRound,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Fragment,
@@ -23,6 +29,7 @@ import {
   useState,
 } from "react";
 import { chatParts } from "@/core/chat";
+import { previewHref } from "@/core/preview";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
@@ -387,6 +394,13 @@ export function PullPanel({
               </dialog>
             </>
           )}
+          {panel.preview && (
+            <PreviewLink
+              projectId={projectId}
+              rowKey={rowKey}
+              signIn={panel.preview.signIn}
+            />
+          )}
           {panel.implementation?.ask && (
             <TicketAsk ask={panel.implementation.ask} />
           )}
@@ -422,6 +436,78 @@ export function PullPanel({
         {!cinema && talk}
       </div>
     </div>
+  );
+}
+
+/** The pull request's app at its own address, and the test account to sign in with. */
+function PreviewLink({
+  projectId,
+  rowKey,
+  signIn,
+}: {
+  projectId: string;
+  rowKey: string;
+  signIn: { login: string; password: string } | null;
+}) {
+  return (
+    <div className="pp-preview">
+      <a
+        className="pp-preview-open"
+        href={previewHref(projectId, rowKey)}
+        target="_blank"
+        rel="noopener"
+      >
+        <AppWindow size={15} aria-hidden="true" />
+        Open the app
+        <ArrowUpRight size={14} aria-hidden="true" />
+      </a>
+      {signIn && (
+        <>
+          <Copy icon={UserRound} text={signIn.login} label="Copy the login" />
+          <Copy
+            icon={KeyRound}
+            text={signIn.password}
+            label="Copy the password"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A value copied on a click; a tick says it was. */
+function Copy({
+  icon: Icon,
+  text,
+  label,
+}: {
+  icon: LucideIcon;
+  text: string;
+  label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      className="pp-preview-copy"
+      aria-label={`${label}: ${text}`}
+      title={label}
+      onClick={() =>
+        void navigator.clipboard.writeText(text).then(() => setCopied(true))
+      }
+    >
+      {copied ? (
+        <Check size={14} aria-hidden="true" />
+      ) : (
+        <Icon size={14} aria-hidden="true" />
+      )}
+      <span>{text}</span>
+    </button>
   );
 }
 

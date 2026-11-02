@@ -1,6 +1,19 @@
 import { Files, SandboxFileError } from "@cloudflare/sandbox";
 import { DurableObject } from "cloudflare:workers";
 import {
+  ENTER_PATH,
+  PREVIEW_COOKIE,
+  PREVIEW_HEADER,
+  PREVIEW_SESSION_S,
+  fromApp,
+  previewPage,
+  rewritable,
+  rewriteText,
+  splitCookie,
+  toApp,
+  type PreviewPage,
+} from "../src/core/preview";
+import {
   stageLog,
   stageScript,
   type StageCue,
@@ -21,6 +34,8 @@ import type { TalkContext } from "../src/runner/talk";
  * clones and runs the recipe, then keeps a snapshot of the files; the next
  * ones start from it and run only the restart steps. Like the Meta
  * implementer's machine, it has no Internet of its own (MuseOutbound).
+ * Its app is also the pull request's preview (src/core/preview.ts): a
+ * member's browser reaches it here, through the brain.
  */
 
 export interface StageEnv {
@@ -45,6 +60,8 @@ const PRESENTER = 7070;
 const IDLE_MS = 15 * 60_000;
 /** While booting, the machine is looked at this often. */
 const TICK_MS = 1_000;
+/** The dashboard's link signs a visit in within this long, once. */
+const CODE_MS = 2 * 60_000;
 
 /** The same environment as the Meta implementer's commands (workers/muse.ts). */
 const BASE_ENV = {
@@ -71,7 +88,21 @@ interface Saved {
   error: string | null;
   /** Brought up only to keep its snapshot, then put to sleep. */
   prepare?: boolean;
+  /** The app answers: its preview can be shown, desktop or not. */
+  served?: boolean;
 }
+
+/** The preview's one-time codes and signed-in visits, each with its end (ms). */
+interface Visits {
+  codes: Record<string, number>;
+  sessions: Record<string, number>;
+}
+
+const randomToken = () =>
+  btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24))))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
 
 type OutboundExports = {
   MuseOutbound(options: { props: { sandbox: string; token: string } }): Fetcher;
@@ -289,8 +320,32 @@ export class Stage extends DurableObject<StageEnv> {
       await this.ctx.storage.setAlarm(Date.now() + TICK_MS);
   }
 
-  /** The page's viewer: its WebSocket, to the screen's VNC over websockify. */
+  /** A one-time code for the dashboard's link to the preview. */
+  enter(): string {
+    const visits = this.#visits();
+    const code = randomToken();
+    visits.codes[code] = Date.now() + CODE_MS;
+    this.#kv.put("visits", visits);
+    return code;
+  }
+
+  /** The visits still on, the ended ones forgotten. */
+  #visits(): Visits {
+    const now = Date.now();
+    const saved = this.#kv.get<Visits>("visits");
+    const keep = (entries: Record<string, number> = {}) =>
+      Object.fromEntries(
+        Object.entries(entries).filter(([, end]) => end > now),
+      );
+    return { codes: keep(saved?.codes), sessions: keep(saved?.sessions) };
+  }
+
+  /**
+   * The page's viewer: its WebSocket, to the screen's VNC over websockify.
+   * Or, sent by the brain, a request to the pull request's preview.
+   */
   async fetch(request: Request): Promise<Response> {
+    if (request.headers.has(PREVIEW_HEADER)) return this.#preview(request);
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket")
       return new Response("A WebSocket only\n", { status: 426 });
     if (
@@ -304,6 +359,92 @@ export class Stage extends DurableObject<StageEnv> {
     return this.#container
       .getTcpPort(SCREEN)
       .fetch(new Request(`http://stage${pathname}`, request));
+  }
+
+  /**
+   * A request to the preview: the dashboard's link signed in once, then
+   * every request to the app as the stage's browser would send it. Asleep,
+   * the stage comes up from its snapshot, and the page waits for it.
+   */
+  async #preview(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const dashboard = request.headers.get(PREVIEW_HEADER)!;
+    const page = (kind: PreviewPage, status: number, detail?: string | null) =>
+      new Response(previewPage(kind, { dashboard, detail }), {
+        status,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          ...(kind === "starting" ? { "retry-after": "3" } : {}),
+        },
+      });
+    const spec = this.#kv.get<StageSpec>("spec");
+    const visits = this.#visits();
+    if (url.pathname === ENTER_PATH) {
+      const code = url.searchParams.get("code") ?? "";
+      if (!visits.codes[code] || !spec) return page("signed-out", 403);
+      delete visits.codes[code];
+      const session = randomToken();
+      visits.sessions[session] = Date.now() + PREVIEW_SESSION_S * 1000;
+      this.#kv.put("visits", visits);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: spec.path || "/",
+          "set-cookie": `${PREVIEW_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${PREVIEW_SESSION_S}`,
+          "cache-control": "no-store",
+        },
+      });
+    }
+    const { session } = splitCookie(request.headers.get("cookie"));
+    if (!session || !visits.sessions[session] || !spec)
+      return page("signed-out", 403);
+
+    const saved = this.#kv.get<Saved>("saved");
+    if (!this.#container.running || !saved?.served) {
+      if (saved?.step === "failed") return page("failed", 502, saved.error);
+      // Asleep: up again from its snapshot. Coming: looked at.
+      if (!this.#container.running && saved?.step !== "starting")
+        await this.#start(Date.now());
+      else void this.#advance().catch(() => {});
+      return page("starting", 503);
+    }
+    // Being prepared: someone is looking now, it stays up.
+    if (saved.prepare) this.#save({ ...saved, prepare: false });
+
+    const preview = url.origin;
+    const port = Number(new URL(spec.url).port || 80);
+    let response: Response;
+    try {
+      response = await this.#container.getTcpPort(port).fetch(
+        new Request(`${spec.url}${url.pathname}${url.search}`, {
+          method: request.method,
+          headers: toApp(request.headers, spec.url, preview),
+          body: ["GET", "HEAD"].includes(request.method) ? null : request.body,
+          redirect: "manual",
+        }),
+      );
+    } catch (error) {
+      return page("failed", 502, (error as Error).message);
+    }
+    // A WebSocket (a dev server's reload) goes through as it is.
+    if (response.webSocket) return response;
+    const headers = fromApp(response.headers, spec.url, preview);
+    const init = {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    };
+    if (response.body && rewritable(headers.get("content-type"))) {
+      // Read decoded: sent on as written, the edge compresses it again.
+      headers.delete("content-length");
+      headers.delete("content-encoding");
+      return new Response(
+        rewriteText(await response.text(), spec.url, preview),
+        init,
+      );
+    }
+    return new Response(response.body, init);
   }
 
   /** One look at the machine, one move at a time. */
@@ -348,6 +489,7 @@ export class Stage extends DurableObject<StageEnv> {
         this.#save(saved);
         return;
       }
+      saved.served = true;
       if (saved.prepare) {
         this.#save(saved);
         await this.#keep();

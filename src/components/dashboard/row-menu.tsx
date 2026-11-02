@@ -1,5 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AppWindow,
   CircleSlash,
   Ellipsis,
   GitPullRequest,
@@ -11,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { Spinner } from "@/components/navigation-feedback";
+import { previewHref } from "@/core/preview";
 import type { TicketRow } from "@/core/tickets";
 import {
   closePullRequestFn,
@@ -194,6 +196,19 @@ export function RowMenu({
                   >
                     <GitPullRequest size={15} aria-hidden="true" />
                     Open pull request
+                  </a>
+                )}
+                {row.status === "pull_request" && row.pullRequest && (
+                  <a
+                    className="ps-item"
+                    role="menuitem"
+                    href={previewHref(projectId, row.key)}
+                    target="_blank"
+                    rel="noopener"
+                    onClick={() => setAt(null)}
+                  >
+                    <AppWindow size={15} aria-hidden="true" />
+                    Open the app
                   </a>
                 )}
                 {closable(row) && <span className="ps-sep" />}

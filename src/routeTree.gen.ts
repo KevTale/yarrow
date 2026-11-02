@@ -39,6 +39,7 @@ import { Route as ApiWebhooksLinearRouteImport } from './routes/api/webhooks/lin
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as IntegrationsTrackerCallbackRouteImport } from './routes/integrations/$tracker.callback'
 import { Route as IntegrationsTrackerConnectRouteImport } from './routes/integrations/$tracker.connect'
+import { Route as PreviewProjectIdKeyRouteImport } from './routes/preview/$projectId.$key'
 import { Route as StageScreenProjectIdKeyRouteImport } from './routes/stage-screen/$projectId.$key'
 import { Route as StageProjectIdKeyRouteImport } from './routes/stage/$projectId.$key'
 import { Route as VoiceLlmSplatRouteImport } from './routes/voice/llm/$'
@@ -196,6 +197,11 @@ const IntegrationsTrackerConnectRoute =
     path: '/integrations/$tracker/connect',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PreviewProjectIdKeyRoute = PreviewProjectIdKeyRouteImport.update({
+  id: '/preview/$projectId/$key',
+  path: '/preview/$projectId/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StageScreenProjectIdKeyRoute = StageScreenProjectIdKeyRouteImport.update({
   id: '/stage-screen/$projectId/$key',
   path: '/stage-screen/$projectId/$key',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/preview/$projectId/$key': typeof PreviewProjectIdKeyRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
   '/voice/llm/$': typeof VoiceLlmSplatRoute
@@ -278,6 +285,7 @@ export interface FileRoutesByTo {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/preview/$projectId/$key': typeof PreviewProjectIdKeyRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
   '/voice/llm/$': typeof VoiceLlmSplatRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/integrations/$tracker/callback': typeof IntegrationsTrackerCallbackRoute
   '/integrations/$tracker/connect': typeof IntegrationsTrackerConnectRoute
+  '/preview/$projectId/$key': typeof PreviewProjectIdKeyRoute
   '/stage-screen/$projectId/$key': typeof StageScreenProjectIdKeyRoute
   '/stage/$projectId/$key': typeof StageProjectIdKeyRoute
   '/voice/llm/$': typeof VoiceLlmSplatRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/preview/$projectId/$key'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
     | '/voice/llm/$'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/preview/$projectId/$key'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
     | '/voice/llm/$'
@@ -421,6 +432,7 @@ export interface FileRouteTypes {
     | '/api/webhooks/stripe'
     | '/integrations/$tracker/callback'
     | '/integrations/$tracker/connect'
+    | '/preview/$projectId/$key'
     | '/stage-screen/$projectId/$key'
     | '/stage/$projectId/$key'
     | '/voice/llm/$'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   IntegrationsTrackerCallbackRoute: typeof IntegrationsTrackerCallbackRoute
   IntegrationsTrackerConnectRoute: typeof IntegrationsTrackerConnectRoute
+  PreviewProjectIdKeyRoute: typeof PreviewProjectIdKeyRoute
   StageScreenProjectIdKeyRoute: typeof StageScreenProjectIdKeyRoute
   StageProjectIdKeyRoute: typeof StageProjectIdKeyRoute
   VoiceLlmSplatRoute: typeof VoiceLlmSplatRoute
@@ -674,6 +687,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsTrackerConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/preview/$projectId/$key': {
+      id: '/preview/$projectId/$key'
+      path: '/preview/$projectId/$key'
+      fullPath: '/preview/$projectId/$key'
+      preLoaderRoute: typeof PreviewProjectIdKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stage-screen/$projectId/$key': {
       id: '/stage-screen/$projectId/$key'
       path: '/stage-screen/$projectId/$key'
@@ -729,6 +749,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   IntegrationsTrackerCallbackRoute: IntegrationsTrackerCallbackRoute,
   IntegrationsTrackerConnectRoute: IntegrationsTrackerConnectRoute,
+  PreviewProjectIdKeyRoute: PreviewProjectIdKeyRoute,
   StageScreenProjectIdKeyRoute: StageScreenProjectIdKeyRoute,
   StageProjectIdKeyRoute: StageProjectIdKeyRoute,
   VoiceLlmSplatRoute: VoiceLlmSplatRoute,
@@ -736,12 +757,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

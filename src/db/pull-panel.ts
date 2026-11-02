@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Criterion, ResultDetails } from "../core/contracts";
 import { modelDisplayName } from "../core/pipeline";
+import { previewSignIn } from "../core/preview";
 import {
   blockingComments,
   type ReviewComment,
@@ -12,6 +13,7 @@ import type { Database } from "./client";
 import {
   agentRuns,
   correctionRequests,
+  projectRunConfigs,
   pullRequests,
   results,
   runModels,
@@ -176,6 +178,11 @@ export interface PanelData {
   paidBy: PaidBy[];
   /** The latest delivered run's screenshots and videos, served by /evidence. */
   screens: StoredArtifact[];
+  /**
+   * The open pull request's app at its own address (src/core/preview.ts),
+   * once Yarrow knows how to run it; with the recipe's test sign-in.
+   */
+  preview: { signIn: { login: string; password: string } | null } | null;
 }
 
 export async function pullPanel(
@@ -191,52 +198,60 @@ export async function pullPanel(
     );
   if (!unit) return null;
   // Independent reads, sent together on the one connection.
-  const [runs, [pull], requests, recorded, paidBy, made] = await Promise.all([
-    db
-      .select({
-        id: agentRuns.id,
-        kind: agentRuns.kind,
-        status: agentRuns.status,
-        phase: agentRuns.phase,
-        implementer: agentRuns.implementer,
-        reviewer: agentRuns.reviewer,
-        createdAt: agentRuns.createdAt,
-        finishedAt: agentRuns.finishedAt,
-        outcome: results.outcome,
-        summary: results.summary,
-        evidence: results.evidence,
-        review: results.review,
-        details: results.details,
-        artifacts: results.artifacts,
-      })
-      .from(agentRuns)
-      .leftJoin(results, eq(results.agentRunId, agentRuns.id))
-      .where(eq(agentRuns.workUnitId, unit.id))
-      .orderBy(asc(agentRuns.createdAt)),
-    db.select().from(pullRequests).where(eq(pullRequests.workUnitId, unit.id)),
-    db
-      .select()
-      .from(correctionRequests)
-      .where(eq(correctionRequests.workUnitId, unit.id))
-      .orderBy(asc(correctionRequests.queuedAt)),
-    db
-      .select({
-        role: runModels.role,
-        model: runModels.model,
-        seconds: runModels.seconds,
-        secondsExact: runModels.secondsExact,
-        costCents: runModels.costCents,
-        costExact: runModels.costExact,
-      })
-      .from(runModels)
-      .innerJoin(agentRuns, eq(agentRuns.id, runModels.agentRunId))
-      .where(eq(agentRuns.workUnitId, unit.id)),
-    sponsorsByUnit(db, [unit.id]),
-    db
-      .select({ note: spottedTickets.note })
-      .from(spottedTickets)
-      .where(eq(spottedTickets.workUnitId, unit.id)),
-  ]);
+  const [runs, [pull], requests, recorded, paidBy, made, [config]] =
+    await Promise.all([
+      db
+        .select({
+          id: agentRuns.id,
+          kind: agentRuns.kind,
+          status: agentRuns.status,
+          phase: agentRuns.phase,
+          implementer: agentRuns.implementer,
+          reviewer: agentRuns.reviewer,
+          createdAt: agentRuns.createdAt,
+          finishedAt: agentRuns.finishedAt,
+          outcome: results.outcome,
+          summary: results.summary,
+          evidence: results.evidence,
+          review: results.review,
+          details: results.details,
+          artifacts: results.artifacts,
+        })
+        .from(agentRuns)
+        .leftJoin(results, eq(results.agentRunId, agentRuns.id))
+        .where(eq(agentRuns.workUnitId, unit.id))
+        .orderBy(asc(agentRuns.createdAt)),
+      db
+        .select()
+        .from(pullRequests)
+        .where(eq(pullRequests.workUnitId, unit.id)),
+      db
+        .select()
+        .from(correctionRequests)
+        .where(eq(correctionRequests.workUnitId, unit.id))
+        .orderBy(asc(correctionRequests.queuedAt)),
+      db
+        .select({
+          role: runModels.role,
+          model: runModels.model,
+          seconds: runModels.seconds,
+          secondsExact: runModels.secondsExact,
+          costCents: runModels.costCents,
+          costExact: runModels.costExact,
+        })
+        .from(runModels)
+        .innerJoin(agentRuns, eq(agentRuns.id, runModels.agentRunId))
+        .where(eq(agentRuns.workUnitId, unit.id)),
+      sponsorsByUnit(db, [unit.id]),
+      db
+        .select({ note: spottedTickets.note })
+        .from(spottedTickets)
+        .where(eq(spottedTickets.workUnitId, unit.id)),
+      db
+        .select({ recipe: projectRunConfigs.recipe })
+        .from(projectRunConfigs)
+        .where(eq(projectRunConfigs.projectId, projectId)),
+    ]);
 
   const delivered = runs.find(
     (run) => run.kind === "implementation" && run.outcome === "pull_request",
@@ -339,6 +354,10 @@ export async function pullPanel(
         .reverse()
         .find((run) => run.outcome === "pull_request" && run.artifacts?.length)
         ?.artifacts as StoredArtifact[] | undefined) ?? [],
+    preview:
+      pull?.state === "open" && config?.recipe
+        ? { signIn: previewSignIn(config.recipe.signIn) }
+        : null,
   };
 }
 
