@@ -3,7 +3,7 @@
  * stage on Yarrow dev, answered by each model the call can use
  * (src/runner/talk-models.ts), timed and checked.
  *
- *   pnpm bench:talk [variant…] [--runs 3]
+ *   pnpm bench:talk [variant…] [--runs 3] [--questions plain,code]
  *   pnpm bench:talk list
  *
  * The stage must be up (Start on its page). Each turn reaches the brain as
@@ -92,6 +92,22 @@ const QUESTIONS: {
       !!turn.screen && says(turn.words, count(turn.screen, "Doing")),
   },
   {
+    // The code: an unknown status falls back to All (parseFilter).
+    name: "code",
+    say: "Et si quelqu'un met status=foo dans l'adresse, qu'est-ce qui s'affiche ?",
+    reset: "/",
+    right: (turn) =>
+      /\bAll\b|toutes les tâches|tout(es)? s'affiche/i.test(turn.words),
+  },
+  {
+    // A flaw on the screen, older than the change: done tasks still
+    // marked Overdue.
+    name: "notice",
+    say: "Filtre sur Done et dis-moi si quelque chose cloche dans la liste.",
+    reset: "/",
+    right: (turn) => /overdue|en retard/i.test(turn.words),
+  },
+  {
     name: "click",
     say: "Clique sur le filtre Done dans l'app avec le changement.",
     reset: "/",
@@ -176,14 +192,19 @@ if (args[0] === "list") {
     );
   process.exit(0);
 }
-const runsAt = args.indexOf("--runs");
-const runs = runsAt >= 0 ? Number(args[runsAt + 1]) : 3;
-const named = args.filter(
-  (arg, index) => !arg.startsWith("--") && index !== runsAt + 1,
-);
+const options = new Map<string, string>();
+const named: string[] = [];
+for (let at = 0; at < args.length; at++)
+  if (args[at]!.startsWith("--")) options.set(args[at]!, args[++at] ?? "");
+  else named.push(args[at]!);
+const runs = Number(options.get("--runs") ?? 3);
 const unknown = named.filter((name) => !(name in VARIANTS));
 if (unknown.length) throw new Error(`unknown variant: ${unknown.join(", ")}`);
 const variants = named.length ? named : Object.keys(VARIANTS);
+const asking = options.get("--questions")?.split(",");
+const questions = asking
+  ? QUESTIONS.filter((question) => asking.includes(question.name))
+  : QUESTIONS;
 
 const secret = voiceSecret();
 const key = await talkKey(secret);
@@ -199,7 +220,7 @@ const results: {
 
 for (let run = 1; run <= runs; run++)
   for (const variant of variants)
-    for (const question of QUESTIONS) {
+    for (const question of questions) {
       const bench: TalkBench = {
         ...VARIANTS[variant]!,
         ...(question.reset ? { reset: question.reset } : {}),
@@ -249,7 +270,7 @@ for (const variant of variants) {
   console.log(
     `${variant.padEnd(11)} ${`${mine.filter((result) => result.right).length}/${mine.length}`.padEnd(6)} ${seconds(median(turns.map((turn) => turn.firstWordMs ?? NaN))).padEnd(18)} ${seconds(median(turns.map((turn) => turn.ms))).padEnd(11)} ${String(median(rounds)).padEnd(13)} ${cents.toFixed(2)}`,
   );
-  for (const question of QUESTIONS) {
+  for (const question of questions) {
     const asked = mine.filter((result) => result.question === question.name);
     console.log(
       `  ${question.name.padEnd(9)} ${asked.filter((result) => result.right).length}/${asked.length}  first ${seconds(median(asked.map((result) => result.turn?.firstWordMs ?? NaN)))}  turn ${seconds(median(asked.map((result) => result.turn?.ms ?? NaN)))}`,
