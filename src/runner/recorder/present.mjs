@@ -2473,6 +2473,8 @@ class Presenter {
   constructor(desktop, plan) {
     this.desktop = desktop;
     this.plan = plan;
+    /** The opening is on screen, nothing played since: it stays. */
+    this.untouched = false;
   }
 
   /**
@@ -2481,6 +2483,8 @@ class Presenter {
    */
   async set() {
     const { desktop, plan } = this;
+    if (this.untouched) return [];
+    const started = Date.now();
     const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
     const which = first < 0 ? "after" : plan.chapters[first].app || "after";
     if (
@@ -2501,6 +2505,8 @@ class Presenter {
       ]),
     );
     await desktop.glide(SCREEN.width * 0.6, SCREEN.height * 0.55, 500);
+    this.untouched = true;
+    log("opening in " + ((Date.now() - started) / 1000).toFixed(1) + " s");
     return [];
   }
 
@@ -2508,6 +2514,7 @@ class Presenter {
   async chapter(index, voiceMs) {
     const chapter = this.plan.chapters[index];
     if (!chapter) throw new Error("no chapter " + (index + 1));
+    this.untouched = false;
     log("live chapter " + (index + 1) + ": " + chapter.title);
     if (chapter.tab === "terminal")
       return (await this.desktop.recordTerminal(chapter, null, voiceMs))
