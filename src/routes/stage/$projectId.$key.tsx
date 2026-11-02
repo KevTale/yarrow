@@ -46,6 +46,8 @@ function StagePage() {
   const screen = useRef<HTMLDivElement>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   const stopped = useRef(false);
+  /** Ends the voice playing now. */
+  const hush = useRef<(() => void) | null>(null);
 
   const call = useCallback(
     (action: "open" | "status" | "close", fresh = false) =>
@@ -109,28 +111,46 @@ function StagePage() {
     }
   };
 
-  /** The chapter's voice, its words as they are said; none: its length in silence. */
+  /**
+   * The chapter's voice, its words as they are said; none (or one that
+   * cannot play): its length in silence. It ends with the voice, the
+   * frames only show the words: a hidden tab gets none.
+   */
   const speak = (chapter: PresentationChapter, index: number) =>
     new Promise<void>((resolve) => {
       const length = chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
       const started = performance.now();
+      let frame = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const done = () => {
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+        hush.current = null;
+        resolve();
+      };
+      hush.current = done;
+      const silent = () => {
+        clearTimeout(timer);
+        timer = setTimeout(done, length - (performance.now() - started));
+      };
       let audio: HTMLAudioElement | null = null;
       if (chapter.audio) {
         audio = voice.current ?? new Audio();
         voice.current = audio;
+        audio.onended = done;
+        audio.onerror = silent;
         audio.src = evidence(chapter.audio.key);
-        void audio.play().catch(() => {});
-      }
+        void audio.play().catch(silent);
+      } else silent();
       const tick = () => {
-        const spokenMs = audio
-          ? audio.currentTime * 1000
-          : performance.now() - started;
-        const over = audio ? audio.ended : spokenMs >= length;
-        if (stopped.current || over) return resolve();
+        const spokenMs =
+          audio && !audio.error
+            ? audio.currentTime * 1000
+            : performance.now() - started;
         setShow({ index, spokenMs });
-        requestAnimationFrame(tick);
+        frame = requestAnimationFrame(tick);
       };
-      requestAnimationFrame(tick);
+      frame = requestAnimationFrame(tick);
     });
 
   const play = async () => {
@@ -174,6 +194,7 @@ function StagePage() {
   const stop = () => {
     stopped.current = true;
     voice.current?.pause();
+    hush.current?.();
   };
 
   const up = phase === "ready" || phase === "booting";
