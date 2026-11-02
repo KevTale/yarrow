@@ -233,6 +233,29 @@ export function sameKey(header: string | null, key: string): boolean {
   return same === 0;
 }
 
+/**
+ * A single-use token for the page's own transcription of the member (Scribe
+ * realtime), their words shown as they say them: the agent's transcript
+ * comes only once they are done.
+ */
+export async function transcriptionToken(
+  apiKey: string,
+  fetcher: Fetch = (input, init) => fetch(input, init),
+): Promise<string> {
+  const response = await fetcher(`${API}/single-use-token/realtime_scribe`, {
+    method: "POST",
+    headers: { "xi-api-key": apiKey },
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `ElevenLabs transcription token failed (${response.status}): ${detail.slice(0, 200)}`,
+    );
+  }
+  const { token } = (await response.json()) as { token: string };
+  return token;
+}
+
 /** A WebRTC token for one call with the private agent. */
 export async function conversationToken(
   apiKey: string,

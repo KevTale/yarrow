@@ -114,6 +114,7 @@ import {
 import { isTalkModel } from "../src/runner/talk-models";
 import {
   conversationToken,
+  transcriptionToken,
   readTalkGrant,
   sameKey,
   signTalkGrant,
@@ -1298,7 +1299,12 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     userId: string;
     language: string;
   }): Promise<
-    | { ok: true; conversationToken: string; grant: string }
+    | {
+        ok: true;
+        conversationToken: string;
+        grant: string;
+        transcriptionToken: string | null;
+      }
     | { ok: false; reason: string }
   > {
     const { env } = this;
@@ -1315,15 +1321,25 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     const asked = await withDb(env, (db) => askedToday(db, input.userId));
     if (asked >= CHAT_DAILY_QUESTIONS)
       return { ok: false, reason: "That's all the questions for today." };
-    const [context, token, grant] = await Promise.all([
+    const [context, token, grant, words] = await Promise.all([
       talkContext(env, input.workUnitId),
       conversationToken(env.ELEVENLABS_API_KEY, env.ELEVENLABS_AGENT_ID),
       signTalkGrant(env.VOICE_SECRET, input),
+      // Their words as they say them; the call goes on without.
+      transcriptionToken(env.ELEVENLABS_API_KEY).catch((error) => {
+        console.warn("talk:transcription", describe(error));
+        return null;
+      }),
     ]);
     if (!context)
       return { ok: false, reason: "This ticket has no pull request." };
     await stage.setTalk(context);
-    return { ok: true, conversationToken: token, grant };
+    return {
+      ok: true,
+      conversationToken: token,
+      grant,
+      transcriptionToken: words,
+    };
   }
 
   /**

@@ -54,6 +54,11 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 type Cue = Parameters<typeof stageCueFn>[0]["data"]["cue"];
 
+/** The member's words as they say them: Scribe realtime on the microphone. */
+interface Transcription {
+  close(): void;
+}
+
 /** What the page asks of the call (an ElevenLabs conversation). */
 interface Call {
   endSession(): Promise<void>;
@@ -159,6 +164,9 @@ export function useLiveStage({
     null,
   );
   const conversation = useRef<Call | null>(null);
+  const transcription = useRef<Transcription | null>(null);
+  /** Their words of this turn already done (Scribe commits each pause). */
+  const heardSoFar = useRef("");
   const calling = useRef(false);
   /** The agent's voice is heard now. */
   const speaking = useRef(false);
@@ -464,6 +472,47 @@ export function useLiveStage({
     });
     pass.current = { at: Date.now(), made };
   };
+  /**
+   * Their words as they say them, in their bubble: shown while their voice
+   * is heard (not the agent's, not a late word of a turn already said).
+   */
+  const transcribe = (
+    eleven: typeof import("@elevenlabs/client"),
+    token: string,
+  ) => {
+    const words = eleven.Scribe.connect({
+      token,
+      modelId: "scribe_v2_realtime",
+      commitStrategy: eleven.CommitStrategy.VAD,
+      vadSilenceThresholdSecs: 0.5,
+      languageCode: language(),
+      microphone: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const show = (text: string) => {
+      if (speaking.current || !voicedOnCall.current) return;
+      const heard = `${heardSoFar.current} ${text}`.trim();
+      if (heard) setHearing(heard);
+    };
+    words.on(eleven.RealtimeEvents.PARTIAL_TRANSCRIPT, ({ text }) =>
+      show(text),
+    );
+    words.on(eleven.RealtimeEvents.COMMITTED_TRANSCRIPT, ({ text }) => {
+      if (speaking.current || !voicedOnCall.current) return;
+      show(text);
+      heardSoFar.current = `${heardSoFar.current} ${text}`.trim();
+    });
+    transcription.current = words;
+  };
+  const untranscribe = () => {
+    transcription.current?.close();
+    transcription.current = null;
+    heardSoFar.current = "";
+  };
+
   /** A pass for one call: the one asked for before, if still fresh. */
   const passNow = () => {
     warm();
@@ -546,6 +595,7 @@ export function useLiveStage({
             setHearing("");
             setVoicing(false);
             voicedOnCall.current = null;
+            heardSoFar.current = "";
           }
           const text = message.trim();
           if (!text) return;
@@ -584,6 +634,7 @@ export function useLiveStage({
         onDisconnect: () => {
           conversation.current = null;
           calling.current = false;
+          untranscribe();
           setHearing("");
           setVoicing(false);
           voicedOnCall.current = null;
@@ -602,6 +653,13 @@ export function useLiveStage({
         return;
       }
       conversation.current = session;
+      if (given.transcriptionToken) {
+        try {
+          transcribe(eleven, given.transcriptionToken);
+        } catch {
+          // Without it, the bubble shows their voice, then their words.
+        }
+      }
       setTalk("on");
     } catch (error) {
       calling.current = false;
@@ -611,6 +669,7 @@ export function useLiveStage({
   };
 
   const endTalk = () => {
+    untranscribe();
     void conversation.current?.endSession();
     conversation.current = null;
     calling.current = false;

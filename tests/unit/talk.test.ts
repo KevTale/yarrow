@@ -18,6 +18,7 @@ import {
 } from "../../src/runner/talk";
 import {
   conversationToken,
+  transcriptionToken,
   readTalkGrant,
   sameKey,
   signTalkGrant,
@@ -760,5 +761,22 @@ describe("the ElevenLabs agent", () => {
         async () => new Response("no", { status: 401 }),
       ),
     ).rejects.toThrow("ElevenLabs call token failed (401)");
+  });
+
+  it("asks a single-use token for the member's words as they say them", async () => {
+    const asked: string[] = [];
+    const token = await transcriptionToken("xi", async (url, init) => {
+      asked.push(
+        `${init?.method} ${String(url)} ${new Headers(init?.headers).get("xi-api-key")}`,
+      );
+      return Response.json({ token: "sutkn_1" });
+    });
+    expect(token).toBe("sutkn_1");
+    expect(asked).toEqual([
+      "POST https://api.elevenlabs.io/v1/single-use-token/realtime_scribe xi",
+    ]);
+    await expect(
+      transcriptionToken("xi", async () => new Response("no", { status: 429 })),
+    ).rejects.toThrow("ElevenLabs transcription token failed (429)");
   });
 });

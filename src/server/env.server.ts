@@ -99,7 +99,12 @@ export interface AppEnv {
       userId: string;
       language: string;
     }): Promise<
-      | { ok: true; conversationToken: string; grant: string }
+      | {
+          ok: true;
+          conversationToken: string;
+          grant: string;
+          transcriptionToken: string | null;
+        }
       | { ok: false; reason: string }
     >;
     /**
