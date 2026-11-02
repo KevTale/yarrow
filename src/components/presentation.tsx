@@ -517,7 +517,8 @@ function Player({
   const idle = playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
-  const kind = framed?.tab ?? "app";
+  // A document is a page in the browser, as the app's are.
+  const kind = framed?.tab === "document" ? "app" : (framed?.tab ?? "app");
   // Filmed on the agent's desktop: its own windows, edge to edge.
   const desktop = Boolean(framed?.desktop);
   const size = framed?.video ?? { width: 1280, height: 720 };

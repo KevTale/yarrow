@@ -78,6 +78,11 @@ export const liveChapterSchema = z.object({
   command: z.string().max(2000).nullable(),
   cwd: z.string().max(500).nullable(),
   before: z.boolean(),
+  /** A document's page as the film showed it, served again on the stage. */
+  document: z
+    .object({ file: z.string().max(500), html: z.string().max(400_000) })
+    .nullable()
+    .default(null),
 });
 export type LiveChapter = z.infer<typeof liveChapterSchema>;
 
@@ -89,7 +94,8 @@ export const presentationAppsSchema = z.object({
 
 export const presentationChapterSchema = z.object({
   title: z.string().min(1).max(80),
-  tab: z.enum(["app", "ticket", "terminal"]),
+  /** A document is a Markdown file of the repository, as a reader sees it. */
+  tab: z.enum(["app", "document", "ticket", "terminal"]),
   /** What the address bar shows: the page, the ticket, the command. */
   url: z.string().max(500).nullable(),
   /** The page's title, for the app's tab. */
@@ -195,12 +201,16 @@ export function urlAt(chapter: PresentationChapter, ms: number): string | null {
 
 /**
  * The chapter the poster was taken in, as the recorder picks it: the app
- * after the change, else its proof run, else the first chapter.
+ * or the document after the change, else its proof run, else the first chapter.
  */
 export function posterChapter(timeline: Presentation): PresentationChapter {
   const { chapters } = timeline;
   return (
-    chapters.find((chapter) => chapter.tab === "app" && !chapter.before) ??
+    chapters.find(
+      (chapter) =>
+        (chapter.tab === "app" || chapter.tab === "document") &&
+        !chapter.before,
+    ) ??
     chapters.find((chapter) => chapter.tab === "terminal" && !chapter.before) ??
     chapters[0]!
   );

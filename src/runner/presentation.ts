@@ -38,7 +38,7 @@ export const recordedSchema = z.object({
     .array(
       z.object({
         title: clipped(80),
-        tab: z.enum(["app", "ticket", "terminal"]),
+        tab: z.enum(["app", "document", "ticket", "terminal"]),
         url: z
           .string()
           .nullable()

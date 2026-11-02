@@ -1,4 +1,7 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   chapterMs,
@@ -490,4 +493,42 @@ describe("the recorder", () => {
       .join("\n");
     expect(RECORDER_SOURCE).toBe(source);
   });
+
+  it("shows a document of the repository, as it is and as it was", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yarrow-doc-"));
+    writeFileSync(join(dir, "README.md"), "# App\n\n## Run it locally\n");
+    const check = (chapter: object) => {
+      const plan = join(dir, "plan.json");
+      writeFileSync(
+        plan,
+        JSON.stringify({
+          title: "README",
+          ticket: { title: "README: run it locally" },
+          chapters: [{ title: "Run it", say: "Here it is.", ...chapter }],
+        }),
+      );
+      return spawnSync(
+        process.execPath,
+        [resolve("src/runner/recorder/present.mjs"), plan, "--check"],
+        { cwd: dir, encoding: "utf8" },
+      );
+    };
+    const now = {
+      tab: "document",
+      file: "README.md",
+      actions: [{ do: "circle", target: "text=Run it locally" }],
+    };
+    expect(check(now).status).toBe(0);
+    expect(check({ ...now, file: "DOCS.md" }).stderr).toContain(
+      "DOCS.md is not in the repository",
+    );
+    // As it was: from the branch's start, here neither a worktree nor a commit.
+    expect(check({ ...now, before: true }).stderr).toContain(
+      "README.md as it was: neither in /tmp/before nor in the last commit",
+    );
+    expect(check({ ...now, actions: [{ do: "circle" }] }).stderr).toContain(
+      "a Playwright selector",
+    );
+    // Four runs of the recorder, slower while every test file runs.
+  }, 30_000);
 });

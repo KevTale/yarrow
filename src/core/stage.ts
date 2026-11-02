@@ -49,7 +49,7 @@ export interface StageSpec {
 export interface StagePlan {
   apps: { after: string | null; before: string | null };
   chapters: (
-    | (LiveChapter & { title: string; tab: "app" | "terminal" })
+    | (LiveChapter & { title: string; tab: "app" | "document" | "terminal" })
     | { title: string; tab: null }
   )[];
 }

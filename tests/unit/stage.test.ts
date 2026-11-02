@@ -231,6 +231,7 @@ describe("the presentation on the stage", () => {
     command: null,
     cwd: null,
     before: which === "before",
+    document: null,
   });
   const timeline = (chapters: PresentationChapter[]): Presentation => ({
     version: 1,

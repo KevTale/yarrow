@@ -120,8 +120,18 @@ function check(plan) {
       problems.push(at + ".title: 1 to 40 characters");
     if (!chapter.say || chapter.say.length > 600)
       problems.push(at + ".say: 1 to 600 characters");
-    if (!["app", "ticket", "terminal"].includes(chapter.tab))
-      problems.push(at + ".tab: app, ticket or terminal");
+    if (!["app", "document", "ticket", "terminal"].includes(chapter.tab))
+      problems.push(at + ".tab: app, document, ticket or terminal");
+    if (chapter.tab === "document") {
+      if (!fileOf(chapter))
+        problems.push(at + ".file: the file's path in the repository");
+      else
+        try {
+          documentOf(chapter);
+        } catch (error) {
+          problems.push(at + ": " + error.message);
+        }
+    }
     if (chapter.tab === "app") {
       const app = (plan.apps || {})[chapter.app || "after"];
       if (!app || !app.url)
@@ -130,6 +140,8 @@ function check(plan) {
         );
       else if (app.storage && !fs.existsSync(app.storage))
         problems.push(at + ": " + app.storage + " does not exist");
+    }
+    if (chapter.tab === "app" || chapter.tab === "document") {
       for (const [j, action] of (chapter.actions || []).entries()) {
         if (!ACTIONS.includes(action.do))
           problems.push(
@@ -665,6 +677,416 @@ function terminalPage(cwd) {
   );
 }
 
+// ---------- A document: a file of the repository, as a reader sees it ----------
+
+/** Where the browser opens a document: its context answers, no server. */
+const FILES = "http://files.localhost";
+/** The repository as it was (git worktree add /tmp/before HEAD). */
+const BEFORE = "/tmp/before";
+
+const repoDir = () =>
+  fs.existsSync("/workspace/repo") ? "/workspace/repo" : process.cwd();
+const fileOf = (chapter) => String(chapter.file || "").replace(/^\.?\/+/, "");
+/** The change's version at /file, the one before it at /before/file. */
+const documentPath = (chapter) =>
+  (chapter.before === true ? "/before/" : "/") + fileOf(chapter);
+
+/** A line of Markdown: code, links, images, emphasis. */
+function inline(text) {
+  const codes = [];
+  const html = escape(text)
+    .replace(/`([^`]+)`/g, (_, code) => {
+      codes.push(code);
+      return "\uE000" + (codes.length - 1) + "\uE000";
+    })
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (_, alt, src) =>
+      /^https?:/.test(src)
+        ? '<img alt="' + alt + '" src="' + src + '">'
+        : '<span class="alt">' + alt + "</span>",
+    )
+    .replace(
+      /\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g,
+      '<a href="$2" onclick="return false">$1</a>',
+    )
+    .replace(
+      /&lt;(https?:\/\/[^&\s]+)&gt;/g,
+      '<a href="$1" onclick="return false">$1</a>',
+    )
+    .replace(
+      /\*\*(.+?)\*\*|__(.+?)__/g,
+      (_, a, b) => "<strong>" + (a ?? b) + "</strong>",
+    )
+    .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/(^|\W)_(?!\s)(.+?)_(?=\W|$)/g, "$1<em>$2</em>")
+    .replace(/~~(.+?)~~/g, "<del>$1</del>");
+  return html.replace(
+    /\uE000(\d+)\uE000/g,
+    (_, i) => "<code>" + codes[i] + "</code>",
+  );
+}
+
+const headingId = (text) =>
+  String(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .trim()
+    .replace(/\s+/g, "-");
+
+const heading = (level, text) =>
+  "<h" +
+  level +
+  ' id="' +
+  headingId(text) +
+  '">' +
+  inline(text) +
+  "</h" +
+  level +
+  ">";
+
+const LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const FENCE = /^\s*(`{3,}|~{3,})/;
+const RULE = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+const ATX = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
+
+/** Raw HTML, as READMEs open with, without what would run. */
+const safeHtml = (html) =>
+  html
+    .replace(/<(script|style|iframe)[\s\S]*?<\/\1>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "");
+
+const cells = (row) =>
+  row
+    .trim()
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((cell) => cell.trim());
+
+/** A list's items: each its lines, the marker taken off, nested lists kept. */
+function listItems(lines) {
+  const indent = LIST.exec(lines[0])[1].length;
+  const items = [];
+  for (const line of lines) {
+    const match = LIST.exec(line);
+    if (match && match[1].length <= indent) items.push([match[3]]);
+    else
+      items
+        .at(-1)
+        .push(line.replace(new RegExp("^\\s{0," + (indent + 4) + "}"), ""));
+  }
+  return items;
+}
+
+function listHtml(lines) {
+  const ordered = /\d/.test(LIST.exec(lines[0])[2]);
+  const items = listItems(lines.filter((line) => line.trim())).map((item) => {
+    const task = /^\[([ xX])\]\s+/.exec(item[0]);
+    if (task) item[0] = item[0].slice(task[0].length);
+    const inner = blocks(item.join("\n"));
+    const html =
+      inner.length === 1 && inner[0].html.startsWith("<p>")
+        ? inner[0].html.slice(3, -4)
+        : inner.map((block) => block.html).join("");
+    return (
+      "<li" +
+      (task ? ' class="task"' : "") +
+      ">" +
+      (task
+        ? '<input type="checkbox" disabled' +
+          (task[1] === " " ? "" : " checked") +
+          "> "
+        : "") +
+      html +
+      "</li>"
+    );
+  });
+  return (
+    (ordered ? "<ol>" : "<ul>") + items.join("") + (ordered ? "</ol>" : "</ul>")
+  );
+}
+
+function tableHtml(head, rule, rows) {
+  const align = cells(rule).map((cell) =>
+    /^:-+:$/.test(cell) ? "center" : /-+:$/.test(cell) ? "right" : "",
+  );
+  const cell = (tag, text, j) =>
+    "<" +
+    tag +
+    (align[j] ? ' align="' + align[j] + '"' : "") +
+    ">" +
+    inline(text) +
+    "</" +
+    tag +
+    ">";
+  return (
+    "<table><thead><tr>" +
+    cells(head)
+      .map((text, j) => cell("th", text, j))
+      .join("") +
+    "</tr></thead><tbody>" +
+    rows
+      .map(
+        (row) =>
+          "<tr>" +
+          cells(row)
+            .map((text, j) => cell("td", text, j))
+            .join("") +
+          "</tr>",
+      )
+      .join("") +
+    "</tbody></table>"
+  );
+}
+
+/** A Markdown text's blocks, each its source and its HTML. */
+function blocks(markdown) {
+  const lines = String(markdown)
+    .replace(/\r/g, "")
+    .replace(/\t/g, "    ")
+    .split("\n");
+  const out = [];
+  let i = 0;
+  const take = (from, html) =>
+    out.push({ raw: lines.slice(from, i).join("\n"), html });
+  const starts = (line) =>
+    FENCE.test(line) || ATX.test(line) || /^\s*>/.test(line);
+  while (i < lines.length) {
+    const line = lines[i];
+    const from = i;
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+    const fence = FENCE.exec(line);
+    if (fence) {
+      const lang = line.trim().slice(fence[1].length).trim().split(/\s/)[0];
+      const body = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith(fence[1]))
+        body.push(lines[i++]);
+      i++;
+      take(
+        from,
+        "<pre" +
+          (lang ? ' data-lang="' + escape(lang) + '"' : "") +
+          "><code>" +
+          escape(body.join("\n")) +
+          "</code></pre>",
+      );
+      continue;
+    }
+    const atx = ATX.exec(line);
+    if (atx) {
+      i++;
+      take(from, heading(atx[1].length, atx[2]));
+      continue;
+    }
+    if (RULE.test(line)) {
+      i++;
+      take(from, "<hr>");
+      continue;
+    }
+    if (/^\s*>/.test(line)) {
+      const body = [];
+      while (i < lines.length && /^\s*>/.test(lines[i]))
+        body.push(lines[i++].replace(/^\s*>\s?/, ""));
+      take(
+        from,
+        "<blockquote>" +
+          blocks(body.join("\n"))
+            .map((block) => block.html)
+            .join("") +
+          "</blockquote>",
+      );
+      continue;
+    }
+    const next = lines[i + 1] || "";
+    if (line.includes("|") && next.includes("-") && TABLE_RULE.test(next)) {
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim())
+        rows.push(lines[i++]);
+      take(from, tableHtml(line, next, rows));
+      continue;
+    }
+    if (LIST.test(line)) {
+      const indent = LIST.exec(line)[1].length;
+      i++;
+      while (i < lines.length) {
+        const current = lines[i];
+        if (!current.trim()) {
+          // A blank line ends the list, unless an item or its text goes on.
+          const after = lines[i + 1] || "";
+          const item = LIST.exec(after);
+          if ((item && item[1].length >= indent) || /^\s{2,}\S/.test(after))
+            i++;
+          else break;
+          continue;
+        }
+        const item = LIST.exec(current);
+        if (item && item[1].length < indent) break;
+        if (!item && !/^\s/.test(current) && starts(current)) break;
+        i++;
+      }
+      take(from, listHtml(lines.slice(from, i)));
+      continue;
+    }
+    if (/^\s*<[a-zA-Z!/]/.test(line)) {
+      while (i < lines.length && lines[i].trim()) i++;
+      take(from, safeHtml(lines.slice(from, i).join("\n")));
+      continue;
+    }
+    const text = [];
+    let level = 0;
+    while (i < lines.length && lines[i].trim()) {
+      const current = lines[i];
+      // A line of = or - under text makes it a heading.
+      if (text.length && /^\s*(=+|-+)\s*$/.test(current)) {
+        level = current.trim()[0] === "=" ? 1 : 2;
+        i++;
+        break;
+      }
+      if (text.length && (starts(current) || LIST.test(current))) break;
+      text.push(current.trim());
+      i++;
+    }
+    take(
+      from,
+      level
+        ? heading(level, text.join(" "))
+        : "<p>" + inline(text.join(" ")) + "</p>",
+    );
+  }
+  return out;
+}
+
+const blockKey = (raw) => raw.replace(/\s+/g, " ").trim();
+
+/** The blocks of `now` the file as it was already had, in order, as a diff keeps them. */
+function keptBlocks(was, now) {
+  const a = was.map((block) => blockKey(block.raw));
+  const b = now.map((block) => blockKey(block.raw));
+  const longest = Array.from({ length: a.length + 1 }, () =>
+    new Array(b.length + 1).fill(0),
+  );
+  for (let i = a.length - 1; i >= 0; i--)
+    for (let j = b.length - 1; j >= 0; j--)
+      longest[i][j] =
+        a[i] === b[j]
+          ? longest[i + 1][j + 1] + 1
+          : Math.max(longest[i + 1][j], longest[i][j + 1]);
+  const kept = new Set();
+  for (let i = 0, j = 0; i < a.length && j < b.length;)
+    if (a[i] === b[j]) {
+      kept.add(j);
+      i++;
+      j++;
+    } else if (longest[i + 1][j] >= longest[i][j + 1]) i++;
+    else j++;
+  return kept;
+}
+
+const FILE_ICON =
+  '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688Z"/></svg>';
+
+/**
+ * The file's page: Markdown read as on the repository's page, anything else
+ * as text. Given the file as it was, what the change added or rewrote is
+ * marked in the margin.
+ */
+function documentPage(file, text, was) {
+  let body;
+  if (/\.(md|markdown|mdx)$/i.test(file)) {
+    const now = blocks(text);
+    const kept = was === null ? null : keptBlocks(blocks(was), now);
+    body = now
+      .map((block, i) =>
+        kept && !kept.has(i)
+          ? '<div class="new">' + block.html + "</div>"
+          : block.html,
+      )
+      .join("");
+  } else body = "<pre><code>" + escape(text) + "</code></pre>";
+  return (
+    '<!doctype html><html><head><meta charset="utf-8"><title>' +
+    escape(file) +
+    "</title><style>" +
+    "html{background:#f6f8fa}body{margin:0;padding:32px 24px 160px;color:#1f2328;font:16px/1.6 Inter,-apple-system,'Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}" +
+    ".box{max-width:980px;margin:0 auto;background:#fff;border:1px solid #d1d9e0;border-radius:8px}" +
+    ".head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #d1d9e0;font-size:14px;font-weight:600}" +
+    ".head svg{color:#59636e}" +
+    "article{padding:32px 48px 40px}article>:first-child,article>.new:first-child>*{margin-top:0}" +
+    "h1,h2,h3,h4,h5,h6{margin:24px 0 16px;font-weight:600;line-height:1.25}" +
+    "h1,h2{padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h1{font-size:2em}h2{font-size:1.5em}h3{font-size:1.25em}" +
+    "p,ul,ol,blockquote,pre,table{margin:0 0 16px}ul,ol{padding-left:2em}li+li{margin-top:.25em}li.task{list-style:none;margin-left:-1.4em}" +
+    "a{color:#0969da;text-decoration:none}img{max-width:100%}.alt{color:#59636e;font-style:italic}" +
+    "code{padding:.2em .4em;font:85% 'JetBrains Mono',ui-monospace,monospace;background:#818b981f;border-radius:6px}" +
+    "pre{padding:16px;overflow:auto;background:#f6f8fa;border-radius:6px;line-height:1.45}pre code{padding:0;background:none;font-size:85%}" +
+    "blockquote{padding:0 1em;color:#59636e;border-left:.25em solid #d1d9e0}" +
+    "hr{height:.25em;margin:24px 0;border:0;background:#d1d9e0}" +
+    "table{border-collapse:collapse}th,td{padding:6px 13px;border:1px solid #d1d9e0}th{font-weight:600}tr:nth-child(2n) td{background:#f6f8fa}" +
+    ".new{position:relative}.new::before{content:'';position:absolute;left:-26px;top:2px;bottom:2px;width:4px;border-radius:2px;background:#1a7f37}" +
+    '</style></head><body><div class="box"><div class="head">' +
+    FILE_ICON +
+    "<span>" +
+    escape(file) +
+    "</span></div><article>" +
+    body +
+    "</article></div></body></html>"
+  );
+}
+
+/**
+ * The chapter's document, read from the repository; as it was, from
+ * /tmp/before, else from the last commit (the sandbox commits nothing: the
+ * brain does, on delivery).
+ */
+function documentOf(chapter) {
+  const file = fileOf(chapter);
+  const read = (dir) => {
+    try {
+      return fs.readFileSync(path.join(dir, file), "utf8");
+    } catch {
+      return null;
+    }
+  };
+  const committed = () => {
+    const shown = spawnSync("git", ["show", "HEAD:" + file], {
+      cwd: repoDir(),
+      encoding: "utf8",
+    });
+    return shown.status === 0 ? shown.stdout : null;
+  };
+  const was = read(BEFORE) ?? committed();
+  const text = chapter.before === true ? was : read(repoDir());
+  if (text === null)
+    throw new Error(
+      file +
+        (chapter.before === true
+          ? " as it was: neither in " + BEFORE + " nor in the last commit"
+          : " is not in the repository"),
+    );
+  return {
+    file,
+    path: documentPath(chapter),
+    html: documentPage(file, text, chapter.before === true ? null : was),
+  };
+}
+
+/** A browser context's documents, by path: the context answers them itself. */
+async function serveDocuments(context, documents) {
+  await context.route(FILES + "/**", (route) => {
+    const html = documents.get(
+      decodeURIComponent(new URL(route.request().url()).pathname),
+    );
+    return route.fulfill(
+      html
+        ? { contentType: "text/html; charset=utf-8", body: html }
+        : { status: 404, contentType: "text/plain", body: "Not found" },
+    );
+  });
+}
+
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007]*\u0007/g;
 
@@ -692,7 +1114,13 @@ function terminalOutput(chapter) {
 
 async function record(browser, plan, chapter, index, take, state) {
   const tab = chapter.tab;
-  const app = tab === "app" ? plan.apps[chapter.app || "after"] : null;
+  const doc = tab === "document" ? documentOf(chapter) : null;
+  // A document is a page of the browser, as the app's are.
+  const app = doc
+    ? { url: FILES }
+    : tab === "app"
+      ? plan.apps[chapter.app || "after"]
+      : null;
   const phone = chapter.device === "phone";
   const size = phone ? PHONE : DESKTOP;
   // The command runs before the clip: the clip replays it at reading pace.
@@ -707,15 +1135,16 @@ async function record(browser, plan, chapter, index, take, state) {
   if (phone) Object.assign(options, { isMobile: true, hasTouch: true });
   if (app?.storage) options.storageState = app.storage;
   const context = await browser.newContext(options);
-  if (tab === "app") await context.addInitScript(overlay);
+  if (app) await context.addInitScript(overlay);
+  if (doc) await serveDocuments(context, new Map([[doc.path, doc.html]]));
   const page = await context.newPage();
   const born = Date.now();
   const problems = [];
   const marks = [];
   const target = estimateMs(chapter.say);
   let url = null;
-  if (tab === "app") {
-    url = join(app.url, chapter.path);
+  if (app) {
+    url = doc ? FILES + doc.path : join(app.url, chapter.path);
     await page.goto(url, { waitUntil: "load", timeout: 45000 });
     await page
       .waitForLoadState("networkidle", { timeout: 6000 })
@@ -737,7 +1166,7 @@ async function record(browser, plan, chapter, index, take, state) {
   // The address bar follows the page: a link, a filter kept in the
   // address, a reload (the same address, loaded again).
   const urls = [];
-  if (tab === "app") {
+  if (app) {
     url = bare(page.url());
     page.on("framenavigated", (frame) => {
       if (frame === page.mainFrame())
@@ -745,7 +1174,7 @@ async function record(browser, plan, chapter, index, take, state) {
     });
   }
 
-  if (tab === "app") {
+  if (app) {
     const actions = chapter.actions || [];
     const lead = 700;
     await page.waitForTimeout(lead);
@@ -801,10 +1230,10 @@ async function record(browser, plan, chapter, index, take, state) {
   }
 
   await page.waitForTimeout(Math.max(target, clock() + 1000) - clock());
-  const title = tab === "app" ? await page.title().catch(() => "") : null;
+  const title = app ? await page.title().catch(() => "") : null;
   // The poster shows the change: the app after it, else its proof run.
   const before = chapter.app === "before" || chapter.before === true;
-  if (!before && tab === "app" && !state.poster)
+  if (!before && app && !state.poster)
     state.poster = await page.screenshot({ type: "jpeg", quality: 82 });
   if (!before && tab === "terminal" && !state.run)
     state.run = await page.screenshot({ type: "jpeg", quality: 82 });
@@ -1279,6 +1708,8 @@ class Desktop {
     this.pointer = { x: 720, y: 470 };
     this.jobs = [];
     this.known = new Set();
+    // The documents its browser opens, by path (serveDocuments).
+    this.documents = new Map();
     this.typed = false;
     this.cwd = null;
     this.focused = 0;
@@ -1901,7 +2332,7 @@ class Desktop {
       slug(chapter.title) +
       ".mp4";
     const result =
-      chapter.tab === "app"
+      chapter.tab === "app" || chapter.tab === "document"
         ? await this.recordApp(plan, chapter, index, state)
         : await this.recordTerminal(chapter, state);
     const parts = result.take.end();
@@ -1925,13 +2356,14 @@ class Desktop {
   }
 
   async recordApp(plan, chapter, index, state) {
-    const which = chapter.app || "after";
-    const app = plan.apps[which];
+    const doc = chapter.tab === "document" ? documentOf(chapter) : null;
+    if (doc) this.documents.set(doc.path, doc.html);
+    const { which, app } = shownIn(plan, chapter);
     const before = which === "before" || chapter.before === true;
     const target = estimateMs(chapter.say);
     const problems = [];
     const marks = [];
-    const url = join(app.url, chapter.path);
+    const url = doc ? FILES + doc.path : join(app.url, chapter.path);
     // The other app's tab, untouched on this chapter's page: a click on it
     // goes from one to the other on the film. Otherwise a new window.
     const tabs = this.tabs;
@@ -2035,15 +2467,15 @@ class Desktop {
   async openWindow(plan, index, which, url) {
     const other = which === "before" ? "after" : "before";
     let twins = Boolean(
-      plan.apps.before?.url &&
-      plan.apps.after?.url &&
+      plan.apps?.before?.url &&
+      plan.apps?.after?.url &&
       plan.chapters.some(
         (chapter) => chapter.tab === "app" && chapter.app === "before",
       ),
     );
     // One sign-in serves both: a cookie of localhost is every port's.
     const storage =
-      plan.apps[which].storage || (twins && plan.apps[other].storage);
+      plan.apps?.[which]?.storage || (twins && plan.apps[other].storage);
     const context = await this.browser.newContext({
       viewport: null,
       colorScheme: "light",
@@ -2051,6 +2483,7 @@ class Desktop {
       ...(storage ? { storageState: storage } : {}),
     });
     await context.addInitScript(overlay, { real: true });
+    await serveDocuments(context, this.documents);
     const browserWindow = (w) => !/yarrowterm|yarrowdesktop/i.test(w.wmClass);
     const first = await context.newPage();
     const id = await this.opened(browserWindow, 15000);
@@ -2897,9 +3330,8 @@ class Presenter {
         }
         continue;
       }
-      const which = chapter.app || "after";
+      const { which, app } = shownIn(plan, chapter);
       const page = desktop.tabs?.pages[which];
-      const app = plan.apps[which];
       if (!page || !app) {
         problems.push("chapter " + (i + 1) + ": its app is not open");
         continue;
@@ -2942,7 +3374,9 @@ class Presenter {
     }
     // The tab in front last, whatever the others' pages did.
     const front =
-      chapters[index].tab === "app" ? chapters[index].app || "after" : null;
+      chapters[index].tab === "app" || chapters[index].tab === "document"
+        ? shownIn(plan, chapters[index]).which
+        : null;
     if (front) await desktop.tabs?.pages[front]?.bringToFront();
     this.cut = index;
     this.film = index;
@@ -3172,8 +3606,7 @@ class Presenter {
 
   async app(chapter, index, voiceMs, run) {
     const { desktop, plan } = this;
-    const which = chapter.app || "after";
-    const app = plan.apps[which];
+    const { which, app } = shownIn(plan, chapter);
     const tabs = desktop.tabs;
     if (!app || !tabs?.pages[which])
       throw new Error(
@@ -3392,6 +3825,10 @@ async function stage(spec) {
     },
     chapters: script ? script.chapters : [],
   };
+  // Each document as the film showed it.
+  for (const chapter of plan.chapters)
+    if (chapter.document)
+      desktop.documents.set(chapter.path, chapter.document.html);
   const presenter = new Presenter(desktop, plan, spec.signIn ?? null);
   // The app alone, on the recipe's page.
   const plain = () =>
@@ -3435,21 +3872,32 @@ async function stage(spec) {
  * What the stage plays live (workers/stage.ts), as the plan had it: the
  * desktop's chapters only (a ticket, a phone or a given output has none).
  */
-const liveOf = (chapter) =>
-  onDesktop(chapter)
-    ? {
-        app: chapter.app === "before" ? "before" : "after",
-        path: chapter.path ?? null,
-        actions: chapter.actions || [],
-        command: chapter.command ?? null,
-        cwd: chapter.cwd ?? null,
-        before: chapter.before === true,
-      }
-    : null;
+const liveOf = (chapter) => {
+  if (!onDesktop(chapter)) return null;
+  const doc = chapter.tab === "document" ? documentOf(chapter) : null;
+  return {
+    app: !doc && chapter.app === "before" ? "before" : "after",
+    path: doc ? doc.path : (chapter.path ?? null),
+    actions: chapter.actions || [],
+    command: chapter.command ?? null,
+    cwd: chapter.cwd ?? null,
+    before: chapter.before === true,
+    document: doc && { file: doc.file, html: doc.html },
+  };
+};
+
+/** A chapter's tab in the browser and its app: a document opens in the app's tab. */
+function shownIn(plan, chapter) {
+  if (chapter.tab === "document")
+    return { which: "after", app: { ...plan.apps?.after, url: FILES } };
+  const which = chapter.app || "after";
+  return { which, app: plan.apps?.[which] };
+}
 
 /** Chapters the desktop films; a phone or a given output stays a clip. */
 const onDesktop = (chapter) =>
-  (chapter.tab === "app" && chapter.device !== "phone") ||
+  ((chapter.tab === "app" || chapter.tab === "document") &&
+    chapter.device !== "phone") ||
   (chapter.tab === "terminal" && typeof chapter.output !== "string");
 
 async function main() {
