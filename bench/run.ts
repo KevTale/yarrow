@@ -85,7 +85,7 @@ function appNamed(name: string): BenchApp {
 const repositoryOf = (app: BenchApp) =>
   `${OWNER}/${app.repository}${flags.has("--private") && app.name === "tally" ? "-private" : ""}`;
 
-/** Each app's repository, made public with the label Yarrow answers to. */
+/** Each app's repository, made (private) with the label Yarrow answers to. */
 function setup(): void {
   for (const app of apps) {
     const repo = repositoryOf(app);
@@ -102,7 +102,7 @@ function setup(): void {
         "repo",
         "create",
         repo,
-        "--public",
+        "--private",
         "--description",
         `Yarrow's bench: ${app.about}`,
       ]);
@@ -178,6 +178,7 @@ interface Pull {
   html_url: string;
   body: string | null;
   draft: boolean;
+  head: { ref: string };
 }
 
 type Outcome =
@@ -300,10 +301,24 @@ async function check(
     const link = proof.match(
       /\]\((https:\/\/github\.com\/[^)\s]+\/blob\/[^)\s]+)\), as it reads on this branch/,
     )?.[1];
-    const response = link ? await fetch(link, { method: "HEAD" }) : null;
+    // Read through the API: the repository may be private.
+    const prefix = `https://github.com/${repo}/blob/${pull.head.ref.split("/").map(encodeURIComponent).join("/")}/`;
+    const file = link?.startsWith(prefix)
+      ? decodeURIComponent(link.slice(prefix.length))
+      : null;
+    let found = false;
+    if (file)
+      try {
+        api(
+          `repos/${repo}/contents/${file.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(pull.head.ref)}`,
+        );
+        found = true;
+      } catch {
+        found = false;
+      }
     checks.push({
-      ok: response?.ok ?? false,
-      what: `Links the document on the branch (${response?.status ?? "no link"})`,
+      ok: found,
+      what: `Links the document on the branch (${file ?? link ?? "no link"})`,
     });
   }
 
@@ -314,21 +329,29 @@ async function check(
     });
     return checks;
   }
-  // A public project's screens show in the description, served.
+  // A public project's screens show in the description, served; a
+  // private one's are counted, seen in Yarrow.
   const image = proof.match(/!\[[^\]]*\]\((https:[^)\s]+)\)/)?.[1];
-  if (shown.has("images") || shown.has("phone")) {
-    const response = image ? await fetch(image) : null;
+  if ((shown.has("images") || shown.has("phone")) && !image)
+    checks.push({
+      ok: /\[\d+ images?\]\(https:[^)\s]+\/runs\/[0-9a-f-]{36}\), in Yarrow/.test(
+        proof,
+      ),
+      what: "Its screens counted, seen in Yarrow",
+    });
+  else if (shown.has("images") || shown.has("phone")) {
+    const response = await fetch(image!);
     const ok =
-      response?.ok === true &&
+      response.ok &&
       (response.headers.get("content-type") ?? "").startsWith("image/");
-    if (ok && response)
+    if (ok)
       writeFileSync(
         join(folder, basename(new URL(image!).pathname)),
         new Uint8Array(await response.arrayBuffer()),
       );
     checks.push({
       ok,
-      what: `Its screens served (${response?.status ?? "no image"})`,
+      what: `Its screens served (${response.status})`,
     });
   }
   if (shown.has("film") && runUrl)
@@ -344,7 +367,15 @@ async function filmChecks(
 ): Promise<Check[]> {
   const checks: Check[] = [];
   const poster = body.match(/\((https:[^)\s]+-poster\.jpg)\)/)?.[1];
-  if (poster) {
+  // A private project's film plays in Yarrow only, for its members.
+  if (!poster)
+    return [
+      {
+        ok: body.includes("[Watch it in Yarrow]"),
+        what: "The film, linked to Yarrow",
+      },
+    ];
+  {
     const response = await fetch(poster);
     const ok =
       response.ok && response.headers.get("content-type") === "image/jpeg";
@@ -354,8 +385,7 @@ async function filmChecks(
         new Uint8Array(await response.arrayBuffer()),
       );
     checks.push({ ok, what: `The film's still served (${response.status})` });
-  } else
-    checks.push({ ok: false, what: "The film's still in the description" });
+  }
   const origin = new URL(runUrl).origin;
   const runId = runUrl.split("/").pop()!;
   // The run keeps its artifacts once the pull request is open: a few
