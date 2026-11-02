@@ -267,6 +267,10 @@ describe("an output read without a terminal", () => {
       { kind: "same", text: '"a": 1,' },
       { kind: "added", text: '"b": 2' },
     ]);
+    // Every line changed: each as it was right above it as it is.
+    expect(outputDiff("x 1\ny 1", "x 2\ny 2").map((line) => line.text)).toEqual(
+      ["x 1", "x 2", "y 1", "y 2"],
+    );
   });
 
   it("folds the unchanged lines away from a change", () => {

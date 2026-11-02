@@ -228,7 +228,30 @@ export function outputDiff(before: string, after: string): OutputLine[] {
       j++;
     }
   }
-  return lines;
+  return paired(lines);
+}
+
+/**
+ * Lines that changed in a block, each one as it was right above the same
+ * one as it is: read pair by pair rather than block after block.
+ */
+function paired(lines: OutputLine[]): OutputLine[] {
+  const out: OutputLine[] = [];
+  for (let index = 0; index < lines.length;) {
+    if (lines[index]!.kind !== "removed") {
+      out.push(lines[index++]!);
+      continue;
+    }
+    const removed: OutputLine[] = [];
+    while (lines[index]?.kind === "removed") removed.push(lines[index++]!);
+    const added: OutputLine[] = [];
+    while (lines[index]?.kind === "added") added.push(lines[index++]!);
+    for (let k = 0; k < Math.max(removed.length, added.length); k++) {
+      if (removed[k]) out.push(removed[k]!);
+      if (added[k]) out.push(added[k]!);
+    }
+  }
+  return out;
 }
 
 /** A line shown, or a run of unchanged ones folded away. */
