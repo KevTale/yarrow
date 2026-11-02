@@ -128,6 +128,18 @@ export const appRecipeSchema = z.object({
   url: z.string().trim().min(1).max(500),
   /** How a signed-in session is obtained, when the app needs one. */
   signIn: z.string().trim().max(2000).nullable().default(null),
+  /**
+   * The app as it was, beside it: from /tmp/before, a worktree of the base
+   * branch, with the app above running, to it answering on its own port.
+   */
+  before: z
+    .object({
+      steps: z.array(z.string().trim().min(1).max(2000)).min(1).max(15),
+      url: z.string().trim().min(1).max(500),
+    })
+    .nullable()
+    .default(null)
+    .catch(null),
   /** What tripped the agent, so the next run does not trip on it. */
   notes: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
 });

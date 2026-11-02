@@ -106,6 +106,7 @@ describe("the pull request's summary", () => {
       steps: ["pnpm install", "pnpm dev &"],
       url: "http://localhost:5173",
       signIn: null,
+      before: null,
       notes: [],
     });
     const broken = implementationResultSchema.parse({

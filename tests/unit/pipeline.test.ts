@@ -46,6 +46,13 @@ function fakeProviders() {
         steps: ["pnpm install", "pnpm build", "pnpm start &"],
         url: "http://localhost:3000/exports",
         sign_in: "POST /api/dev/session as demo@halyard.dev",
+        before: {
+          steps: [
+            "ln -s /workspace/repo/node_modules .",
+            "PORT=3001 pnpm start &",
+          ],
+          url: "http://localhost:3001",
+        },
         notes: ["Prisma needs binaries.prisma.sh"],
       },
     }),
@@ -69,6 +76,7 @@ function fakeProviders() {
         url: "https://github.com/marie/halyard/issues/5",
       },
       poster: "presentation/k1-poster.jpg",
+      apps: { before: null, after: "http://localhost:3000" },
       chapters: [
         {
           title: "The ask",
@@ -100,6 +108,14 @@ function fakeProviders() {
               box: { x: 900, y: 100, width: 100, height: 36 },
             },
           ],
+          live: {
+            app: "after",
+            path: "/exports",
+            actions: [{ do: "click", target: "role=button[name='Export']" }],
+            command: null,
+            cwd: null,
+            before: false,
+          },
         },
       ],
     }),
@@ -482,6 +498,13 @@ describe("run pipeline", async () => {
       steps: ["pnpm install", "pnpm build", "pnpm start &"],
       url: "http://localhost:3000/exports",
       signIn: "POST /api/dev/session as demo@halyard.dev",
+      before: {
+        steps: [
+          "ln -s /workspace/repo/node_modules .",
+          "PORT=3001 pnpm start &",
+        ],
+        url: "http://localhost:3001",
+      },
       notes: ["Prisma needs binaries.prisma.sh"],
     });
     expect((await runner.prepare(runId)).recipe?.mode).toBe("build");
@@ -541,17 +564,21 @@ describe("run pipeline", async () => {
     expect(timeline).toMatchObject({
       version: 1,
       voice: { provider: "test", voice: "chris", model: null },
+      apps: { before: null, after: "http://localhost:3000" },
       chapters: [
         {
           title: "The ask",
           tab: "ticket",
           video: { startMs: 90, durationMs: 3400 },
           audio: { durationMs: 2600 },
+          live: null,
         },
         {
           title: "Export",
           page: "Halyard",
           marks: [{ atMs: 1200, kind: "click" }],
+          // As planned, for the stage to play it live.
+          live: { app: "after", path: "/exports", actions: [{ do: "click" }] },
         },
       ],
     });

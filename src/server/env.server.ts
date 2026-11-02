@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { ActionResult, PullRequestAction } from "./github/pull-actions";
 import type { NewIssueResult } from "./github/new-issue";
-import type { StageStatus } from "../core/stage";
+import type { StageCue, StageCueResult, StageStatus } from "../core/stage";
 
 /**
  * The shop Worker's configuration. Public values come from wrangler.jsonc
@@ -83,6 +83,11 @@ export interface AppEnv {
       action: "open" | "status" | "close";
       fresh?: boolean;
     }): Promise<StageStatus>;
+    /** The presentation, played live on the stage a cue at a time. */
+    stageCue(input: {
+      workUnitId: string;
+      cue: StageCue;
+    }): Promise<StageCueResult>;
     /** The stage's screen: a WebSocket to /stage/<workUnitId>. */
     fetch(request: Request): Promise<Response>;
   };

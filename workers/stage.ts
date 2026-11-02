@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 import {
   stageLog,
   stageScript,
+  type StageCue,
+  type StageCueResult,
   type StageEvent,
   type StageSpec,
   type StageStatus,
@@ -24,6 +26,8 @@ export interface StageEnv {
 }
 
 const REPO = "/workspace/repo";
+/** The app as it was: a worktree of the base branch. */
+const BEFORE = "/tmp/before";
 const TASK = "/var/yarrow";
 const BOOT_LOG = `${TASK}/stage-marks.log`;
 const BOOT_OUTPUT = `${TASK}/stage-boot.log`;
@@ -33,6 +37,8 @@ const READY = `${TASK}/stage-ready.json`;
 const CA = "/etc/cloudflare/certs/cloudflare-containers-ca.crt";
 /** The screen, as a WebSocket (websockify in front of x11vnc). */
 const SCREEN = 6080;
+/** The recorder's presenter, which plays the presentation live. */
+const PRESENTER = 7070;
 /** Nobody watching for this long: the stage sleeps (its snapshot stays). */
 const IDLE_MS = 15 * 60_000;
 /** While booting, the machine is looked at this often. */
@@ -61,6 +67,8 @@ interface Saved {
   warm: boolean;
   events: StageEvent[];
   error: string | null;
+  /** Brought up only to keep its snapshot, then put to sleep. */
+  prepare?: boolean;
 }
 
 type OutboundExports = {
@@ -93,8 +101,11 @@ export class Stage extends DurableObject<StageEnv> {
    */
   async open(spec: StageSpec, fresh = false): Promise<StageStatus> {
     const saved = this.#kv.get<Saved>("saved");
-    if (!fresh && this.#container.running && saved && saved.step !== "failed")
+    if (!fresh && this.#container.running && saved && saved.step !== "failed") {
+      // Being prepared: someone is watching now, it stays up.
+      if (saved.prepare) this.#save({ ...saved, prepare: false });
       return this.status();
+    }
     await this.ctx.storage.deleteAlarm();
     if (this.#container.running) await this.#container.destroy();
     if (fresh) this.#kv.delete("snapshot");
@@ -103,7 +114,19 @@ export class Stage extends DurableObject<StageEnv> {
     return this.status();
   }
 
-  async #start(asked: number): Promise<void> {
+  /**
+   * A new version of the pull request: a fresh boot in the background,
+   * kept as the snapshot the next viewer starts from, then asleep.
+   */
+  async prepare(spec: StageSpec): Promise<void> {
+    await this.ctx.storage.deleteAlarm();
+    if (this.#container.running) await this.#container.destroy();
+    this.#kv.delete("snapshot");
+    this.#kv.put("spec", spec);
+    await this.#start(Date.now(), true);
+  }
+
+  async #start(asked: number, prepare = false): Promise<void> {
     const snapshot = this.#kv.get<ContainerSnapshot>("snapshot");
     this.#save({
       asked,
@@ -111,6 +134,7 @@ export class Stage extends DurableObject<StageEnv> {
       warm: Boolean(snapshot),
       events: [],
       error: null,
+      prepare,
     });
     this.#mark(snapshot ? "start from the snapshot" : "start from the image");
     const common = {
@@ -150,7 +174,7 @@ export class Stage extends DurableObject<StageEnv> {
       // A snapshot of an older image does not start: a fresh boot instead.
       this.#kv.delete("snapshot");
       if (this.#container.running) await this.#container.destroy();
-      await this.#start(saved.asked);
+      await this.#start(saved.asked, saved.prepare);
       return;
     }
     this.#save({ ...saved, step: "boot" });
@@ -164,6 +188,14 @@ export class Stage extends DurableObject<StageEnv> {
       clone: saved.warm
         ? undefined
         : { repository: spec.repository, branch: spec.branch },
+      before: spec.before
+        ? {
+            dir: BEFORE,
+            base: spec.base,
+            steps: saved.warm ? spec.before.restart : spec.before.steps,
+            url: spec.before.url,
+          }
+        : undefined,
     });
     await this.#files.writeFile(`${TASK}/stage-boot.sh`, script);
     await this.#background(`bash ${TASK}/stage-boot.sh`);
@@ -173,7 +205,9 @@ export class Stage extends DurableObject<StageEnv> {
   async status(): Promise<StageStatus> {
     void this.#advance().catch(() => {});
     const saved = this.#kv.get<Saved>("saved");
-    if (!saved) return { phase: "off", warm: false, events: [], error: null };
+    const live = Boolean(this.#kv.get<StageSpec>("spec")?.script);
+    if (!saved)
+      return { phase: "off", warm: false, events: [], error: null, live };
     const phase =
       saved.step === "failed"
         ? "failed"
@@ -192,7 +226,29 @@ export class Stage extends DurableObject<StageEnv> {
         phase === "failed" && !saved.error
           ? "The stage's machine stopped."
           : saved.error,
+      live,
     };
+  }
+
+  /** The page's cue to the presenter; answered once it is played. */
+  async present(cue: StageCue): Promise<StageCueResult> {
+    if (
+      !this.#container.running ||
+      this.#kv.get<Saved>("saved")?.step !== "ready"
+    )
+      return { ok: false, problems: ["The stage is not up."] };
+    const response = await this.#container.getTcpPort(PRESENTER).fetch(
+      new Request(`http://stage/${cue.action}`, {
+        method: "POST",
+        body: JSON.stringify(cue),
+      }),
+    );
+    if (!response.ok)
+      return {
+        ok: false,
+        problems: [`The presenter answered ${response.status}.`],
+      };
+    return response.json<StageCueResult>();
   }
 
   async close(): Promise<void> {
@@ -269,8 +325,15 @@ export class Stage extends DurableObject<StageEnv> {
         });
         return;
       }
-      if (!marks.some((mark) => mark.label === "app up")) {
+      if (!marks.some((mark) => mark.label === "served")) {
         this.#save(saved);
+        return;
+      }
+      if (saved.prepare) {
+        this.#save(saved);
+        await this.#keep();
+        this.#save({ ...this.#kv.get<Saved>("saved")!, step: "ready" });
+        await this.#container.destroy();
         return;
       }
       const spec = this.#kv.get<StageSpec>("spec")!;
@@ -287,6 +350,7 @@ export class Stage extends DurableObject<StageEnv> {
           url: spec.url,
           path: spec.path,
           signIn: spec.signIn,
+          script: spec.script,
           ready: READY,
         }),
       );

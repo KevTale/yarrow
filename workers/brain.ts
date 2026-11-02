@@ -99,7 +99,11 @@ import type { Stage } from "./stage";
 import {
   restartSteps,
   stageAddress,
+  stagePlan,
   stageSignIn,
+  type StageCue,
+  type StageCueResult,
+  type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
 import { stageContext } from "../src/db/stage";
@@ -591,6 +595,18 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
         }),
       );
       await release(implementerId);
+      // The stage of this version, booted once in the background, so the
+      // first viewer starts from its snapshot. Never holds the run back.
+      if (env.STAGE)
+        await step.do("stage", async () => {
+          try {
+            const spec = await stageSpec(env, request.workUnitId);
+            if (typeof spec === "string") console.warn("stage:", spec);
+            else await env.STAGE!.getByName(request.workUnitId).prepare(spec);
+          } catch (error) {
+            console.warn("stage:", describe(error));
+          }
+        });
       return { outcome: "pull_request", url: delivered.url };
     } catch (error) {
       const raw = (error as Error).message ?? "Run failed";
@@ -1139,6 +1155,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       warm: false,
       events: [],
       error,
+      live: false,
     });
     if (!this.env.STAGE) return off("No stage on this environment.");
     const stage = this.env.STAGE.getByName(input.workUnitId);
@@ -1147,36 +1164,19 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       await stage.close();
       return stage.status();
     }
-    const credentials = this.credentials();
-    if (!credentials) return off("GitHub is not configured.");
-    const context = await withDb(this.env, (db) =>
-      stageContext(db, input.workUnitId),
-    );
-    if (!context) return off("This ticket has no pull request.");
-    if (!context.recipe) return off("Yarrow has not run this project's app yet.");
-    if (!context.githubInstallationId || !context.githubRepositoryId)
-      return off("The GitHub App is not installed on this repository.");
-    const { token } = await installationToken(
-      credentials,
-      context.githubInstallationId,
-      {
-        repositoryIds: [Number(context.githubRepositoryId)],
-        permissions: { contents: "read" },
-      },
-    );
-    return stage.open(
-      {
-        repository: context.repository,
-        branch: context.branch,
-        token,
-        steps: context.recipe.steps,
-        restart: restartSteps(context.recipe.steps),
-        ...stageAddress(context.recipe.url),
-        signIn: stageSignIn(context.recipe.signIn),
-        recorder: RECORDER_SOURCE,
-      },
-      input.fresh,
-    );
+    const spec = await stageSpec(this.env, input.workUnitId);
+    if (typeof spec === "string") return off(spec);
+    return stage.open(spec, input.fresh);
+  }
+
+  /** The page's cue to the stage's presenter: the opening, or a chapter. */
+  async stageCue(input: {
+    workUnitId: string;
+    cue: StageCue;
+  }): Promise<StageCueResult> {
+    if (!this.env.STAGE)
+      return { ok: false, problems: ["No stage on this environment."] };
+    return this.env.STAGE.getByName(input.workUnitId).present(input.cue);
   }
 
   /** The stage's screen: the page's WebSocket, forwarded by the web Worker. */
@@ -1188,6 +1188,53 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       return new Response("Not found\n", { status: 404 });
     return this.env.STAGE.getByName(match[1]!).fetch(request);
   }
+}
+
+/**
+ * What a pull request's stage boots from: its branch, the recipe (and the
+ * app as it was), its presentation to play live. A sentence when it has none.
+ */
+async function stageSpec(
+  env: BrainEnv,
+  workUnitId: string,
+): Promise<StageSpec | string> {
+  const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
+  if (!appId || !privateKey) return "GitHub is not configured.";
+  const context = await withDb(env, (db) => stageContext(db, workUnitId));
+  if (!context) return "This ticket has no pull request.";
+  const { recipe } = context;
+  if (!recipe) return "Yarrow has not run this project's app yet.";
+  if (!context.githubInstallationId || !context.githubRepositoryId)
+    return "The GitHub App is not installed on this repository.";
+  const [{ token }, timeline] = await Promise.all([
+    installationToken({ appId, privateKey }, context.githubInstallationId, {
+      repositoryIds: [Number(context.githubRepositoryId)],
+      permissions: { contents: "read" },
+    }),
+    context.presentation && env.EVIDENCE
+      ? env.EVIDENCE.get(context.presentation)
+          .then(async (object) =>
+            object ? presentationSchema.safeParse(await object.json()) : null,
+          )
+          .then((parsed) => (parsed?.success ? parsed.data : null))
+          .catch(() => null)
+      : null,
+  ]);
+  return {
+    repository: context.repository,
+    branch: context.branch,
+    token,
+    steps: recipe.steps,
+    restart: restartSteps(recipe.steps),
+    ...stageAddress(recipe.url),
+    signIn: stageSignIn(recipe.signIn),
+    base: context.base,
+    before: recipe.before
+      ? { ...recipe.before, restart: restartSteps(recipe.before.steps) }
+      : null,
+    script: stagePlan(timeline, Boolean(recipe.before)),
+    recorder: RECORDER_SOURCE,
+  };
 }
 
 /**

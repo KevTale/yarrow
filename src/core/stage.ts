@@ -6,6 +6,8 @@
  * services and the app back. No I/O here.
  */
 
+import type { LiveChapter, Presentation } from "./presentation";
+
 /** How the seeded user signs in, for the stage's browser. */
 export interface StageSignIn {
   path: string;
@@ -29,8 +31,44 @@ export interface StageSpec {
   url: string;
   path: string;
   signIn: StageSignIn | null;
+  /** The branch the pull request goes into: the app as it was comes from it. */
+  base: string;
+  /** The app as it was, beside it, when the recipe tells how. */
+  before: { steps: string[]; restart: string[]; url: string } | null;
+  /** The presentation, played live when asked (null: it cannot be). */
+  script: StagePlan | null;
   /** The recorder (present.mjs), which brings the desktop up. */
   recorder: string;
+}
+
+/** The presentation as the stage plays it: the plan's apps and chapters. */
+export interface StagePlan {
+  apps: { after: string; before: string | null };
+  chapters: (LiveChapter & { title: string; tab: "app" | "terminal" })[];
+}
+
+/**
+ * The presentation, if the stage can play all of it live: every chapter
+ * on the desktop (no ticket, phone or given output), the app as it was
+ * running when a chapter shows it.
+ */
+export function stagePlan(
+  timeline: Presentation | null,
+  before: boolean,
+): StagePlan | null {
+  const after = timeline?.apps?.after;
+  if (!timeline || !after) return null;
+  const chapters: StagePlan["chapters"] = [];
+  for (const chapter of timeline.chapters) {
+    const { live, tab, title } = chapter;
+    if (!live || tab === "ticket") return null;
+    if (tab === "app" && live.app === "before" && !before) return null;
+    chapters.push({ ...live, title, tab });
+  }
+  return {
+    apps: { after, before: before ? (timeline.apps?.before ?? null) : null },
+    chapters,
+  };
 }
 
 export type StagePhase = "off" | "booting" | "ready" | "failed";
@@ -47,6 +85,17 @@ export interface StageStatus {
   warm: boolean;
   events: StageEvent[];
   error: string | null;
+  /** Its presentation can be played on it. */
+  live: boolean;
+}
+
+/** What the page asks the presenter: the opening, or a chapter over its voice. */
+export type StageCue =
+  { action: "set" } | { action: "chapter"; index: number; voiceMs: number };
+
+export interface StageCueResult {
+  ok: boolean;
+  problems: string[];
 }
 
 /** A recipe step that leaves something running: a database, a server. */
@@ -116,6 +165,11 @@ export function stageScript(input: {
   url: string;
   /** Cloned into `dir` first: a fresh boot. */
   clone?: { repository: string; branch: string };
+  /**
+   * Then the app as it was, from `dir`, a worktree of where the branch
+   * left `base` (made once): it failing leaves the app up.
+   */
+  before?: { dir: string; base: string; steps: string[]; url: string };
 }): string {
   const lines = [
     `mark() { printf '%s %s\\n' "$(date +%s%3N)" "$1" >> ${quote(input.log)}; }`,
@@ -137,11 +191,32 @@ export function stageScript(input: {
     );
   });
   lines.push(
+    `answers() { for i in $(seq 1 240); do curl -s -o /dev/null --max-time 2 "$1" && return 0; sleep 0.5; done; return 1; }`,
     `mark "waiting for the app"`,
-    `for i in $(seq 1 240); do curl -s -o /dev/null --max-time 2 ${quote(input.url)} && { mark "app up"; exit 0; }; sleep 0.5; done`,
-    `mark "failed: the app never answered"`,
-    "exit 1",
+    `answers ${quote(input.url)} || { mark "failed: the app never answered"; exit 1; }`,
+    `mark "app up"`,
   );
+  const before = input.before;
+  if (before) {
+    const repo = quote(input.dir);
+    const dir = quote(before.dir);
+    const base = quote(`origin/${before.base}`);
+    lines.push(
+      `mark "before"`,
+      "(",
+      `  [ -d ${dir} ] || git -C ${repo} worktree add --detach ${dir} "$(git -C ${repo} merge-base HEAD ${base} || echo ${base})" || { mark "before failed: worktree"; exit 1; }`,
+      `  cd ${dir}`,
+      ...before.steps.flatMap((step, i) => [
+        `  mark "before step ${i + 1}"`,
+        `  ${step}`,
+        `  code=$?; [ $code -eq 0 ] || { mark "before failed: step ${i + 1} ($code)"; exit 1; }`,
+      ]),
+      `  answers ${quote(before.url)} || { mark "before failed: it never answered"; exit 1; }`,
+      `  mark "before up"`,
+      ")",
+    );
+  }
+  lines.push(`mark "served"`, "exit 0");
   return `${lines.join("\n")}\n`;
 }
 

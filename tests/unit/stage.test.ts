@@ -1,16 +1,26 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import type {
+  Presentation,
+  PresentationChapter,
+} from "../../src/core/presentation";
 import {
   restartSteps,
   stageAddress,
   stageLog,
+  stagePlan,
   stageScript,
   stageSignIn,
   STALE_LOCKS,
 } from "../../src/core/stage";
+
+const bash = promisify(execFile);
 
 // The bench app's recipe, as its implementer wrote it on dev (2026-10-27).
 const BENCH = [
@@ -106,6 +116,72 @@ describe("the stage", () => {
     );
   });
 
+  it("brings the app as it was up beside it, from where the branch left main", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "stage-"));
+    const repo = path.join(dir, "repo");
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" }).trim();
+    execFileSync("git", ["init", "-q", "-b", "main", repo]);
+    git("config", "user.email", "t@t.dev");
+    git("config", "user.name", "t");
+    writeFileSync(path.join(repo, "app.txt"), "as it was\n");
+    git("add", ".");
+    git("commit", "-qm", "main");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("checkout", "-qb", "yarrow/change");
+    writeFileSync(path.join(repo, "app.txt"), "as it is\n");
+    git("commit", "-qam", "change");
+    const server = createServer((_, response) => response.end("ok"));
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+    const boot = async (steps: string[]) => {
+      const log = path.join(dir, `marks-${steps.length}.log`);
+      writeFileSync(
+        path.join(dir, "boot.sh"),
+        stageScript({
+          log,
+          output: path.join(dir, "out.log"),
+          dir: repo,
+          steps: ["true"],
+          url,
+          before: { dir: path.join(dir, "before"), base: "main", steps, url },
+        }),
+      );
+      await bash("bash", [path.join(dir, "boot.sh")]);
+      return stageLog(readFileSync(log, "utf8")).map((mark) => mark.label);
+    };
+    try {
+      expect(await boot(["cp app.txt ../seen"])).toEqual([
+        "step 1",
+        "waiting for the app",
+        "app up",
+        "before",
+        "before step 1",
+        "before up",
+        "served",
+      ]);
+      expect(readFileSync(path.join(dir, "seen"), "utf8").trim()).toBe(
+        "as it was",
+      );
+      // It failing leaves the app up: the stage is served all the same.
+      expect(await boot(["true", "false"])).toEqual([
+        "step 1",
+        "waiting for the app",
+        "app up",
+        "before",
+        "before step 1",
+        "before step 2",
+        "before failed: step 2 (1)",
+        "served",
+      ]);
+    } finally {
+      server.close();
+    }
+    // git and bash take their time on a busy machine.
+  }, 30_000);
+
   it("reads the log's marks and skips the rest", () => {
     expect(
       stageLog("1730000000000 step 1\nnoise\n1730000000500 app up\n"),
@@ -113,5 +189,82 @@ describe("the stage", () => {
       { at: 1730000000000, label: "step 1" },
       { at: 1730000000500, label: "app up" },
     ]);
+  });
+});
+
+describe("the presentation on the stage", () => {
+  const chapter = (
+    title: string,
+    tab: PresentationChapter["tab"],
+    live: PresentationChapter["live"],
+  ): PresentationChapter => ({
+    title,
+    tab,
+    url: null,
+    page: null,
+    before: false,
+    beforeMs: 0,
+    desktop: true,
+    say: "So I click Doing.",
+    video: null,
+    audio: null,
+    cues: [],
+    marks: [],
+    urls: [],
+    live,
+  });
+  const app = (which: "before" | "after", path: string) => ({
+    app: which,
+    path,
+    actions: [{ do: "click" as const, target: "text=Doing" }],
+    command: null,
+    cwd: null,
+    before: which === "before",
+  });
+  const timeline = (chapters: PresentationChapter[]): Presentation => ({
+    version: 1,
+    title: "Filters",
+    language: "en",
+    voice: null,
+    ticket: { source: "github", title: "Filters", url: "" },
+    poster: null,
+    apps: { before: "http://localhost:3001", after: "http://localhost:3000" },
+    chapters,
+  });
+  const film = timeline([
+    chapter("Before", "app", app("before", "/")),
+    chapter("Filters", "app", app("after", "/")),
+    chapter("Tests", "terminal", {
+      ...app("after", "/"),
+      actions: [],
+      command: "npm test",
+    }),
+  ]);
+
+  it("plays every chapter as planned, the app as it was beside it", () => {
+    expect(stagePlan(film, true)).toMatchObject({
+      apps: { before: "http://localhost:3001", after: "http://localhost:3000" },
+      chapters: [
+        { title: "Before", tab: "app", app: "before", path: "/" },
+        { title: "Filters", tab: "app", app: "after" },
+        { title: "Tests", tab: "terminal", command: "npm test" },
+      ],
+    });
+  });
+
+  it("plays none of it when a chapter cannot be played live", () => {
+    // The app as it was does not run on the stage.
+    expect(stagePlan(film, false)).toBeNull();
+    // A ticket, or a presentation recorded before the plan was kept.
+    expect(
+      stagePlan(timeline([chapter("The ask", "ticket", null)]), true),
+    ).toBeNull();
+    expect(stagePlan({ ...film, apps: null }, true)).toBeNull();
+    expect(stagePlan(null, true)).toBeNull();
+    // Without the app as it was, a film that never shows it still plays.
+    expect(
+      stagePlan(timeline([chapter("Filters", "app", app("after", "/"))]), false)
+        ?.apps.before,
+    ).toBeNull();
   });
 });

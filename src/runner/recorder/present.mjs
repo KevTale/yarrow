@@ -1942,21 +1942,15 @@ class Desktop {
     const shownFrom = switching ? await this.switchTab(which, clock, marks) : 0;
     this.tabs.active = which;
     this.tabs.fresh[which] = false;
-    const actions = chapter.actions || [];
-    const lead = Math.max(700, clock());
-    if (clock() < lead) await sleep(lead - clock());
-    for (const [i, action] of actions.entries()) {
-      // Spread over what is said, so the gestures land on the words.
-      const due =
-        lead + (target - lead) * 0.85 * (i / Math.max(actions.length, 1));
-      const wait = due - clock();
-      if (wait > 0) await sleep(Math.min(wait, 3000));
-      try {
-        await this.act(page, app.url, action, marks, clock);
-      } catch (error) {
-        fail(action, error);
-      }
-    }
+    await this.actOver(
+      page,
+      app.url,
+      chapter.actions,
+      target,
+      clock,
+      marks,
+      fail,
+    );
     await sleep(Math.max(target, clock() + 1000) - clock());
     const title = await page.title().catch(() => "");
     film.pause();
@@ -1976,6 +1970,23 @@ class Desktop {
         marks,
       },
     };
+  }
+
+  /** The chapter's actions, spread over what is said, so the gestures land on the words. */
+  async actOver(page, base, actions = [], target, clock, marks, fail) {
+    const lead = Math.max(700, clock());
+    if (clock() < lead) await sleep(lead - clock());
+    for (const [i, action] of actions.entries()) {
+      const due =
+        lead + (target - lead) * 0.85 * (i / Math.max(actions.length, 1));
+      const wait = due - clock();
+      if (wait > 0) await sleep(Math.min(wait, 3000));
+      try {
+        await this.act(page, base, action, marks, clock);
+      } catch (error) {
+        fail(action, error);
+      }
+    }
   }
 
   /**
@@ -2247,8 +2258,8 @@ class Desktop {
     await this.settle(page);
   }
 
-  async recordTerminal(chapter, state) {
-    const target = estimateMs(chapter.say);
+  /** Live on the stage, `state` is null (no stills) and the voice gives `target`. */
+  async recordTerminal(chapter, state, target = estimateMs(chapter.say)) {
     const before = chapter.before === true;
     const marks = [];
     const problems = [];
@@ -2303,6 +2314,7 @@ class Desktop {
       await sleep(600);
     }
     film.resume();
+    if (!state) return { take: film, problems, chapter: null };
     await sleep(Math.max(target - clock(), 1800));
     film.pause();
     if (!before && !state.run) state.run = this.still();
@@ -2427,12 +2439,184 @@ async function signIn(browser, base, how, file) {
   }
 }
 
+/** Same address: the page a tab shows and the one a chapter asks for. */
+function samePage(a, b) {
+  try {
+    const [x, y] = [new URL(a), new URL(b)];
+    const route = (u) => u.host + u.pathname.replace(/\/$/, "") + u.search;
+    return route(x) === route(y);
+  } catch {
+    return false;
+  }
+}
+
+/** Answers at all: up, whatever it says. */
+async function answers(url) {
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(3000), redirect: "manual" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The presentation played live on the stage, a chapter at a time, as the
+ * page asks: the voice plays there, the gestures here, spread over it.
+ */
+class Presenter {
+  constructor(desktop, plan) {
+    this.desktop = desktop;
+    this.plan = plan;
+  }
+
+  /**
+   * The opening: a new window as a first visit sees it, on the first app
+   * chapter's page (and the other app's tab beside it), the hand at rest.
+   */
+  async set() {
+    const { desktop, plan } = this;
+    const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
+    const which = first < 0 ? "after" : plan.chapters[first].app || "after";
+    if (
+      plan.chapters.some((chapter) => chapter.app === "before") &&
+      !(plan.apps.before && (await answers(plan.apps.before.url)))
+    )
+      throw new Error("the app as it was does not answer");
+    await desktop.openWindow(
+      plan,
+      Math.max(first, 0),
+      which,
+      join(plan.apps[which].url, plan.chapters[first]?.path),
+    );
+    desktop.tabs.seen = Object.fromEntries(
+      Object.entries(desktop.tabs.pages).map(([name, page]) => [
+        name,
+        page.url(),
+      ]),
+    );
+    await desktop.glide(SCREEN.width * 0.6, SCREEN.height * 0.55, 500);
+    return [];
+  }
+
+  /** Chapter `index`, over `voiceMs` of voice: what failed, if anything. */
+  async chapter(index, voiceMs) {
+    const chapter = this.plan.chapters[index];
+    if (!chapter) throw new Error("no chapter " + (index + 1));
+    log("live chapter " + (index + 1) + ": " + chapter.title);
+    if (chapter.tab === "terminal")
+      return (await this.desktop.recordTerminal(chapter, null, voiceMs))
+        .problems;
+    return this.app(chapter, index, voiceMs);
+  }
+
+  async app(chapter, index, voiceMs) {
+    const { desktop, plan } = this;
+    const which = chapter.app || "after";
+    const app = plan.apps[which];
+    const tabs = desktop.tabs;
+    if (!app || !tabs?.pages[which])
+      throw new Error(
+        "the app " + (which === "before" ? "as it was " : "") + "is not open",
+      );
+    const url = join(app.url, chapter.path);
+    const problems = [];
+    const marks = [];
+    const started = Date.now();
+    const clock = () => Date.now() - started;
+    const fail = (action, error) =>
+      problems.push(
+        "chapter " +
+          (index + 1) +
+          ": " +
+          action.do +
+          " " +
+          (action.target || action.path || "") +
+          ": " +
+          String(error?.message).split("\n")[0],
+      );
+    await desktop.show("browser", clock, marks);
+    if (tabs.active !== which) {
+      await desktop.switchTab(which, clock, marks);
+      tabs.active = which;
+    }
+    const page = tabs.pages[which];
+    // Where the last chapter left it (a redirect included), or there already.
+    const there =
+      (tabs.urls[which] === url && tabs.seen?.[which] === page.url()) ||
+      samePage(page.url(), url);
+    if (!there) {
+      await desktop.address(page, url, marks, clock);
+      tabs.urls[which] = url;
+      tabs.seen = { ...tabs.seen, [which]: page.url() };
+    }
+    await desktop.actOver(
+      page,
+      app.url,
+      chapter.actions,
+      voiceMs,
+      clock,
+      marks,
+      fail,
+    );
+    return problems;
+  }
+}
+
+/** Where the page's requests reach the presenter, through the brain's Stage. */
+const PRESENTER_PORT = 7070;
+
+/** One request at a time, in order: a chapter never starts over another. */
+function serve(presenter) {
+  let queue = Promise.resolve();
+  const answer = async (url, asked) => {
+    try {
+      if (url === "/set") return { ok: true, problems: await presenter.set() };
+      if (url === "/chapter")
+        return {
+          ok: true,
+          problems: await presenter.chapter(
+            Number(asked.index),
+            Number(asked.voiceMs) || 4000,
+          ),
+        };
+      return { ok: false, problems: ["no such request: " + url] };
+    } catch (error) {
+      return { ok: false, problems: [String(error?.message).split("\n")[0]] };
+    }
+  };
+  const server = http.createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      queue = queue.then(async () => {
+        let asked = {};
+        try {
+          asked = body ? JSON.parse(body) : {};
+        } catch {
+          // An empty request.
+        }
+        const result = await answer(request.url, asked);
+        for (const problem of result.problems)
+          console.error("problem: " + problem);
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify(result));
+      });
+    });
+  });
+  // Every interface, as websockify: the brain's Stage reaches the machine from outside.
+  server.listen(PRESENTER_PORT);
+  return server;
+}
+
 /**
  * `--stage`: the same desktop as the films, the app in its browser and
  * signed in, its screen served over VNC (the pointer drawn into it) and as
- * a WebSocket (websockify) until the container stops. Nothing is filmed. The stage file gives the app
- * ({ url, path, signIn: { path, fields, submit } | null }) and `ready`,
- * written once the screen can be watched.
+ * a WebSocket (websockify) until the container stops. Nothing is filmed.
+ * The stage file gives the app ({ url, path, signIn: { path, fields,
+ * submit } | null }), `ready`, written once the screen can be watched, and
+ * the presentation to play live (`script`: { apps, chapters } | null),
+ * which the presenter plays as asked on PRESENTER_PORT.
  */
 async function stage(spec) {
   browsersPath();
@@ -2442,20 +2626,44 @@ async function stage(spec) {
   for (const signal of ["SIGTERM", "SIGINT"])
     process.on(signal, () => process.exit(0));
   await desktop.start(playwright, { film: false });
-  const after = { url: spec.url };
+  let storage;
   if (spec.signIn) {
-    after.storage = path.join(desktop.dir, "after-state.json");
+    storage = path.join(desktop.dir, "after-state.json");
     try {
-      await signIn(desktop.browser, spec.url, spec.signIn, after.storage);
+      await signIn(desktop.browser, spec.url, spec.signIn, storage);
     } catch (error) {
       log("not signed in: " + String(error?.message).split("\n")[0]);
-      delete after.storage;
+      storage = undefined;
     }
     // The sign-in's window is gone: the next one is the app's.
     desktop.known = new Set(desktop.windows().map((w) => w.id));
   }
-  const plan = { apps: { after }, chapters: [] };
-  await desktop.openWindow(plan, 0, "after", join(spec.url, spec.path));
+  // One sign-in serves both: a cookie of localhost is every port's.
+  const app = (url) => (url ? { url, ...(storage && { storage }) } : undefined);
+  const script = spec.script;
+  const plan = {
+    apps: {
+      after: app(script ? script.apps.after : spec.url),
+      before: app(script?.apps.before),
+    },
+    chapters: script ? script.chapters : [],
+  };
+  const presenter = new Presenter(desktop, plan);
+  // The app alone, on the recipe's page.
+  const plain = () =>
+    desktop.openWindow(
+      { apps: { after: plan.apps.after }, chapters: [] },
+      0,
+      "after",
+      join(plan.apps.after.url, spec.path),
+    );
+  if (script)
+    await presenter.set().catch((error) => {
+      log("no opening: " + String(error?.message).split("\n")[0]);
+      return plain();
+    });
+  else await plain();
+  serve(presenter);
   desktop.spawn("x11vnc", "x11vnc", [
     ...["-display", desktop.env.DISPLAY, "-rfbport", String(VNC_PORT)],
     // No cursor shapes: the pointer the agent moves is drawn into the screen.
@@ -2478,6 +2686,22 @@ async function stage(spec) {
   log("stage up: " + spec.url);
   await new Promise(() => {});
 }
+
+/**
+ * What the stage plays live (workers/stage.ts), as the plan had it: the
+ * desktop's chapters only (a ticket, a phone or a given output has none).
+ */
+const liveOf = (chapter) =>
+  onDesktop(chapter)
+    ? {
+        app: chapter.app === "before" ? "before" : "after",
+        path: chapter.path ?? null,
+        actions: chapter.actions || [],
+        command: chapter.command ?? null,
+        cwd: chapter.cwd ?? null,
+        before: chapter.before === true,
+      }
+    : null;
 
 /** Chapters the desktop films; a phone or a given output stays a clip. */
 const onDesktop = (chapter) =>
@@ -2536,7 +2760,7 @@ async function main() {
         desktop && desktop.alive() && onDesktop(chapter)
           ? await desktop.record(plan, chapter, index, take, state)
           : await record(await clips(), plan, chapter, index, take, state);
-      chapters.push(result.chapter);
+      chapters.push({ ...result.chapter, live: liveOf(chapter) });
       failed.push(...result.problems);
     } catch (error) {
       failed.push(
@@ -2570,6 +2794,10 @@ async function main() {
           url: ticket.url || "",
         },
         poster: poster ? "presentation/" + take + "-poster.jpg" : null,
+        apps: {
+          before: plan.apps?.before?.url ?? null,
+          after: plan.apps?.after?.url ?? null,
+        },
         chapters: filmed,
       },
       null,

@@ -39,6 +39,54 @@ const boxSchema = z.object({
   height: z.number(),
 });
 
+const loose = z
+  .union([z.string(), z.number()])
+  .transform(String)
+  .pipe(z.string().max(2000));
+
+/** One of the plan's actions, as the recorder plays it (src/runner/recorder). */
+export const liveActionSchema = z.object({
+  do: z.enum([
+    "point",
+    "circle",
+    "hover",
+    "click",
+    "fill",
+    "type",
+    "press",
+    "select",
+    "scroll",
+    "goto",
+    "reload",
+    "wait",
+  ]),
+  target: z.string().max(500).optional(),
+  text: loose.optional(),
+  value: loose.optional(),
+  key: z.string().max(100).optional(),
+  path: z.string().max(500).optional(),
+  y: z.number().optional(),
+  ms: z.number().optional(),
+});
+export type LiveAction = z.infer<typeof liveActionSchema>;
+
+/** A chapter as the agent planned it: what the stage plays live (workers/stage.ts). */
+export const liveChapterSchema = z.object({
+  app: z.enum(["before", "after"]),
+  path: z.string().max(500).nullable(),
+  actions: z.array(liveActionSchema).max(40),
+  command: z.string().max(2000).nullable(),
+  cwd: z.string().max(500).nullable(),
+  before: z.boolean(),
+});
+export type LiveChapter = z.infer<typeof liveChapterSchema>;
+
+/** Where the plan's apps answered: the app as it is, and as it was. */
+export const presentationAppsSchema = z.object({
+  before: z.string().max(500).nullable(),
+  after: z.string().max(500).nullable(),
+});
+
 export const presentationChapterSchema = z.object({
   title: z.string().min(1).max(80),
   tab: z.enum(["app", "ticket", "terminal"]),
@@ -87,6 +135,8 @@ export const presentationChapterSchema = z.object({
     )
     .max(50)
     .default([]),
+  /** None for a ticket, a phone or a given output, and before 2026-10-28. */
+  live: liveChapterSchema.nullable().default(null),
 });
 export type PresentationChapter = z.infer<typeof presentationChapterSchema>;
 
@@ -108,6 +158,7 @@ export const presentationSchema = z.object({
     url: z.string(),
   }),
   poster: z.string().nullable(),
+  apps: presentationAppsSchema.nullable().default(null),
   chapters: z.array(presentationChapterSchema).min(1).max(12),
 });
 export type Presentation = z.infer<typeof presentationSchema>;

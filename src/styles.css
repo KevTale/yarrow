@@ -9335,6 +9335,17 @@ button.pp-idea:focus-visible .pp-idea-go {
   display: flex;
   gap: 8px;
 }
+/* The live screen, the voice's words over its foot as on the films. */
+.stage-view {
+  position: relative;
+  container-type: inline-size;
+}
+.stage-caption {
+  position: absolute;
+  inset: auto 0 3% 0;
+  margin: 0 auto;
+  pointer-events: none;
+}
 .stage-screen {
   aspect-ratio: 1440 / 900;
   border: 1px solid var(--line);
@@ -9346,7 +9357,9 @@ button.pp-idea:focus-visible .pp-idea-go {
   margin: 16px 0 0;
   padding: 0;
   list-style: none;
-  font: 13px/1.7 var(--font-geist-mono), monospace;
+  font:
+    13px/1.7 var(--font-geist-mono),
+    monospace;
   color: var(--secondary);
 }
 .stage-events span {

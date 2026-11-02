@@ -145,6 +145,7 @@ describe("chapter length", () => {
     cues: [],
     marks: [],
     urls: [],
+    live: null,
   };
   it("ends with its voice once the last thing done has shown", () => {
     const video = {
@@ -199,6 +200,7 @@ describe("the window", () => {
       { atMs: 1800, url: "localhost:3000/?status=doing" },
       { atMs: 4200, url: "localhost:3000/?status=done" },
     ],
+    live: null,
   };
   it("shows the address the page was at", () => {
     expect(urlAt(chapter, 0)).toBe("localhost:3000/");
@@ -214,6 +216,7 @@ describe("the window", () => {
       voice: null,
       ticket: { source: "github", title: "Filters", url: "" },
       poster: null,
+      apps: null,
       chapters: [
         { ...chapter, title: "Before", before: true },
         { ...chapter, title: "Run", tab: "terminal" as const },

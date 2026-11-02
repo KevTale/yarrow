@@ -89,7 +89,7 @@ export function presentationGuide(baseBranch: string): string {
   {"title": "Export", "tab": "app", "path": "/tasks", "say": "...", "actions": [{"do": "point", "target": "role=button[name='Export CSV']"}, {"do": "click", "target": "role=button[name='Export CSV']"}]},
   {"title": "The API", "tab": "terminal", "command": "curl -s localhost:3000/api/tasks.csv | head -5", "say": "..."}]}
 - Chapter titles: one to three words. Actions, spread over the words: point (the pointer goes to it and rests there while you talk about it; nothing is drawn around it), circle (the pointer loops around it, as you would on a shared screen: for the thing a sentence is about, a few times in a presentation, not on every action), click, fill {"target", "text"}, select {"target", "value"}, press {"key"}, hover, scroll {"y"} or {"target"}, goto {"path"} (typed in the address bar), reload (the browser's button), wait {"ms"}. Targets are Playwright selectors: prefer role= and text=. A phone layout: "device": "phone" on the chapter. A signed-in app: sign in once with Playwright, save context.storageState({path}) and give that path as "storage".
-- Before: git worktree add /tmp/before HEAD (for a correction: git fetch --depth=1 origin ${baseBranch}, then git worktree add /tmp/before FETCH_HEAD), started on another port with the same data; link node_modules when the lockfile did not change. Skip it when it would take more than about five minutes. The app as it was and as it is now are two tabs of one browser: the chapter after the before one opens with a click on the other tab, so its words can mark the switch ("and here it is with the change").
+- Before: git worktree add /tmp/before HEAD (for a correction: git fetch --depth=1 origin ${baseBranch}, then git worktree add /tmp/before FETCH_HEAD), started on another port with the same data; link node_modules when the lockfile did not change. Skip it when it would take more than about five minutes. Then add to the recipe how you started it, so Yarrow can show it live too: "before": {"steps": ["commands run in /tmp/before, once the app above runs, to the app as it was answering, long-running ones in the background"], "url": "http://localhost:3001"}. Leave out the git worktree and fetch: Yarrow makes /tmp/before from the base branch itself. The app as it was and as it is now are two tabs of one browser: the chapter after the before one opens with a click on the other tab, so its words can mark the switch ("and here it is with the change").
 - Terminal: the command is typed in the terminal and runs for real on film, from /workspace/repo or "cwd", for at most four minutes; a run longer than a second or two is cut to its start and its end. For a long run you already did, give its "output" instead, copied exactly.
 - Record: node ${RECORDER_PATH} /tmp/presentation.json (add --check to check the plan only). It sets up the desktop, Playwright and Chromium itself (or films each page alone when the desktop cannot start). The film is the desktop: never set YARROW_DESKTOP, Yarrow's own switch. Each "problem:" line it prints is an action that failed: fix the plan or the app and run it again; "a click missed the page" is no problem, Playwright clicked instead. Then look at the poster it saved (${OUTPUTS}/presentation/*-poster.jpg): it must show the change, not an error, a login page or a dev overlay.
 - Record it again after a fix round or a correction when what it shows changed. A correction's presentation shows the whole pull request as it stands; its first chapter says what this correction changed.
@@ -150,6 +150,12 @@ function recipeText(recipe: AppRecipe): string {
     ...recipe.steps.map((step, index) => `${index + 1}. ${step}`),
     `- open: ${recipe.url}`,
     recipe.signIn && `- sign in: ${recipe.signIn}`,
+    ...(recipe.before
+      ? [
+          `- the app as it was, from /tmp/before (${recipe.before.url}):`,
+          ...recipe.before.steps.map((step) => `  ${step}`),
+        ]
+      : []),
     ...recipe.notes.map((note) => `- note: ${note}`),
   ]
     .filter(Boolean)

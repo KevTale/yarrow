@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   estimatedCues,
+  liveChapterSchema,
+  presentationAppsSchema,
   presentationSchema,
   type Presentation,
   type PresentationChapter,
@@ -31,6 +33,7 @@ export const recordedSchema = z.object({
     url: z.string().default(""),
   }),
   poster: z.string().nullable().default(null),
+  apps: presentationAppsSchema.nullable().default(null).catch(null),
   chapters: z
     .array(
       z.object({
@@ -73,6 +76,8 @@ export const recordedSchema = z.object({
           .array(z.object({ atMs: z.number().nonnegative(), url: z.string() }))
           .default([])
           .transform((urls) => urls.slice(0, 50)),
+        // An odd action costs the live replay, never the presentation.
+        live: liveChapterSchema.nullable().default(null).catch(null),
       }),
     )
     .min(1)
@@ -201,6 +206,7 @@ export async function publishPresentation(
         atMs: Math.round(step.atMs),
         url: step.url.slice(0, 500),
       })),
+      live: chapter.live,
     });
   }
   if (chapters.length === 0) return null;
@@ -227,6 +233,7 @@ export async function publishPresentation(
         : null,
     ticket: recorded.ticket,
     poster,
+    apps: recorded.apps,
     chapters,
   });
   const key = await store(
