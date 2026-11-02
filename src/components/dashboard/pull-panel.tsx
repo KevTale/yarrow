@@ -703,6 +703,7 @@ function Notes({
     criteria: implementation.criteria,
     risks: implementation.risks,
     notVerified: implementation.notVerified,
+    checked: panel.checks?.state === "passed",
   });
   const good =
     notes.length === 0 &&

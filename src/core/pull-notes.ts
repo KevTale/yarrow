@@ -47,6 +47,8 @@ export function agentNotes(input: {
   criteria: Criterion[];
   risks: string[];
   notVerified: string[];
+  /** GitHub's check passed: it shows what the agent could not see from here. */
+  checked?: boolean;
 }): string[] {
   const missing = (status: Criterion["status"], words: string) =>
     input.criteria
@@ -60,7 +62,7 @@ export function agentNotes(input: {
     ...missing("unmet", "Not met"),
     ...input.risks,
     ...input.notVerified,
-    ...missing("unchecked", "Not checked"),
+    ...(input.checked ? [] : missing("unchecked", "Not checked")),
   ].map((line) => splitNote(line).plain);
   return [...new Set(lines)];
 }

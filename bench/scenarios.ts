@@ -306,13 +306,12 @@ export const scenarios: Scenario[] = [
     name: "ai",
     app: "recap",
     about:
-      "A feature built on a language model: an example of its answers, a stub said plainly.",
+      "A feature built on a language model: its page or an example of its answers, a stub said plainly.",
     title: "Action items should say who and by when",
     body: 'The recap lists action items as plain sentences. When the notes say who owns an item and by when, show them apart: each item gets its task, its owner and its due date ("Friday", "Nov 5"), the owner and date left empty when the notes don\'t say. Show them as a small table on the page and in /api/recap as {task, owner, due}.',
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film"],
+      showsOneOf: ["film", "output"],
       touches: ["src/"],
       notVerified: true,
     },

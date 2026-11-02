@@ -99,6 +99,29 @@ describe("pull request notes", () => {
     ).toEqual([]);
   });
 
+  it("leaves out what GitHub's check has shown once it passed", () => {
+    const input = {
+      blocking: [],
+      criteria: [
+        {
+          criterion: "The tests run on each pull request",
+          status: "unchecked" as const,
+          proof: "none" as const,
+          note: "Only GitHub can show it",
+        },
+      ],
+      risks: ["Forks get no secrets"],
+      notVerified: [],
+    };
+    expect(agentNotes(input)).toEqual([
+      "Forks get no secrets",
+      "Not checked: The tests run on each pull request (Only GitHub can show it)",
+    ]);
+    expect(agentNotes({ ...input, checked: true })).toEqual([
+      "Forks get no secrets",
+    ]);
+  });
+
   it("drafts a ticket from what was noticed, its first sentence the title", () => {
     const line =
       "Adding a task brings you back to All. Someone working through Doing loses their place. — `POST /tasks` redirects to `/`";

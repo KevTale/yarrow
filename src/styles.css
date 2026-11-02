@@ -9014,6 +9014,12 @@ html:has(.pp-stage:modal) {
     height: 52px;
   }
 }
+/* A phone's film: the buttons take the bar, the chapters show how far it is. */
+@media (max-width: 480px) {
+  .pv-clock {
+    display: none;
+  }
+}
 
 /* The implementer's screenshots, under the summary; full size on a click. */
 .pp-shots {
