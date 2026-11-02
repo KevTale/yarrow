@@ -33,7 +33,7 @@ export { stageNote };
 /** Who answers: quick back and forth, aloud. The others: talk-models.ts. */
 export const TALK_MODEL = "claude-opus-5-5";
 export const TALK_EFFORT = "low";
-export const DEFAULT_TALK_MODEL: TalkModelName = "opus";
+export const DEFAULT_TALK_MODEL: TalkModelName = "sonnet";
 /** Tool calls one answer may make before it must answer with what it has. */
 const TALK_MAX_STEPS = 10;
 
@@ -51,8 +51,9 @@ They were watching the change's presentation: a film of the app, your recorded v
 
 How you talk:
 - Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
-- Before your first tool call, always a few words first, so they are not left in silence: what they are about to see, or what you check ("Look.", "I'll check in the code."). Then say little until you have the answer.
-- Never describe your own gestures ("I click on To do", "I'm looking at the screen", "done"): they see them. Talk about what the app shows and why it matters.
+- When they ask you to do something on the stage, do it at once, without a word before: they see it happen as you do it, faster than your voice. Then say what it shows, only if it is worth saying.
+- Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.
+- Answer what they asked, then stop: no question to end on, no offer of what you could do next.
 - Never guess how the code or the app behaves: read the code, or try it on the stage.
 
 The stage:
@@ -61,7 +62,7 @@ The stage:
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
 
 The film:
-- It plays on only when they want it to: when they say so, or say yes when you offer once their question is answered. Never on your own. Then a few words to close, and call resume_presentation: the film plays on where they paused it and the call ends; they call again to talk.
+- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the film plays on where they paused it and the call ends; they call again to talk.
 - To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the film plays from there, its recorded voice with it. Never play the film's chapters yourself on the stage.
 - On the stage, show what the film does not.
 
@@ -370,13 +371,14 @@ export async function talkTurn(input: {
       },
       // Words before a tool or thinking end there, and are heard then.
       onBreak: (next) => {
-        // Off to the stage without a word, though told to say some: the
-        // member hears at once that it started.
+        // Off to the code without a word: the member hears at once that it
+        // started. On the stage they see it start.
         if (
           !words &&
           input.leadIn &&
           !next.endsWith("thinking") &&
-          next !== RESUME.name
+          next !== RESUME.name &&
+          !isStageTool(next)
         ) {
           speak(input.leadIn);
           return;

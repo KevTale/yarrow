@@ -239,7 +239,7 @@ describe("the live call's turn", () => {
     const first = requests[0]!;
     expect(first.beta).toContain("server-side-fallback-2026-07-01");
     expect(first.body).toMatchObject({
-      model: "claude-opus-5-5",
+      model: "claude-sonnet-5-5",
       fallbacks: "default",
       output_config: { effort: "low" },
       tool_choice: { type: "auto" },
@@ -262,13 +262,18 @@ describe("the live call's turn", () => {
     });
   });
 
-  it("says a few words itself when the agent goes to the stage without any", async () => {
+  it("says a few words itself when the agent goes to the code without any", async () => {
     const { client } = claude((body) =>
       (body.messages as unknown[]).length === 1
         ? {
             stop_reason: "tool_use",
             content: [
-              { type: "tool_use", id: "t1", name: "look_at_screen", input: {} },
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "list_tickets",
+                input: {},
+              },
             ],
           }
         : {
@@ -289,6 +294,34 @@ describe("the live call's turn", () => {
     });
     expect(said.join("")).toBe("One moment. Two are done. ");
     expect(answer.words).toBe("One moment. Two are done.");
+  });
+
+  it("acts on the stage at once, without a word before", async () => {
+    const { client } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              { type: "tool_use", id: "t1", name: "look_at_screen", input: {} },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "Two are done." }],
+          },
+    );
+    const said: string[] = [];
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Show me the other tab." }],
+      state: held,
+      sources,
+      stage: stage({}).stage,
+      say: (text) => said.push(text),
+      leadIn: "One moment. ",
+    });
+    expect(said.join("")).toBe("Two are done. ");
   });
 
   it("gives the screen with the member's words, to act without a look", async () => {

@@ -60,7 +60,10 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
                 description:
                   "The element: its ref from the latest look (e12, f5e16), else a Playwright selector.",
               },
-              text: { type: "string", description: "For fill." },
+              text: {
+                type: "string",
+                description: "For fill; a date field takes YYYY-MM-DD.",
+              },
               value: { type: "string", description: "For select." },
               key: { type: "string", description: "For press, e.g. Enter." },
               path: { type: "string", description: "For goto, e.g. /tasks." },

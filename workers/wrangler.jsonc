@@ -72,7 +72,7 @@
         "META_EFFORT": "high",
         // The live call: who answers (src/runner/talk-models.ts), and the
         // bench's turns may choose (pnpm bench:talk).
-        "TALK_MODEL": "opus",
+        "TALK_MODEL": "sonnet",
         "TALK_BENCH": "on",
       },
       "r2_buckets": [
