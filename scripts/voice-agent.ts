@@ -1,14 +1,17 @@
 /**
- * The live review's ElevenLabs agent for Yarrow dev (src/runner/voice/agent.ts):
+ * The live review's ElevenLabs agent (src/runner/voice/agent.ts), for Yarrow
+ * dev, or production:
  *
  *   pnpm voice:agent
+ *   pnpm voice:agent prod
  *
  * Makes, or brings up to date, in the workspace of ELEVENLABS_API_KEY
  * (the environment, else video/.env), only what is Yarrow's, found by its
  * name: the secret holding the brain's key, the page's resume tool, the
  * agent. Nothing else of the workspace is read or touched. A new
- * VOICE_SECRET each time: the dev brain gets it with the agent's id, as
- * secrets (a deploy keeps them), and workers/.dev.vars for the talk bench. Needs CLOUDFLARE_API_TOKEN, as any
+ * VOICE_SECRET each time: the brain gets it with the agent's id, as
+ * secrets (a deploy keeps them), and on dev workers/.dev.vars for the talk
+ * bench. Needs CLOUDFLARE_API_TOKEN, as any
  * wrangler command outside an interactive login.
  */
 import { execFileSync } from "node:child_process";
@@ -21,9 +24,13 @@ import {
 } from "../src/runner/voice/agent";
 
 const API = "https://api.elevenlabs.io/v1";
-const AGENT = "Yarrow live review (dev)";
-const SECRET = "yarrow-live-review-dev";
-const LLM_URL = "https://dev.yarrow.run/voice/llm";
+const prod = process.argv[2] === "prod";
+const AGENT = prod ? "Yarrow live review" : "Yarrow live review (dev)";
+const SECRET = prod ? "yarrow-live-review" : "yarrow-live-review-dev";
+const LLM_URL = prod
+  ? "https://yarrow.run/voice/llm"
+  : "https://dev.yarrow.run/voice/llm";
+const ENV = prod ? "production" : "dev";
 
 function apiKey(): string {
   if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY;
@@ -70,7 +77,7 @@ function putSecret(name: string, value: string) {
       "--config",
       "workers/wrangler.jsonc",
       "--env",
-      "dev",
+      ENV,
     ],
     { input: value, stdio: ["pipe", "inherit", "inherit"], shell: true },
   );
@@ -154,5 +161,5 @@ else
 putSecret("VOICE_SECRET", voiceSecret);
 putSecret("ELEVENLABS_AGENT_ID", agentId);
 // The talk bench (pnpm bench:talk) signs its turns with it.
-keepLocally("VOICE_SECRET", voiceSecret);
-console.log(`Yarrow dev: live review agent ${agentId}, its LLM ${LLM_URL}.`);
+if (!prod) keepLocally("VOICE_SECRET", voiceSecret);
+console.log(`Yarrow ${ENV}: live review agent ${agentId}, its LLM ${LLM_URL}.`);

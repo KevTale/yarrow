@@ -133,6 +133,21 @@
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" },
       ],
+      // One container per pull request's stage (workers/stage.ts), for the
+      // live call; Meta implements on dev only.
+      "durable_objects": {
+        "bindings": [{ "name": "STAGE", "class_name": "Stage" }],
+      },
+      "containers": [
+        {
+          "class_name": "Stage",
+          "scheduling_policy": "durable_object",
+          "images": { "stage": { "dockerfile": "./muse/Dockerfile" } },
+        },
+      ],
+      "exports": {
+        "Stage": { "type": "durable-object", "storage": "sqlite" },
+      },
     },
   },
 }
