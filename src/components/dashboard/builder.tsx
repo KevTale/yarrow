@@ -17,13 +17,13 @@ import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import {
-  inYarrow,
   mergeTickets,
   moving,
-  done,
+  ticketStage,
   toReview,
   workText,
   type TicketRow,
+  type TicketStage as Stage,
 } from "@/core/tickets";
 import {
   getBuilderFn,
@@ -53,43 +53,21 @@ type BuilderData = Extract<
   { status: "ok" }
 >;
 
-/** The ticket's stage: each ticket is in exactly one group. */
-type Stage = "review" | "progress" | "todo" | "stopped" | "done";
-
 /**
  * The groups, in the order the builder acts on them: what waits for them
  * first. "+" writes a ticket into To do, or into In progress, started.
+ * Each ticket's group is `ticketStage`.
  */
 const stages: {
   key: Stage;
   label: string;
-  test: (row: TicketRow) => boolean;
   add?: "create" | "start";
 }[] = [
-  {
-    key: "review",
-    label: "To review",
-    test: toReview,
-  },
-  {
-    key: "progress",
-    label: "In progress",
-    // A pull request with a change under way is Yarrow's turn again.
-    test: (row) =>
-      inYarrow(row) &&
-      !done(row) &&
-      !toReview(row) &&
-      row.status !== "abstained",
-    add: "start",
-  },
-  { key: "todo", label: "To do", test: (row) => !inYarrow(row), add: "create" },
-  // Abandoned by the agents: the builder's turn (edit, then retry).
-  {
-    key: "stopped",
-    label: "Stopped",
-    test: (row) => row.status === "abstained",
-  },
-  { key: "done", label: "Done", test: done },
+  { key: "review", label: "To review" },
+  { key: "progress", label: "In progress", add: "start" },
+  { key: "todo", label: "To do", add: "create" },
+  { key: "stopped", label: "Stopped" },
+  { key: "done", label: "Done" },
 ];
 
 /** Done keeps two weeks in view; older tickets wait behind "Show older". */
@@ -186,12 +164,9 @@ export function BuilderView({
   );
   const folded = useMemo(() => parseFolded(foldedText), [foldedText]);
   const [fresh, setFresh] = useState<string | null>(highlight);
-  // The row opened in place ("projectId:key"), one at a time, and the
-  // group it was in: it stays there until it is closed, never moving
-  // under the builder (a change asked from it starts, it is merged).
-  const [opened, setOpened] = useState<{ id: string; stage: Stage } | null>(
-    null,
-  );
+  // The row opened in place ("projectId:key"), one at a time. It moves
+  // with its ticket, open, to the group its state now says.
+  const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
   // The new ticket dialog, and whether it came from In progress; drafted
   // from a pull request's notes, in that pull request's project.
@@ -347,6 +322,15 @@ export function BuilderView({
     return () => clearTimeout(timer);
   });
   const list = useFlip<HTMLDivElement>(live, currentId ?? "");
+  // The opened ticket moved (started, finished, merged): its new group
+  // unfolds, so the row the builder is reading stays in view.
+  const openedRow = rows.find((row) => `${currentId}:${row.key}` === opened);
+  const openedStage = openedRow ? ticketStage(openedRow) : null;
+  useEffect(() => {
+    if (openedStage) unfold(openedStage);
+    // Only when the opened row changes group, not on every fold.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedStage]);
 
   // "C" writes a ticket, as in the trackers builders know.
   const canWrite = Boolean(project?.linked && !composing);
@@ -504,12 +488,7 @@ export function BuilderView({
   const loading = currentId !== null && !live;
   const shownProject =
     project ?? meta.projects.find((item) => item.id === currentId) ?? null;
-  const toggle = (id: string, stage: Stage) =>
-    setOpened(opened?.id === id ? null : { id, stage });
-  const placed = (row: TicketRow, id: string) =>
-    opened?.id === id
-      ? opened.stage
-      : stages.find((stage) => stage.test(row))?.key;
+  const toggle = (id: string) => setOpened(opened === id ? null : id);
   // Every linked project loads in the background.
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
@@ -601,8 +580,7 @@ export function BuilderView({
                   >
                     {stages.map((stage) => {
                       const shown = matches.filter(
-                        (row) =>
-                          placed(row, `${project.id}:${row.key}`) === stage.key,
+                        (row) => ticketStage(row) === stage.key,
                       );
                       // Stopped only when a ticket is there; searching shows
                       // only the groups with a match.
@@ -637,8 +615,8 @@ export function BuilderView({
                                 key={row.key}
                                 row={row}
                                 projectId={project.id}
-                                open={opened?.id === id}
-                                onToggle={() => toggle(id, stage.key)}
+                                open={opened === id}
+                                onToggle={() => toggle(id)}
                                 fresh={fresh === row.key}
                                 onFreshEnd={() => setFresh(null)}
                                 act={act}

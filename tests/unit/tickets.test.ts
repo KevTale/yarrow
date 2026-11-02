@@ -7,6 +7,7 @@ import {
   mergeTickets,
   moving,
   ticketIdentity,
+  ticketStage,
   toReview,
   type TicketRow,
 } from "../../src/core/tickets";
@@ -468,5 +469,43 @@ describe("merging GitHub's open issues", () => {
     expect(formatTokens(182_400)).toBe("182k");
     expect(formatTokens(6_400)).toBe("6.4k");
     expect(formatTokens(950)).toBe("950");
+  });
+});
+
+describe("the dashboard's groups", () => {
+  const row = (change: Partial<TicketRow>): TicketRow => ({
+    ...ticketIdentity("github", "5"),
+    title: "Fix the footer",
+    url: "",
+    status: "none",
+    paidBy: [],
+    runId: null,
+    pending: false,
+    pullRequest: null,
+    change: null,
+    reason: null,
+    summary: null,
+    models: [],
+    createdAt: "2026-10-29T10:00:00.000Z",
+    updatedAt: "2026-10-29T10:00:00.000Z",
+    ...change,
+  });
+
+  it("moves a ticket with its state alone, from To do to Done", () => {
+    const journey: [Partial<TicketRow>, string][] = [
+      [{}, "todo"],
+      // Start, before the server answers.
+      [{ status: "queued", pending: true }, "progress"],
+      [{ status: "writing" }, "progress"],
+      [{ status: "pull_request" }, "review"],
+      // A change asked from its conversation: Yarrow's turn again.
+      [{ status: "pull_request", change: "queued" }, "progress"],
+      [{ status: "merged" }, "done"],
+      [{ status: "pr_closed" }, "done"],
+      [{ status: "abstained" }, "stopped"],
+    ];
+    expect(journey.map(([change]) => ticketStage(row(change)))).toEqual(
+      journey.map(([, stage]) => stage),
+    );
   });
 });

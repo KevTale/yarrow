@@ -154,6 +154,20 @@ export const toReview = (row: TicketRow) =>
 export const done = (row: TicketRow) =>
   row.status === "merged" || row.status === "pr_closed";
 
+/** The dashboard's groups: each ticket is in exactly one. */
+export type TicketStage = "review" | "progress" | "todo" | "stopped" | "done";
+
+/** The group a ticket stands in, from its state alone, opened or not. */
+export function ticketStage(row: TicketRow): TicketStage {
+  if (toReview(row)) return "review";
+  if (!inYarrow(row)) return "todo";
+  // Abandoned by the agents: the builder's turn (edit, then retry).
+  if (row.status === "abstained") return "stopped";
+  if (done(row)) return "done";
+  // Queued, at work, or a pull request with a change under way.
+  return "progress";
+}
+
 /** Still moving: worth refreshing the table for. */
 export const moving = (row: TicketRow) =>
   row.pending ||
