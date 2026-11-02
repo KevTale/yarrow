@@ -129,8 +129,7 @@ async function ask(
   grant: string,
   bench: TalkBench,
   say: string,
-): Promise<Turn & { heardMs: number | null }> {
-  const sent = Date.now();
+): Promise<Turn> {
   const response = await fetch(LLM_URL, {
     method: "POST",
     headers: {
@@ -146,23 +145,16 @@ async function ask(
       yarrow_bench: bench,
     }),
   });
-  if (!response.ok || !response.body)
+  if (!response.ok)
     throw new Error(`${response.status} ${await response.text()}`);
-  // When the first words reach this machine, as ElevenLabs would get them.
-  let heardMs: number | null = null;
-  let text = "";
-  for await (const part of response.body.pipeThrough(new TextDecoderStream())) {
-    if (heardMs === null && part.includes('"content"'))
-      heardMs = Date.now() - sent;
-    text += part;
-  }
+  const text = await response.text();
   const rows = text.split("\n");
   const failed = rows.find((row) => row.startsWith(": yarrow-error "));
   if (failed)
     throw new Error(JSON.parse(failed.slice(": yarrow-error ".length)));
   const line = rows.find((row) => row.startsWith(": yarrow "));
   if (!line) throw new Error(`no bench line: ${text.slice(0, 400)}`);
-  return { ...(JSON.parse(line.slice(": yarrow ".length)) as Turn), heardMs };
+  return JSON.parse(line.slice(": yarrow ".length)) as Turn;
 }
 
 const median = (values: number[]) => {
@@ -201,7 +193,6 @@ const results: {
   run: number;
   question: string;
   right: boolean;
-  heardMs: number | null;
   turn?: Turn;
   error?: string;
 }[] = [];
@@ -214,18 +205,17 @@ for (let run = 1; run <= runs; run++)
         ...(question.reset ? { reset: question.reset } : {}),
       };
       try {
-        const { heardMs, ...turn } = await ask(key, grant, bench, question.say);
+        const turn = await ask(key, grant, bench, question.say);
         const right = question.right(turn);
         results.push({
           variant,
           run,
           question: question.name,
           right,
-          heardMs,
           turn,
         });
         console.log(
-          `${run} ${variant.padEnd(10)} ${question.name.padEnd(8)} ${right ? "ok " : "NO "} first ${seconds(heardMs ?? NaN)} total ${seconds(turn.ms)} ${turn.steps.map((step) => step.what).join(" ")} ${turn.cents.toFixed(2)}¢ — ${turn.words.replace(/\s+/g, " ").slice(0, 120)}`,
+          `${run} ${variant.padEnd(10)} ${question.name.padEnd(8)} ${right ? "ok " : "NO "} screen ${seconds(turn.screenMs ?? NaN)} first ${seconds(turn.firstWordMs ?? NaN)} total ${seconds(turn.ms)} ${turn.steps.map((step) => step.what).join(" ")} ${turn.cents.toFixed(2)}¢ — ${turn.words.replace(/\s+/g, " ").slice(0, 120)}`,
         );
       } catch (error) {
         results.push({
@@ -233,7 +223,6 @@ for (let run = 1; run <= runs; run++)
           run,
           question: question.name,
           right: false,
-          heardMs: null,
           error: String(error),
         });
         console.log(
@@ -258,12 +247,12 @@ for (const variant of variants) {
     turns.reduce((sum, turn) => sum + turn.cents, 0) /
     Math.max(turns.length, 1);
   console.log(
-    `${variant.padEnd(11)} ${`${mine.filter((result) => result.right).length}/${mine.length}`.padEnd(6)} ${seconds(median(mine.map((result) => result.heardMs ?? NaN))).padEnd(18)} ${seconds(median(turns.map((turn) => turn.ms))).padEnd(11)} ${String(median(rounds)).padEnd(13)} ${cents.toFixed(2)}`,
+    `${variant.padEnd(11)} ${`${mine.filter((result) => result.right).length}/${mine.length}`.padEnd(6)} ${seconds(median(turns.map((turn) => turn.firstWordMs ?? NaN))).padEnd(18)} ${seconds(median(turns.map((turn) => turn.ms))).padEnd(11)} ${String(median(rounds)).padEnd(13)} ${cents.toFixed(2)}`,
   );
   for (const question of QUESTIONS) {
     const asked = mine.filter((result) => result.question === question.name);
     console.log(
-      `  ${question.name.padEnd(9)} ${asked.filter((result) => result.right).length}/${asked.length}  first ${seconds(median(asked.map((result) => result.heardMs ?? NaN)))}  turn ${seconds(median(asked.map((result) => result.turn?.ms ?? NaN)))}`,
+      `  ${question.name.padEnd(9)} ${asked.filter((result) => result.right).length}/${asked.length}  first ${seconds(median(asked.map((result) => result.turn?.firstWordMs ?? NaN)))}  turn ${seconds(median(asked.map((result) => result.turn?.ms ?? NaN)))}`,
     );
   }
 }

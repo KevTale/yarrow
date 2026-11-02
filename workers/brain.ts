@@ -1384,7 +1384,7 @@ async function talkRoute(
   ctx: ExecutionContext,
   request: Request,
 ): Promise<Response> {
-  const started = Date.now();
+  let started = Date.now();
   const missing = () => new Response("Not found\n", { status: 404 });
   if (request.method !== "POST") return missing();
   const { VOICE_SECRET: secret, ANTHROPIC_API_KEY: apiKey, STAGE } = env;
@@ -1440,6 +1440,8 @@ async function talkRoute(
           action: "act",
           actions: [{ do: "goto", path: bench.reset }],
         });
+        // The bench's page is no member's wait.
+        started = Date.now();
       }
       const looked = Date.now();
       const [kept, state, screen] = await Promise.all([
