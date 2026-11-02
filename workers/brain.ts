@@ -1137,13 +1137,13 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
   }
 
   /**
-   * A ticket closed from the dashboard: the issue on GitHub (a Jira ticket
+   * A ticket closed from the dashboard: the issue on GitHub (a tracker ticket
    * is moved by the web Worker), its open pull request, Yarrow's copy.
    */
   closeTicket(input: {
     projectId: string;
     key: string;
-    source: "github" | "jira";
+    source: "github" | "jira" | "linear";
   }): Promise<ActionResult> {
     const credentials = this.credentials();
     if (!credentials)
@@ -1425,6 +1425,8 @@ async function talkRoute(
   const encoder = new TextEncoder();
   let said = Date.now();
   let fillers = 0;
+  // A chapter the agent shows plays under its words: no filler over it.
+  let pointing = false;
   const write = (text: string) =>
     writer.write(encoder.encode(text)).catch(() => {});
   const say = (text: string) => {
@@ -1433,7 +1435,7 @@ async function talkRoute(
   };
   // While the agent works on the stage in silence, a few words keep the call.
   const silence = setInterval(() => {
-    if (Date.now() - said >= TALK_SILENCE_MS)
+    if (Date.now() - said >= TALK_SILENCE_MS + (pointing ? 5000 : 0))
       void say(talkFiller(grant.language, fillers++));
   }, 500);
   const turn = (async () => {
@@ -1450,8 +1452,10 @@ async function talkRoute(
       const looked = Date.now();
       const [kept, state, screen] = await Promise.all([
         stage.talk(),
+        // They spoke: the recorded presentation ends, and whatever the
+        // agent was showing for their last turn; the agent leads.
         stage
-          .present({ action: "state" })
+          .present({ action: "stop", turn: id })
           .then((result) => result.state ?? null)
           .catch(() => null),
         screenFirst
@@ -1492,7 +1496,15 @@ async function talkRoute(
           ticket: (key) =>
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
-        stage: (hand) => stage.present(hand),
+        stage: async (hand) => {
+          if (hand.action !== "point") return stage.present(hand);
+          pointing = true;
+          try {
+            return await stage.present({ ...hand, turn: id });
+          } finally {
+            pointing = false;
+          }
+        },
         say: (text) => void say(text),
       });
       // In the conversation's thread before the turn ends: the page reads
@@ -1528,16 +1540,11 @@ async function talkRoute(
             cents: chatCostCents(answer.usage),
             words: answer.words,
             change: answer.change,
-            resume: answer.resume,
             screen: after?.screen?.slice(0, 6000) ?? null,
           })}\n\n`,
         );
       }
-      await write(
-        answer.resume
-          ? completion.resume(id) + completion.done
-          : completion.end(id),
-      );
+      await write(completion.end(id));
       console.log("talk", {
         workUnitId: grant.workUnitId,
         model,
@@ -1545,7 +1552,6 @@ async function talkRoute(
         screenMs,
         firstWordMs: answer.firstWordMs,
         ms,
-        resume: answer.resume,
         fillers,
         steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
         cents: Number(chatCostCents(answer.usage).toFixed(3)),

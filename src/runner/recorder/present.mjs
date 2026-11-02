@@ -2096,40 +2096,100 @@ class Desktop {
     return page;
   }
 
-  /** The other app's tab, clicked on the film. */
+  /** A row of the screen, as ffmpeg grabs it: its pixels' [r, g, b]. */
+  row(y) {
+    const result = spawnSync(
+      "ffmpeg",
+      [
+        ...flags("-loglevel error -f x11grab"),
+        ...["-video_size", SCREEN.width + "x1"],
+        ...["-i", this.env.DISPLAY + "+0," + Math.round(y)],
+        ...flags("-frames:v 1 -f rawvideo -pix_fmt rgb24 pipe:1"),
+      ],
+      { env: this.env, timeout: 5000 },
+    );
+    const bytes = result.stdout;
+    if (result.status !== 0 || !bytes || bytes.length < SCREEN.width * 3)
+      return null;
+    return Array.from({ length: SCREEN.width }, (_, x) => [
+      bytes[x * 3],
+      bytes[x * 3 + 1],
+      bytes[x * 3 + 2],
+    ]);
+  }
+
+  /**
+   * The browser's tab in front, as the screen shows it: on the strip, low
+   * under the titles, the run of pixels unlike the window's frame (the
+   * other tabs have its color).
+   */
+  frontTab(y) {
+    const row = this.row(y);
+    if (!row) return null;
+    // Empty strip, short of the window's buttons.
+    const frame = row[SCREEN.width - 260];
+    const unlike = (pixel) =>
+      Math.abs(pixel[0] - frame[0]) +
+        Math.abs(pixel[1] - frame[1]) +
+        Math.abs(pixel[2] - frame[2]) >
+      24;
+    let best = null;
+    let start = null;
+    for (let x = FULL.x; x <= SCREEN.width; x++) {
+      const on = x < SCREEN.width && unlike(row[x]);
+      if (on && start === null) start = x;
+      if (!on && start !== null) {
+        if (!best || x - start > best.end - best.start)
+          best = { start, end: x };
+        start = null;
+      }
+    }
+    return best && best.end - best.start > 80 ? best : null;
+  }
+
+  /**
+   * The other app's tab, clicked: aimed from the tab in front as the screen
+   * shows it, checked on the screen after, clicked again if it missed.
+   */
   async switchTab(which, clock, marks) {
     const page = this.tabs.pages[which];
     const frame = await page.evaluate(() => ({
       x: window.screenX,
       y: window.screenY,
     }));
-    const tab = TABS.width * ZOOM;
-    const left = (frame.x + TABS.left) * ZOOM + tab * TWINS.indexOf(which);
+    const low = (frame.y + TABS.y + 9) * ZOOM;
+    const front = this.frontTab(low);
+    let tab = TABS.width * ZOOM;
+    let left = (frame.x + TABS.left) * ZOOM + tab * TWINS.indexOf(which);
+    if (front) {
+      tab = front.end - front.start;
+      const step = TWINS.indexOf(which) - TWINS.indexOf(this.tabs.active);
+      left = front.start + tab * step;
+    }
     // Its title's side, away from its close button.
     const spot = { x: left + tab * 0.35, y: (frame.y + TABS.y) * ZOOM };
-    await this.glide(spot.x, spot.y, 800);
-    await sleep(150);
-    marks.push({
-      atMs: clock(),
-      kind: "click",
-      box: { x: left, y: spot.y - 14, width: tab, height: 28 },
-    });
-    const at = clock();
-    await this.click();
-    const shown = await until(
-      () =>
-        page
-          .evaluate(() => document.visibilityState === "visible")
-          .catch(() => false),
-      1500,
-      60,
-    );
-    if (!shown) {
-      log("the tab click missed: Playwright switched");
-      await page.bringToFront();
+    const on = (shown) =>
+      shown && shown.start <= spot.x && spot.x < shown.end;
+    let at = 0;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await this.glide(spot.x, spot.y, 800);
+      await sleep(150);
+      if (attempt === 0)
+        marks.push({
+          atMs: clock(),
+          kind: "click",
+          box: { x: left, y: spot.y - 14, width: tab, height: 28 },
+        });
+      at = clock();
+      await this.click();
+      // Down off the strip, its tab's preview with it.
+      await this.glide(spot.x + 220, spot.y + 320, 650);
+      // Unread, the screen cannot tell: Playwright's word stands.
+      if (!front || on(this.frontTab(low))) return Math.round(at);
+      log("the tab click missed" + (attempt ? " again" : ""));
     }
-    // Down off the strip, its tab's preview with it.
-    await this.glide(spot.x + 220, spot.y + 320, 650);
+    log("the tab clicks missed: Playwright switched");
+    await page.bringToFront();
     return Math.round(at);
   }
 
@@ -2539,6 +2599,9 @@ async function answers(url) {
   }
 }
 
+/** A chapter cut short: the agent leads the presentation from here. */
+class Stopped extends Error {}
+
 /**
  * The presentation played live on the stage, a chapter at a time, as the
  * page asks: the voice plays there, the gestures here, spread over it.
@@ -2560,6 +2623,18 @@ class Presenter {
     this.hold = null;
     /** How long the presentation was held, every hold together. */
     this.heldMs = 0;
+    /**
+     * The recorded presentation is over: the member talked, and the agent
+     * leads the rest. A chapter cut by it stops at its next gesture.
+     */
+    this.over = false;
+    this.run = 0;
+    /** The chapters shown in full, by the presentation or by the agent. */
+    this.shown = new Set();
+    /** The chapter the talk cut, if one was playing. */
+    this.cut = null;
+    /** The member's latest turn on the call: an older one shows no more. */
+    this.turn = null;
   }
 
   /** The presentation's own time: it stands still while held. */
@@ -2572,6 +2647,72 @@ class Presenter {
   /** Waits while the presentation is held. */
   async held() {
     while (this.hold) await this.hold.resumed;
+  }
+
+  /** Waits while held; throws once the presentation `run` is over. */
+  async going(run) {
+    await this.held();
+    if (run !== this.run) throw new Stopped();
+  }
+
+  /**
+   * The recorded presentation ends here, the screen as the talk left it:
+   * the agent leads the rest (its `point`s), from what was said. Asked
+   * again by the member's next turn (`turn`), the chapter the agent was
+   * showing stops too.
+   */
+  async stop(turn) {
+    if (turn) this.turn = turn;
+    this.run++;
+    const hold = this.hold;
+    if (hold) {
+      this.heldMs += Date.now() - hold.since;
+      this.hold = null;
+      hold.release();
+    }
+    if (this.over) return [];
+    this.over = true;
+    this.cut = this.playing;
+    log(
+      "the agent leads" +
+        (this.cut === null ? "" : ", chapter " + (this.cut + 1) + " cut"),
+    );
+    return [];
+  }
+
+  /**
+   * A chapter's gestures shown again, without its voice, over `ms` as the
+   * agent says it in its own words: what the screen shows after.
+   */
+  async point(index, turn, ms) {
+    const chapter = this.plan.chapters[index];
+    if (!chapter)
+      return { problems: ["no chapter " + (index + 1)], screen: await this.look() };
+    if (turn && this.turn && turn !== this.turn)
+      return { problems: ["the member spoke again: stop here"], screen: "" };
+    if (!this.over) await this.stop();
+    log("chapter " + (index + 1) + " shown by the agent");
+    const pace = Math.max(
+      ms || 3000,
+      (chapter.actions?.length ?? 1) * (ms ? 700 : 1500),
+    );
+    this.playing = index;
+    let problems;
+    try {
+      problems =
+        chapter.tab === "terminal"
+          ? (await this.desktop.recordTerminal(chapter, null, pace)).problems
+          : await this.app(chapter, index, pace, this.run);
+    } catch (error) {
+      // The member spoke again, or it was played again: it stops here.
+      if (error instanceof Stopped)
+        return { problems: ["the member spoke again: stop here"], screen: "" };
+      throw error;
+    } finally {
+      this.playing = null;
+    }
+    this.shown.add(index);
+    return { problems, screen: await this.look() };
   }
 
   async pause() {
@@ -2710,6 +2851,9 @@ class Presenter {
       chapter: chapter ? { index: this.playing, title: chapter.title } : null,
       held: Boolean(this.hold),
       chapters: this.plan.chapters.length,
+      over: this.over,
+      shown: [...this.shown].sort((a, b) => a - b),
+      cut: this.cut,
     };
   }
 
@@ -2864,6 +3008,11 @@ class Presenter {
    */
   async set() {
     const { desktop, plan } = this;
+    // Played again: the recorded presentation leads anew.
+    this.over = false;
+    this.run++;
+    this.shown = new Set();
+    this.cut = null;
     if (this.untouched) return [];
     const started = Date.now();
     const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
@@ -2898,19 +3047,29 @@ class Presenter {
     this.untouched = false;
     log("live chapter " + (index + 1) + ": " + chapter.title);
     // Held before it began (the member spoke between chapters): it waits.
-    await this.held();
+    const run = this.run;
+    try {
+      await this.going(run);
+    } catch {
+      return [];
+    }
     this.playing = index;
     try {
-      if (chapter.tab === "terminal")
-        return (await this.desktop.recordTerminal(chapter, null, voiceMs))
-          .problems;
-      return await this.app(chapter, index, voiceMs);
+      const problems =
+        chapter.tab === "terminal"
+          ? (await this.desktop.recordTerminal(chapter, null, voiceMs)).problems
+          : await this.app(chapter, index, voiceMs, run);
+      this.shown.add(index);
+      return problems;
+    } catch (error) {
+      if (error instanceof Stopped) return [];
+      throw error;
     } finally {
       this.playing = null;
     }
   }
 
-  async app(chapter, index, voiceMs) {
+  async app(chapter, index, voiceMs, run) {
     const { desktop, plan } = this;
     const which = chapter.app || "after";
     const app = plan.apps[which];
@@ -2960,7 +3119,7 @@ class Presenter {
       clock,
       marks,
       fail,
-      () => this.held(),
+      () => this.going(run),
     );
     for (const [name, shown] of Object.entries(tabs.pages))
       log(
@@ -2996,6 +3155,7 @@ function serve(presenter) {
     "/resume": "hands",
     "/changes": "hands",
     "/sign-in": "hands",
+    "/point": "hands",
   };
   const answer = async (url, asked) => {
     try {
@@ -3012,6 +3172,21 @@ function serve(presenter) {
           };
         case "/pause":
           return { ok: true, problems: await presenter.pause() };
+        case "/stop":
+          return {
+            ok: true,
+            problems: await presenter.stop(asked.turn),
+            state: presenter.state(),
+          };
+        case "/point":
+          return {
+            ok: true,
+            ...(await presenter.point(
+              Number(asked.index),
+              asked.turn,
+              Math.min(20000, Number(asked.ms) || 0),
+            )),
+          };
         case "/resume":
           return { ok: true, problems: await presenter.resume() };
         case "/changes":

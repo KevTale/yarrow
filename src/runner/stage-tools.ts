@@ -108,6 +108,24 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
   },
 ];
 
+/**
+ * The voice's agent leads the presentation once the member spoke
+ * (src/runner/talk.ts): a chapter's gestures again, its words its own.
+ */
+export const SHOW_CHAPTER: Anthropic.Beta.BetaTool = {
+  name: "show_chapter",
+  description:
+    "Play a chapter of the presentation on the stage again, its gestures without the recorded voice, while you say it in your own words. Its number, from the presentation's chapters. Returns the screen after.",
+  input_schema: {
+    type: "object",
+    properties: {
+      chapter: { type: "integer", minimum: 1, description: "From 1." },
+    },
+    required: ["chapter"],
+    additionalProperties: false,
+  },
+};
+
 const stageInputs = {
   look_at_screen: z.object({}),
   act_on_screen: z.object({
@@ -118,6 +136,7 @@ const stageInputs = {
     command: z.string().min(1).max(2000),
     cwd: z.string().max(500).optional(),
   }),
+  show_chapter: z.object({ chapter: z.number().int().min(1).max(12) }),
 };
 
 export const isStageTool = (name: string) => name in stageInputs;
@@ -127,11 +146,14 @@ export function stageStepName(call: Anthropic.Beta.BetaToolUseBlock): string {
   const input = call.input as {
     actions?: { do?: unknown }[];
     window?: unknown;
+    chapter?: unknown;
   } | null;
   if (call.name === "act_on_screen" && Array.isArray(input?.actions))
     return `${call.name}[${input.actions.map((action) => String(action?.do)).join(" ")}]`;
   if (call.name === "show_window")
     return `${call.name}[${String(input?.window)}]`;
+  if (call.name === "show_chapter")
+    return `${call.name}[${String(input?.chapter)}]`;
   return call.name;
 }
 
@@ -163,7 +185,14 @@ export async function runStageTool(
               action: "run",
               ...(parsed.data as z.infer<typeof stageInputs.run_in_terminal>),
             }
-          : { action: "look" };
+          : call.name === "show_chapter"
+            ? {
+                action: "point",
+                index:
+                  (parsed.data as z.infer<typeof stageInputs.show_chapter>)
+                    .chapter - 1,
+              }
+            : { action: "look" };
   const result = await stage(hand);
   const problems = result.problems.length
     ? `Failed: ${result.problems.join("; ")}\n`
@@ -174,9 +203,20 @@ export async function runStageTool(
   };
 }
 
+/** Chapters by number, from 1. */
+const numbered = (indexes: number[]) =>
+  indexes.map((index) => index + 1).join(", ") || "none";
+
 /** Where the presentation stands, said to the agent with the member's turn. */
 export function stageNote(state: StageState | null): string {
   if (!state) return "[The stage does not answer right now.]";
+  if (state.over) {
+    const shown = state.shown ?? [];
+    const left = Array.from({ length: state.chapters }, (_, i) => i).filter(
+      (index) => !shown.includes(index),
+    );
+    return `[On the stage: the recorded presentation stopped${state.cut === null || state.cut === undefined ? "" : ` during chapter ${state.cut + 1}`} when they spoke; you lead the rest. Shown in full: ${numbered(shown)}. Not shown yet: ${numbered(left)}.]`;
+  }
   if (state.chapter)
     return `[On the stage: the presentation is ${state.held ? "stopped" : "playing"} in chapter ${state.chapter.index + 1} of ${state.chapters}, "${state.chapter.title}".]`;
   return state.held

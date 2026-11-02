@@ -91,14 +91,16 @@ export interface StageStatus {
 
 /**
  * What the page asks the presenter: the opening, a chapter over its voice,
- * or to hold it while the member talks and go on after.
+ * to hold it while the member talks and go on after, or to end it there
+ * (the agent leads the rest, src/runner/talk.ts).
  */
 export type StageCue =
   | { action: "set" }
   | { action: "chapter"; index: number; voiceMs: number }
   | { action: "pause" }
   // `restore`: what the talk changed in the app put back first.
-  | { action: "resume"; restore?: boolean };
+  | { action: "resume"; restore?: boolean }
+  | { action: "stop" };
 
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
@@ -113,7 +115,13 @@ export type StageHand =
   // While held: each window the talk changed (src/runner/stage-restore.ts).
   | { action: "changes" }
   // The recipe's sign-in, on the window in front.
-  | { action: "sign-in" };
+  | { action: "sign-in" }
+  // A chapter's gestures, without its voice: the agent says it its own way.
+  // `ms`: as long as the agent's words over it; `turn`: the member's turn
+  // it answers, a later one stops it.
+  | { action: "point"; index: number; ms?: number; turn?: string }
+  // The member spoke: the presentation ends there, the agent leads.
+  | { action: "stop"; turn?: string };
 
 /** A window as the presentation left it when held, and as it is now. */
 export interface StageChange {
@@ -139,6 +147,12 @@ export interface StageState {
   /** Held while the member talks. */
   held: boolean;
   chapters: number;
+  /** The recorded presentation ended: the agent leads the rest. */
+  over?: boolean;
+  /** The chapters shown in full, by the presentation or the agent. */
+  shown?: number[];
+  /** The chapter the talk cut, if one was playing. */
+  cut?: number | null;
 }
 
 /** A recipe step that leaves something running: a database, a server. */

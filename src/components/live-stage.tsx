@@ -61,7 +61,15 @@ type Cue = Parameters<typeof stageCueFn>[0]["data"]["cue"];
 /** What the page asks of the call (an ElevenLabs conversation). */
 interface Call {
   endSession(): Promise<void>;
+  sendUserMessage(text: string): void;
 }
+
+/** A voice in the microphone: ElevenLabs' VAD score past this. */
+const VOICED = 0.9;
+/** Heard this long, the presentation's voice pauses before any word. */
+const VOICED_MS = 300;
+/** No word after it: it goes on this long after the voice. */
+const UNVOICED_MS = 1200;
 
 const voiceMs = (chapter: PresentationChapter) =>
   chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
@@ -71,11 +79,12 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
  * and its presentation played on it: the voice here, the gestures there.
- * The member talks to the agent over it (src/runner/talk.ts), or writes
- * to it in the pull request's conversation beside it: either holds the
- * presentation, the agent answers and shows on the stage, and the thread
- * keeps what was said as what was written. The call and the voice end with
- * the stage, and with the page or the panel.
+ * The member talks to the agent over it (src/runner/talk.ts): their
+ * first words hold the presentation, and once said it ends there, the
+ * agent leading the rest in its own words. Or they write to it in the pull
+ * request's conversation beside it, which holds it until they go on. The
+ * thread keeps what was said as what was written. The call and the voice
+ * end with the stage, and with the page or the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
 function brainAsked(): { model?: string; screen?: boolean } {
@@ -115,6 +124,8 @@ export function useLiveStage({
   const [notes, setNotes] = useState<string[]>([]);
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
   const [held, setHeld] = useState(false);
+  /** The member spoke: the agent leads; the chapter it was in when they did. */
+  const [led, setLed] = useState<number | null>(null);
   /** What the microphone hears of the member, as they say it. */
   const [hearing, setHearing] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -125,19 +136,27 @@ export function useLiveStage({
   const stopped = useRef(false);
   /** Ends the voice playing now. */
   const hush = useRef<(() => void) | null>(null);
-  /** Holds the voice playing now, and lets it go on. */
-  const voiceHold = useRef<{ pause(): void; resume(): void } | null>(null);
+  /** Holds the voice playing now, and lets it go on (from its sentence). */
+  const voiceHold = useRef<{
+    pause(): void;
+    resume(fromSentence?: boolean): void;
+  } | null>(null);
   const showing = useRef(false);
+  /** The chapter whose voice plays, or last played. */
+  const saying = useRef(0);
   /** Held while the member talks: the next chapter waits for it. */
   const holding = useRef<{ release(): void; resumed: Promise<void> } | null>(
     null,
   );
   const conversation = useRef<Call | null>(null);
   const calling = useRef(false);
-  /** The agent's voice is on. */
-  const speaking = useRef(false);
-  /** The agent asked to go on: once its voice is done. */
-  const goOnAsked = useRef(false);
+  /** A voice heard over the presentation's, before any word of it. */
+  const voiced = useRef<{
+    since: number;
+    paused?: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  /** Pauses on a voice no word came of: past a few, the voice's own echo. */
+  const unvoiced = useRef(0);
   /** The thread's length when the call's turn under way began. */
   const before = useRef<number | null>(null);
   const known = useRef(0);
@@ -228,8 +247,40 @@ export function useLiveStage({
     };
   }, [phase, screen, projectId, rowKey, call]);
 
+  const unhear = () => {
+    clearTimeout(voiced.current?.paused);
+    voiced.current = null;
+  };
+
+  /**
+   * A voice in the microphone, before ElevenLabs hears any word of it: the
+   * presentation's voice pauses at once, and goes on if no word comes.
+   */
+  const listen = (score: number) => {
+    if (!showing.current || holding.current || unvoiced.current >= 3) return;
+    const now = performance.now();
+    const heard = voiced.current;
+    if (score < VOICED) {
+      if (heard && !heard.paused) voiced.current = null;
+      return;
+    }
+    if (!heard) {
+      voiced.current = { since: now };
+      return;
+    }
+    if (!heard.paused && now - heard.since < VOICED_MS) return;
+    if (!heard.paused) voiceHold.current?.pause();
+    clearTimeout(heard.paused);
+    heard.paused = setTimeout(() => {
+      voiced.current = null;
+      unvoiced.current += 1;
+      if (!holding.current) voiceHold.current?.resume(false);
+    }, UNVOICED_MS);
+  };
+
   /** The member speaks: the presentation waits for them. */
   const hold = () => {
+    unhear();
     if (!showing.current || holding.current) return;
     let release = () => {};
     const resumed = new Promise<void>((resolve) => (release = resolve));
@@ -240,12 +291,37 @@ export function useLiveStage({
   };
 
   /**
-   * On again: the app put back as the talk found it (the brain's agent
-   * undoes what the talk changed), then the voice from its sentence.
+   * They said it: the recorded presentation ends there, the screen as it
+   * is, and the agent leads the rest from what was said (the brain stops
+   * the presenter too, as their turn reaches it).
+   */
+  const takeOver = () => {
+    unhear();
+    if (!showing.current) return;
+    stopped.current = true;
+    setLed(saying.current);
+    voice.current?.pause();
+    hush.current?.();
+    const holdNow = holding.current;
+    holding.current = null;
+    setHeld(false);
+    holdNow?.release();
+    void cue({ action: "stop" });
+  };
+
+  /** The agent led, asked to go on: as if the member said it. */
+  const carryOn = () =>
+    conversation.current?.sendUserMessage(
+      navigator.language.startsWith("fr") ? "Continue." : "Go on.",
+    );
+
+  /**
+   * On again after a written question: the app put back as the talk found
+   * it (the brain's agent undoes what the talk changed), then the voice
+   * from its sentence.
    */
   const goOn = async () => {
     const holdNow = holding.current;
-    goOnAsked.current = false;
     if (!holdNow) return;
     const result = await cue({ action: "resume", restore: true });
     if (result.problems.length)
@@ -290,13 +366,7 @@ export function useLiveStage({
         overrides: { agent: { language: language as Language } },
         // ?brain=spark&screen=1: another brain, heeded on dev only.
         customLlmExtraBody: { yarrow: pass.grant, brain: brainAsked() },
-        clientTools: {
-          resume_presentation: () => {
-            goOnAsked.current = true;
-            if (!speaking.current) void goOn();
-            void settle();
-          },
-        },
+        onVadScore: ({ vadScore }) => listen(vadScore),
         // Their first words, still being heard, already hold it, and show
         // in the box as they come.
         onIncomingEvent: (event: {
@@ -313,7 +383,7 @@ export function useLiveStage({
           if (source === "user") setHearing("");
           const text = message.trim();
           if (!text) return;
-          if (source === "user") hold();
+          if (source === "user") takeOver();
           before.current ??= known.current;
           setLines((now) => [
             ...now,
@@ -324,10 +394,6 @@ export function useLiveStage({
             },
           ]);
           if (source !== "user") void settle();
-        },
-        onModeChange: ({ mode }) => {
-          speaking.current = mode === "speaking";
-          if (!speaking.current && goOnAsked.current) void goOn();
         },
         onDisconnect: () => {
           conversation.current = null;
@@ -366,6 +432,7 @@ export function useLiveStage({
    */
   const speak = (chapter: PresentationChapter, index: number) =>
     new Promise<void>((resolve) => {
+      saying.current = index;
       const length = voiceMs(chapter);
       let started = performance.now();
       let pausedAt: number | null = null;
@@ -403,13 +470,15 @@ export function useLiveStage({
           clearTimeout(timer);
           playing?.pause();
         },
-        resume: () => {
+        resume: (fromSentence = true) => {
           if (pausedAt === null) return;
           started += performance.now() - pausedAt;
           pausedAt = null;
           if (playing && !playing.error) {
             // From the start of its sentence: the thread picks up where it broke.
-            const sentence = cueAt(chapter.cues, playing.currentTime * 1000);
+            const sentence = fromSentence
+              ? cueAt(chapter.cues, playing.currentTime * 1000)
+              : null;
             if (sentence) playing.currentTime = sentence.startMs / 1000;
             void playing.play().catch(silent);
           } else silent();
@@ -434,6 +503,9 @@ export function useLiveStage({
     if (!timeline || showing.current) return;
     stopped.current = false;
     showing.current = true;
+    unvoiced.current = 0;
+    saying.current = 0;
+    setLed(null);
     setPlayed(true);
     setProblems([]);
     setNotes([]);
@@ -441,14 +513,19 @@ export function useLiveStage({
     // Its voice ready before its first word, while the click still counts.
     voice.current ??= new Audio();
     routed.current ??= asCall(voice.current);
-    // The member can stop it by speaking from the first word.
-    if (!conversation.current) void startTalk();
+    // The member can stop it by speaking from the first word: the call is
+    // up before it, while the opening is made.
+    const talking = conversation.current ? null : startTalk();
     const heard = (at: string, result: StageCueResult) =>
       setNotes((now) => [
         ...now,
         ...(result.notes ?? []).map((note) => `${at}: ${note}`),
       ]);
-    const opening = await cue({ action: "set" });
+    const [opening] = await Promise.all([
+      cue({ action: "set" }),
+      // Not past a microphone prompt left unanswered.
+      talking && Promise.race([talking, sleep(8000)]),
+    ]);
     heard("opening", opening);
     opened?.(opening.ok);
     const found = [...opening.problems];
@@ -472,6 +549,7 @@ export function useLiveStage({
 
   const stop = () => {
     stopped.current = true;
+    unhear();
     voice.current?.pause();
     hush.current?.();
     // The presenter lets its chapter end; the page waits no more.
@@ -524,6 +602,7 @@ export function useLiveStage({
     played,
     presenting: show !== null,
     held,
+    led,
     talk,
     hearing,
     problems,
@@ -545,6 +624,7 @@ export function useLiveStage({
     stop,
     hold,
     goOn,
+    carryOn,
     startTalk,
     endTalk,
   };
@@ -604,13 +684,25 @@ export function LivePlayer({
     rest.current = window.setTimeout(() => setAwake(false), 2500);
   };
 
-  const { timeline, show, chapter, played, presenting, held, talk, setScreen } =
-    stage;
+  const {
+    timeline,
+    show,
+    chapter,
+    played,
+    presenting,
+    held,
+    led,
+    talk,
+    setScreen,
+  } = stage;
   const playing = presenting && !held;
   const idle = playing && !awake;
+  // The agent leads once the member spoke: play asks it to go on.
+  const leading = led !== null && !presenting && talk === "on";
   const toggle = () => {
     wake();
-    if (!presenting) void stage.play((ok) => ok || onFilm());
+    if (leading) stage.carryOn();
+    else if (!presenting) void stage.play((ok) => ok || onFilm());
     else if (held) void stage.goOn();
     else stage.hold();
   };
@@ -620,10 +712,13 @@ export function LivePlayer({
       return !on;
     });
   const chapters = timeline?.chapters ?? [];
-  // How much of each chapter was said: all of it once played through.
+  // How much of each chapter was said: all of it once played through, up
+  // to where the member spoke once the agent leads.
   const filled = (i: number) =>
     !show
-      ? Number(played)
+      ? led !== null
+        ? Number(i < led)
+        : Number(played)
       : i < show.index
         ? 1
         : i > show.index
@@ -633,9 +728,11 @@ export function LivePlayer({
     ? held
       ? "Play"
       : "Pause"
-    : played
-      ? "Play again"
-      : "Play";
+    : leading
+      ? "Play"
+      : played
+        ? "Play again"
+        : "Play";
 
   return (
     <div className="pv">
@@ -706,7 +803,7 @@ export function LivePlayer({
                 >
                   {playing ? (
                     <Pause size={18} aria-hidden="true" />
-                  ) : played && !presenting ? (
+                  ) : played && !presenting && !leading ? (
                     <RotateCcw size={18} aria-hidden="true" />
                   ) : (
                     <Play size={18} aria-hidden="true" />

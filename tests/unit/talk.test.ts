@@ -7,6 +7,7 @@ import {
   conversationSoFar,
   memberSpoke,
   memberWords,
+  pointMs,
   stageNote,
   talkGrantOf,
   talkFiller,
@@ -217,12 +218,9 @@ describe("the live call's turn", () => {
     });
 
     expect(said.join("")).toBe(
-      "Let me show you... Only the done tasks are left. ",
+      "Let me show you. Only the done tasks are left. ",
     );
-    expect(answer.resume).toBe(false);
-    expect(answer.words).toBe(
-      "Let me show you... Only the done tasks are left.",
-    );
+    expect(answer.words).toBe("Let me show you. Only the done tasks are left.");
     expect(answer.change).toBeNull();
     expect(answer.firstWordMs).not.toBeNull();
     expect(answer.steps.map((step) => step.what)).toEqual([
@@ -287,29 +285,63 @@ describe("the live call's turn", () => {
     expect(asked).toEqual([]);
   });
 
-  it("asks the page to go on, without a word more", async () => {
-    const { client, requests } = claude(() => ({
-      stop_reason: "tool_use",
-      content: [
-        { type: "text", text: "Going on." },
-        { type: "tool_use", id: "t1", name: "resume_presentation", input: {} },
-      ],
-    }));
-    const { stage: hands, hands: asked } = stage({});
-    const said: string[] = [];
+  it("leads the rest of the presentation, each chapter as long as its words", async () => {
+    const before = "Reste le filtre : seules les tâches terminées restent.";
+    const { client, requests } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              { type: "text", text: before },
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "show_chapter",
+                input: { chapter: 3 },
+              },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "C'est tout." }],
+          },
+    );
+    const { stage: hands, hands: asked } = stage({
+      point: { ok: true, problems: [], screen: "- list: 2 tasks" },
+    });
     const answer = await talkTurn({
       client,
       context,
-      messages: [{ role: "user", content: "OK, carry on." }],
-      state: held,
+      messages: [{ role: "user", content: "Vas-y, continue." }],
+      state: {
+        chapter: null,
+        held: false,
+        chapters: 3,
+        over: true,
+        shown: [0],
+        cut: 1,
+      },
       sources,
       stage: hands,
-      say: (text) => said.push(text),
+      say: () => {},
     });
-    expect(answer.resume).toBe(true);
-    expect(said.join("").trim()).toBe("Going on.");
-    expect(asked).toEqual([]);
-    expect(requests).toHaveLength(1);
+    expect(asked).toEqual([
+      { action: "point", index: 2, ms: pointMs(before) },
+    ]);
+    expect(answer.steps.map((step) => step.what)).toEqual([
+      "claude",
+      "show_chapter[3]",
+      "claude",
+    ]);
+    const first = (requests[0]!.body.messages as { content: string }[])[0]!;
+    expect(first.content).toContain(
+      "stopped during chapter 2 when they spoke; you lead the rest. Shown in full: 1. Not shown yet: 2, 3.",
+    );
+    const tools = requests[0]!.body.tools as { name: string }[];
+    expect(tools.map((tool) => tool.name)).toContain("show_chapter");
+    expect(tools.map((tool) => tool.name)).not.toContain(
+      "resume_presentation",
+    );
   });
 
   it("proposes a change as a card in the thread, never reading it out", async () => {
@@ -496,69 +528,22 @@ describe("what ElevenLabs sends the brain", () => {
     expect(talkGrantOf(talkRequestSchema.parse({ messages: [] }))).toBeNull();
   });
 
-  it("keeps each time the presentation went on, between two turns", () => {
-    const { messages } = talkRequestSchema.parse({
-      messages: [
-        { role: "user", content: "Carry on." },
-        {
-          role: "assistant",
-          content: null,
-          tool_calls: [
-            {
-              id: "call_1",
-              type: "function",
-              function: { name: "resume_presentation", arguments: "{}" },
-            },
-          ],
-        },
-        { role: "tool", content: "Tool called successfully." },
-        { role: "user", content: "Thanks, that's all." },
-      ],
-    });
-    // Else "carry on" and "thanks" read as one turn asking to go on again.
-    expect(talkMessages(messages)).toEqual([
-      { role: "user", content: "Carry on." },
-      {
-        role: "assistant",
-        content: [
-          {
-            type: "tool_use",
-            id: "resume_1",
-            name: "resume_presentation",
-            input: {},
-          },
-        ],
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: "resume_1",
-            content: "The presentation went on.",
-          },
-          { type: "text", text: "Thanks, that's all." },
-        ],
-      },
-    ]);
-  });
-
-  it("is answered once the member spoke, not after the page's tool", () => {
+  it("is answered once the member spoke, not after a tool of ElevenLabs'", () => {
     const asked = (messages: unknown[]) =>
       memberSpoke(talkRequestSchema.parse({ messages }));
-    const resume = [
+    const skipped = [
       { role: "user", content: "Carry on." },
       {
         role: "assistant",
         content: null,
-        tool_calls: [{ function: { name: "resume_presentation" } }],
+        tool_calls: [{ function: { name: "skip_turn" } }],
       },
     ];
-    expect(asked(resume.slice(0, 1))).toBe(true);
-    expect(asked(resume)).toBe(false);
+    expect(asked(skipped.slice(0, 1))).toBe(true);
+    expect(asked(skipped)).toBe(false);
     expect(
       asked([
-        ...resume,
+        ...skipped,
         { role: "tool", content: "Tool called successfully." },
       ]),
     ).toBe(false);
@@ -571,12 +556,7 @@ describe("what ElevenLabs sends the brain", () => {
       talkRequestSchema.parse({
         messages: [
           { role: "user", content: "Carry on." },
-          {
-            role: "assistant",
-            content: null,
-            tool_calls: [{ function: { name: "resume_presentation" } }],
-          },
-          { role: "tool", content: "Tool called successfully." },
+          { role: "assistant", content: "The filter is next." },
           { role: "user", content: "Wait," },
           { role: "user", content: "click Done." },
         ],
@@ -633,6 +613,11 @@ describe("what ElevenLabs sends the brain", () => {
     expect(stageNote({ ...held, held: false })).toContain(
       'playing in chapter 2 of 3, "The filter"',
     );
+    expect(
+      stageNote({ ...held, over: true, shown: [0, 1, 2], cut: null }),
+    ).toBe(
+      "[On the stage: the recorded presentation stopped when they spoke; you lead the rest. Shown in full: 1, 2, 3. Not shown yet: none.]",
+    );
   });
 
   it("gets the words as chat completion chunks, then the end", () => {
@@ -642,16 +627,6 @@ describe("what ElevenLabs sends the brain", () => {
       object: "chat.completion.chunk",
       choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
     });
-    const resume = completion
-      .resume("1")
-      .split("\n\n")
-      .filter(Boolean)
-      .map((line) => JSON.parse(line.slice(6)));
-    expect(resume[0].choices[0].delta.tool_calls[0].function).toEqual({
-      name: "resume_presentation",
-      arguments: "{}",
-    });
-    expect(resume[1].choices[0].finish_reason).toBe("tool_calls");
     // A turn that was not the member's: ElevenLabs' own skip_turn.
     expect(
       JSON.parse(completion.skip("1").split("\n\n")[0]!.slice(6)).choices[0]
@@ -663,17 +638,23 @@ describe("what ElevenLabs sends the brain", () => {
   });
 
   it("hears a few words while the stage works, in the member's language", () => {
-    expect(talkFiller("fr", 0)).toBe("Une seconde... ");
-    expect(talkFiller("fr", 1)).toBe("J'y suis presque... ");
-    expect(talkFiller("fr", 3)).toBe("Une seconde... ");
-    expect(talkFiller("en-GB", 0)).toBe("One moment... ");
-    expect(talkFiller("ja", 2)).toBe("Just a second... ");
+    expect(talkFiller("fr", 0)).toBe("Une seconde. ");
+    expect(talkFiller("fr", 1)).toBe("J'y suis presque. ");
+    expect(talkFiller("fr", 3)).toBe("Une seconde. ");
+    expect(talkFiller("en-GB", 0)).toBe("One moment. ");
+    expect(talkFiller("ja", 2)).toBe("Just a second. ");
   });
 
   it("ends the words said before a tool so the voice says them at once", () => {
-    expect(untilTool("Je regarde.")).toBe(".. ");
-    expect(untilTool("Je regarde l'écran")).toBe("... ");
-    expect(untilTool("Une seconde... ")).toBe(" ");
+    expect(untilTool("Regarde.")).toBe(" ");
+    expect(untilTool("Tu vois ? ")).toBe(" ");
+    expect(untilTool("Je vérifie dans le code")).toBe(". ");
+  });
+
+  it("plays a chapter the agent shows as long as its words", () => {
+    expect(pointMs("Regarde.")).toBe(3000);
+    expect(pointMs("x".repeat(100))).toBe(6500);
+    expect(pointMs("x".repeat(1000))).toBe(12000);
   });
 });
 
