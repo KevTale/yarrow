@@ -236,6 +236,18 @@ export function talkMessages(
   return said;
 }
 
+/**
+ * Whether ElevenLabs asks because the member spoke. After the page's tool
+ * it asks again with the tool's result last: answering the member's words
+ * again called the tool again, every two seconds.
+ */
+export function memberSpoke(request: TalkRequest): boolean {
+  return (
+    request.messages.at(-1)?.role === "user" &&
+    talkMessages(request.messages).at(-1)?.role === "user"
+  );
+}
+
 /** Where the presentation stands, said to the agent with the member's turn. */
 export function stageNote(state: StageState | null): string {
   if (!state) return "[The stage does not answer right now.]";
@@ -360,7 +372,7 @@ export async function talkTurn(input: {
           error: true,
         }),
       );
-      steps.push({ what: call.name, ms: Date.now() - ran });
+      steps.push({ what: stepName(call), ms: Date.now() - ran });
       results.push({
         type: "tool_result",
         tool_use_id: call.id,
@@ -373,6 +385,19 @@ export async function talkTurn(input: {
       content.push({ type: "text", text: "Answer now with what you have." });
     messages.push({ role: "user", content });
   }
+}
+
+/** A tool call in the turn's log: its name, and what it did on the stage. */
+function stepName(call: Anthropic.Beta.BetaToolUseBlock): string {
+  const input = call.input as {
+    actions?: { do?: unknown }[];
+    window?: unknown;
+  } | null;
+  if (call.name === "act_on_screen" && Array.isArray(input?.actions))
+    return `${call.name}[${input.actions.map((action) => String(action?.do)).join(" ")}]`;
+  if (call.name === "show_window")
+    return `${call.name}[${String(input?.window)}]`;
+  return call.name;
 }
 
 async function runTalkTool(

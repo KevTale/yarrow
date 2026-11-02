@@ -4,6 +4,7 @@ import type { StageCueResult, StageHand } from "../../src/core/stage";
 import type { ChatSources } from "../../src/runner/chat";
 import {
   completion,
+  memberSpoke,
   stageNote,
   talkGrantOf,
   talkFiller,
@@ -221,7 +222,7 @@ describe("the live call's turn", () => {
       "claude",
       "look_at_screen",
       "claude",
-      "act_on_screen",
+      "act_on_screen[click]",
       "claude",
     ]);
     expect(answer.usage).toMatchObject({ input: 300, output: 60 });
@@ -403,6 +404,29 @@ describe("what ElevenLabs sends the brain", () => {
       ),
     ).toBe("other");
     expect(talkGrantOf(talkRequestSchema.parse({ messages: [] }))).toBeNull();
+  });
+
+  it("is answered once the member spoke, not after the page's tool", () => {
+    const asked = (messages: unknown[]) =>
+      memberSpoke(talkRequestSchema.parse({ messages }));
+    const resume = [
+      { role: "user", content: "Carry on." },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "resume_presentation" } }],
+      },
+    ];
+    expect(asked(resume.slice(0, 1))).toBe(true);
+    expect(asked(resume)).toBe(false);
+    expect(
+      asked([
+        ...resume,
+        { role: "tool", content: "Tool called successfully." },
+      ]),
+    ).toBe(false);
+    expect(asked([{ role: "user", content: " " }])).toBe(false);
+    expect(asked([])).toBe(false);
   });
 
   it("says where the presentation stands", () => {

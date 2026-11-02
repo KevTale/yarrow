@@ -93,6 +93,7 @@ import {
 } from "../src/runner/chat";
 import {
   completion,
+  memberSpoke,
   stageNote,
   TALK_SILENCE_MS,
   talkFiller,
@@ -1325,8 +1326,8 @@ async function talkRoute(
     "content-type": "text/event-stream",
     "cache-control": "no-cache",
   };
-  // Not the member's turn (ElevenLabs after a tool, or on its own): nothing to say.
-  if (messages.at(-1)?.role !== "user")
+  // Not the member's turn (after the page's tool, or on its own): nothing to say.
+  if (!memberSpoke(parsed.data))
     return new Response(completion.end(id), { headers });
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
