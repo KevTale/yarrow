@@ -253,6 +253,12 @@ async function check(
       ok: chapters[0]?.tab === "app" && chapters[0].before,
       what: "Opens on the app as it was",
     });
+  // A documentation change opens on the document as it was.
+  if (scenario.expect.shows?.includes("document"))
+    checks.push({
+      ok: chapters[0]?.tab === "document" && chapters[0].before,
+      what: "Opens on the document as it was",
+    });
   checks.push({
     ok: chapters.at(-1)?.tab !== "ticket",
     what: "Ends on the change, not the ticket",

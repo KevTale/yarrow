@@ -12,7 +12,7 @@ export interface Scenario {
     /** A draft pull request, or an abstention with questions. */
     outcome: "pull_request" | "abstained";
     /** The presentation's screens: the app shown working, a command run. */
-    shows?: ("app" | "terminal")[];
+    shows?: ("app" | "document" | "terminal")[];
     /** Files the change must touch, by path prefix. */
     touches?: string[];
   };
@@ -72,6 +72,18 @@ export const scenarios: Scenario[] = [
       outcome: "pull_request",
       shows: ["terminal"],
       touches: ["src/"],
+    },
+  },
+  {
+    name: "readme",
+    about:
+      "A documentation change: the document shown as a reader sees it, as it was then with the change.",
+    title: "Document the task API in the README",
+    body: "The README says nothing about the API. Add an API section for GET /api/tasks: that it needs a signed-in session, each field it returns, and an example response.",
+    expect: {
+      outcome: "pull_request",
+      shows: ["document"],
+      touches: ["README.md"],
     },
   },
   {
