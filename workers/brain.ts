@@ -1329,8 +1329,15 @@ async function talkRoute(
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
-  const write = (text: string) =>
-    writer.write(encoder.encode(text)).catch(() => {});
+  let wrote = Date.now();
+  const write = (text: string) => {
+    wrote = Date.now();
+    return writer.write(encoder.encode(text)).catch(() => {});
+  };
+  // While the agent works on the stage in silence, ElevenLabs keeps waiting.
+  const waiting = setInterval(() => {
+    if (Date.now() - wrote >= 4000) void write(completion.wait(id));
+  }, 1000);
   const turn = (async () => {
     try {
       const [kept, state] = await Promise.all([
@@ -1389,6 +1396,7 @@ async function talkRoute(
         ) + completion.end(id),
       );
     } finally {
+      clearInterval(waiting);
       await writer.close().catch(() => {});
     }
   })();

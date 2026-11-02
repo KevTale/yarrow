@@ -429,6 +429,12 @@ describe("what ElevenLabs sends the brain", () => {
     expect(completion.end("1")).toMatch(
       /"finish_reason":"stop".*\n\ndata: \[DONE\]\n\n$/s,
     );
+    // Silence while the stage works, a chunk all the same.
+    expect(JSON.parse(completion.wait("1").slice(6)).choices[0]).toEqual({
+      index: 0,
+      delta: { content: "" },
+      finish_reason: null,
+    });
   });
 });
 

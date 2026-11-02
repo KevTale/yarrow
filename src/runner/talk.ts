@@ -401,6 +401,13 @@ export const completion = {
   words(id: string, text: string): string {
     return chunk(id, { content: text }, null);
   },
+  /**
+   * Nothing said: ElevenLabs drops the call after 15 s without a chunk
+   * (its cascade timeout, 15 s at most), and the stage can take longer.
+   */
+  wait(id: string): string {
+    return chunk(id, { content: "" }, null);
+  },
   resume(id: string): string {
     return (
       chunk(

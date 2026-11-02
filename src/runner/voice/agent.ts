@@ -70,9 +70,10 @@ export function talkAgentConfig(input: {
         similarity_boost: 0.8,
       },
       turn: {
-        // The presentation plays for minutes: the agent waits for them.
-        turn_timeout: 600,
-        initial_wait_time: 600,
+        // The presentation plays for minutes: the agent waits for them, never
+        // speaking up (-1; ElevenLabs takes at most 300 s otherwise).
+        turn_timeout: -1,
+        initial_wait_time: -1,
         silence_end_call_timeout: -1,
         turn_eagerness: "normal",
         soft_timeout_config: { timeout_seconds: -1 },
