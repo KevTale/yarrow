@@ -8901,6 +8901,9 @@ html:has(.pp-stage:modal) {
 .pp-input textarea::placeholder {
   color: var(--muted);
 }
+.pp-input textarea.pp-heard {
+  color: var(--muted);
+}
 .pp-go {
   display: grid;
   flex: none;

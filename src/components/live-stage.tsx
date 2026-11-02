@@ -104,6 +104,8 @@ export function useLiveStage({
   const [notes, setNotes] = useState<string[]>([]);
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
   const [held, setHeld] = useState(false);
+  /** What the microphone hears of the member, as they say it. */
+  const [hearing, setHearing] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [screen, setScreen] = useState<HTMLDivElement | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
@@ -283,20 +285,20 @@ export function useLiveStage({
             void settle();
           },
         },
-        // Their first words, still being heard, already hold it.
+        // Their first words, still being heard, already hold it, and show
+        // in the box as they come.
         onIncomingEvent: (event: {
           type?: string;
           tentative_user_transcription_event?: { user_transcript?: string };
         }) => {
+          if (event.type !== "tentative_user_transcript") return;
           const heard =
             event.tentative_user_transcription_event?.user_transcript ?? "";
-          if (
-            event.type === "tentative_user_transcript" &&
-            /\p{L}/u.test(heard)
-          )
-            hold();
+          setHearing(heard.trim());
+          if (/\p{L}/u.test(heard)) hold();
         },
         onMessage: ({ source, message }) => {
+          if (source === "user") setHearing("");
           const text = message.trim();
           if (!text) return;
           if (source === "user") hold();
@@ -318,6 +320,7 @@ export function useLiveStage({
         onDisconnect: () => {
           conversation.current = null;
           calling.current = false;
+          setHearing("");
           setTalk("off");
         },
         onError: (message) =>
@@ -510,6 +513,7 @@ export function useLiveStage({
     presenting: show !== null,
     held,
     talk,
+    hearing,
     problems,
     notes,
     /** The call's lines the thread does not have yet. */
