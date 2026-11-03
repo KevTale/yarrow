@@ -313,6 +313,12 @@ describe("questions and answers", () => {
       },
       new Date(at.getTime() + 30_000),
     );
+    // A gesture put right: a turn of the agent's, no member said it.
+    await saveSpokenTurn(
+      db,
+      { ...turn, said: null, words: "It's there now.", change: null },
+      new Date(at.getTime() + 40_000),
+    );
     const thread = await threadMessages(db, workUnitId);
     expect(thread.map((m) => [m.author, m.body, m.status, m.change])).toEqual([
       ["builder", "Click Done.", "done", null],
@@ -324,6 +330,7 @@ describe("questions and answers", () => {
         "done",
         "The filter sits on the title's line.",
       ],
+      ["agent", "It's there now.", "done", null],
     ]);
     expect(await askedToday(db, marie.userId, at)).toBe(2);
     expect(
@@ -336,7 +343,7 @@ describe("questions and answers", () => {
       new Date(at.getTime() + 60_000),
     );
     if (!asked.ok) throw new Error("not asked");
-    expect((await chatContext(db, asked.answerId))!.history).toHaveLength(5);
+    expect((await chatContext(db, asked.answerId))!.history).toHaveLength(6);
     // Its card is made like a written one.
     expect(
       await openProposal(db, { messageId: thread[3]!.id, workUnitId }),

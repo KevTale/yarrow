@@ -8,8 +8,9 @@ import {
   type CSSProperties,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
-import { asCall } from "@/components/call-voice";
-import { loadPresentation } from "@/components/presentation";
+import { CallSpeech, type SpeechTiming } from "@/components/call-speech";
+import { asCall, micLine, onLine } from "@/components/call-voice";
+import { loadPresentation, saved, VOICE_KEY } from "@/components/presentation";
 import {
   cueAt,
   estimateSpeechMs,
@@ -17,7 +18,12 @@ import {
   type Presentation,
   type PresentationChapter,
 } from "@/core/presentation";
-import { CALL_GREETING, type StageCueResult } from "@/core/stage";
+import {
+  CALL_GREETING,
+  SLIP,
+  withoutBeats,
+  type StageCueResult,
+} from "@/core/stage";
 import {
   stageCueFn,
   stageFn,
@@ -46,6 +52,19 @@ interface Line {
 
 /** The call's pass, fetched before the click, used while this fresh. */
 const PASS_MS = 4 * 60_000;
+
+/** No microphone, nothing said this long: the call hangs up, it costs by the minute. */
+const QUIET_CALL_MS = 60_000;
+/** How often the page looks where the film is, the stage following it. */
+const FOLLOW_MS = 1500;
+/** How often the agent's words catch up with its voice. */
+const WORDS_MS = 80;
+/** None of the voice's timing this long: its words show all the same. */
+const VOICE_LOST_MS = 2500;
+/** A gesture leaves this long before its word: on its way, then the pointer's. */
+const GESTURE_LEAD_MS = 550;
+/** Gestures failed in a row the agent tries to put right, before it lets go. */
+const SLIPS_MAX = 2;
 
 /** How often the page looks whether the agent is showing something. */
 const SHOW_LOOK_MS = 700;
@@ -95,17 +114,21 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
 
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
- * and the member's call to the agent over it (src/runner/talk.ts). Beside
- * the film (`openCall`): the agent listens while it plays, until they speak or
- * send (`onVoice`, `write`): the film stops and the stage goes where it
- * stopped, or the call is by voice alone while the stage is not up (no recipe
- * yet, still coming up, a phone). Played on (`toDemo`, `onResume`), the call
- * stays, quiet, for the next time they speak. Or the
- * presentation played live on it, the voice here, the gestures there: their
- * first words end it there. Or they write to it in the pull request's
- * conversation beside it: the demo pauses, the stage goes there behind it,
- * and its screen takes the demo's place the moment the agent shows something.
- * The thread keeps what was said as what was written. Or they try the app
+ * and the member's call to the agent over it (src/runner/talk.ts): one call
+ * for what they write (`write`, no microphone asked for) and what they say
+ * (`openCall`, their microphone plugged into it, `muteMic` out of it). The
+ * stage follows the film behind it; they speak or send (`onVoice`): the film
+ * stops and the stage takes its place, or the call is by voice alone while
+ * the stage is not up (no recipe yet, still coming up, a phone). The agent's
+ * words show as they are said and its gestures happen on them, by the voice's
+ * own timing. Played on (`toDemo`, `onResume`), the call stays, quiet, for the
+ * next time they speak; with no microphone, it hangs up a minute later and
+ * opens again as they write. Or the presentation played live on it, the voice
+ * here, the gestures there: their first words end it there. Should no call
+ * start, what they write goes the written way (`ask`): the demo pauses, the
+ * stage goes there behind it, and its screen takes the demo's place the
+ * moment the agent shows something. The thread keeps what was said as what
+ * was written. Or they try the app
  * themselves, the agent only watching until the demo plays on. The call and
  * the voice end with the stage, and with the page or the panel.
  */
@@ -130,6 +153,7 @@ export function useLiveStage({
   refresh,
   onResume,
   onVoice,
+  onMoment,
 }: {
   projectId: string;
   rowKey: string;
@@ -151,6 +175,8 @@ export function useLiveStage({
   onResume?: (chapter: number | null) => void;
   /** They spoke or sent over the film: it stops, and says where. */
   onVoice?: () => Interrupted | null;
+  /** Where the film is now, for the stage to follow. */
+  onMoment?: () => Interrupted | null;
 }) {
   const [status, setStatus] = useState<StageView | null>(initial ?? null);
   const [timeline, setTimeline] = useState<Presentation | null>(null);
@@ -160,6 +186,10 @@ export function useLiveStage({
   const [notes, setNotes] = useState<string[]>([]);
   const [talk, setTalk] = useState<"off" | "starting" | "on">("off");
   const [talkSince, setTalkSince] = useState(0);
+  /** Their own microphone on the call. */
+  const [mic, setMic] = useState<"off" | "starting" | "on">("off");
+  /** The thread up to here, while the call's lines stand for what follows. */
+  const [threadUpTo, setThreadUpTo] = useState<number | null>(null);
   /** Called from the film: the stage is where the film was paused. */
   const [reached, setReached] = useState(false);
   const [held, setHeld] = useState(false);
@@ -209,7 +239,32 @@ export function useLiveStage({
     null,
   );
   const conversation = useRef<Call | null>(null);
+  /** The call's microphone line, and whether theirs is plugged into it. */
+  const wire = useRef<ReturnType<typeof micLine> | null>(null);
+  const micOn = useRef(false);
+  /** Hangs up the call that has said nothing for a while. */
+  const quiet = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Each call in turn: the end of an earlier one is not this one's. */
+  const calls = useRef(0);
+  /** What the agent is saying, as the voice's timing has it. */
+  const speech = useRef(new CallSpeech());
+  /** Its words catching up with its voice. */
+  const wordsNow = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Its answer whole, waiting for the voice to finish saying it. */
+  const spoken = useRef<{ text: string; greeted: boolean } | null>(null);
+  /** Its voice cut (they spoke, or the demo plays on): the rest is not shown. */
+  const voiceCut = useRef(false);
+  /** Gestures on their way to their word. */
+  const beats = useRef(new Set<ReturnType<typeof setTimeout>>());
+  /** What failed of them, for the agent once its voice is done. */
+  const slips = useRef<string[]>([]);
+  const slipped = useRef(0);
+  /** The moment the stage followed the film to, and one on its way there. */
+  const followed = useRef<string | null>(null);
+  const following = useRef(false);
   const transcription = useRef<Transcription | null>(null);
+  /** The call's token for their words as they say them, until it is used. */
+  const scribeToken = useRef<string | null>(null);
   /** Their words of this turn already done (Scribe commits each pause). */
   const heardSoFar = useRef("");
   const calling = useRef(false);
@@ -225,7 +280,14 @@ export function useLiveStage({
     onVoice?: () => Interrupted | null;
     play: (opened?: (ok: boolean) => void, from?: number) => Promise<void>;
     interrupt: (words?: boolean) => void;
-  }>({ onResume, onVoice, play: async () => {}, interrupt: () => {} });
+    follow: () => void;
+  }>({
+    onResume,
+    onVoice,
+    play: async () => {},
+    interrupt: () => {},
+    follow: () => {},
+  });
   /** The film and the member: on, stopped by a voice, stopped for their words. */
   const heardOver = useRef<"no" | "voice" | "words">("no");
   /** Where it stopped for them. */
@@ -396,8 +458,11 @@ export function useLiveStage({
     setAsked(null);
     setReached(false);
     reachedAt.current = null;
+    followed.current = null;
     heardOver.current = "no";
     conversation.current?.setVolume({ volume: 0 });
+    slips.current = [];
+    voiceDone(true);
     setWriting("");
     setThinking(false);
   };
@@ -644,8 +709,10 @@ export function useLiveStage({
       settling.current.add(turn);
       const { base = known.current, said = "" } = turns.current.get(turn) ?? {};
       const asked = plain(said);
+      let read = base;
       for (let attempt = 0; attempt < 20; attempt++) {
         const fresh = await refresh();
+        read = fresh?.messages.length ?? read;
         const added = (fresh?.messages ?? []).slice(base) as {
           author?: unknown;
           body?: unknown;
@@ -664,6 +731,13 @@ export function useLiveStage({
       keptTurns.current.add(turn);
       settling.current.delete(turn);
       setLines((now) => now.filter((line) => line.turn !== turn));
+      // The thread has it: only a turn begun since stays out of it.
+      const next = turns.current.get(turnNow.current);
+      if (turnNow.current === turn || !next) setThreadUpTo(null);
+      else {
+        next.base = read;
+        setThreadUpTo(read);
+      }
     },
     [refresh],
   );
@@ -702,7 +776,7 @@ export function useLiveStage({
     if (was === "no") stoppedAt.current = latest.current.onVoice?.() ?? null;
     heardOver.current = words ? "words" : "voice";
     if (!words) return;
-    conversation.current?.setVolume({ volume: 1 });
+    audible();
     const at = stoppedAt.current;
     // In the member's hands, the stage stays as they have it.
     if (control !== "off") setReached(true);
@@ -714,6 +788,33 @@ export function useLiveStage({
           setReached(true);
       });
   };
+
+  /** The agent is heard: on their microphone always, else as the demo is. */
+  const audible = () =>
+    conversation.current?.setVolume({
+      volume: micOn.current || saved(VOICE_KEY) ? 1 : 0,
+    });
+
+  /** The film plays: the stage goes after it, there before they speak. */
+  const follow = () => {
+    if (!up.current || control !== "off" || following.current) return;
+    const at = onMoment?.();
+    if (!at?.playing) return;
+    const gestures = timeline?.chapters[at.index]?.live?.actions.length ?? 0;
+    const moment = `${at.index}:${Math.round(gestures * at.part)}`;
+    if (moment === followed.current) return;
+    following.current = true;
+    void cue({ action: "reach", index: at.index, part: at.part }).then(
+      (result) => {
+        following.current = false;
+        if (result.ok) followed.current = moment;
+      },
+    );
+  };
+  useEffect(() => {
+    const timer = setInterval(() => latest.current.follow(), FOLLOW_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   /**
    * Stopped for a voice no word came of, quiet now: the film goes on. Past a
@@ -794,6 +895,94 @@ export function useLiveStage({
     return made;
   };
 
+  /** Something was said: a call with no microphone stays a while longer. */
+  const stillTalking = () => {
+    clearTimeout(quiet.current);
+    if (!calling.current) return;
+    quiet.current = setTimeout(() => {
+      if (micOn.current || speaking.current || wordsNow.current) stillTalking();
+      else hangUp();
+    }, QUIET_CALL_MS);
+  };
+
+  /** The agent's words caught up with its voice, its line once it said it. */
+  const showWords = () => {
+    const now = performance.now();
+    const said = speech.current.textAt(now);
+    if (said) {
+      setThinking(false);
+      setWriting(said);
+    }
+    const whole = spoken.current;
+    if (!whole || !speech.current.over(now)) return;
+    const heard =
+      plain(speech.current.text()).length + 2 >= plain(whole.text).length;
+    if (heard || now - speech.current.last > VOICE_LOST_MS) voiceDone();
+  };
+  const runWords = () => {
+    wordsNow.current ??= setInterval(showWords, WORDS_MS);
+  };
+
+  /** The voice's timing of a piece: its gestures leave in time for their word. */
+  const hearVoice = (timing: SpeechTiming) => {
+    if (voiceCut.current) return;
+    const now = performance.now();
+    for (const { n, at } of speech.current.add(timing, now)) {
+      const beat = setTimeout(
+        () => {
+          beats.current.delete(beat);
+          void cue({ action: "beat", n }).then(gestureDone);
+        },
+        Math.max(0, at - now - GESTURE_LEAD_MS),
+      );
+      beats.current.add(beat);
+    }
+    runWords();
+  };
+
+  /**
+   * The voice said it, or was cut (`cut`: nothing more of it is shown and
+   * what it had left to do goes): its line takes the words' place.
+   */
+  const voiceDone = (cut = false) => {
+    if (wordsNow.current) clearInterval(wordsNow.current);
+    wordsNow.current = null;
+    for (const beat of beats.current) clearTimeout(beat);
+    beats.current.clear();
+    speech.current = new CallSpeech();
+    voiceCut.current = cut;
+    const whole = spoken.current;
+    spoken.current = null;
+    setWriting("");
+    if (whole) addLine("agent", whole.text, whole.greeted);
+    stillTalking();
+    if (cut) return;
+    if (up.current) void cue({ action: "beat", n: null }).then(gestureDone);
+    tellSlips();
+  };
+
+  const gestureDone = (result: StageCueResult) => {
+    slips.current.push(...result.problems);
+    tellSlips();
+  };
+
+  /**
+   * A gesture written in its words failed: the agent hears it once its voice
+   * is done, as a turn no member said, and puts it right.
+   */
+  const tellSlips = () => {
+    if (!slips.current.length || wordsNow.current || voiceCut.current) return;
+    const failed = slips.current.splice(0).join("; ");
+    const session = conversation.current;
+    if (!session || slipped.current >= SLIPS_MAX) return;
+    slipped.current += 1;
+    turnNow.current += 1;
+    turns.current.set(turnNow.current, { base: known.current, said: "" });
+    lastWho.current = "member";
+    setThreadUpTo((now) => now ?? known.current);
+    session.sendUserMessage(`${SLIP} ${failed}`);
+  };
+
   /** The agent asked for the film: it plays on, the call staying, or ending. */
   const resumeNow = () => {
     const asked = resumeAsked.current;
@@ -816,16 +1005,22 @@ export function useLiveStage({
       setThinking(false);
     }
     if (who === "member") {
+      // Over the agent's voice: what it had left to say goes.
+      voiceDone(true);
+      voiceCut.current = false;
+      slipped.current = 0;
       unvoiced.current = 0;
       latest.current.interrupt();
       takeOver();
       setThinking(/\p{L}/u.test(text));
+      if (up.current) void cue({ action: "stir" });
       if (lastWho.current !== "member") {
         turnNow.current += 1;
         turns.current.set(turnNow.current, {
           base: known.current,
           said: "",
         });
+        setThreadUpTo((now) => now ?? known.current);
       }
       const now = turns.current.get(turnNow.current)!;
       if (!plain(now.said).includes(plain(text)))
@@ -860,136 +1055,190 @@ export function useLiveStage({
   };
   const openTalk = async (greeting?: string) => {
     calling.current = true;
+    const call = ++calls.current;
     resumeAsked.current = null;
     speaking.current = false;
-    heardOver.current = "no";
     unvoiced.current = 0;
+    voiceCut.current = false;
     setTalk("starting");
     try {
+      const line = (wire.current ??= micLine());
       const [given, eleven] = await Promise.all([
         passNow(),
         import("@elevenlabs/client"),
       ]);
       if (!given.ok) throw new Error(given.reason);
-      const session = await eleven.Conversation.startSession({
-        conversationToken: given.conversationToken,
-        connectionType: "webrtc",
-        overrides: {
-          agent: {
-            language: language() as Language,
-            ...(greeting ? { firstMessage: greeting } : {}),
+      const session = await onLine(line.stream, () =>
+        eleven.Conversation.startSession({
+          conversationToken: given.conversationToken,
+          connectionType: "webrtc",
+          overrides: {
+            agent: {
+              language: language() as Language,
+              ...(greeting ? { firstMessage: greeting } : {}),
+            },
           },
-        },
-        // ?brain=spark&screen=1: another brain, heeded on dev only.
-        customLlmExtraBody: { yarrow: given.grant, brain: brainAsked() },
-        clientTools: {
-          resume_presentation: (parameters: { chapter?: unknown }) => {
-            const chapter = Number(parameters?.chapter);
-            resumeAsked.current = {
-              chapter:
-                Number.isInteger(chapter) && chapter >= 1 ? chapter - 1 : null,
-            };
+          // ?brain=spark&screen=1: another brain, heeded on dev only.
+          customLlmExtraBody: { yarrow: given.grant, brain: brainAsked() },
+          clientTools: {
+            resume_presentation: (parameters: { chapter?: unknown }) => {
+              const chapter = Number(parameters?.chapter);
+              resumeAsked.current = {
+                chapter:
+                  Number.isInteger(chapter) && chapter >= 1
+                    ? chapter - 1
+                    : null,
+              };
+              if (!speaking.current) resumeNow();
+            },
+          },
+          onModeChange: ({ mode }) => {
+            speaking.current = mode === "speaking";
             if (!speaking.current) resumeNow();
           },
-        },
-        onModeChange: ({ mode }) => {
-          speaking.current = mode === "speaking";
-          if (!speaking.current) resumeNow();
-        },
-        onVadScore: ({ vadScore }) => {
-          sense(vadScore);
-          listen(vadScore);
-        },
-        // Their first words, still being heard, already hold it, and show
-        // in the box as they come.
-        onIncomingEvent: (event: {
-          type?: string;
-          tentative_user_transcription_event?: { user_transcript?: string };
-        }) => {
-          if (event.type !== "tentative_user_transcript") return;
-          const heard =
-            event.tentative_user_transcription_event?.user_transcript ?? "";
-          setHearing(heard.trim());
-          if (!/\p{L}/u.test(heard)) return;
-          unvoiced.current = 0;
-          latest.current.interrupt();
-          hold();
-        },
-        onAgentChatResponsePart: ({ type, text }) => {
-          if (type === "start") setWriting("");
-          if (type !== "delta" || !text) return;
-          setThinking(false);
-          setWriting((now) => now + text);
-        },
-        onMessage: ({ source, message }) => {
-          const who = source === "user" ? "member" : "agent";
-          if (who === "member") {
-            setHearing("");
-            setVoicing(false);
-            voicedOnCall.current = null;
-            heardSoFar.current = "";
-          }
-          const text = message.trim();
-          if (!text) return;
-          // The greeting is the page's own: the thread never has it.
-          addLine(who, text, who === "agent" && text === greeting);
-        },
-        onDisconnect: () => {
-          conversation.current = null;
-          calling.current = false;
-          untranscribe();
-          setHearing("");
-          setVoicing(false);
-          setWriting("");
-          setThinking(false);
-          voicedOnCall.current = null;
-          lastWho.current = null;
-          setLines((now) => now.filter((line) => line.turn !== -1));
-          setReached(false);
-          setTalk("off");
-          if (up.current) warm();
-        },
-        onError: (message) =>
-          setProblems((now) => [...now, `call: ${message}`]),
-      });
+          onVadScore: ({ vadScore }) => {
+            sense(vadScore);
+            listen(vadScore);
+          },
+          // Their first words, still being heard, already hold it, and show
+          // in the box as they come.
+          onIncomingEvent: (event: {
+            type?: string;
+            tentative_user_transcription_event?: { user_transcript?: string };
+          }) => {
+            if (event.type === "interruption") voiceDone(true);
+            if (event.type !== "tentative_user_transcript") return;
+            const heard =
+              event.tentative_user_transcription_event?.user_transcript ?? "";
+            setHearing(heard.trim());
+            if (!/\p{L}/u.test(heard)) return;
+            unvoiced.current = 0;
+            latest.current.interrupt();
+            hold();
+          },
+          onAudioAlignment: hearVoice,
+          onMessage: ({ source, message }) => {
+            const who = source === "user" ? "member" : "agent";
+            if (who === "member") {
+              setHearing("");
+              setVoicing(false);
+              voicedOnCall.current = null;
+              heardSoFar.current = "";
+            }
+            const text = withoutBeats(message).trim();
+            if (!text || text.startsWith(SLIP)) return;
+            // The greeting is the page's own: the thread never has it.
+            const greeted = who === "agent" && text === greeting;
+            if (who === "member" || voiceCut.current) {
+              addLine(who, text, greeted);
+              return;
+            }
+            // Its voice comes after its words: the line waits for it.
+            const before = spoken.current?.text ?? "";
+            spoken.current = {
+              text: plain(text).includes(plain(before))
+                ? text
+                : `${before} ${text}`,
+              greeted,
+            };
+            speech.current.last = performance.now();
+            runWords();
+          },
+          onDisconnect: () => {
+            if (calls.current !== call) return;
+            conversation.current = null;
+            hangUp();
+          },
+          onError: (message) =>
+            setProblems((now) => [...now, `call: ${message}`]),
+        }),
+      );
       // Hung up while it was starting.
-      if (!calling.current) {
+      if (calls.current !== call) {
         void session.endSession();
         return;
       }
       conversation.current = session;
-      if (given.transcriptionToken) {
-        try {
-          transcribe(eleven, given.transcriptionToken);
-        } catch {
-          // Without it, the bubble shows their voice, then their words.
-        }
-      }
+      scribeToken.current = given.transcriptionToken ?? null;
+      if (heardOver.current === "words") audible();
       setTalk("on");
       setTalkSince(Date.now());
+      stillTalking();
     } catch (error) {
-      calling.current = false;
-      setTalk("off");
+      hangUp();
       setProblems((now) => [...now, `call: ${(error as Error).message}`]);
     }
   };
 
-  const endTalk = () => {
+  /** Their microphone on the call, and their words as they say them. */
+  const plugMic = async () => {
+    setMic("starting");
+    try {
+      wire.current ??= micLine();
+      await wire.current.plug();
+      micOn.current = true;
+      setMic("on");
+      if (heardOver.current === "words") audible();
+      await starting.current;
+      if (!micOn.current) return;
+      const token =
+        scribeToken.current ??
+        (await passNow().then((given) =>
+          given.ok ? given.transcriptionToken : null,
+        ));
+      scribeToken.current = null;
+      if (!token || !micOn.current) return;
+      transcribe(await import("@elevenlabs/client"), token);
+    } catch (error) {
+      if (micOn.current) return;
+      setMic("off");
+      setProblems((now) => [...now, `call: ${(error as Error).message}`]);
+    }
+  };
+
+  /** Their microphone off: the call stays a while, for what they write. */
+  const muteMic = () => {
+    wire.current?.unplug();
+    micOn.current = false;
+    setMic("off");
+    untranscribe();
+    setHearing("");
+    setVoicing(false);
+    voicedOnCall.current = null;
+    stillTalking();
+  };
+
+  /** The call ends, what is on the screen staying. */
+  const hangUp = () => {
+    calls.current += 1;
+    clearTimeout(quiet.current);
     untranscribe();
     void conversation.current?.endSession();
     conversation.current = null;
     calling.current = false;
     resumeAsked.current = null;
-    heardOver.current = "no";
-    setReached(false);
+    wire.current?.close();
+    wire.current = null;
+    micOn.current = false;
+    voiceDone(true);
+    if (!settling.current.size) setThreadUpTo(null);
+    setMic("off");
     setTalk("off");
+    setHearing("");
     setVoicing(false);
-    setWriting("");
     setThinking(false);
+    voicedOnCall.current = null;
+    lastWho.current = null;
     setLines((now) => now.filter((line) => line.turn !== -1));
     // The next call's pass, the stage up: a pass is for one call. Without
     // it, the phone's hover asks for one.
     if (up.current) warm();
+  };
+
+  const endTalk = () => {
+    hangUp();
+    heardOver.current = "no";
+    setReached(false);
   };
 
   /**
@@ -998,22 +1247,39 @@ export function useLiveStage({
    */
   const openCall = (greeted = true) => {
     const talking = startTalk(greeted ? CALL_GREETING : undefined);
+    void plugMic();
     // In the member's hands, the stage stays as they have it.
     if (control !== "off") setReached(true);
     return talking;
   };
 
+  /** They are writing: the call is up by the time they send. */
+  const expect = () => {
+    if (!calling.current) void startTalk();
+  };
+
   /**
-   * Their words written during the call: heard as if said, the agent answers
-   * aloud. False with no call to hear them.
+   * Their words written: heard as if said, on the call, opened for them if it
+   * is not. False with no call to hear them.
    */
   const write = async (text: string) => {
-    await starting.current;
-    const session = conversation.current;
-    if (!session) return false;
+    if (!up.current && live && phase !== "ready" && phase !== "booting")
+      void call("open", false, true);
+    const talking = startTalk();
     addLine("member", text);
-    session.sendUserMessage(text);
-    return true;
+    await talking;
+    const session = conversation.current;
+    if (session) {
+      session.sendUserMessage(text);
+      return true;
+    }
+    // The written way hears it instead.
+    const turn = turnNow.current;
+    setLines((now) => now.filter((line) => line.turn !== turn));
+    setThreadUpTo(null);
+    setThinking(false);
+    lastWho.current = null;
+    return false;
   };
 
   /**
@@ -1107,6 +1373,7 @@ export function useLiveStage({
     // The member can stop it by speaking from the first word: the call is
     // up before it, while the opening is made.
     const talking = conversation.current ? null : startTalk();
+    void plugMic();
     const heard = (at: string, result: StageCueResult) =>
       setNotes((now) => [
         ...now,
@@ -1166,7 +1433,7 @@ export function useLiveStage({
   const live = Boolean(status?.live);
   useEffect(() => {
     ending.current = { stop, endTalk, hangUpVoice, warm };
-    latest.current = { onResume, onVoice, play, interrupt };
+    latest.current = { onResume, onVoice, play, interrupt, follow };
   });
   useEffect(() => {
     const was = up.current;
@@ -1208,6 +1475,9 @@ export function useLiveStage({
     led,
     talk,
     talkSince,
+    mic,
+    muteMic,
+    threadUpTo,
     control,
     takeControl,
     giveBack,
@@ -1271,6 +1541,7 @@ export function useLiveStage({
     startTalk,
     endTalk,
     openCall,
+    expect,
     write,
     warm,
   };

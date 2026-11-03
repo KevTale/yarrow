@@ -15,14 +15,14 @@ const API = "https://api.elevenlabs.io/v1";
 export const TALK_GRANT_MS = 2 * 60 * 60_000;
 
 /**
- * The page's tool: the film plays on once the voice has finished, where
- * the member paused it or from a chapter's start, and the call ends.
+ * The page's tool: the demo plays on once the voice has finished, where
+ * the member stopped it or from a chapter's start, and the call stays.
  */
 export const RESUME_TOOL = {
   type: "client",
   name: "resume_presentation",
   description:
-    "The video plays on and the call ends: where the member paused it, or from the start of a chapter.",
+    "The demo plays on, where the member stopped it or from the start of a chapter, and the call stays.",
   expects_response: false,
   parameters: {
     type: "object",

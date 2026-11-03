@@ -60,6 +60,62 @@ export async function asCall(audio: HTMLAudioElement): Promise<() => void> {
   return hangUp;
 }
 
+/**
+ * The call's microphone: a line of its own, silent until the member's is
+ * plugged into it. What they write goes through the same call as what they
+ * say, the voice and the gestures in step either way, and no browser asks
+ * for the microphone until they do.
+ */
+export function micLine() {
+  // Taken now: during `onLine`, the page's asking gets the line itself.
+  const ask = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  const context = new AudioContext();
+  const line = context.createMediaStreamDestination();
+  let plugged: { stream: MediaStream; node: AudioNode } | null = null;
+  const unplug = () => {
+    plugged?.node.disconnect();
+    for (const track of plugged?.stream.getTracks() ?? []) track.stop();
+    plugged = null;
+  };
+  return {
+    stream: line.stream,
+    async plug() {
+      if (plugged) return;
+      const stream = await ask({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      const node = context.createMediaStreamSource(stream);
+      node.connect(line);
+      plugged = { stream, node };
+      await context.resume();
+    },
+    unplug,
+    close() {
+      unplug();
+      void context.close().catch(() => {});
+    },
+  };
+}
+
+/** While `work` runs, the page's asking for the microphone gets this line. */
+export async function onLine<T>(
+  stream: MediaStream,
+  work: () => Promise<T>,
+): Promise<T> {
+  const devices = navigator.mediaDevices;
+  const ask = devices.getUserMedia;
+  devices.getUserMedia = () => Promise.resolve(stream.clone());
+  try {
+    return await work();
+  } finally {
+    devices.getUserMedia = ask;
+  }
+}
+
 async function within(ms: number, work: () => Promise<void>): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

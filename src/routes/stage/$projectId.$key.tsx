@@ -95,7 +95,7 @@ function StagePage() {
               <button
                 type="button"
                 className="button button-secondary button-small"
-                onClick={() => void stage.startTalk()}
+                onClick={() => void stage.openCall(false)}
               >
                 Talk
               </button>

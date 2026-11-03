@@ -140,6 +140,7 @@ import {
 } from "../src/core/preview";
 import {
   restartSteps,
+  SLIP,
   stageAddress,
   stagePlan,
   stageSignIn,
@@ -1513,7 +1514,8 @@ async function talkRoute(
     bench?.model ??
     asked.model ??
     (isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL);
-  const screenFirst = bench?.screen ?? asked.screen ?? env.TALK_SCREEN === "on";
+  const screenFirst =
+    bench?.screen ?? asked.screen ?? env.TALK_SCREEN !== "off";
   const id = crypto.randomUUID().slice(0, 12);
   const headers = {
     "content-type": "text/event-stream",
@@ -1586,6 +1588,7 @@ async function talkRoute(
         await write(completion.skip(id) + completion.done);
         return;
       }
+      const said = memberWords(messages);
       const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
       const projectId = context.project.id;
       const answer = await talkTurn({
@@ -1615,8 +1618,10 @@ async function talkRoute(
                 : stage.present(hand)
           : null,
         say: (text) => void say(text),
-        leadIn: talkFiller(grant.language, fillers++),
       });
+      // No voice to time them on the bench: what is left of its gestures now.
+      if (bench)
+        await stage.present({ action: "beat", n: null }).catch(() => null);
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
       const body = [answer.words, answer.written].filter(Boolean).join("\n\n");
@@ -1627,7 +1632,7 @@ async function talkRoute(
             {
               workUnitId: grant.workUnitId,
               userId: grant.userId,
-              said: memberWords(messages),
+              said: said.startsWith(SLIP) ? null : said,
               words: body,
               change: answer.change,
               usage: answer.usage,

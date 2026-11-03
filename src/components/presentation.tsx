@@ -196,6 +196,7 @@ export function Presentation({
   seekRef,
   playRef,
   pauseRef,
+  whereRef,
   demo,
 }: {
   artifact: StoredArtifact;
@@ -208,6 +209,8 @@ export function Presentation({
   playRef?: RefObject<FilmControl | null>;
   /** Set to pause it and read where it is: taking control from there. */
   pauseRef?: RefObject<(() => FilmMoment) | null>;
+  /** Set to read where it is, as it plays: the stage follows. */
+  whereRef?: RefObject<(() => FilmMoment) | null>;
   /** In a ticket's row. */
   demo?: DemoRow;
 }) {
@@ -231,6 +234,7 @@ export function Presentation({
       seekRef={seekRef}
       playRef={playRef}
       pauseRef={pauseRef}
+      whereRef={whereRef}
       demo={demo}
       memory={artifact.key}
     />
@@ -245,6 +249,7 @@ function Player({
   seekRef,
   playRef,
   pauseRef,
+  whereRef,
   demo,
   memory,
 }: {
@@ -255,6 +260,7 @@ function Player({
   seekRef?: RefObject<((ms: number) => void) | null>;
   playRef?: RefObject<FilmControl | null>;
   pauseRef?: RefObject<(() => FilmMoment) | null>;
+  whereRef?: RefObject<(() => FilmMoment) | null>;
   demo?: DemoRow;
   memory: string;
 }) {
@@ -539,19 +545,21 @@ function Player({
     setStarted(true);
     setPlaying((on) => !on);
   };
-  // Paused where it is, and where that is. Stopped for a conversation, its
-  // controls rest as they do while it plays.
-  const pause = (): FilmMoment => {
-    if (playing) setResting(true);
-    cut.current ||= playing;
-    setPlaying(false);
-    return finished
+  const where = (): FilmMoment =>
+    finished
       ? { index: Math.max(0, chapters.length - 1), part: 1 }
       : {
           index,
           part: started ? Math.min(1, elapsed / (length || 1)) : 0,
           playing,
         };
+  // Paused where it is, and where that is. Stopped for a conversation, its
+  // controls rest as they do while it plays.
+  const pause = (): FilmMoment => {
+    if (playing) setResting(true);
+    cut.current ||= playing;
+    setPlaying(false);
+    return where();
   };
   function takeUp() {
     const sentence = cut.current
@@ -648,6 +656,7 @@ function Player({
         }
       };
     if (pauseRef) pauseRef.current = pause;
+    if (whereRef) whereRef.current = where;
   });
   const idle = (playing || resting || Boolean(demo?.liveNow)) && !awake;
   const waitsForPlay = !started || Boolean(demo && poised && !finished);

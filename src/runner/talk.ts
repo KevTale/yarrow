@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
-import type { StageState } from "../core/stage";
+import { beatMark, withoutBeats, type StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
+import { gestureWords } from "./gestures";
 import {
   isStageTool,
   runStageTool,
@@ -66,11 +67,12 @@ ${
 
 How you talk:
 - Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
-- What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.${
+- What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.
+- Before reading the code or the tickets, a few words of your own on what you are looking for ("Je regarde comment le compteur est calculé."), then the tool: never a generic "one moment", and nothing of the kind before a plain answer.${
   onStage
     ? `
-- When they ask you to do something on the stage, your answer starts with the tool call itself, no text before it: they see it happen, and your voice would come after the gesture. Then say what it shows, only if it is worth saying.
-- Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.`
+- Talk as someone sharing their screen: what the app shows and why it matters, your gestures on the words that go with them (below). Not every click ("I click on To do", "I type in the field", "done"): they see them.
+- Never announce what you do not do at that very moment ("I'll show you", "give me a second"): a gesture comes with the words.`
     : ""
 }
 - Answer what they asked, then stop: no question to end on, no offer of what you could do next${video ? ', never "shall the demo play on?"' : ""}.
@@ -81,8 +83,14 @@ ${
   onStage
     ? `
 The stage:
-- When seeing it helps, show it: look at the screen, then act on it. They see the pointer move and click as you do it.
-- What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
+- When seeing it helps, show it. They see the pointer move and click as you do it.
+- The screen comes with their words, as a look returns it: refs (e12, f5e16) name the page's elements. Act by the refs of the latest screen you have; look_at_screen only if it changed since.
+- Your gestures go inside your words, so they happen as you say them: a tag <act do="circle" target="e20"/> right before the words it goes with, one per action, with the fields of act_on_screen. A tag is never spoken and takes no time: the pointer gets there as those words are said. Asked to add a task called Pain:
+<act do="fill" target="e14" text="Pain"/><act do="click" target="e15"/>Je l'ajoute, <act do="circle" target="text=Pain"/>et la voilà, en haut de la liste.
+- That is how you act whenever the screen tells you what will happen. What only appears after a gesture of yours: by its text (text=Pain), never a ref.
+- Typing and clicks take a second or two: give them enough words, so what follows still lands on its word.
+- When you cannot tell what will happen (another page, a result you must read first), call act_on_screen with no word before it, then say what it shows, with tags for what you then point at.
+- A turn starting with [stage] is no one speaking: a gesture of yours failed. Put it right and say so in a few words.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
 `
     : ""
@@ -257,7 +265,7 @@ export function talkMessages(messages: TalkRequest["messages"]): Said[] {
   const said: Said[] = [];
   for (const message of messages) {
     if (message.role !== "user" && message.role !== "assistant") continue;
-    const words = textOf(message.content).trim();
+    const words = withoutBeats(textOf(message.content)).trim();
     const text =
       message.role === "user" && !/[\p{L}\p{N}]/u.test(words) ? "" : words;
     if (!text) continue;
@@ -358,8 +366,6 @@ export async function talkTurn(input: {
   /** The stage's hands; null on a call by voice alone. */
   stage: StageHands | null;
   say: (text: string) => void;
-  /** Said when the agent goes to a tool before any word ("Une seconde. "). */
-  leadIn?: string;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
@@ -375,15 +381,44 @@ export async function talkTurn(input: {
     words += text;
     say(text);
   };
-  const answer = (resume: TalkAnswer["resume"] = null): TalkAnswer => ({
-    words: words.trim(),
-    written: written.join("\n\n"),
-    change,
-    resume,
-    usage,
-    firstWordMs,
-    steps,
+  // Spoken as it is written; a space between two runs of words.
+  let wrote = false;
+  // The gestures in the words: kept on the stage, their place in the voice.
+  let beats = 0;
+  const gestures = gestureWords({
+    words: (text) => {
+      wrote = true;
+      speak(text);
+    },
+    beat: (actions) => {
+      if (!stage) return;
+      const n = beats++;
+      void stage({ action: "gesture", n, actions }).catch(() => {});
+      steps.push({
+        what: `beat[${actions.map((action) => action.do).join(" ")}]`,
+        ms: 0,
+      });
+      say(beatMark(n));
+    },
   });
+  // Those left, for what must come after them, or with no word to wait for.
+  const beatsDone = async () => {
+    if (beats) await stage?.({ action: "beat", n: null }).catch(() => {});
+  };
+  const answer = async (
+    resume: TalkAnswer["resume"] = null,
+  ): Promise<TalkAnswer> => {
+    if (!words.trim()) await beatsDone();
+    return {
+      words: words.trim(),
+      written: written.join("\n\n"),
+      change,
+      resume,
+      usage,
+      firstWordMs,
+      steps,
+    };
+  };
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: instructions(stage !== null, context.video) },
     { type: "text", text: context.text, cache_control: { type: "ephemeral" } },
@@ -410,8 +445,7 @@ export async function talkTurn(input: {
   };
   for (let step = 0; ; step++) {
     const asked = Date.now();
-    // Spoken as it is written; a space between two runs of words.
-    let wrote = false;
+    wrote = false;
     const response = await talkStep({
       model,
       clients: { anthropic: client, meta: input.meta },
@@ -419,25 +453,10 @@ export async function talkTurn(input: {
       tools: talkTools(stage !== null, context.video),
       messages,
       last: step >= TALK_MAX_STEPS,
-      onText: (delta) => {
-        wrote = true;
-        speak(delta);
-      },
+      onText: (delta) => gestures.write(delta),
       // Words before a tool or thinking end there, and are heard then.
-      onBreak: (next) => {
-        // Off to the code without a word: the member hears at once that it
-        // started. On the stage they see it start.
-        if (
-          !words &&
-          input.leadIn &&
-          !next.endsWith("thinking") &&
-          next !== RESUME.name &&
-          next !== WRITE.name &&
-          !isStageTool(next)
-        ) {
-          speak(input.leadIn);
-          return;
-        }
+      onBreak: () => {
+        gestures.end();
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
@@ -448,6 +467,7 @@ export async function talkTurn(input: {
       ms: Date.now() - asked,
     });
     usage = addUsage(usage, response.usage);
+    gestures.end();
     if (wrote) speak(" ");
     const { calls } = response;
     if (!response.toolUse) return answer();
@@ -468,6 +488,7 @@ export async function talkTurn(input: {
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
       const ran = Date.now();
+      if (isStageTool(call.name)) await beatsDone();
       const down =
         call.name === WRITE.name
           ? (call.input as { text?: unknown } | null)?.text

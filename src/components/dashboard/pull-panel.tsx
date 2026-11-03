@@ -285,6 +285,7 @@ export function PullPanel({
   );
   const play = useRef<FilmControl | null>(null);
   const pause = useRef<(() => FilmMoment) | null>(null);
+  const where = useRef<(() => FilmMoment) | null>(null);
   // Where they stopped it.
   const stopped = useRef<FilmMoment | null>(null);
   const askedHere = useRef(false);
@@ -306,6 +307,7 @@ export function PullPanel({
       play.current?.(chapter);
     },
     onVoice: () => stopHere(),
+    onMoment: () => where.current?.() ?? null,
   });
   const lost = useSessionLost(
     projectId,
@@ -385,8 +387,8 @@ export function PullPanel({
   );
   const onStage = stage.phase === "ready";
   // One screen: the demo, unless something happens now. On a call, once the
-  // stage is where it was paused; the agent showing, or the member trying it.
-  const onCall = Boolean(presentation && stage.reached && stage.talk !== "off");
+  // stage is where it stopped; the agent showing, or the member trying it.
+  const onCall = Boolean(presentation && stage.reached);
   const liveNow =
     onCall ||
     Boolean(
@@ -503,11 +505,12 @@ export function PullPanel({
                 seekRef={seek}
                 playRef={play}
                 pauseRef={pause}
+                whereRef={where}
                 demo={{
                   onBack: leave,
                   onTouch: canTry ? tryIt : undefined,
                   waiting: stage.control === "asking",
-                  onCall: stage.talk !== "off",
+                  onCall: stage.mic !== "off",
                   // Up, its screen drawn behind the demo, ready for its canvas.
                   live: onStage && <LiveCall stage={stage} shown={liveNow} />,
                   liveNow,
@@ -544,7 +547,13 @@ export function PullPanel({
                       stage.turn.length
                         ? {
                             ...panel,
-                            messages: [...panel.messages, ...stage.turn],
+                            messages: [
+                              ...panel.messages.slice(
+                                0,
+                                stage.threadUpTo ?? undefined,
+                              ),
+                              ...stage.turn,
+                            ],
                           }
                         : panel
                     }
@@ -567,11 +576,12 @@ export function PullPanel({
                   waiting={answering}
                   stage={asksStage}
                   call={{
-                    state: stage.talk,
+                    state: stage.mic,
                     onCall: () => void stage.openCall(false),
-                    onHangUp: () => stage.endTalk(),
+                    onHangUp: () => stage.muteMic(),
                     onWarm: () => stage.warm(),
                   }}
+                  onTyping={stage.expect}
                   onWrite={(question) => {
                     stopHere();
                     return stage.write(question);
@@ -621,7 +631,7 @@ export function PullPanel({
       turn={stage.turn}
       onAsking={stage.hold}
       call={{
-        state: stage.talk,
+        state: stage.mic,
         onCall: () => void stage.openCall(),
         onHangUp: () => stage.endTalk(),
         onWarm: () => stage.warm(),
@@ -1465,6 +1475,7 @@ function Ask({
   waiting,
   stage,
   call,
+  onTyping,
   onWrite,
   onSending,
   onFailed,
@@ -1478,6 +1489,8 @@ function Ask({
   waiting: boolean;
   stage: boolean;
   call?: ConversationCall;
+  /** Something is being written. */
+  onTyping?: () => void;
   /** A call hears it instead: false with no call. */
   onWrite?: (question: string) => Promise<boolean>;
   /** The question shows in the thread before the brain has it. */
@@ -1549,7 +1562,11 @@ function Ask({
           rows={1}
           value={text}
           maxLength={4000}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            onTyping?.();
+          }}
+          onFocus={call?.onWarm}
           onKeyDown={(event) => {
             if (
               event.key === "Enter" &&

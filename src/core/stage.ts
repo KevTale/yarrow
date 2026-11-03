@@ -111,6 +111,30 @@ export interface StageStatus {
 export const CALL_GREETING = "Yes? Any question?";
 
 /**
+ * Where a gesture falls in the agent's spoken words: a private character,
+ * in the words the voice is given. ElevenLabs does not voice it and keeps
+ * it in its timing of the words (tried 2026-10-31): that timing tells the
+ * page when the nth gesture's word is said.
+ */
+const FIRST_BEAT = 0xe000;
+const LAST_BEAT = 0xe0ff;
+export const beatMark = (n: number) =>
+  String.fromCharCode(FIRST_BEAT + Math.min(n, LAST_BEAT - FIRST_BEAT));
+/** The gesture a character of the speech marks, or null for a letter. */
+export function beatOf(char: string): number | null {
+  const code = char.charCodeAt(0);
+  return code >= FIRST_BEAT && code <= LAST_BEAT ? code - FIRST_BEAT : null;
+}
+export const withoutBeats = (text: string) =>
+  text.replace(/[\ue000-\ue0ff]/g, "");
+
+/**
+ * What the page tells the agent, as a turn of its own, when a gesture of its
+ * words failed: it puts it right. No member said it.
+ */
+export const SLIP = "[stage]";
+
+/**
  * What the page asks the presenter: the opening, a chapter over its voice,
  * to hold it while the member talks and go on after, or to end it there
  * (the agent leads the rest, src/runner/talk.ts). Or, the film paused for
@@ -125,6 +149,11 @@ export type StageCue =
   | { action: "resume"; restore?: boolean }
   | { action: "stop" }
   | { action: "reach"; index: number; part: number }
+  // The nth gesture of the agent's words, its word about to be said; null:
+  // those left, its voice done.
+  | { action: "beat"; n: number | null }
+  // The member's words are on their way to the agent.
+  | { action: "stir" }
   | { action: "control"; on: boolean }
   | { action: "state" };
 
@@ -138,6 +167,9 @@ export type StageHand =
   // About to show something in writing: the page's screen goes to it.
   | { action: "showing" }
   | { action: "act"; actions: LiveAction[] }
+  // Written in its words: kept until the page says their word comes.
+  | { action: "gesture"; n: number; actions: LiveAction[] }
+  | { action: "beat"; n: number | null }
   | { action: "window"; window: "after" | "before" | "terminal" }
   | { action: "run"; command: string; cwd?: string }
   // While held: each window the talk changed (src/runner/stage-restore.ts).

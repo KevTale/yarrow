@@ -140,7 +140,8 @@ export async function saveSpokenTurn(
   input: {
     workUnitId: string;
     userId: string;
-    said: string;
+    /** Null: the turn was not the member's. */
+    said: string | null;
     words: string;
     change: string | null;
     usage: ChatUsage | null;
@@ -148,13 +149,17 @@ export async function saveSpokenTurn(
   at = new Date(),
 ): Promise<void> {
   await db.insert(chatMessages).values([
-    {
-      workUnitId: input.workUnitId,
-      author: "builder",
-      userId: input.userId,
-      body: input.said,
-      createdAt: at,
-    },
+    ...(input.said === null
+      ? []
+      : [
+          {
+            workUnitId: input.workUnitId,
+            author: "builder" as const,
+            userId: input.userId,
+            body: input.said,
+            createdAt: at,
+          },
+        ]),
     {
       workUnitId: input.workUnitId,
       author: "agent",

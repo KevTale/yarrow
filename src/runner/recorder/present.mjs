@@ -1359,6 +1359,8 @@ async function record(browser, plan, chapter, index, take, state) {
 // its waits taken out.
 
 const SCREEN = { width: 1440, height: 900 };
+/** The pointer's way to what the agent shows as it talks: the voice goes on. */
+const BRISK_GLIDE_MS = 280;
 // Each app fills the screen, its frame included, so it reads large on film:
 // no corners, no gaps.
 const FULL = { x: 0, y: 0, ...SCREEN };
@@ -1764,6 +1766,8 @@ class Desktop {
     this.typed = false;
     this.cwd = null;
     this.focused = 0;
+    /** The agent acts as it talks: quicker than on film, on the word. */
+    this.brisk = false;
   }
 
   spawn(name, command, args, options = {}) {
@@ -2320,7 +2324,7 @@ class Desktop {
   /** The pointer onto a point of the page, corrected once the page saw it. */
   async glideTo(page, x, y, ms = 750) {
     const aim = await this.screenOf(page, x, y);
-    await this.glide(aim.x, aim.y, ms);
+    await this.glide(aim.x, aim.y, this.brisk ? BRISK_GLIDE_MS : ms);
     await sleep(40);
     const seen = await this.screenOf(page, x, y);
     if (Math.abs(seen.x - aim.x) > 1 || Math.abs(seen.y - aim.y) > 1)
@@ -2336,10 +2340,15 @@ class Desktop {
       width: box.width * ZOOM,
       height: box.height * ZOOM,
     });
-    await this.glide(points[0][0], points[0][1], 700);
+    await this.glide(
+      points[0][0],
+      points[0][1],
+      this.brisk ? BRISK_GLIDE_MS : 700,
+    );
+    const each = (ms * (this.brisk ? 0.6 : 1)) / points.length;
     for (const [x, y] of points) {
       this.x("xdotool", ["mousemove", String(x), String(y)]);
-      await sleep(ms / points.length);
+      await sleep(each);
     }
     const [x, y] = points.at(-1);
     this.pointer = { x, y };
@@ -2691,9 +2700,9 @@ class Desktop {
 
   async settle(page) {
     await page
-      .waitForLoadState("networkidle", { timeout: 4000 })
+      .waitForLoadState("networkidle", { timeout: this.brisk ? 800 : 4000 })
       .catch(() => {});
-    await sleep(400);
+    await sleep(this.brisk ? 80 : 400);
   }
 
   async act(page, base, action, marks, clock) {
@@ -2712,7 +2721,7 @@ class Desktop {
         (y) => window.scrollBy({ top: y, behavior: "smooth" }),
         Number(action.y) || 400,
       );
-      return sleep(900);
+      return sleep(this.brisk ? 450 : 900);
     }
     if (action.at) {
       for (let i = 0; i < repeats(action); i++) {
@@ -2742,7 +2751,7 @@ class Desktop {
       await locator.evaluate((element) =>
         element.scrollIntoView({ behavior: "smooth", block: "center" }),
       );
-      return sleep(900);
+      return sleep(this.brisk ? 450 : 900);
     }
     await locator.scrollIntoViewIfNeeded();
     const box = await locator.boundingBox();
@@ -2756,7 +2765,7 @@ class Desktop {
     if (kind === "circle") {
       marks.push({ atMs: clock(), kind: "point", box: shown });
       await this.circle(page, box);
-      return sleep(300);
+      return sleep(this.brisk ? 0 : 300);
     }
     const x = box.x + Math.min(box.width * 0.6, box.width - 6);
     const y = box.y + Math.min(box.height * 0.65, box.height - 4);
@@ -2764,7 +2773,9 @@ class Desktop {
     const at = clock();
     if (kind === "point" || kind === "hover") {
       marks.push({ atMs: at, kind: "point", box: shown });
-      await sleep(Math.min(Number(action.ms) || 1600, 6000));
+      await sleep(
+        Math.min(Number(action.ms) || (this.brisk ? 500 : 1600), 6000),
+      );
       return;
     }
     await page.evaluate(([cx, cy]) => window.__yarrow?.tap(cx, cy), [x, y]);
@@ -2782,8 +2793,10 @@ class Desktop {
     marks.push({ atMs: at, kind: "type", box: shown });
     await this.press(page, locator);
     await locator.fill("");
-    await locator.pressSequentially(String(action.text ?? ""), { delay: 55 });
-    await sleep(300);
+    await locator.pressSequentially(String(action.text ?? ""), {
+      delay: this.brisk ? 22 : 55,
+    });
+    await sleep(this.brisk ? 60 : 300);
   }
 
   /** A page by its address, typed in the browser's own address bar. */
@@ -3122,13 +3135,16 @@ async function answers(url) {
   }
 }
 
+/** Gestures that leave the page as it was. */
+const ONLY_SHOWS = new Set(["wait", "point", "hover", "circle"]);
+
 /**
  * A chapter's gesture done at once, for what it leaves on the page: what
  * only shows something (a point, a circle, a wait) leaves nothing.
  */
 async function quickly(page, base, action) {
   const kind = action.do;
-  if (["wait", "point", "hover", "circle"].includes(kind)) return;
+  if (ONLY_SHOWS.has(kind)) return;
   if (kind === "goto")
     await page.goto(join(base, action.path), {
       waitUntil: "load",
@@ -3192,6 +3208,10 @@ class Presenter {
     this.cut = null;
     /** The chapter the film was paused in, the stage brought to it. */
     this.film = null;
+    /** How far the film's gestures got here: a chapter, how many of its. */
+    this.reached = null;
+    /** The gestures the agent wrote in its words, until their word is said. */
+    this.beats = new Map();
   }
 
   /** The presentation's own time: it stands still while held. */
@@ -3215,6 +3235,7 @@ class Presenter {
   /** The presentation ends here, the screen as the talk left it. */
   async stop() {
     this.round++;
+    this.beats.clear();
     const hold = this.hold;
     if (hold) {
       this.heldMs += Date.now() - hold.since;
@@ -3345,8 +3366,7 @@ class Presenter {
         await page.bringToFront();
         if (hold.url && !samePage(page.url(), hold.url))
           await desktop.address(page, hold.url, marks, clock);
-      } else if (hold.front === "terminal")
-        await desktop.show("terminal");
+      } else if (hold.front === "terminal") await desktop.show("terminal");
     } catch (error) {
       problems.push(
         "back to the presentation: " + String(error?.message).split("\n")[0],
@@ -3420,35 +3440,44 @@ class Presenter {
   }
 
   /**
-   * The stage as the film shows it where the member paused it, for the
-   * agent to go on from: the opening, then the chapters before it and the
-   * part of its own already seen (`part`, 0 to 1), done at once, off the
-   * film (no pointer gliding, nothing typed a letter at a time).
+   * The stage as the film shows it at this moment, for the agent to go on
+   * from: the chapters before it and the part of its own already seen
+   * (`part`, 0 to 1), done at once, off the film (no pointer gliding,
+   * nothing typed a letter at a time). From where it last got to, as the
+   * film plays on and nothing else moved the screen; from the opening if not.
    */
   async reach(index, part) {
     const { desktop, plan } = this;
     const chapters = plan.chapters.slice(0, index + 1);
     if (!chapters.length) return ["no chapter " + (index + 1)];
     const started = Date.now();
-    await this.set();
+    const count = Math.round((chapters[index].actions?.length ?? 0) * part);
+    const last = this.reached;
+    const onward =
+      last &&
+      (last.index < index || (last.index === index && last.count <= count));
+    if (!onward) await this.set();
+    const from = onward ? last : { index: 0, count: 0, fresh: true };
     // The member speaking meanwhile stops nothing of it.
     this.over = true;
     this.untouched = false;
     const problems = [];
     for (const [i, chapter] of chapters.entries()) {
+      if (i < from.index) continue;
+      // Gone on from here: its page is open, its first gestures done.
+      const going = i === from.index && !from.fresh;
       // The film's ticket or given output: the stage stays as it was.
       if (!chapter.tab) {
         if (i < index) this.shown.add(i);
         continue;
       }
       const actions = chapter.actions ?? [];
-      const done =
-        i < index
-          ? actions
-          : actions.slice(0, Math.round(actions.length * part));
+      const done = (i < index ? actions : actions.slice(0, count)).slice(
+        going ? from.count : 0,
+      );
       if (chapter.tab === "terminal") {
         // Its command once, as the film ran it, only when it shows now.
-        if (i === index) {
+        if (i === index && !going) {
           const ran = await desktop.recordTerminal(chapter, null, 0);
           problems.push(...ran.problems);
         }
@@ -3466,7 +3495,7 @@ class Presenter {
       }
       await page.bringToFront();
       const url = join(app.url, chapter.path);
-      if (!samePage(page.url(), url))
+      if (!going && !samePage(page.url(), url))
         await page
           .goto(url, { waitUntil: "load", timeout: 20000 })
           .catch((error) =>
@@ -3504,6 +3533,7 @@ class Presenter {
     if (front) await desktop.tabs?.pages[front]?.bringToFront();
     this.cut = index;
     this.film = index;
+    this.reached = { index, count };
     log(
       "reached chapter " +
         (index + 1) +
@@ -3564,8 +3594,40 @@ class Presenter {
     );
   }
 
+  /** A gesture written in the agent's words, there for when its word comes. */
+  gesture(n, actions) {
+    this.beats.set(n, actions);
+  }
+
+  /**
+   * The agent's gestures as their word is said (src/core/stage.ts), those
+   * before it first; all that are left without `n`, its voice done.
+   */
+  async beat(n) {
+    const problems = [];
+    for (const k of [...this.beats.keys()].sort((a, b) => a - b)) {
+      if (n !== null && k > n) break;
+      const actions = this.beats.get(k);
+      this.beats.delete(k);
+      problems.push(...(await this.act(actions, false)).problems);
+    }
+    return problems;
+  }
+
+  /** The member's words reached the agent: its pointer stirs, as one looks up. */
+  async stir() {
+    const { desktop } = this;
+    const { x, y } = desktop.pointer;
+    await desktop.glide(
+      x + (x > SCREEN.width / 2 ? -48 : 48),
+      y + (y > SCREEN.height / 2 ? -28 : 28),
+      200,
+    );
+    return [];
+  }
+
   /** The agent's gestures on the window in front, then the screen after. */
-  async act(actions) {
+  async act(actions, read = true) {
     const { desktop, plan } = this;
     const problems = [];
     const which = desktop.tabs?.active;
@@ -3580,6 +3642,9 @@ class Presenter {
     const started = Date.now();
     const clock = () => Date.now() - started;
     await page.bringToFront();
+    if (actions.some((action) => !ONLY_SHOWS.has(action.do)))
+      this.reached = null;
+    desktop.brisk = true;
     for (const action of actions) {
       // A ref from the last look (e16, or f5e16 in a frame): the element it named.
       const target =
@@ -3600,7 +3665,8 @@ class Presenter {
         break;
       }
     }
-    return { problems, screen: await this.look() };
+    desktop.brisk = false;
+    return read ? { problems, screen: await this.look() } : { problems };
   }
 
   /** A window in front: the app as it is, as it was, or the terminal. */
@@ -3669,6 +3735,7 @@ class Presenter {
     this.shown = new Set();
     this.cut = null;
     this.film = null;
+    this.reached = null;
     if (this.untouched) return [];
     const started = Date.now();
     const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
@@ -3800,10 +3867,14 @@ const ACTS = new Set([
   "/chapter",
   "/reach",
   "/act",
+  "/beat",
+  "/stir",
   "/window",
   "/run",
   "/sign-in",
 ]);
+/** What leaves the screen otherwise than the film left it. */
+const MOVES = new Set(["/chapter", "/window", "/run", "/sign-in", "/control"]);
 
 /**
  * The page's cues, one at a time, in order: a chapter never starts over
@@ -3818,6 +3889,8 @@ function serve(presenter) {
     "/chapter": "show",
     "/look": "hands",
     "/act": "hands",
+    "/beat": "hands",
+    "/stir": "hands",
     "/window": "hands",
     "/run": "hands",
     "/resume": "hands",
@@ -3833,6 +3906,7 @@ function serve(presenter) {
         ok: false,
         problems: ["The member has control of the app: look, do not act."],
       };
+    if (MOVES.has(url)) presenter.reached = null;
     try {
       switch (url) {
         case "/set":
@@ -3886,6 +3960,21 @@ function serve(presenter) {
               Array.isArray(asked.actions) ? asked.actions : [],
             )),
           };
+        case "/gesture":
+          presenter.gesture(
+            Number(asked.n),
+            Array.isArray(asked.actions) ? asked.actions : [],
+          );
+          return { ok: true, problems: [] };
+        case "/beat":
+          return {
+            ok: true,
+            problems: await presenter.beat(
+              typeof asked.n === "number" ? asked.n : null,
+            ),
+          };
+        case "/stir":
+          return { ok: true, problems: await presenter.stir() };
         case "/window":
           return { ok: true, ...(await presenter.show(asked.window)) };
         case "/run":

@@ -1,7 +1,11 @@
 import { createHmac } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import type { StageCueResult, StageHand } from "../../src/core/stage";
+import {
+  beatMark,
+  type StageCueResult,
+  type StageHand,
+} from "../../src/core/stage";
 import type { ChatSources } from "../../src/runner/chat";
 import {
   completion,
@@ -293,7 +297,7 @@ describe("the live call's turn", () => {
     });
   });
 
-  it("says a few words itself when the agent goes to the code without any", async () => {
+  it("says no word of its own when the agent goes to the code without any", async () => {
     const { client } = claude((body) =>
       (body.messages as unknown[]).length === 1
         ? {
@@ -321,10 +325,118 @@ describe("the live call's turn", () => {
       sources,
       stage: stage({}).stage,
       say: (text) => said.push(text),
-      leadIn: "One moment. ",
     });
-    expect(said.join("")).toBe("One moment. Two are done. ");
-    expect(answer.words).toBe("One moment. Two are done.");
+    expect(said.join("")).toBe("Two are done. ");
+    expect(answer.words).toBe("Two are done.");
+  });
+
+  it("keeps its gestures out of the voice, their place marked in it", async () => {
+    const { client } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: `<act do="fill" target="e14" text="Pain"/><act do="click" target="e15"/>Je l'ajoute, <act do="circle" target="text=Pain"/>et la voilà.`,
+        },
+      ],
+    }));
+    const { stage: hands, hands: asked } = stage({});
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Ajoute une tâche Pain." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: (text) => said.push(text),
+    });
+    expect(said.join("")).toBe(
+      `${beatMark(0)}Je l'ajoute, ${beatMark(1)}et la voilà. `,
+    );
+    expect(answer.words).toBe("Je l'ajoute, et la voilà.");
+    expect(asked).toEqual([
+      {
+        action: "gesture",
+        n: 0,
+        actions: [
+          { do: "fill", target: "e14", text: "Pain" },
+          { do: "click", target: "e15" },
+        ],
+      },
+      {
+        action: "gesture",
+        n: 1,
+        actions: [{ do: "circle", target: "text=Pain" }],
+      },
+    ]);
+    expect(answer.steps.map((step) => step.what)).toContain("beat[fill click]");
+  });
+
+  it("does its gestures at once when no word comes with them", async () => {
+    const { client } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: `<act do="click" target="e15"/>` }],
+    }));
+    const { stage: hands, hands: asked } = stage({});
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Clique." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    expect(asked.map((hand) => hand.action)).toEqual(["gesture", "beat"]);
+    expect(asked[1]).toEqual({ action: "beat", n: null });
+  });
+
+  it("does its gestures before a move of the stage that follows them", async () => {
+    const { client } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              {
+                type: "text",
+                text: `<act do="click" target="e15"/>Je clique.`,
+              },
+              { type: "tool_use", id: "t1", name: "look_at_screen", input: {} },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "Voilà." }],
+          },
+    );
+    const { stage: hands, hands: asked } = stage({});
+    await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Clique." }],
+      state: held,
+      sources,
+      stage: hands,
+      say: () => {},
+    });
+    expect(asked.map((hand) => hand.action)).toEqual([
+      "gesture",
+      "beat",
+      "look",
+    ]);
+  });
+
+  it("reads the call's words without the marks of its gestures", () => {
+    expect(
+      talkMessages([
+        { role: "user", content: "Ajoute-la." },
+        { role: "assistant", content: `${beatMark(3)}La voilà.` },
+      ]),
+    ).toEqual([
+      { role: "user", content: "Ajoute-la." },
+      { role: "assistant", content: "La voilà." },
+    ]);
   });
 
   it("acts on the stage at once, without a word before", async () => {
@@ -350,7 +462,6 @@ describe("the live call's turn", () => {
       sources,
       stage: stage({}).stage,
       say: (text) => said.push(text),
-      leadIn: "One moment. ",
     });
     expect(said.join("")).toBe("Two are done. ");
   });
@@ -429,11 +540,10 @@ describe("the live call's turn", () => {
       sources,
       stage: hands,
       say: (text) => said.push(text),
-      leadIn: "Une seconde. ",
     });
     expect(answer.resume).toEqual({ chapter: 1 });
     expect(answer.words).toBe("Je le reprends du début.");
-    expect(said.join("")).not.toContain("Une seconde");
+    expect(said.join("")).toBe("Je le reprends du début. ");
     expect(asked).toEqual([]);
     expect(requests).toHaveLength(1);
     const first = (requests[0]!.body.messages as { content: string }[])[0]!;
@@ -473,7 +583,6 @@ describe("the live call's turn", () => {
       sources,
       stage: null,
       say: (text) => said.push(text),
-      leadIn: "Une seconde. ",
     });
     expect(answer.words).toBe("Three files, written beside you.");
     expect(answer.written).toBe("- `a.ts`\n- `b.ts`\n- `c.ts`");
