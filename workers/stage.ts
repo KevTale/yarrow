@@ -26,7 +26,7 @@ import {
   type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
-import { MUSE_INSTANCE } from "../src/runner/muse";
+import { MACHINE_NAME, MUSE_INSTANCE } from "../src/runner/muse";
 import { RECORDER_PATH } from "../src/runner/presentation";
 import type { TalkContext } from "../src/runner/talk";
 
@@ -211,7 +211,7 @@ export class Stage extends DurableObject<StageEnv> {
       await this.#must([
         "/bin/sh",
         "-c",
-        `cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && mkdir -p ${TASK} && rm -f ${BOOT_LOG} ${READY} ${SESSION} ${DESKTOP_EXIT}`,
+        `${MACHINE_NAME}; cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null && mkdir -p ${TASK} && rm -f ${BOOT_LOG} ${READY} ${SESSION} ${DESKTOP_EXIT}`,
       ]);
     } catch (error) {
       if (!saved.warm) throw error;

@@ -4,6 +4,7 @@ import type { ActivityLine } from "../src/core/activity";
 import { SANDBOX_HOSTS, type SessionFile } from "../src/runner/anthropic";
 import {
   addCalls,
+  MACHINE_NAME,
   META_HOST,
   metaUsage,
   museActivity,
@@ -144,7 +145,7 @@ export class MuseSandbox extends DurableObject<MuseEnv> {
       [
         "/bin/sh",
         "-c",
-        `cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null`,
+        `${MACHINE_NAME}; cp ${CA} /usr/local/share/ca-certificates/cloudflare-containers.crt && update-ca-certificates >/dev/null`,
       ],
       "/",
     );

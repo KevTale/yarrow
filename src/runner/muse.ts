@@ -48,6 +48,14 @@ const museRates: Record<string, TokenRates> = {
   },
 };
 
+/**
+ * The platform names a machine after its id, 64 characters, one more than
+ * Python takes: http.server and what is built on it crash at once. A short
+ * name needs DNS to resolve, which the machines do not have; localhost does
+ * not. Failing leaves the machine as it was, the rest of it unharmed.
+ */
+export const MACHINE_NAME = "hostname localhost";
+
 /** The container's instance type: 2 vCPU, 8 GiB, 16 GB of disk. */
 export const MUSE_INSTANCE = "standard-3";
 
