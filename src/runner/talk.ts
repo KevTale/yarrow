@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
-import { beatMark, withoutBeats, type StageState } from "../core/stage";
+import {
+  beatMark,
+  VOICE_PUSH,
+  withoutBeats,
+  type StageState,
+} from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
 import { gestureWords } from "./gestures";
@@ -66,7 +71,7 @@ ${
 }
 
 How you talk:
-- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
+- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One or two short sentences, as a colleague on a call, more only when they ask for it. In the language they speak.
 - What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.
 - Before reading the code or the tickets, a few words of your own on what you are looking for ("Je regarde comment le compteur est calculé."), then the tool: never a generic "one moment", and nothing of the kind before a plain answer.${
   onStage
@@ -89,6 +94,7 @@ The stage:
 <act do="fill" target="e14" text="Pain"/><act do="click" target="e15"/>Je l'ajoute, <act do="circle" target="text=Pain"/>et la voilà, en haut de la liste.
 - That is how you act whenever the screen tells you what will happen. What only appears after a gesture of yours: by its text (text=Pain), never a ref.
 - Typing and clicks take a second or two: give them enough words, so what follows still lands on its word.
+- A gesture waits by itself for its target: no tool between your words and the next gesture, no wait.
 - When you cannot tell what will happen (another page, a result you must read first), call act_on_screen with no word before it, then say what it shows, with tags for what you then point at.
 - A turn starting with [stage] is no one speaking: a gesture of yours failed. Put it right and say so in a few words.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
@@ -222,17 +228,19 @@ export function talkGrantOf(request: TalkRequest): string | null {
 export function talkBrainOf(request: TalkRequest): {
   model?: TalkModelName;
   screen?: boolean;
+  push?: number;
 } {
   for (const extra of [
     request.elevenlabs_extra_body,
     request.custom_llm_extra_body,
   ]) {
     const brain = (extra as { brain?: unknown } | undefined)?.brain as
-      { model?: unknown; screen?: unknown } | undefined;
+      { model?: unknown; screen?: unknown; push?: unknown } | undefined;
     if (!brain || typeof brain !== "object") continue;
     return {
       ...(isTalkModel(brain.model) ? { model: brain.model } : {}),
       ...(typeof brain.screen === "boolean" ? { screen: brain.screen } : {}),
+      ...(typeof brain.push === "number" ? { push: brain.push } : {}),
     };
   }
   return {};
@@ -366,6 +374,8 @@ export async function talkTurn(input: {
   /** The stage's hands; null on a call by voice alone. */
   stage: StageHands | null;
   say: (text: string) => void;
+  /** Dev only: how many characters push the voice out before a tool. */
+  push?: number;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
@@ -460,6 +470,7 @@ export async function talkTurn(input: {
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
+        say(VOICE_PUSH.repeat(input.push ?? 0));
       },
     });
     steps.push({

@@ -1618,6 +1618,7 @@ async function talkRoute(
                 : stage.present(hand)
           : null,
         say: (text) => void say(text),
+        push: asked.push,
       });
       // No voice to time them on the bench: what is left of its gestures now.
       if (bench)

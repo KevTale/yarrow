@@ -62,7 +62,7 @@ const WORDS_MS = 80;
 /** None of the voice's timing this long: its words show all the same. */
 const VOICE_LOST_MS = 2500;
 /** A gesture leaves this long before its word: on its way, then the pointer's. */
-const GESTURE_LEAD_MS = 550;
+const GESTURE_LEAD_MS = 650;
 /** Gestures failed in a row the agent tries to put right, before it lets go. */
 const SLIPS_MAX = 2;
 
@@ -133,13 +133,15 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * the voice end with the stage, and with the page or the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
-function brainAsked(): { model?: string; screen?: boolean } {
+function brainAsked(): { model?: string; screen?: boolean; push?: number } {
   const query = new URLSearchParams(window.location.search);
   const model = query.get("brain");
   const screen = query.get("screen");
+  const push = query.get("push");
   return {
     ...(model ? { model } : {}),
     ...(screen !== null ? { screen: screen === "1" } : {}),
+    ...(push !== null ? { push: Number(push) } : {}),
   };
 }
 
