@@ -372,15 +372,15 @@ const WORK = [
 /** What the section says as the ticket goes. */
 const TELLS: Record<Phase, { title: [string, string]; says: string }> = {
   write: {
-    title: ["Write your tickets", "with our agents"],
+    title: ["1. Write your tickets", "with our agents"],
     says: "Bring a rough idea. Think it through with the agent, push back, change your mind. When it feels right the ticket is written.",
   },
   work: {
-    title: ["Our agents take it", "from there"],
+    title: ["2. Our agents take it", "from there"],
     says: "One builds it, another checks the work. Follow every step or come back when it is ready.",
   },
   review: {
-    title: ["See a live demo", "before you merge"],
+    title: ["3. See a live demo", "before you merge"],
     says: "Every ticket comes back with a demo. Ask anything, ask for a change and merge when it looks right.",
   },
 };
@@ -436,7 +436,7 @@ function BoardGroup({
           <span className="tix-count">{count}</span>
         </span>
       </div>
-      <ul className="lp-board-rows">{children}</ul>
+      {count > 0 && <ul className="lp-board-rows">{children}</ul>}
     </section>
   );
 }
@@ -571,7 +571,7 @@ export function TicketSection({ cta }: { cta: ReactNode }) {
             <BoardGroup
               stage="progress"
               label="In progress"
-              count={phase === "work" ? 2 : 1}
+              count={phase === "work" ? 1 : 0}
             >
               {phase === "work" && ticket && (
                 <BoardRow
@@ -587,17 +587,15 @@ export function TicketSection({ cta }: { cta: ReactNode }) {
                   fresh
                 />
               )}
-              <BoardRow ticket={filtering} state={filtering.work} />
             </BoardGroup>
             <BoardGroup
               stage="review"
               label="To review"
-              count={phase === "review" ? 2 : 1}
+              count={phase === "review" ? 1 : 0}
             >
               {phase === "review" && ticket && (
                 <BoardRow ticket={ticket} fresh />
               )}
-              <BoardRow ticket={priority} />
             </BoardGroup>
             {done.length > 0 && (
               <BoardGroup stage="done" label="Done" count={done.length}>
