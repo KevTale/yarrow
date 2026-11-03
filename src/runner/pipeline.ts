@@ -3,7 +3,6 @@ import { PROD_APP_SLUG } from "../core/corrections";
 import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
 import { previewHref } from "../core/preview";
 import {
-  filmFits,
   proofImages,
   proofsMarkdown,
   storedProofs,
@@ -917,15 +916,13 @@ export class RunPipeline {
 
   /**
    * The implementer's recorded presentation, voiced and stored, with who
-   * wrote and reviewed it said at the end. Null when it recorded none, or
-   * one the change's proofs do not call for.
+   * wrote and reviewed it said at the end. Null when it recorded none.
    */
   async presentation(
     run: PreparedRun,
     implementerSessionId: string,
-    proofs: AgentProof[],
   ): Promise<StoredArtifact | null> {
-    if (!this.deps.evidence || !filmFits(proofs)) return null;
+    if (!this.deps.evidence) return null;
     return publishPresentation(
       {
         files: this.files(implementerSessionId),

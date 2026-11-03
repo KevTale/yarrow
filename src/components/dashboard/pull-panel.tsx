@@ -293,6 +293,7 @@ export function PullPanel({
     start: Boolean(
       wide &&
       panel?.pullRequest?.state === "open" &&
+      panel.preview &&
       panel.screens.some((screen) => screen.kind === "presentation"),
     ),
     messages: panel?.messages.length ?? 0,
@@ -477,10 +478,16 @@ export function PullPanel({
     : undefined;
   // The one thing that shows (decided 2026-10-30): the film passes over
   // everything; an image takes its place, cinema mode included.
-  const lead = presentation ? null : leadProof(panel.proofs ?? []);
-  const image = lead?.kind === "images" ? lead : null;
+  const lead = leadProof(panel.proofs ?? []);
+  const image = !presentation && lead?.kind === "images" ? lead : null;
   const block =
-    lead?.kind === "measure" || lead?.kind === "output" ? lead : null;
+    !presentation && (lead?.kind === "measure" || lead?.kind === "output")
+      ? lead
+      : null;
+  const linked =
+    lead?.kind === "document" || lead?.kind === "check" || !presentation
+      ? lead
+      : null;
   const proven = (
     <>
       {(presentation || image) && (
@@ -594,9 +601,9 @@ export function PullPanel({
                 />
               )}
               <span className="pp-foot-away">
-                {lead && (
+                {linked && (
                   <ProofLink
-                    proof={lead}
+                    proof={linked}
                     document={(file) =>
                       branchFileUrl(
                         pullRequest?.url ?? null,

@@ -49,9 +49,8 @@ export const apps: BenchApp[] = [
 /**
  * What a pull request holds, read from its description: a proof's mark
  * (`<!-- yarrow:proof <kind> -->`), "phone" for a phone's screens, "film"
- * for the presentation. The owner is shown one thing (src/core/proofs.ts):
- * the film over everything, else the first of images, measure, output,
- * document, check.
+ * for the presentation. Every pull request has its film, the bench checks
+ * it on them all (decided 2026-10-31).
  */
 export type Shown =
   | "images"
@@ -95,8 +94,7 @@ export const scenarios: Scenario[] = [
     body: "On the Settings page, the Save button is purple like every other button. Make that one green (#1d7a4c) so saving stands out. Leave the other buttons as they are.",
     expect: {
       outcome: "pull_request",
-      shows: ["images", "app"],
-      hides: ["film"],
+      shows: ["app"],
       touches: ["public/"],
     },
   },
@@ -110,7 +108,6 @@ export const scenarios: Scenario[] = [
     expect: {
       outcome: "pull_request",
       shows: ["app"],
-      showsOneOf: ["images", "film"],
       touches: ["src/"],
     },
   },
@@ -122,8 +119,7 @@ export const scenarios: Scenario[] = [
     body: "On my phone (iPhone 13), the Settings page is wider than the screen and the Save button is cut off on the right, so I can't save my name. It should fit the screen like the other pages.",
     expect: {
       outcome: "pull_request",
-      shows: ["phone", "app"],
-      hides: ["film"],
+      shows: ["app"],
       touches: ["public/"],
     },
   },
@@ -135,8 +131,7 @@ export const scenarios: Scenario[] = [
     body: "The task list shows every task at once. Add filters above it: All, To do, Doing and Done, each with its count. Picking one shows only those tasks, and the choice stays in the address so a reload keeps it. All stays the default.",
     expect: {
       outcome: "pull_request",
-      shows: ["film", "app"],
-      hides: ["images"],
+      shows: ["app"],
       touches: ["src/"],
     },
   },
@@ -148,8 +143,7 @@ export const scenarios: Scenario[] = [
     body: "Finding a task means reading the whole list. Add a search field above the task list: typing narrows the list to tasks whose title contains the text, whatever the case, and an empty field shows them all again. When nothing matches, say so.",
     expect: {
       outcome: "pull_request",
-      shows: ["film", "app"],
-      hides: ["images"],
+      shows: ["app"],
       touches: ["src/"],
     },
   },
@@ -161,8 +155,7 @@ export const scenarios: Scenario[] = [
     body: 'In the task list, a task that is done but had a due date in the past shows "Overdue · <date>" in red. A done task is not late: show its date plainly.',
     expect: {
       outcome: "pull_request",
-      shows: ["images", "app"],
-      hides: ["film"],
+      shows: ["app"],
       touches: ["src/"],
     },
   },
@@ -174,8 +167,6 @@ export const scenarios: Scenario[] = [
     body: "GET /api/tasks leaves out the due date. Add it as `dueOn`, an ISO date (YYYY-MM-DD), or null when the task has none.",
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images"],
       touches: ["src/"],
     },
   },
@@ -187,8 +178,6 @@ export const scenarios: Scenario[] = [
     body: 'The Monday digest email lists my open tasks in one list, so the overdue ones get lost in the middle. Put the overdue tasks first, under their own heading ("Overdue"), then the rest under "This week and later". If nothing is overdue, no Overdue heading.',
     expect: {
       outcome: "pull_request",
-      shows: ["images"],
-      hides: ["film"],
       touches: ["src/digest.js"],
     },
   },
@@ -201,7 +190,6 @@ export const scenarios: Scenario[] = [
     expect: {
       outcome: "pull_request",
       shows: ["app"],
-      showsOneOf: ["images", "film"],
       touches: ["db/migrations/"],
     },
   },
@@ -213,8 +201,6 @@ export const scenarios: Scenario[] = [
     body: "Since we imported our backlog (about 3,000 tasks) the task list takes about a second to load, and it gets worse every week. It should load fast. You can reproduce with `npm run db:seed -- --many`.",
     expect: {
       outcome: "pull_request",
-      shows: ["measure"],
-      hides: ["film"],
       touches: ["src/"],
     },
   },
@@ -226,7 +212,7 @@ export const scenarios: Scenario[] = [
     body: "src/views.js (formatDue) and src/digest.js (dueLabel) each have their own copy of the due-date wording. Keep one, in its own module, used by both, so they can't drift. No change in what people see.",
     expect: {
       outcome: "pull_request",
-      hides: ["film", "images", "output", "measure", "app"],
+      hides: ["app"],
       touches: ["src/"],
     },
   },
@@ -238,7 +224,7 @@ export const scenarios: Scenario[] = [
     body: "We're on pg 8.11.0, pinned. Upgrade to the latest 8.x and keep it pinned to an exact version.",
     expect: {
       outcome: "pull_request",
-      hides: ["film", "images", "output", "measure", "app"],
+      hides: ["app"],
       touches: ["package.json", "package-lock.json"],
     },
   },
@@ -251,7 +237,7 @@ export const scenarios: Scenario[] = [
     expect: {
       outcome: "pull_request",
       shows: ["check"],
-      hides: ["film", "images", "output", "app"],
+      hides: ["app"],
       touches: [".github/workflows/"],
     },
   },
@@ -264,7 +250,7 @@ export const scenarios: Scenario[] = [
     expect: {
       outcome: "pull_request",
       shows: ["document"],
-      hides: ["film", "images", "app"],
+      hides: ["app"],
       touches: ["README.md"],
     },
   },
@@ -284,8 +270,7 @@ export const scenarios: Scenario[] = [
     body: "I want to graph my runs in a notebook. Add `--json` to `pace list`: it prints the runs as a JSON array (date, km, seconds, pace in seconds per km, note), newest first, and still honors `--last`. The table stays the default.",
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images", "app"],
+      hides: ["app"],
       touches: ["pace/"],
     },
   },
@@ -297,8 +282,7 @@ export const scenarios: Scenario[] = [
     body: 'Durations like "1 hour 30 minutes 30 seconds" are too precise for our UI. Add a `largest` option to `format()`: the number of units kept, starting from the biggest, the last one rounded. `format(5_430_000, { largest: 1 })` gives "2 hours", `{ largest: 2 }` gives "1 hour 31 minutes". Document it in the README.',
     expect: {
       outcome: "pull_request",
-      shows: ["output"],
-      hides: ["film", "images", "app"],
+      hides: ["app"],
       touches: ["src/"],
     },
   },
@@ -311,7 +295,6 @@ export const scenarios: Scenario[] = [
     body: 'The recap lists action items as plain sentences. When the notes say who owns an item and by when, show them apart: each item gets its task, its owner and its due date ("Friday", "Nov 5"), the owner and date left empty when the notes don\'t say. Show them as a small table on the page and in /api/recap as {task, owner, due}.',
     expect: {
       outcome: "pull_request",
-      showsOneOf: ["film", "output"],
       touches: ["src/"],
       notVerified: true,
     },
@@ -324,8 +307,7 @@ export const scenarios: Scenario[] = [
     body: "Catching stars quickly should pay. Stars caught less than a second apart build a combo: x2 for the second, x3 for the third, up to x5, multiplying the star's points. Show the current combo next to the score while it lasts, and the multiplied points where the star was caught. A miss (a star reaching the ground) or a second without a catch ends the combo.",
     expect: {
       outcome: "pull_request",
-      shows: ["film", "app"],
-      hides: ["images"],
+      shows: ["app"],
       touches: ["public/"],
     },
   },
@@ -339,7 +321,6 @@ export const scenarios: Scenario[] = [
     expect: {
       outcome: "pull_request",
       shows: ["app"],
-      showsOneOf: ["images", "film"],
       touches: ["app/"],
     },
   },

@@ -125,14 +125,6 @@ export function parseAgentProofs(raw: unknown): AgentProof[] {
   return kept;
 }
 
-/**
- * A film walks the owner through the app, so it goes with the app's page:
- * one recorded for any other change (a document, an API) is noise, not voiced.
- */
-export function filmFits(proofs: AgentProof[]): boolean {
-  return proofs.some((proof) => proof.kind === "app");
-}
-
 /** What the owner sees when there is no film, the most telling first. */
 const LEAD: ProofKind[] = ["images", "measure", "output", "document", "check"];
 

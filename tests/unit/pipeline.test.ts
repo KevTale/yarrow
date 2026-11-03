@@ -501,8 +501,8 @@ describe("run pipeline", async () => {
     // The task carries the evidence rules; no recipe yet for this project.
     const task = JSON.stringify(created.body);
     expect(task).toContain("Evidence (these rules replace");
-    expect(task).toContain("Proof: you send the owner one thing");
-    expect(task).toContain("Presentation (only when the proof is a video)");
+    expect(task).toContain("Proof: every ticket is reviewed through a demo");
+    expect(task).toContain("Presentation: your screen, recorded");
     expect(task).toContain(
       "node /mnt/session/uploads/yarrow/present.mjs /tmp/presentation.json",
     );
@@ -560,16 +560,8 @@ describe("run pipeline", async () => {
       reviewer: defaultPipelineRoles.reviewer,
       rounds: 1,
     };
-    // A film proves a flow in the app: one recorded for a document is noise.
-    expect(
-      await runner.presentation(run, sessionId, [
-        { kind: "document", file: "README.md" },
-      ]),
-    ).toBeNull();
     // The recording is voiced after the review, in the agent's words alone.
-    const presentation = await runner.presentation(run, sessionId, [
-      { kind: "app", path: "/" },
-    ]);
+    const presentation = await runner.presentation(run, sessionId);
     expect(presentation).toMatchObject({
       kind: "presentation",
       label: "Empty exports",
@@ -806,9 +798,7 @@ describe("run pipeline", async () => {
     });
     // Claude's rules and task, word for word.
     expect(spec.prompt).toMatch(/^You are the implementer of Yarrow/);
-    expect(spec.prompt).toContain(
-      "Presentation (only when the proof is a video)",
-    );
+    expect(spec.prompt).toContain("Presentation: your screen, recorded");
     const [row] = await raw.select().from(schema.agentRuns);
     expect(row).toMatchObject({
       implementer: "muse-wonder-1.0:high",
@@ -832,9 +822,7 @@ describe("run pipeline", async () => {
 
     const reviewerId = await runner.startReview(run, sessionId, snapshot);
     const review = await runner.readReview(reviewerId);
-    const presentation = await runner.presentation(run, sessionId, [
-      { kind: "app", path: "/" },
-    ]);
+    const presentation = await runner.presentation(run, sessionId);
     expect(presentation).toMatchObject({ kind: "presentation" });
     await runner.deliver(
       run,

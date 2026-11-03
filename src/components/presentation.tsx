@@ -20,11 +20,13 @@ import {
 import {
   chapterMs,
   cueAt,
+  demoParts,
   posterChapter,
   presentationSchema,
   spokenWords,
   urlAt,
   wordsSaid,
+  type DemoPart,
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
@@ -78,6 +80,12 @@ export interface DemoRow {
   waiting: boolean;
   onLines: (lines: DemoLine[]) => void;
 }
+
+const PART_LABELS: Record<DemoPart, string> = {
+  context: "Context",
+  change: "What changed",
+  proof: "Proof",
+};
 
 /** Where the viewer left a demo: theirs, this browser's. */
 interface Left {
@@ -737,9 +745,10 @@ function Player({
       )}
     </button>
   );
-  const chapterBar = (
-    <div className="pv-chapters">
-      {chapters.map((item, i) => (
+  const chapterButtons = (shown: number[]) =>
+    shown.map((i) => {
+      const item = chapters[i]!;
+      return (
         <button
           key={i}
           type="button"
@@ -771,9 +780,12 @@ function Player({
             />
           </i>
         </button>
-      ))}
-    </div>
+      );
+    });
+  const chapterBar = (
+    <div className="pv-chapters">{chapterButtons([...chapters.keys()])}</div>
   );
+  const parts = demoParts(chapters);
   const soundButton = chapters.some((item) => item.audio) && (
     <button
       type="button"
@@ -806,10 +818,25 @@ function Player({
   const dock = timeline && (
     <div className="pv-dock">
       {playButton}
-      <div className="pv-parts">
-        {chapterBar}
-        <span className="pv-part">{started ? chapter?.title : ""}</span>
-      </div>
+      {parts ? (
+        <div className="pv-parts three">
+          {parts.map(({ part, chapters: shown }) => (
+            <div
+              key={part}
+              className={shown.includes(index) ? "pv-part now" : "pv-part"}
+              style={{ flexGrow: 1 }}
+            >
+              <div className="pv-chapters">{chapterButtons(shown)}</div>
+              <span>{PART_LABELS[part]}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="pv-parts">
+          {chapterBar}
+          <span className="pv-part">{started ? chapter?.title : ""}</span>
+        </div>
+      )}
       <span className="pv-tools">
         {soundButton}
         {cinemaButton}

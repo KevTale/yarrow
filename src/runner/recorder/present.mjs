@@ -104,6 +104,9 @@ const escape = (text) =>
 
 // ---------- The plan ----------
 
+/** A demo's parts, in this order (src/core/presentation.ts). */
+const PARTS = ["context", "change", "proof"];
+
 function check(plan) {
   const problems = [];
   if (!plan || typeof plan !== "object")
@@ -122,6 +125,8 @@ function check(plan) {
       problems.push(at + ".say: 1 to 600 characters");
     if (!["app", "document", "ticket", "terminal"].includes(chapter.tab))
       problems.push(at + ".tab: app, document, ticket or terminal");
+    if (!PARTS.includes(chapter.part))
+      problems.push(at + ".part: context, change or proof");
     if (chapter.tab === "document") {
       if (!fileOf(chapter))
         problems.push(at + ".file: the file's path in the repository");
@@ -176,6 +181,12 @@ function check(plan) {
     if (chapter.tab === "terminal" && !chapter.command)
       problems.push(at + ".command: missing");
   }
+  const parts = (plan.chapters || []).map((chapter) => chapter.part);
+  if (
+    PARTS.some((part) => !parts.includes(part)) ||
+    parts.some((part, i) => PARTS.indexOf(part) < PARTS.indexOf(parts[i - 1]))
+  )
+    problems.push("chapters: context, then change, then proof, each once");
   // A change the app shows opens on the app as it was, or as it is now with
   // the reason the plan gives: the ticket's card is for what the app cannot
   // show.
@@ -1320,6 +1331,7 @@ async function record(browser, plan, chapter, index, take, state) {
   return {
     chapter: {
       title: chapter.title,
+      part: chapter.part,
       tab,
       url,
       urls,
@@ -2496,6 +2508,7 @@ class Desktop {
       chapter: {
         ...result.chapter,
         title: chapter.title,
+        part: chapter.part,
         tab: chapter.tab,
         say: chapter.say,
         desktop: true,

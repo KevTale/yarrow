@@ -219,6 +219,7 @@ describe("the presentation on the stage", () => {
     live: PresentationChapter["live"],
   ): PresentationChapter => ({
     title,
+    part: null,
     tab,
     url: null,
     page: null,

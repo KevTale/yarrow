@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DEMO_PARTS,
   estimatedCues,
   liveChapterSchema,
   presentationAppsSchema,
@@ -38,6 +39,7 @@ export const recordedSchema = z.object({
     .array(
       z.object({
         title: clipped(80),
+        part: z.enum(DEMO_PARTS).nullable().default(null).catch(null),
         tab: z.enum(["app", "document", "ticket", "terminal"]),
         url: z
           .string()
@@ -182,6 +184,7 @@ export async function publishPresentation(
       cues = estimatedCues(say, Math.max(durationMs, audio?.durationMs ?? 0));
     chapters.push({
       title: chapter.title,
+      part: chapter.part,
       tab: chapter.tab,
       url: chapter.url,
       page: chapter.page,

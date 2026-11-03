@@ -279,6 +279,7 @@ async function check(
   // The proofs: what fits the ticket, and nothing that does not.
   const shown = shownIn(body);
   const list = [...shown].join(", ") || "nothing";
+  checks.push({ ok: shown.has("film"), what: `Has its demo (${list})` });
   for (const kind of scenario.expect.shows ?? [])
     checks.push({ ok: shown.has(kind), what: `Shows ${kind} (${list})` });
   const oneOf = scenario.expect.showsOneOf;

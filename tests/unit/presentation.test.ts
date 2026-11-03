@@ -7,6 +7,7 @@ import {
   chapterMs,
   cueAt,
   cuesFromAlignment,
+  demoParts,
   estimatedCues,
   estimateSpeechMs,
   posterChapter,
@@ -139,6 +140,7 @@ describe("subtitles", () => {
 describe("chapter length", () => {
   const base = {
     title: "Export",
+    part: null,
     tab: "app" as const,
     url: null,
     page: null,
@@ -160,6 +162,20 @@ describe("chapter length", () => {
       height: 720,
     };
     expect(chapterMs({ ...base, video, audio: null })).toBe(5000);
+    // A demo's parts, each with its chapters; none on an older demo.
+    const parted = (part: "context" | "change" | "proof" | null) => ({
+      ...base,
+      video: null,
+      audio: null,
+      part,
+    });
+    expect(
+      demoParts([parted("context"), parted("proof"), parted("proof")]),
+    ).toEqual([
+      { part: "context", chapters: [0] },
+      { part: "proof", chapters: [1, 2] },
+    ]);
+    expect(demoParts([parted("context"), parted(null)])).toBeNull();
     // Word by word when the voice gave their times, a cue whole otherwise.
     expect(
       spokenWords({
@@ -216,6 +232,7 @@ describe("chapter length", () => {
 describe("the window", () => {
   const chapter = {
     title: "Pick one",
+    part: null,
     tab: "app" as const,
     url: "localhost:3000/",
     page: null,
@@ -525,6 +542,12 @@ describe("the recorder", () => {
   it("shows a document of the repository, as it is and as it was", () => {
     const dir = mkdtempSync(join(tmpdir(), "yarrow-doc-"));
     writeFileSync(join(dir, "README.md"), "# App\n\n## Run it locally\n");
+    const opening = {
+      title: "Ask",
+      say: "So.",
+      tab: "terminal",
+      command: "true",
+    };
     const check = (chapter: object) => {
       const plan = join(dir, "plan.json");
       writeFileSync(
@@ -532,7 +555,11 @@ describe("the recorder", () => {
         JSON.stringify({
           title: "README",
           ticket: { title: "README: run it locally" },
-          chapters: [{ title: "Run it", say: "Here it is.", ...chapter }],
+          chapters: [
+            { ...opening, part: "context" },
+            { ...opening, part: "change" },
+            { title: "Run it", part: "proof", say: "Here it is.", ...chapter },
+          ],
         }),
       );
       return spawnSync(

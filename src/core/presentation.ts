@@ -95,8 +95,14 @@ export const presentationAppsSchema = z.object({
   after: z.string().max(500).nullable(),
 });
 
+/** The three parts of a demo, in this order. */
+export const DEMO_PARTS = ["context", "change", "proof"] as const;
+export type DemoPart = (typeof DEMO_PARTS)[number];
+
 export const presentationChapterSchema = z.object({
   title: z.string().min(1).max(80),
+  /** None before 2026-10-31: the demo then has its chapters alone. */
+  part: z.enum(DEMO_PARTS).nullable().default(null),
   /** A document is a Markdown file of the repository, as a reader sees it. */
   tab: z.enum(["app", "document", "ticket", "terminal"]),
   /** What the address bar shows: the page, the ticket, the command. */
@@ -193,6 +199,20 @@ export function chapterMs(chapter: PresentationChapter): number {
     last === undefined ? 0 : last + SETTLE_MS,
   );
   return Math.max(voice, Math.min(clip, shown));
+}
+
+/** A demo's parts, each with its chapters; null when one has no part. */
+export function demoParts(
+  chapters: PresentationChapter[],
+): { part: DemoPart; chapters: number[] }[] | null {
+  const found: { part: DemoPart; chapters: number[] }[] = [];
+  for (const [index, { part }] of chapters.entries()) {
+    if (!part) return null;
+    const last = found.at(-1);
+    if (last?.part === part) last.chapters.push(index);
+    else found.push({ part, chapters: [index] });
+  }
+  return found.length ? found : null;
 }
 
 /** What the address bar shows at `ms`: the page loaded, then where it went. */
