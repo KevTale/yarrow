@@ -790,7 +790,7 @@ function Player({
           onFocus={demo.ask.onWarm}
         >
           <MessageSquare size={15} aria-hidden="true" />
-          Ask
+          <span>Ask</span>
         </button>
       )}
       <span className="pv-tools">

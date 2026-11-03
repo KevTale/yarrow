@@ -9322,6 +9322,16 @@ html:has(.pp-stage:modal) {
   .pv-dock .pv-tools .pv-icon {
     width: 28px;
   }
+  .pv-ask {
+    padding: 0 8px;
+  }
+  .pv-ask span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .pv-parts.three {
     gap: 6px;
   }
@@ -9335,6 +9345,11 @@ html:has(.pp-stage:modal) {
   .pp-tray .pp-talk-thread {
     contain: none;
     max-height: 65vh;
+  }
+  .pp-tray > .pp-asking {
+    position: sticky;
+    bottom: 8px;
+    z-index: 1;
   }
   .pp-room:modal {
     padding: 58px 0 0;
