@@ -125,8 +125,13 @@ export function beatOf(char: string): number | null {
   const code = char.charCodeAt(0);
   return code >= FIRST_BEAT && code <= LAST_BEAT ? code - FIRST_BEAT : null;
 }
+/**
+ * Never voiced either, right after words a tool follows: the voice then says
+ * them all, a moment later, where it would stop before their last letters.
+ */
+export const VOICE_PUSH = "\ue100".repeat(4);
 export const withoutBeats = (text: string) =>
-  text.replace(/[\ue000-\ue0ff]/g, "");
+  text.replace(/[\ue000-\ue1ff]/g, "");
 
 /**
  * What the page tells the agent, as a turn of its own, when a gesture of its

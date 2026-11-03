@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import {
   beatMark,
+  VOICE_PUSH,
   type StageCueResult,
   type StageHand,
 } from "../../src/core/stage";
@@ -253,7 +254,7 @@ describe("the live call's turn", () => {
     });
 
     expect(said.join("")).toBe(
-      "Let me show you. Only the done tasks are left. ",
+      `Let me show you. ${VOICE_PUSH}Only the done tasks are left. `,
     );
     expect(answer.words).toBe("Let me show you. Only the done tasks are left.");
     expect(answer.change).toBeNull();
@@ -543,7 +544,7 @@ describe("the live call's turn", () => {
     });
     expect(answer.resume).toEqual({ chapter: 1 });
     expect(answer.words).toBe("Je le reprends du début.");
-    expect(said.join("")).toBe("Je le reprends du début. ");
+    expect(said.join("")).toBe(`Je le reprends du début. ${VOICE_PUSH}`);
     expect(asked).toEqual([]);
     expect(requests).toHaveLength(1);
     const first = (requests[0]!.body.messages as { content: string }[])[0]!;

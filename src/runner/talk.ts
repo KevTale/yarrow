@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
-import { beatMark, withoutBeats, type StageState } from "../core/stage";
+import {
+  beatMark,
+  VOICE_PUSH,
+  withoutBeats,
+  type StageState,
+} from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
 import { gestureWords } from "./gestures";
@@ -461,6 +466,7 @@ export async function talkTurn(input: {
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
+        say(VOICE_PUSH);
       },
     });
     steps.push({

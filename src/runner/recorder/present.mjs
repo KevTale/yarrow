@@ -3688,16 +3688,11 @@ class Presenter {
     return { problems: [], screen: await this.look() };
   }
 
-  /** The browser in front, on this tab. */
+  /** The browser in front, on this tab, at once: the pointer's trip took 6 s. */
   async bring(which) {
     const { desktop } = this;
-    const marks = [];
-    const clock = () => 0;
     await desktop.show("browser");
-    if (desktop.tabs.active !== which) {
-      await desktop.switchTab(which, clock, marks);
-      desktop.tabs.active = which;
-    }
+    desktop.tabs.active = which;
     await desktop.tabs.pages[which].bringToFront();
   }
 
