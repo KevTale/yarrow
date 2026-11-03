@@ -11,6 +11,8 @@
   // Runs next to Supabase (eu-west-1, dev and prod): a query costs 1-3 ms, not 25.
   "placement": { "region": "aws:eu-west-1" },
   "upload_source_maps": true,
+  // The landing's film goes through the Worker, which answers ranges.
+  "assets": { "binding": "ASSETS", "run_worker_first": ["/demo/*"] },
   // Public values only, repeated in each environment (vars are not inherited).
   // Secrets (DATABASE_URL, STRIPE_*, GITHUB_APP_*, tracker OAuth secrets,
   // TOKEN_ENCRYPTION_KEY) are set with `wrangler secret put NAME --env <env>`

@@ -4051,6 +4051,12 @@ tbody tr:hover {
 .md ol {
   padding-left: 20px;
 }
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
 .md li + li {
   margin-top: 3px;
 }
