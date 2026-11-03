@@ -248,10 +248,11 @@ function useSessionLost(
 /**
  * A ticket's row, opened. With a demo, one room: the screen centered, its
  * controls on it, Merge in the bar under it. It waits for Play. Then the demo
- * plays or they talk: Ask stops it and opens the conversation over its side,
- * nothing moving, the agent on a call, listening; spoken or written, it answers
- * aloud, its words in the conversation. Play, closing the conversation or
- * asking for it ends the call,
+ * plays or they talk: Ask stops it and moves it aside for the conversation, at
+ * its size; the microphone there puts the agent on a call. On a call it answers
+ * aloud, spoken to or written to, its words in the conversation; written to with
+ * no call, the written way, said aloud. Play, closing the conversation or asking
+ * for it ends the call,
  * and the demo takes up from the sentence it cut. The pull request's stage
  * takes the demo's place, the app live where it stopped, during the call or
  * when the member takes the mouse; before it is up, the agent answers by voice
@@ -322,13 +323,13 @@ export function PullPanel({
   const theater = useRef<HTMLDialogElement>(null);
   const seek = useRef<((ms: number) => void) | null>(null);
   const tray = useRef<HTMLElement>(null);
-  // Ask: the demo stops, the conversation opens over it, the agent listening.
+  // Ask: the demo stops and moves aside for the conversation. A call needs the
+  // microphone from its first second: it starts from the microphone's button.
   const askNow = () => {
     const at = pause.current?.() ?? null;
     stopped.current = at;
     goesOn.current = Boolean(at?.playing);
     setTalkShown(true);
-    void stage.callFrom(at, false);
   };
   // The demo plays or they talk: the conversation leaves with the call.
   const leave = () => {
@@ -343,11 +344,11 @@ export function PullPanel({
     leave();
     if (playingOn) play.current?.(null);
   };
-  // On a phone it opens under the bar.
+  // On a narrow window it opens under the bar.
   useEffect(() => {
-    if (talkShown && !wide)
+    if (talkShown)
       tray.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [talkShown, wide]);
+  }, [talkShown]);
   const answering = Boolean(
     panel?.messages.some((message) => message.status === "pending"),
   );

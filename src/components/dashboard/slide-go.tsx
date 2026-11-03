@@ -52,7 +52,12 @@ export function SlideGo({
   useEffect(() => {
     const element = track.current;
     if (!element) return;
-    const measure = () => setRun(element.clientWidth - KNOB - 4);
+    const measure = () =>
+      setRun(
+        element.clientWidth -
+          KNOB -
+          2 * parseFloat(getComputedStyle(element).paddingLeft),
+      );
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
