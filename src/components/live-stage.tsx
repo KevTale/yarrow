@@ -133,15 +133,13 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * the voice end with the stage, and with the page or the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
-function brainAsked(): { model?: string; screen?: boolean; push?: number } {
+function brainAsked(): { model?: string; screen?: boolean } {
   const query = new URLSearchParams(window.location.search);
   const model = query.get("brain");
   const screen = query.get("screen");
-  const push = query.get("push");
   return {
     ...(model ? { model } : {}),
     ...(screen !== null ? { screen: screen === "1" } : {}),
-    ...(push !== null ? { push: Number(push) } : {}),
   };
 }
 

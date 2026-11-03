@@ -125,8 +125,11 @@ export function beatOf(char: string): number | null {
   const code = char.charCodeAt(0);
   return code >= FIRST_BEAT && code <= LAST_BEAT ? code - FIRST_BEAT : null;
 }
-/** Never voiced either: what pushes the voice's last words out before a tool. */
-export const VOICE_PUSH = "\ue100";
+/**
+ * Never voiced either: the voice holds its last words until more text comes,
+ * so a tool after them would cut it mid-word. Measured on dev: 34 are held.
+ */
+export const VOICE_PUSH = "\ue100".repeat(48);
 export const withoutBeats = (text: string) =>
   text.replace(/[\ue000-\ue1ff]/g, "");
 

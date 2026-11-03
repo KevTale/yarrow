@@ -228,19 +228,17 @@ export function talkGrantOf(request: TalkRequest): string | null {
 export function talkBrainOf(request: TalkRequest): {
   model?: TalkModelName;
   screen?: boolean;
-  push?: number;
 } {
   for (const extra of [
     request.elevenlabs_extra_body,
     request.custom_llm_extra_body,
   ]) {
     const brain = (extra as { brain?: unknown } | undefined)?.brain as
-      { model?: unknown; screen?: unknown; push?: unknown } | undefined;
+      { model?: unknown; screen?: unknown } | undefined;
     if (!brain || typeof brain !== "object") continue;
     return {
       ...(isTalkModel(brain.model) ? { model: brain.model } : {}),
       ...(typeof brain.screen === "boolean" ? { screen: brain.screen } : {}),
-      ...(typeof brain.push === "number" ? { push: brain.push } : {}),
     };
   }
   return {};
@@ -374,8 +372,6 @@ export async function talkTurn(input: {
   /** The stage's hands; null on a call by voice alone. */
   stage: StageHands | null;
   say: (text: string) => void;
-  /** Dev only: how many characters push the voice out before a tool. */
-  push?: number;
   started?: number;
 }): Promise<TalkAnswer> {
   const { client, context, sources, stage, say } = input;
@@ -470,7 +466,7 @@ export async function talkTurn(input: {
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
-        say(VOICE_PUSH.repeat(input.push ?? 0));
+        say(VOICE_PUSH);
       },
     });
     steps.push({
