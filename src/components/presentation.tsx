@@ -737,7 +737,7 @@ function Player({
   const captionsButton = (
     <button
       type="button"
-      className="pv-icon"
+      className="pv-icon pv-cc"
       onClick={flipCaptions}
       aria-pressed={captions}
       aria-label="Captions"
@@ -775,21 +775,21 @@ function Player({
           {/* Before it starts the poster shows a later chapter: no title over it. */}
           {started && named && <span className="pv-now">{named}</span>}
         </span>
+        {demo?.ask && (
+          <button
+            type="button"
+            className="pv-icon pv-glass-pill pv-ask"
+            onClick={demo.ask.onClick}
+            onPointerEnter={demo.ask.onWarm}
+            onFocus={demo.ask.onWarm}
+            aria-pressed={demo.ask.open}
+            aria-label="Ask"
+            data-tip="Ask"
+          >
+            <MessageSquare size={18} aria-hidden="true" />
+          </button>
+        )}
         <span className="pv-glass-pill pv-tools">
-          {demo?.ask && (
-            <button
-              type="button"
-              className="pv-icon pv-ask"
-              onClick={demo.ask.onClick}
-              onPointerEnter={demo.ask.onWarm}
-              onFocus={demo.ask.onWarm}
-              aria-pressed={demo.ask.open}
-              aria-label="Ask"
-              data-tip="Ask"
-            >
-              <MessageSquare size={18} aria-hidden="true" />
-            </button>
-          )}
           <button
             type="button"
             className="pv-icon pv-speed"

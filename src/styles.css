@@ -8335,8 +8335,18 @@ body:has(.sb-dialog[open]) {
   height: 38px;
   background: rgba(0, 0, 0, 0.36);
 }
-.pv-ask[aria-pressed="true"] {
+.pv-icon.pv-ask {
+  width: 38px;
+  height: 38px;
+  margin-left: auto;
+  background: rgba(0, 0, 0, 0.36);
+}
+.pv-icon.pv-ask:hover,
+.pv-icon.pv-ask[aria-pressed="true"] {
   background: rgba(255, 255, 255, 0.2);
+}
+.pv-ask + .pv-tools {
+  margin-left: 0;
 }
 .pv-speed {
   width: 44px;
@@ -8392,6 +8402,14 @@ body:has(.sb-dialog[open]) {
   margin-right: 10px;
   color: rgba(255, 255, 255, 0.5);
   content: "•";
+}
+/* A small video keeps its time whole. */
+@container (max-width: 420px) {
+  .pv-speed,
+  .pv-cc,
+  .pv-now {
+    display: none;
+  }
 }
 /* The stage live in the film's place: its screen over VNC, the film kept
    behind it, ready for a moment of the conversation. */
@@ -9104,11 +9122,13 @@ html:has(.pp-stage:modal) {
     height: 36px;
   }
   .pv-glass-pill,
-  .pv-icon.pv-play {
+  .pv-icon.pv-play,
+  .pv-icon.pv-ask {
     height: 32px;
   }
   .pv-play,
-  .pv-icon.pv-play {
+  .pv-icon.pv-play,
+  .pv-icon.pv-ask {
     width: 32px;
   }
   .pv-clock {
@@ -9154,7 +9174,7 @@ html:has(.pp-stage:modal) {
   margin-inline: auto;
 }
 .pp-bar {
-  margin-top: 0;
+  margin-top: 8px;
 }
 /* Where it ends: what is left to know, and the decision. */
 .pv-end {
