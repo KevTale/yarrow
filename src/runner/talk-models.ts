@@ -53,6 +53,7 @@ export async function talkStep(input: {
   messages: Anthropic.Beta.BetaMessageParam[];
   /** The last one: words only, no more tools. */
   last: boolean;
+  maxTokens?: number;
   onText: (delta: string) => void;
   /** The words stop for something else: a tool (its name), or thinking. */
   onBreak?: (next: string) => void;
@@ -69,7 +70,7 @@ async function claudeStep(
   const fast = model === "opus-fast";
   const stream = clients.anthropic.beta.messages.stream({
     model: TALK_MODELS[model].id,
-    max_tokens: 4000,
+    max_tokens: input.maxTokens ?? 4000,
     // Haiku has no server-side fallback, and its thinking can go.
     ...(model === "haiku"
       ? { thinking: { type: "disabled" as const } }
@@ -83,8 +84,14 @@ async function claudeStep(
         }),
     output_config: { effort: "low" },
     system,
-    tools,
-    tool_choice: last ? { type: "none" } : { type: "auto" },
+    ...(tools.length > 0
+      ? {
+          tools,
+          tool_choice: last
+            ? { type: "none" as const }
+            : { type: "auto" as const },
+        }
+      : {}),
     messages,
   });
   stream.on("text", onText);

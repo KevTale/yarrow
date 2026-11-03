@@ -9,6 +9,10 @@ import type { StageCue, StageCueResult, StageStatus } from "../core/stage";
  * Every integration is optional: a missing secret disables that feature
  * with an explicit message instead of crashing the app.
  */
+interface RateLimiter {
+  limit(input: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface AppEnv {
   APP_URL: string;
   SUPABASE_URL: string;
@@ -34,6 +38,9 @@ export interface AppEnv {
   TOKEN_ENCRYPTION_KEY?: string;
   /** Writes owners' test secrets to Managed Agents vaults (never to our DB). */
   ANTHROPIC_API_KEY?: string;
+  /** Turns of the landing's sample agent, per visitor and for everyone. */
+  TRY_LIMIT?: RateLimiter;
+  TRY_CEILING?: RateLimiter;
   /** Sends Yarrow's own emails (thanks after a payment). Optional. */
   RESEND_API_KEY?: string;
   /** Sender of Yarrow's emails, e.g. "Yarrow <no-reply@yarrow.run>". */

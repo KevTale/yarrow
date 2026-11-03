@@ -84,7 +84,10 @@ export function SiteHeader({
                 Sponsoring
               </Link>
             </nav>
-          ) : (
+          ) : null}
+        </div>
+        <div className="header-actions">
+          {!member && (
             <nav className="header-nav" aria-label="Site">
               {/* The sponsors' way in: the hero speaks to builders. */}
               <Link
@@ -97,8 +100,6 @@ export function SiteHeader({
               <Link to="/changelog">Changelog</Link>
             </nav>
           )}
-        </div>
-        <div className="header-actions">
           {viewer ? (
             // uiarc's user menu: a panel from the avatar, a bottom sheet on
             // phones.
@@ -141,9 +142,14 @@ export function SiteHeader({
               }}
             />
           ) : (
-            <Link to="/sign-in" className="sign-in">
-              Sign in
-            </Link>
+            <>
+              <Link to="/sign-in" className="sign-in">
+                Sign in
+              </Link>
+              <a className="lp-cta small" href="/connect/github?start">
+                Get started
+              </a>
+            </>
           )}
         </div>
       </div>

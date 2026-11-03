@@ -1,23 +1,16 @@
 import {
   createFileRoute,
-  getRouteApi,
   Link,
   redirect,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Ban,
-  GitMerge,
-  GitPullRequest,
-  Github,
-  Sparkles,
-} from "lucide-react";
+import { Github } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
 import { LandingRoom } from "@/components/landing-room";
+import { BoardShot, DraftShot } from "@/components/landing-shots";
 import { useLive } from "@/components/live";
 import { SponsorBoard } from "@/components/sponsor-board";
 import { TicketStack } from "@/components/ticket-stack";
@@ -42,53 +35,7 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-const rootRoute = getRouteApi("__root__");
-
-const steps = [
-  {
-    title: "Write it with the agent",
-    text: "It reads your code and your tickets, asks what it needs and fills in the ticket. In writing or out loud.",
-  },
-  {
-    title: "Start it",
-    text: "One agent builds it in the cloud. Another reviews it. Nothing to set up.",
-  },
-  {
-    title: "Watch the demo",
-    text: "The change comes back working on screen. Stop it and ask anything.",
-  },
-  {
-    title: "Merge",
-    text: "Slide to merge. Or ask for a change and it comes back.",
-  },
-];
-
-const moves = [
-  {
-    icon: <Sparkles size={15} />,
-    when: "Yarrow starts",
-    to: "In Progress",
-    kind: "progress",
-  },
-  {
-    icon: <GitPullRequest size={15} />,
-    when: "Pull request opened",
-    to: "In Review",
-    kind: "progress",
-  },
-  {
-    icon: <GitMerge size={15} />,
-    when: "Pull request merged",
-    to: "Done",
-    kind: "done",
-  },
-  {
-    icon: <Ban size={15} />,
-    when: "Yarrow stopped",
-    to: "Back where it was",
-    kind: "todo",
-  },
-];
+const CONNECT = "/connect/github?start";
 
 const empty = {
   sponsors: { today: [], all: [] },
@@ -102,7 +49,6 @@ function Landing() {
   const loaded = Route.useLoaderData();
   const boards = loaded.configured ? loaded : empty;
   const { checkout, edit } = Route.useSearch();
-  const { viewer } = rootRoute.useLoaderData();
   const router = useRouter();
   const navigate = useNavigate();
   // The row opened once: a refresh does not open it again.
@@ -126,82 +72,115 @@ function Landing() {
           </p>
         </div>
       )}
-      <section className="landing-hero container">
-        <h1>Every ticket comes back with a demo</h1>
-        <p className="landing-sub">
-          Write your tickets with an agent. Others build and review them. You
-          watch the result work, ask anything and merge.
-        </p>
-        <div className="landing-go">
-          {viewer && !("guest" in viewer) ? (
-            <Link className="go" to="/dashboard" search={{ tab: "builder" }}>
-              Open your tickets
-              <i>
-                <ArrowRight size={14} strokeWidth={2.2} />
-              </i>
+      <section className="lp-hero container">
+        <h1>
+          Every ticket comes back <br />
+          with a demo
+        </h1>
+        <div className="lp-hero-foot">
+          <p>
+            Agents write, build and review your tickets. <br />
+            You watch the result work, ask anything and merge.
+          </p>
+          <div className="lp-hero-go">
+            <Link className="lp-free" to="/" hash="sponsors">
+              Free. Sponsors fund the compute
             </Link>
-          ) : (
-            <a className="go" href="/connect/github?start">
+            <a className="lp-cta" href={CONNECT}>
               Connect your backlog
-              <i>
-                <ArrowRight size={14} strokeWidth={2.2} />
-              </i>
             </a>
-          )}
-          <Link className="landing-free" to="/" hash="sponsors">
-            Free. Sponsors fund the compute
-          </Link>
+          </div>
         </div>
-        <ul className="landing-marks" aria-label="Works with">
+      </section>
+      <div className="container lp-room">
+        <LandingRoom
+          cta={
+            <a className="lp-cta" href={CONNECT}>
+              Connect your backlog
+            </a>
+          }
+        />
+      </div>
+      <section className="container lp-sources" aria-label="Works with">
+        <ul>
           <li>
-            <Github size={17} /> GitHub
+            <Github size={22} /> GitHub
           </li>
           <li>
-            <TrackerIcon tracker="jira" size={16} /> Jira
+            <TrackerIcon tracker="jira" size={20} /> Jira
           </li>
           <li>
-            <TrackerIcon tracker="linear" size={16} /> Linear
+            <TrackerIcon tracker="linear" size={20} /> Linear
           </li>
           <li>
-            <TrackerIcon tracker="trello" size={16} /> Trello
+            <TrackerIcon tracker="trello" size={20} /> Trello
           </li>
         </ul>
+        <p className="mono">Your tickets stay where they are</p>
       </section>
-      <div className="container landing-shot">
-        <LandingRoom />
-      </div>
-      <ol className="container landing-steps">
-        {steps.map((step) => (
-          <li key={step.title}>
-            <h2>{step.title}</h2>
-            <p>{step.text}</p>
-          </li>
-        ))}
-      </ol>
-      <section className="container landing-work">
-        <div className="landing-board">
-          <h2>Your board keeps up</h2>
-          <ul className="landing-moves">
-            {moves.map((move) => (
-              <li key={move.when}>
-                <span className="landing-when">
-                  {move.icon}
-                  {move.when}
-                </span>
-                <ArrowRight size={14} className="st-move-arrow" />
-                <span className="landing-to">
-                  <span className={`ss-dot ${move.kind}`} aria-hidden="true" />
-                  {move.to}
-                </span>
-              </li>
-            ))}
-          </ul>
+      <p className="container lp-statement">
+        <b>Software now starts with a ticket.</b> Yarrow takes each one from its
+        first sentence to the merge, and shows you the result working before you
+        decide.
+      </p>
+      <section className="lp-part">
+        <div className="container lp-part-head">
+          <h2>
+            Write it
+            <br />
+            with the agent
+          </h2>
+          <p>
+            It reads your code and every ticket, says what already exists and
+            asks what it cannot know. You talk, in writing or out loud. The
+            ticket writes itself.
+          </p>
         </div>
-        <TicketStack
-          live={boards.live}
-          totals={boards.totals}
-          sponsors={boards.sponsors.all}
-        />
+        <div className="container">
+          <DraftShot />
+        </div>
+      </section>
+      <section className="lp-part">
+        <div className="container lp-part-head">
+          <h2>
+            Built and reviewed
+            <br />
+            in the cloud
+          </h2>
+          <p>
+            One agent builds it. Another reviews it, runs it and records the
+            demo. Nothing to install and nothing to keep open.
+          </p>
+        </div>
+        <div className="container lp-live">
+          <TicketStack
+            live={boards.live}
+            totals={boards.totals}
+            sponsors={boards.sponsors.all}
+          />
+        </div>
+      </section>
+      <section className="lp-part">
+        <div className="container lp-part-head">
+          <h2>
+            Your board
+            <br />
+            keeps up
+          </h2>
+          <p>
+            Tickets stay in GitHub, Jira, Linear or Trello. They move through
+            your own columns as the work moves.
+          </p>
+        </div>
+        <div className="container">
+          <BoardShot />
+        </div>
+      </section>
+      <section className="lp-end">
+        <h2>Start with your next ticket</h2>
+        <a className="lp-cta" href={CONNECT}>
+          Connect your backlog
+        </a>
       </section>
       <div className="container landing-boards">
         <SponsorBoard

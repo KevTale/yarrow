@@ -17,6 +17,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TryAgentRouteImport } from './routes/try-agent'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AccountEmailRouteImport } from './routes/account/email'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
@@ -84,6 +85,11 @@ const StartRoute = StartRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TryAgentRoute = TryAgentRouteImport.update({
+  id: '/try-agent',
+  path: '/try-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountIndexRoute = AccountIndexRouteImport.update({
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
+  '/try-agent': typeof TryAgentRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
+  '/try-agent': typeof TryAgentRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -316,6 +324,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
+  '/try-agent': typeof TryAgentRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/confirm': typeof AuthConfirmRoute
@@ -356,6 +365,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/start'
     | '/terms'
+    | '/try-agent'
     | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/start'
     | '/terms'
+    | '/try-agent'
     | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/start'
     | '/terms'
+    | '/try-agent'
     | '/account/email'
     | '/auth/callback'
     | '/auth/confirm'
@@ -471,6 +483,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
+  TryAgentRoute: typeof TryAgentRoute
   AccountEmailRoute: typeof AccountEmailRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthConfirmRoute: typeof AuthConfirmRoute
@@ -557,6 +570,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/try-agent': {
+      id: '/try-agent'
+      path: '/try-agent'
+      fullPath: '/try-agent'
+      preLoaderRoute: typeof TryAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account/': {
@@ -767,6 +787,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
+  TryAgentRoute: TryAgentRoute,
   AccountEmailRoute: AccountEmailRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthConfirmRoute: AuthConfirmRoute,
