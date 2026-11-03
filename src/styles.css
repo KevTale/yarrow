@@ -226,11 +226,10 @@ select:focus-visible {
   margin-inline: auto;
   padding-inline: 40px;
 }
-/* The dashboard takes more of the window: a demo and its conversation side
-   by side. The header has that width on every page. */
+/* The dashboard's content takes more of the window: a demo and its conversation
+   side by side. The header keeps the site's width on every page. */
 @media (min-width: 1101px) {
-  body:has(.container.dashboard) .container,
-  .container.header-inner {
+  .container.dashboard {
     max-width: 1680px;
     padding-inline: 24px;
   }
