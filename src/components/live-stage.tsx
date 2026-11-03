@@ -398,6 +398,8 @@ export function useLiveStage({
     reachedAt.current = null;
     heardOver.current = "no";
     conversation.current?.setVolume({ volume: 0 });
+    setWriting("");
+    setThinking(false);
   };
 
   /**
