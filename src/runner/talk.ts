@@ -54,18 +54,19 @@ export interface TalkContext {
 const instructions = (
   onStage: boolean,
   video: boolean,
-) => `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice; they hear it, they do not read it.
+) => `You are Yarrow's agent, on a live call with a member of the project about a pull request Yarrow's agents opened. Everything you write is spoken aloud by a voice and shows in the conversation beside them as you say it. They speak or write to you, and you answer aloud either way.
 
 ${
   onStage
-    ? "They were watching the change's demo: the app, your recorded voice over it. They paused it to call you. The demo stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the demo had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
+    ? "They were watching the change's demo: the app, your recorded voice over it. They stopped it to ask you something. The demo stands still where they stopped it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the demo had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
     : video
-      ? "They called you from the ticket's page, by voice: the change's demo, the app with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its demo and its review, and they see the demo and the conversation."
+      ? "They called you from the ticket's page: the change's demo, the app with your recorded voice over it, stands still where they stopped it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its demo and its review, and they see the demo and the conversation."
       : "They called you from the ticket's page, by voice. No live app is on this call: you answer from the pull request, its code and its review, and they see what the page shows and the conversation."
 }
 
 How you talk:
-- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.${
+- Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One to three short sentences, as a colleague on a call. In the language they speak.
+- What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.${
   onStage
     ? `
 - When they ask you to do something on the stage, your answer starts with the tool call itself, no text before it: they see it happen, and your voice would come after the gesture. Then say what it shows, only if it is worth saying.
@@ -89,7 +90,7 @@ The stage:
 ${
   video
     ? `The demo:
-- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the demo plays on where they paused it and the call ends; they call again to talk.
+- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the demo plays on from where they stopped it and the conversation closes; they ask again to talk.
 - To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the demo plays from there, its recorded voice with it.${onStage ? " Never play the demo's chapters yourself on the stage.\n- On the stage, show what the demo does not." : " To show them something, point them to its moment in the demo."}
 
 `
@@ -99,11 +100,24 @@ ${
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
 - The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
+/** What only the eye can follow, written where the member reads the call. */
+const WRITE: Anthropic.Beta.BetaTool = {
+  name: "write_down",
+  description:
+    "Puts in the conversation, under your words, what must be read rather than heard: a list, code, file names, steps. Markdown. Never for what you say aloud.",
+  input_schema: {
+    type: "object",
+    properties: { text: { type: "string", maxLength: 4000 } },
+    required: ["text"],
+    additionalProperties: false,
+  },
+};
+
 /** The page's tool: the demo plays on, and the call ends. */
 const RESUME: Anthropic.Beta.BetaTool = {
   name: "resume_presentation",
   description:
-    "The demo plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
+    "The demo plays on and the call ends: from where they stopped it, or from the start of a chapter. Only when they want it to, after your last words.",
   input_schema: {
     type: "object",
     properties: {
@@ -111,7 +125,7 @@ const RESUME: Anthropic.Beta.BetaTool = {
         type: "integer",
         minimum: 1,
         description:
-          "From this chapter's start, 1 for the beginning; where they paused it when absent.",
+          "From this chapter's start, 1 for the beginning; from where they stopped it when absent.",
       },
     },
     additionalProperties: false,
@@ -125,6 +139,7 @@ const eager = (tools: Anthropic.Beta.BetaTool[]) =>
 const talkTools = (onStage: boolean, video: boolean) =>
   eager([
     ...CHAT_TOOLS,
+    WRITE,
     ...(onStage ? STAGE_TOOLS : []),
     ...(video ? [RESUME] : []),
   ]);
@@ -311,6 +326,8 @@ export function talkFiller(language: string, nth: number): string {
 export interface TalkAnswer {
   /** What the agent said, kept in the conversation's thread. */
   words: string;
+  /** What it wrote down there, under its words. */
+  written: string;
   /** The change it proposed: a card in the thread, made only from there. */
   change: string | null;
   /** The film plays on (a tool of the page): from a chapter, or where it was. */
@@ -350,6 +367,7 @@ export async function talkTurn(input: {
   const started = input.started ?? Date.now();
   let firstWordMs: number | null = null;
   let words = "";
+  const written: string[] = [];
   let change: string | null = null;
   const speak = (text: string) => {
     if (!text) return;
@@ -359,6 +377,7 @@ export async function talkTurn(input: {
   };
   const answer = (resume: TalkAnswer["resume"] = null): TalkAnswer => ({
     words: words.trim(),
+    written: written.join("\n\n"),
     change,
     resume,
     usage,
@@ -413,6 +432,7 @@ export async function talkTurn(input: {
           input.leadIn &&
           !next.endsWith("thinking") &&
           next !== RESUME.name &&
+          next !== WRITE.name &&
           !isStageTool(next)
         ) {
           speak(input.leadIn);
@@ -448,12 +468,19 @@ export async function talkTurn(input: {
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
       const ran = Date.now();
+      const down =
+        call.name === WRITE.name
+          ? (call.input as { text?: unknown } | null)?.text
+          : null;
+      if (typeof down === "string" && down.trim()) written.push(down.trim());
       const result: { text: string; error?: boolean; change?: string } = await (
-        isStageTool(call.name)
-          ? stage
-            ? runStageTool(call, stage)
-            : Promise.resolve({ text: "No stage on this call.", error: true })
-          : runChatTool(call, context, sources)
+        call.name === WRITE.name
+          ? Promise.resolve({ text: "It shows in the conversation." })
+          : isStageTool(call.name)
+            ? stage
+              ? runStageTool(call, stage)
+              : Promise.resolve({ text: "No stage on this call.", error: true })
+            : runChatTool(call, context, sources)
       ).catch((error: Error) => ({
         text: `That failed: ${error.message.slice(0, 200)}`,
         error: true,

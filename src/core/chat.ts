@@ -39,37 +39,6 @@ export function answerToRead(body: string, change: string | null): boolean {
   );
 }
 
-/** The most of an answer on the screen at once. */
-const CAPTION_CHARS = 110;
-
-/** An answer cut for the screen: a line at a time, at its sentences. */
-export function captionLines(text: string): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (line && line.length + word.length >= CAPTION_CHARS) {
-      lines.push(line);
-      line = "";
-    }
-    line = line ? `${line} ${word}` : word;
-    if (/[.!?…]$/.test(word) && line.length > CAPTION_CHARS / 2) {
-      lines.push(line);
-      line = "";
-    }
-  }
-  return line ? [...lines, line] : lines;
-}
-
-/** The line being said, `part` of them said (0 to 1), by their length. */
-export function lineAt(lines: string[], part: number): string | null {
-  let left = part * lines.reduce((sum, line) => sum + line.length, 0);
-  for (const line of lines) {
-    if (left < line.length) return line;
-    left -= line.length;
-  }
-  return lines.at(-1) ?? null;
-}
-
 /** What one answer used, as the provider counts it. */
 export interface ChatUsage {
   model: string;

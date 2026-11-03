@@ -1,6 +1,7 @@
 import {
   Captions,
   CaptionsOff,
+  MessageSquare,
   Pause,
   Play,
   RectangleHorizontal,
@@ -29,7 +30,6 @@ import {
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
-import { asCall } from "@/components/call-voice";
 import { Spinner } from "@/components/navigation-feedback";
 
 const evidence = (key: string) => `/evidence/${key}`;
@@ -56,8 +56,8 @@ export interface DemoRow {
   onTouch?: () => void;
   /** The app is on its way to the member's hands. */
   waiting: boolean;
-  /** The microphone is open: its voice must not reach it. */
-  listening: boolean;
+  /** The member's way in: without it, nothing to ask from the player. */
+  ask?: { open: boolean; onClick: () => void; onWarm: () => void };
   /** What the agent says before it starts. */
   message: ReactNode;
   /** What is left to decide once it ended. */
@@ -286,6 +286,8 @@ function Player({
   const elapsed = time.at;
   // The chapter's clock: what ran before the last pause, and since when.
   const clock = useRef({ before: 0, since: 0 });
+  // Stopped for someone, it takes up again from the sentence it cut.
+  const cut = useRef(false);
   // The agent's clicks are heard with the voice, made once a gesture allows sound.
   const sound = useRef<Sound | null>(null);
   const hearing = useRef(voice);
@@ -438,17 +440,6 @@ function Player({
     return () => clip?.removeEventListener("seeked", onReady);
   }, [playing, playMedia]);
 
-  // The microphone open: its voice played as a call's, so it does not hear it.
-  const routed = useRef<Promise<() => void> | null>(null);
-  const listening = demo?.listening ?? false;
-  useEffect(() => {
-    if (listening && audio.current) routed.current ??= asCall(audio.current);
-  }, [listening]);
-  useEffect(
-    () => () => void routed.current?.then((hangUp) => hangUp()),
-    [],
-  );
-
   // Where it is, kept each time it stops or moves on, and as the row closes.
   const keep = useRef(() => {});
   useEffect(() => {
@@ -533,6 +524,7 @@ function Player({
       jump(0);
       return;
     }
+    if (!playing && takeUp()) return;
     wake();
     allowSound();
     setPoised(false);
@@ -542,6 +534,7 @@ function Player({
   // Paused where it is, and where that is.
   const pause = (): FilmMoment => {
     wake();
+    cut.current ||= playing;
     setPlaying(false);
     return finished
       ? { index: Math.max(0, chapters.length - 1), part: 1 }
@@ -552,7 +545,16 @@ function Player({
           ...(started ? { title: chapter?.title, ms: played } : {}),
         };
   };
+  function takeUp() {
+    const sentence = cut.current
+      ? cueAt(chapter?.cues ?? [], time.spoken)
+      : null;
+    cut.current = false;
+    if (sentence) jump(index, sentence.startMs);
+    return Boolean(sentence);
+  }
   function jump(to: number, offset = 0, play = true, ended = false) {
+    cut.current = false;
     wake();
     allowSound();
     from.current = Math.max(0, Math.min(offset, (lengths[to] ?? 0) - 250));
@@ -627,7 +629,7 @@ function Player({
       playRef.current = (chapter) => {
         if (chapter !== null) jump(Math.min(chapter, chapters.length - 1));
         else if (finished) jump(0);
-        else {
+        else if (!takeUp()) {
           wake();
           allowSound();
           setPoised(false);
@@ -777,6 +779,19 @@ function Player({
           {chapterBar}
           <span className="pv-part">{started ? chapter?.title : ""}</span>
         </div>
+      )}
+      {demo?.ask && (
+        <button
+          type="button"
+          className="pv-ask"
+          aria-pressed={demo.ask.open}
+          onClick={demo.ask.onClick}
+          onPointerEnter={demo.ask.onWarm}
+          onFocus={demo.ask.onWarm}
+        >
+          <MessageSquare size={15} aria-hidden="true" />
+          Ask
+        </button>
       )}
       <span className="pv-tools">
         {soundButton}

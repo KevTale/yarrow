@@ -1619,7 +1619,8 @@ async function talkRoute(
       });
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
-      if (!bench && !dropped && (answer.words || answer.change))
+      const body = [answer.words, answer.written].filter(Boolean).join("\n\n");
+      if (!bench && !dropped && (body || answer.change))
         await withDb(env, (db) =>
           saveSpokenTurn(
             db,
@@ -1627,7 +1628,7 @@ async function talkRoute(
               workUnitId: grant.workUnitId,
               userId: grant.userId,
               said: memberWords(messages),
-              words: answer.words,
+              words: body,
               change: answer.change,
               usage: answer.usage,
             },

@@ -447,6 +447,39 @@ describe("the live call's turn", () => {
     expect(tools).not.toContain("show_chapter");
   });
 
+  it("writes down what must be read, its voice saying one sentence", async () => {
+    const { client } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              { type: "text", text: "Three files, written beside you." },
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "write_down",
+                input: { text: "- `a.ts`\n- `b.ts`\n- `c.ts`" },
+              },
+            ],
+          }
+        : { stop_reason: "end_turn", content: [] },
+    );
+    const said: string[] = [];
+    const answer = await talkTurn({
+      client,
+      context,
+      messages: [{ role: "user", content: "Which files changed?" }],
+      state: null,
+      sources,
+      stage: null,
+      say: (text) => said.push(text),
+      leadIn: "Une seconde. ",
+    });
+    expect(answer.words).toBe("Three files, written beside you.");
+    expect(answer.written).toBe("- `a.ts`\n- `b.ts`\n- `c.ts`");
+    expect(said.join("")).not.toContain("a.ts");
+  });
+
   it("proposes a change as a card in the thread, never reading it out", async () => {
     const proposing = (change: string, then: string) =>
       claude((body) =>

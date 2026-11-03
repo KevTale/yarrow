@@ -9,9 +9,7 @@ import {
   chatDayStart,
   chatParts,
   answerToRead,
-  captionLines,
   clockLabel,
-  lineAt,
   spokenAnswer,
 } from "../../src/core/chat";
 import { ensureAccount } from "../../src/db/accounts";
@@ -92,18 +90,6 @@ describe("the conversation's rules", () => {
     expect(spokenAnswer("Here [at 0:23], as you saw.")).toBe(
       "Here , as you saw.",
     );
-  });
-
-  it("cuts an answer for the screen, at its sentences", () => {
-    const long = `${"word ".repeat(40)}end.`;
-    const lines = captionLines(`${long} Short one.`);
-    expect(lines.every((line) => line.length <= 112)).toBe(true);
-    expect(lines.join(" ")).toBe(`${long} Short one.`);
-    expect(captionLines("Yes.")).toEqual(["Yes."]);
-    expect(lineAt(["one", "two"], 0)).toBe("one");
-    expect(lineAt(["one", "two"], 0.6)).toBe("two");
-    expect(lineAt(["one", "two"], 1)).toBe("two");
-    expect(lineAt([], 0.5)).toBeNull();
   });
 
   it("knows an answer that only the eye can follow", () => {
