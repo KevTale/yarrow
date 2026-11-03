@@ -6,6 +6,7 @@ import { TrackerIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
 import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
+import { TicketBody } from "./ticket-body";
 import { TicketTalk } from "./ticket-talk";
 
 type Board = { tracker: string; key: string; name: string; site: string };
@@ -295,14 +296,10 @@ export function NewTicket({
           maxLength={TITLE_MAX}
           onChange={(event) => edit({ title: event.target.value })}
         />
-        <textarea
-          className="nt-body"
-          aria-label="Description"
-          placeholder="Description, in Markdown"
-          rows={7}
+        <TicketBody
           value={body}
           maxLength={BODY_MAX}
-          onChange={(event) => edit({ body: event.target.value })}
+          onChange={(value) => edit({ body: value })}
         />
         <div className="nt-foot">
           {error && (

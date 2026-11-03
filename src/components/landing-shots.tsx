@@ -9,6 +9,7 @@ import { useReducedMotion } from "motion/react";
 import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { StageMark } from "@/components/dashboard/stage-mark";
+import { TicketBody } from "@/components/dashboard/ticket-body";
 import { TicketReady } from "@/components/dashboard/ticket-ready";
 import { askSample, SampleBox } from "@/components/landing-agent";
 import { SampleRoom } from "@/components/landing-room";
@@ -596,14 +597,7 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
                 maxLength={120}
                 onChange={(event) => setTitle(event.target.value)}
               />
-              <textarea
-                className="nt-body"
-                aria-label="Description"
-                placeholder="Description, in Markdown"
-                value={body}
-                maxLength={1500}
-                onChange={(event) => setBody(event.target.value)}
-              />
+              <TicketBody value={body} maxLength={1500} onChange={setBody} />
             </div>
             <section className="nt-talk" aria-label="The agent">
               <div className="pp-talk-thread" ref={thread}>

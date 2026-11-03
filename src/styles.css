@@ -4254,9 +4254,15 @@ tbody tr:hover {
   padding: 8px 18px 18px;
   resize: vertical;
   font:
-    14px/1.6 var(--font-geist-sans),
+    420 15px/1.6 var(--font-geist-sans),
     sans-serif;
-  color: var(--secondary);
+  color: var(--reading);
+}
+.nt-read {
+  max-height: 340px;
+  overflow-y: auto;
+  resize: none;
+  cursor: text;
 }
 .nt-title::placeholder,
 .nt-body::placeholder {
@@ -4289,6 +4295,7 @@ tbody tr:hover {
 }
 .nt-agent .nt-body {
   min-height: 0;
+  max-height: none;
   height: 100%;
   resize: none;
 }
@@ -7890,7 +7897,7 @@ body:has(.sb-dialog[open]) {
 }
 /* The room its activity will take, so the page does not move as it comes. */
 .lp-at-work .tix-card {
-  min-height: 500px;
+  min-height: 408px;
 }
 .lp-at-work .ra-line {
   animation: lp-rise 0.3s var(--ease-enter);
