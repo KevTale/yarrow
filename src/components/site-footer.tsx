@@ -11,7 +11,7 @@ export function SiteFooter() {
         <span className="badge">BETA</span>
       </div>
       <div className="container footer-bottom">
-        <span>Free pull requests from frontier AI.</span>
+        <span>Every ticket comes back with a demo.</span>
         <nav aria-label="Legal" className="footer-legal">
           <Link to="/legal">Legal notice</Link>
           <Link to="/terms">Terms</Link>

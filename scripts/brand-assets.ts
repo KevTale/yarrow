@@ -324,8 +324,8 @@ const ogHtml = `<!doctype html>
 <body><div class="card">
   <div class="logo">${files["yarrow-logo-on-dark.svg"]}</div>
   <div>
-    <h1>Free pull requests from frontier AI</h1>
-    <p>Paste an issue: <span class="claude">Claude Opus</span> and <span class="gpt">GPT Astra</span> turn it into a reviewed <b>pull request</b>, paid for by sponsors.</p>
+    <h1>Every ticket comes back with a demo</h1>
+    <p>Write your tickets with an agent. Others build and review them. You watch the result work, ask anything and <b>merge</b>.</p>
   </div>
 </div></body>`;
 await page.setViewportSize({ width: 1200, height: 630 });

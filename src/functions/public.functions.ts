@@ -1,5 +1,4 @@
 import { notFound } from "@tanstack/react-router";
-import { jiraReady } from "@/server/jira.server";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
@@ -23,8 +22,7 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 export const getBoardsFn = createServerFn({ method: "GET" }).handler(
   async () => {
     // Jira lights up on the landing once its OAuth app is configured.
-    const sources = { jira: jiraReady() };
-    if (!databaseConfigured()) return { configured: false as const, sources };
+    if (!databaseConfigured()) return { configured: false as const };
     // The visitor's own card on the boards: signed in, or the guest who
     // paid from this browser.
     const userId =
@@ -47,7 +45,6 @@ export const getBoardsFn = createServerFn({ method: "GET" }).handler(
         live,
         totals,
         you,
-        sources,
       };
     });
   },
