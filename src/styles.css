@@ -9287,7 +9287,9 @@ html:has(.pp-stage:modal) {
 /* Full screen is the same room, the window its only limit. */
 .pp-room:modal {
   --room: calc(100dvh - 86px);
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: 66px 20px 20px;
 }
 .pp-room:modal .pp-film {
@@ -9307,6 +9309,7 @@ html:has(.pp-stage:modal) {
     flex-direction: column;
   }
   .pp-room:modal {
+    justify-content: flex-start;
     overflow-y: auto;
   }
   .pp-meet {
