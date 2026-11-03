@@ -204,6 +204,10 @@ export const CHAT_TOOLS: Tool[] = [
   },
 ];
 
+/** What a proposal's tool answers: the card shows under the agent's words. */
+const CARD_SHOWN =
+  "Shown to the member as a card, under your words. Do not repeat it: one short sentence at most.";
+
 const READ_LINES = 400;
 const LIST_PATHS = 400;
 const DIFF_CHARS = 60_000;
@@ -499,10 +503,7 @@ export async function runChatTool(
           error: true,
         };
       const input = parsed.data as z.infer<typeof inputs.propose_change>;
-      return {
-        text: "Shown to the member as a card. Do not repeat it: one short sentence at most.",
-        change: input.change.trim(),
-      };
+      return { text: CARD_SHOWN, change: input.change.trim() };
     }
     case "propose_ticket": {
       const input = parsed.data as z.infer<typeof inputs.propose_ticket>;
@@ -516,7 +517,7 @@ export async function runChatTool(
           error: true,
         };
       return {
-        text: "Shown to the member as a card. Do not repeat it: one short sentence at most.",
+        text: CARD_SHOWN,
         ticket: { title: input.title, body: input.body, note },
       };
     }
