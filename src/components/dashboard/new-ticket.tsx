@@ -22,11 +22,16 @@ export type TicketDraft = {
 
 /**
  * Opens the new ticket dialog in a project, filled in (what the agents
- * noticed outside their ticket), and says when it is made. Only the
+ * noticed outside their ticket), and says when each is made. Only the
  * builder's dashboard provides it.
  */
 export const DraftTicket = createContext<
-  ((projectId: string, draft: TicketDraft, onMade?: () => void) => void) | null
+  | ((
+      projectId: string,
+      drafts: TicketDraft[],
+      onMade?: (draft: TicketDraft) => void,
+    ) => void)
+  | null
 >(null);
 
 /** The dialog only opens on a click, so the browser is there to ask. */
@@ -54,13 +59,15 @@ const remember = (projectId: string, destination: string) => {
  * a ticket in one of the project's linked Jira projects. Start sends it to
  * the agents at once; Create leaves it in To do. Opened from In progress's
  * "+", Start is the main action (⌘↵ or Ctrl ↵); from To do's, Create is.
+ * Several drafts at once are listed on its left, as the files changed are:
+ * each made leaves the list, the dialog closing with the last.
  */
 export function NewTicket({
   projectId,
   projectName,
   boards,
   start,
-  draft,
+  drafts,
   onCreated,
   onClose,
 }: {
@@ -70,8 +77,14 @@ export function NewTicket({
   /** Opened from In progress: starting is what the builder came for. */
   start: boolean;
   /** Written already, from a pull request's notes. */
-  draft?: TicketDraft;
-  onCreated: (key: string, started: boolean) => void;
+  drafts?: TicketDraft[];
+  /** Made; `more` when other drafts wait, the dialog staying open. */
+  onCreated: (
+    key: string,
+    started: boolean,
+    draft: TicketDraft,
+    more: boolean,
+  ) => void;
   onClose: () => void;
 }) {
   const create = useServerFn(createTicketFn);
@@ -86,8 +99,15 @@ export function NewTicket({
       ? last
       : (tracked[0]?.key ?? "github");
   });
-  const [title, setTitle] = useState(draft?.title ?? "");
-  const [body, setBody] = useState(draft?.body ?? "");
+  const many = (drafts?.length ?? 0) > 1;
+  const [left, setLeft] = useState(drafts ?? [{ title: "", body: "" }]);
+  const [at, setAt] = useState(0);
+  const draft = left[at]!;
+  const { title, body } = draft;
+  const edit = (change: Partial<TicketDraft>) =>
+    setLeft((all) =>
+      all.map((one, i) => (i === at ? { ...one, ...change } : one)),
+    );
   const [pending, setPending] = useState<"start" | "create" | null>(null);
   const [error, setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -110,12 +130,17 @@ export function NewTicket({
           title: title.trim(),
           body,
           queue: started,
-          from: draft?.from,
+          from: draft.from,
         },
       });
       if (result.ok) {
         remember(projectId, destination);
-        onCreated(result.key, started);
+        const more = left.length > 1;
+        onCreated(result.key, started, draft, more);
+        if (more) {
+          setLeft((all) => all.filter((one) => one !== draft));
+          setAt(Math.min(at, left.length - 2));
+        }
       } else setError(result.error);
     } catch {
       setError("That did not go through. Try again.");
@@ -166,7 +191,7 @@ export function NewTicket({
   return (
     <dialog
       ref={dialog}
-      className="nt"
+      className={many ? "nt nt-many" : "nt"}
       aria-label="New ticket"
       onCancel={(event) => {
         event.preventDefault();
@@ -178,6 +203,25 @@ export function NewTicket({
       }}
       onKeyDown={keys}
     >
+      {many && (
+        <nav className="pp-rail" aria-label="Suggested tickets">
+          <p className="pp-rail-title">Suggested tickets</p>
+          {left.map((one, i) => (
+            <button
+              key={one.from?.note ?? i}
+              type="button"
+              className={i === at ? "pp-rail-file on" : "pp-rail-file"}
+              title={one.title}
+              aria-current={i === at}
+              onClick={() => setAt(i)}
+            >
+              <span className="pp-rail-name">
+                <b>{one.title}</b>
+              </span>
+            </button>
+          ))}
+        </nav>
+      )}
       <form
         className="nt-card"
         onSubmit={(event) => {
@@ -229,7 +273,7 @@ export function NewTicket({
           placeholder="Ticket title"
           value={title}
           maxLength={TITLE_MAX}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => edit({ title: event.target.value })}
         />
         <textarea
           className="nt-body"
@@ -238,7 +282,7 @@ export function NewTicket({
           rows={7}
           value={body}
           maxLength={BODY_MAX}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => edit({ body: event.target.value })}
         />
         <div className="nt-foot">
           {error && (

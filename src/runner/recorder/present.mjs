@@ -12,7 +12,7 @@
 // under the session's outputs. The brain voices it after the review.
 //
 // It films a real desktop when it can (see "The desktop" below): the browser
-// and the terminal in their windows, a dock, the real pointer. Otherwise, or
+// and the terminal in their windows, the real pointer. Otherwise, or
 // with YARROW_DESKTOP=0, each chapter is a clip of the page alone.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -1351,27 +1351,17 @@ async function record(browser, plan, chapter, index, take, state) {
 
 // ---------- The desktop: a real screen, filmed ----------
 //
-// A virtual screen (Xvfb) and a window manager (openbox); Yarrow's desktop
-// page under every window (the wallpaper and the dock, in a Chromium app
-// window); the browser, driven by Playwright, and a terminal (xterm) in
-// their windows. The pointer is the real one, moved and clicked by xdotool,
-// and a click on the dock raises the app for real. ffmpeg films the whole
-// screen; each chapter is cut from that film, its waits taken out.
+// A virtual screen (Xvfb) and a window manager (openbox); Yarrow's wallpaper
+// under every window (a page, in a Chromium app window); the browser, driven
+// by Playwright, and a terminal (xterm), each filling the screen, the one the
+// chapter needs in front. The pointer is the real one, moved and clicked by
+// xdotool. ffmpeg films the whole screen; each chapter is cut from that film,
+// its waits taken out.
 
 const SCREEN = { width: 1440, height: 900 };
-const DOCK_APPS = ["browser", "terminal"];
-// A thin strip down the left edge: at the bottom, under the player's
-// controls, its icons read as the player's buttons.
-const DOCK = { icon: 34, gap: 12, pad: 8 };
-const DOCK_WIDTH = DOCK.icon + 2 * DOCK.pad;
-// Each app fills the rest of the screen, its frame included, so it reads
-// large on film: no corners, no gaps.
-const FULL = {
-  x: DOCK_WIDTH,
-  y: 0,
-  width: SCREEN.width - DOCK_WIDTH,
-  height: SCREEN.height,
-};
+// Each app fills the screen, its frame included, so it reads large on film:
+// no corners, no gaps.
+const FULL = { x: 0, y: 0, ...SCREEN };
 const WINDOWS = { browser: FULL, terminal: FULL };
 // The browser and its pages a quarter larger, as a zoomed screen share:
 // what the app shows reads in a player a third of the film's width. The
@@ -1627,7 +1617,7 @@ osd.bg.color: #1c1e23
 osd.label.text.color: #e4e6ea
 `;
 
-function openboxConfig(left = DOCK_WIDTH) {
+function openboxConfig() {
   const rule = (match, box, extra = "") =>
     "<application " +
     match +
@@ -1642,7 +1632,6 @@ function openboxConfig(left = DOCK_WIDTH) {
     "</height></size>" +
     extra +
     "</application>";
-  const desktop = { x: 0, y: 0, ...SCREEN };
   const under =
     "<decor>no</decor><layer>below</layer><focus>no</focus><skip_pager>yes</skip_pager><skip_taskbar>yes</skip_taskbar>";
   // A click focuses and raises its window, and still reaches the app.
@@ -1658,18 +1647,14 @@ function openboxConfig(left = DOCK_WIDTH) {
     '<font place="ActiveWindow"><name>Inter</name><size>10</size><weight>Normal</weight></font>' +
     '<font place="InactiveWindow"><name>Inter</name><size>10</size><weight>Normal</weight></font>' +
     "</theme><desktops><number>1</number></desktops>" +
-    // A window maximized fills the screen beside the dock.
-    "<margins><top>0</top><bottom>0</bottom><left>" +
-    left +
-    "</left><right>0</right></margins>" +
     // One key no keyboard has: with none, openbox binds its own (Alt+Tab).
     '<keyboard><keybind key="W-F24"><action name="Focus"/></keybind></keyboard>' +
     "<mouse><dragThreshold>4</dragThreshold><doubleClickTime>300</doubleClickTime>" +
     press("Client") +
     '<context name="Titlebar"><mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind><mousebind button="Left" action="Drag"><action name="Move"/></mousebind></context>' +
     "</mouse><applications>" +
-    rule('title="Yarrow desktop*"', desktop, under) +
-    rule('class="YarrowDesktop"', desktop, under) +
+    rule('title="Yarrow desktop*"', FULL, under) +
+    rule('class="YarrowDesktop"', FULL, under) +
     rule('class="YarrowBrowser"', WINDOWS.browser) +
     rule('class="YarrowTerm"', WINDOWS.terminal) +
     "</applications></openbox_config>\n"
@@ -1728,87 +1713,18 @@ function bashrc(state, cwd) {
   ].join("\n");
 }
 
-const GLOBE =
-  '<svg viewBox="0 0 54 54"><defs><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d9bff"/><stop offset="1" stop-color="#2b5fe0"/></linearGradient></defs><rect width="54" height="54" rx="13" fill="url(#b)"/><g fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" transform="translate(13 13)"><circle cx="14" cy="14" r="11"/><path d="M3 14h22M14 3c3.2 3.2 4.8 7 4.8 11s-1.6 7.8-4.8 11c-3.2-3.2-4.8-7-4.8-11s1.6-7.8 4.8-11z"/></g></svg>';
-const PROMPT =
-  '<svg viewBox="0 0 54 54"><defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2f36"/><stop offset="1" stop-color="#15171a"/></linearGradient></defs><rect width="54" height="54" rx="13" fill="url(#t)"/><rect x=".5" y=".5" width="53" height="53" rx="12.5" fill="none" stroke="rgba(255,255,255,.14)"/><path d="M15 19l8 7-8 7" fill="none" stroke="#e8e9ec" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M27 34h12" stroke="#f2b544" stroke-width="3" stroke-linecap="round"/></svg>';
-
-/** Where the dock and its icons are on the screen: the strip, its icons in the middle. */
-function dockLayout() {
-  const count = DOCK_APPS.length;
-  const group = count * DOCK.icon + (count - 1) * DOCK.gap;
-  const top = Math.round((SCREEN.height - group) / 2);
-  return {
-    left: 0,
-    top: 0,
-    width: DOCK_WIDTH,
-    height: SCREEN.height,
-    icons: DOCK_APPS.map((app, i) => ({
-      app,
-      x: DOCK.pad,
-      y: top + i * (DOCK.icon + DOCK.gap),
-      size: DOCK.icon,
-    })),
-  };
-}
-
-/** The wallpaper and the dock: the page under every window. */
-function desktopPage() {
-  const dock = dockLayout();
-  const art = { browser: GLOBE, terminal: PROMPT };
-  const icons = dock.icons
-    .map(
-      (icon) =>
-        '<button class="app" data-app="' +
-        icon.app +
-        '" style="left:' +
-        (icon.x - dock.left) +
-        "px;top:" +
-        (icon.y - dock.top) +
-        'px">' +
-        art[icon.app] +
-        "<i></i></button>",
-    )
-    .join("");
-  return (
-    '<!doctype html><html><head><meta charset="utf-8"><title>Yarrow desktop</title><style>' +
-    "html,body{margin:0;width:" +
-    SCREEN.width +
-    "px;height:" +
-    SCREEN.height +
-    "px;overflow:hidden;cursor:default;user-select:none}" +
-    "body{background:radial-gradient(900px 560px at 84% 106%,rgba(230,174,56,.2),transparent 70%)," +
-    "radial-gradient(820px 560px at 4% -10%,rgba(110,150,255,.13),transparent 70%)," +
-    "linear-gradient(160deg,#181a1f 0%,#0f1013 55%,#0b0c0e 100%)}" +
-    ".dock{position:absolute;left:" +
-    dock.left +
-    "px;top:" +
-    dock.top +
-    "px;width:" +
-    dock.width +
-    "px;height:" +
-    dock.height +
-    "px;background:#121317;box-shadow:inset -1px 0 0 rgba(255,255,255,.07)}" +
-    ".app{position:absolute;width:" +
-    DOCK.icon +
-    "px;height:" +
-    DOCK.icon +
-    "px;padding:0;border:0;background:none;cursor:default}" +
-    ".app svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));transition:transform .15s ease,filter .1s}" +
-    ".app:hover svg{transform:translateX(1px)}.app:active svg{filter:brightness(.8)}" +
-    ".app i{position:absolute;top:50%;left:-6px;width:3px;height:3px;margin-top:-1.5px;border-radius:50%;background:rgba(255,255,255,.8);opacity:0;transition:opacity .3s}" +
-    ".app.on i{opacity:1}" +
-    ".app.hop svg{animation:hop .55s cubic-bezier(.3,.7,.4,1)}" +
-    "@keyframes hop{35%{transform:translateX(4px)}65%{transform:none}82%{transform:translateX(1px)}}" +
-    '</style></head><body><div class="dock">' +
-    icons +
-    "</div><script>" +
-    "var apps=document.querySelectorAll('.app');" +
-    "apps.forEach(function(a){a.addEventListener('click',function(){a.classList.remove('hop');void a.offsetWidth;a.classList.add('hop');fetch('/raise?app='+a.dataset.app,{method:'POST'}).catch(function(){})})});" +
-    "(function poll(){fetch('/state').then(function(r){return r.json()}).then(function(s){apps.forEach(function(a){a.classList.toggle('on',s.running.indexOf(a.dataset.app)>=0)})}).catch(function(){}).then(function(){setTimeout(poll,200)})})();" +
-    "</script></body></html>"
-  );
-}
+/** The wallpaper: the page under every window. */
+const DESKTOP_PAGE =
+  '<!doctype html><html><head><meta charset="utf-8"><title>Yarrow desktop</title><style>' +
+  "html,body{margin:0;width:" +
+  SCREEN.width +
+  "px;height:" +
+  SCREEN.height +
+  "px;overflow:hidden;cursor:default;user-select:none}" +
+  "body{background:radial-gradient(900px 560px at 84% 106%,rgba(230,174,56,.2),transparent 70%)," +
+  "radial-gradient(820px 560px at 4% -10%,rgba(110,150,255,.13),transparent 70%)," +
+  "linear-gradient(160deg,#181a1f 0%,#0f1013 55%,#0b0c0e 100%)}" +
+  "</style></head><body></body></html>";
 
 /** A chapter's own time on the film: it stops while a long run is cut out. */
 class Take {
@@ -1949,7 +1865,7 @@ class Desktop {
    * The window and its frame in the box (wmctrl sizes the window alone). A
    * window that grows by steps (a terminal, a character at a time) would be
    * rounded down, the window behind showing in the gap: it is maximized
-   * instead, into the screen beside the dock (openbox's margins).
+   * instead.
    */
   place(id, box) {
     const hex = "0x" + id.toString(16);
@@ -2011,18 +1927,12 @@ class Desktop {
 
   /**
    * The app's browser alone on the screen, for the member who takes
-   * control: over the dock, the terminal gone, the dock's icons dead. Or
-   * the desktop as it was. The dock's margin goes too: openbox keeps a
-   * window out of it.
+   * control, the terminal gone. Or the desktop as it was.
    */
   alone(on) {
     const { browser, terminal } = this.ids;
-    this.locked = on;
-    fs.writeFileSync(this.rc, openboxConfig(on ? 0 : DOCK_WIDTH));
-    this.x("openbox", ["--reconfigure"]);
     this.x("xdotool", [on ? "windowunmap" : "windowmap", String(terminal)]);
     if (!browser) return;
-    this.place(browser, on ? { x: 0, y: 0, ...SCREEN } : WINDOWS.browser);
     this.raise(browser);
     this.front = "browser";
   }
@@ -2094,9 +2004,9 @@ class Desktop {
     fs.writeFileSync(path.join(theme, "themerc"), THEME);
     for (const [name, rows] of Object.entries(BUTTONS))
       fs.writeFileSync(path.join(theme, name + ".xbm"), xbm(name, rows));
-    this.rc = path.join(home, ".config/openbox/rc.xml");
-    fs.writeFileSync(this.rc, openboxConfig());
-    this.spawn("openbox", "openbox", ["--config-file", this.rc], {
+    const rc = path.join(home, ".config/openbox/rc.xml");
+    fs.writeFileSync(rc, openboxConfig());
+    this.spawn("openbox", "openbox", ["--config-file", rc], {
       env: {
         ...this.env,
         HOME: home,
@@ -2105,25 +2015,10 @@ class Desktop {
     });
     await sleep(600);
 
-    // The desktop page, and the dock's way to raise an app.
+    // The desktop page.
     this.server = http.createServer((request, response) => {
-      const url = new URL(request.url, "http://localhost");
-      if (url.pathname === "/raise") {
-        const app = url.searchParams.get("app");
-        if (this.ids[app] && !this.locked) {
-          this.raise(this.ids[app]);
-          this.front = app;
-        }
-        response.writeHead(204).end();
-      } else if (url.pathname === "/state") {
-        response.writeHead(200, { "content-type": "application/json" });
-        response.end(
-          JSON.stringify({ front: this.front, running: Object.keys(this.ids) }),
-        );
-      } else {
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        response.end(desktopPage());
-      }
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(DESKTOP_PAGE);
     });
     await new Promise((resolve) => this.server.listen(0, "127.0.0.1", resolve));
     const port = this.server.address().port;
@@ -2450,26 +2345,12 @@ class Desktop {
     this.pointer = { x, y };
   }
 
-  /** The app in front, by its icon in the dock: the film shows the switch. */
-  async show(app, clock, marks) {
+  /** The app in front, at once: the film cuts to it. */
+  async show(app) {
     if (this.front === app && this.activeId() === this.ids[app]) return;
-    const icon = dockLayout().icons.find((item) => item.app === app);
-    await this.glide(icon.x + icon.size / 2, icon.y + icon.size / 2, 850);
-    await sleep(120);
-    marks.push({
-      atMs: clock(),
-      kind: "click",
-      box: { x: icon.x, y: icon.y, width: icon.size, height: icon.size },
-    });
-    await this.click();
-    if (!(await until(() => this.activeId() === this.ids[app], 1500, 50))) {
-      log("the dock missed " + app + ": raised directly");
-      this.raise(this.ids[app]);
-    }
+    this.raise(this.ids[app]);
+    await until(() => this.activeId() === this.ids[app], 1500, 50);
     this.front = app;
-    // Off the dock, into the window, where the hand rests.
-    const box = WINDOWS[app];
-    await this.glide(box.x + box.width * 0.72, box.y + box.height * 0.62, 600);
   }
 
   /** A grab of the screen as it is, for the poster. */
@@ -2564,7 +2445,7 @@ class Desktop {
           ": " +
           String(error?.message).split("\n")[0],
       );
-    await this.show("browser", clock, marks);
+    await this.show("browser");
     // Until its tab is clicked, the chapter still shows the other app.
     const shownFrom = switching ? await this.switchTab(which, clock, marks) : 0;
     this.tabs.active = which;
@@ -2706,7 +2587,7 @@ class Desktop {
     }
     await page.bringToFront();
     await this.focusPage(page);
-    // A terminal used on film stays in front: the dock brings the browser up.
+    // A terminal used on film stays in front until the chapter shows the browser.
     if (this.front === "terminal" && this.typed) this.raise(this.ids.terminal);
     else this.front = "browser";
     await sleep(500);
@@ -3020,7 +2901,7 @@ class Desktop {
       (fs.existsSync("/workspace/repo") ? "/workspace/repo" : process.cwd());
     const film = new Take();
     const clock = () => film.clock();
-    await this.show("terminal", clock, marks);
+    await this.show("terminal");
     if (this.activeId() !== this.ids.terminal) this.raise(this.ids.terminal);
     if (this.typed) {
       this.key("ctrl+l");
@@ -3455,7 +3336,7 @@ class Presenter {
         hold.tab &&
         desktop.tabs?.pages[hold.tab]
       ) {
-        await desktop.show("browser", clock, marks);
+        await desktop.show("browser");
         if (desktop.tabs.active !== hold.tab) {
           await desktop.switchTab(hold.tab, clock, marks);
           desktop.tabs.active = hold.tab;
@@ -3465,7 +3346,7 @@ class Presenter {
         if (hold.url && !samePage(page.url(), hold.url))
           await desktop.address(page, hold.url, marks, clock);
       } else if (hold.front === "terminal")
-        await desktop.show("terminal", clock, marks);
+        await desktop.show("terminal");
     } catch (error) {
       problems.push(
         "back to the presentation: " + String(error?.message).split("\n")[0],
@@ -3554,8 +3435,6 @@ class Presenter {
     this.over = true;
     this.untouched = false;
     const problems = [];
-    const marks = [];
-    const clock = () => 0;
     for (const [i, chapter] of chapters.entries()) {
       // The film's ticket or given output: the stage stays as it was.
       if (!chapter.tab) {
@@ -3582,7 +3461,7 @@ class Presenter {
         continue;
       }
       if (i === index) {
-        await desktop.show("browser", clock, marks);
+        await desktop.show("browser");
         desktop.tabs.active = which;
       }
       await page.bringToFront();
@@ -3727,10 +3606,8 @@ class Presenter {
   /** A window in front: the app as it is, as it was, or the terminal. */
   async show(window) {
     const { desktop } = this;
-    const marks = [];
-    const clock = () => 0;
     if (window === "terminal") {
-      await desktop.show("terminal", clock, marks);
+      await desktop.show("terminal");
       return { problems: [], screen: await this.look() };
     }
     const which = window === "before" ? "before" : "after";
@@ -3750,7 +3627,7 @@ class Presenter {
     const { desktop } = this;
     const marks = [];
     const clock = () => 0;
-    await desktop.show("browser", clock, marks);
+    await desktop.show("browser");
     if (desktop.tabs.active !== which) {
       await desktop.switchTab(which, clock, marks);
       desktop.tabs.active = which;
@@ -3873,7 +3750,7 @@ class Presenter {
           ": " +
           String(error?.message).split("\n")[0],
       );
-    await desktop.show("browser", clock, marks);
+    await desktop.show("browser");
     if (tabs.active !== which) {
       await desktop.switchTab(which, clock, marks);
       tabs.active = which;

@@ -4362,6 +4362,24 @@ tbody tr:hover {
 .nt-foot .pp-error {
   margin-right: auto;
 }
+/* Several suggested at once: their list on the left, as the files changed. */
+.nt.nt-many {
+  width: min(920px, calc(100vw - 32px));
+}
+.nt.nt-many[open] {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+.nt-many .pp-rail {
+  contain: size;
+  border-radius: 17px 0 0 17px;
+}
+.nt-many .pp-rail-name b {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 @media (max-width: 760px) {
   /* On a phone a ticket keeps its line, as on a wide screen, and a group's
      rows scroll sideways together, as wide as the longest (a title shows up
@@ -8154,7 +8172,7 @@ body:has(.sb-dialog[open]) {
   border-radius: 0 4px 4px 0;
 }
 /* Resting, low on the film (under the window drawn, or near a desktop's
-   bottom edge, its dock on the left): the controls are gone. */
+   bottom edge): the controls are gone. */
 .pv-view.idle .pv-caption {
   transform: translateY(calc(var(--pv-controls) + 8px - 1.5cqw));
 }
@@ -9327,23 +9345,6 @@ html:has(.pp-stage:modal) {
 .pp-me {
   gap: 6px;
 }
-.pp-ideas-box {
-  width: min(460px, calc(100vw - 32px));
-  max-height: min(70dvh, 560px);
-  margin: auto;
-  padding: 0;
-  overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--text);
-}
-.pp-ideas-box::backdrop {
-  background: rgba(8, 9, 11, 0.6);
-}
-.pp-ideas-box .pp-ideas {
-  padding: 14px;
-}
 /* Full screen is the same room, the window its only limit. */
 .pp-room:modal {
   --room: calc(100dvh - 86px);
@@ -9850,54 +9851,6 @@ html:has(.pp-stage:modal) {
 .pp-count .del {
   color: var(--red);
 }
-/* What the agents noticed, in the agent's notes: a card each, the whole
-   card makes the ticket. */
-.pp-ideas {
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pp-ideas > li {
-  display: grid;
-}
-.pp-idea {
-  display: grid;
-  gap: 10px;
-  padding: 13px 15px 11px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #1d1f24;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.55;
-  text-align: left;
-}
-button.pp-idea {
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-button.pp-idea:hover,
-button.pp-idea:focus-visible {
-  border-color: #3a3e46;
-  background: var(--hover);
-}
-.pp-idea-go {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-  transition: color 0.15s;
-}
-button.pp-idea:hover .pp-idea-go,
-button.pp-idea:focus-visible .pp-idea-go {
-  color: var(--text);
-}
 /* One size and one place whatever the file: a long one scrolls inside. */
 .pp-diffs {
   width: min(1100px, calc(100vw - 32px));
@@ -10032,6 +9985,17 @@ button.pp-idea:focus-visible .pp-idea-go {
   }
   .pp-rail {
     display: none;
+  }
+  .nt.nt-many[open] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nt-many .pp-rail {
+    display: flex;
+    contain: none;
+    max-height: 30dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 17px 17px 0 0;
   }
 }
 .pp-diffs-body > .pp-none {

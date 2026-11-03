@@ -13,7 +13,6 @@ import {
   Mic,
   MicOff,
   Play,
-  Plus,
   RectangleHorizontal,
   X,
 } from "lucide-react";
@@ -43,7 +42,6 @@ import { leadProof } from "@/core/proofs";
 import {
   agentNotes,
   firstSentence,
-  splitNote,
   spottedTicket,
 } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
@@ -666,7 +664,6 @@ export function PullPanel({
                     rowKey={rowKey}
                     size={size}
                     url={pullRequest.url}
-                    compact
                   />
                 )}
                 {ideas}
@@ -1060,9 +1057,8 @@ function Notes({ panel, summed }: { panel: Panel; summed?: boolean }) {
 
 /**
  * What the agents noticed outside the ticket and left alone, a button at the
- * foot opening them: a small card each in everyday words, the whole card a
- * ticket to write, its words drafted (its technical pointer goes in the
- * ticket).
+ * foot opening the new ticket dialog on them, their words drafted (their
+ * technical pointer goes in the ticket).
  */
 function Ideas({
   panel,
@@ -1077,80 +1073,37 @@ function Ideas({
   onMade: () => void;
 }) {
   const draft = useContext(DraftTicket);
-  const dialog = useRef<HTMLDialogElement>(null);
   // Gone at once, before the panel is read again.
   const [made, setMade] = useState<string[]>([]);
   const { implementation, pullRequest } = panel;
-  if (!implementation) return null;
+  if (!draft || !implementation) return null;
   const lines = implementation.spotted.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
-    <>
-      <button
-        type="button"
-        className="pp-act"
-        onClick={() => dialog.current?.showModal()}
-      >
-        <Lightbulb size={15} aria-hidden="true" />
-        {lines.length} suggested {lines.length === 1 ? "ticket" : "tickets"}
-      </button>
-      <dialog
-        ref={dialog}
-        className="pp-ideas-box"
-        aria-label="Suggested tickets"
-        // A click beside them closes them.
-        onClick={(event) => {
-          if (event.target === event.currentTarget) dialog.current?.close();
-        }}
-      >
-        <ul className="pp-ideas">
-          {lines.map((line) => {
-            const { plain } = splitNote(line);
-            const ticket = spottedTicket(
+    <button
+      type="button"
+      className="pp-act"
+      onClick={() =>
+        draft(
+          projectId,
+          lines.map((line) => ({
+            ...spottedTicket(
               line,
               implementation.by,
               pullRequest?.url ?? null,
-            );
-            return (
-              <li key={line}>
-                {draft ? (
-                  <button
-                    type="button"
-                    className="pp-idea"
-                    aria-label={`Make it a ticket: ${ticket.title}`}
-                    onClick={() => {
-                      dialog.current?.close();
-                      draft(
-                        projectId,
-                        { ...ticket, from: { key: rowKey, note: line } },
-                        () => {
-                          setMade((shown) => [...shown, line]);
-                          onMade();
-                        },
-                      );
-                    }}
-                  >
-                    <span>
-                      <Rich text={plain} />
-                    </span>
-                    <span className="pp-idea-go">
-                      <Plus size={13} aria-hidden="true" />
-                      Make it a ticket
-                    </span>
-                  </button>
-                ) : (
-                  <span className="pp-idea">
-                    <span>
-                      <Rich text={plain} />
-                    </span>
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </dialog>
-    </>
+            ),
+            from: { key: rowKey, note: line },
+          })),
+          ({ from }) => {
+            if (from) setMade((shown) => [...shown, from.note]);
+            onMade();
+          },
+        )
+      }
+    >
+      <Lightbulb size={15} aria-hidden="true" />
+      {lines.length} suggested {lines.length === 1 ? "ticket" : "tickets"}
+    </button>
   );
 }
 
@@ -1885,15 +1838,12 @@ function ChangedFiles({
   rowKey,
   size,
   url,
-  compact,
 }: {
   projectId: string;
   rowKey: string;
   /** Lines and files changed: a different size is a new commit. */
   size: string;
   url: string;
-  /** Beside the question box: how many, nothing more. */
-  compact?: boolean;
 }) {
   const files = usePullFiles(projectId, rowKey, size);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -1948,14 +1898,8 @@ function ChangedFiles({
     <>
       <button type="button" className="pp-act" onClick={() => setOpen(0)}>
         <FileDiff size={15} aria-hidden="true" />
-        {compact ? (
-          `${files.length} ${files.length === 1 ? "file" : "files"}`
-        ) : (
-          <>
-            {title}
-            {total}
-          </>
-        )}
+        {title}
+        {total}
       </button>
       <dialog
         ref={dialog}

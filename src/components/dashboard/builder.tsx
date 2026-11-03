@@ -179,8 +179,8 @@ export function BuilderView({
   const [composing, setComposing] = useState<{
     start: boolean;
     projectId?: string;
-    draft?: TicketDraft;
-    onMade?: () => void;
+    drafts?: TicketDraft[];
+    onMade?: (draft: TicketDraft) => void;
   } | null>(null);
   // Done past two weeks, shown on demand.
   const [older, setOlder] = useState(false);
@@ -499,8 +499,12 @@ export function BuilderView({
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
     : project;
-  const draftTicket = (id: string, draft: TicketDraft, onMade?: () => void) => {
-    setComposing({ start: false, projectId: id, draft, onMade });
+  const draftTicket = (
+    id: string,
+    drafts: TicketDraft[],
+    onMade?: (draft: TicketDraft) => void,
+  ) => {
+    setComposing({ start: false, projectId: id, drafts, onMade });
     // Not read yet: the dialog opens once it is.
     if (!store[id]) void pull(id);
   };
@@ -658,11 +662,11 @@ export function BuilderView({
             projectName={composeIn.name}
             boards={composeIn.boards}
             start={composing.start}
-            draft={composing.draft}
+            drafts={composing.drafts}
             onClose={() => setComposing(null)}
-            onCreated={(key, started) => {
-              composing.onMade?.();
-              setComposing(null);
+            onCreated={(key, started, draft, more) => {
+              composing.onMade?.(draft);
+              if (!more) setComposing(null);
               setQuery("");
               // Where it now stands, lit like a pasted ticket.
               unfold(started ? "progress" : "todo");
