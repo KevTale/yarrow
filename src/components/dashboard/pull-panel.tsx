@@ -1218,7 +1218,8 @@ function Thread({
   const working = workingText(panel);
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
-  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : ""}`;
+  // A card comes with the thread read back, after the words it goes with.
+  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}:${Boolean(last.message.change ?? last.message.ticket)}` : ""}`;
   // The latest in view as it comes, the page left where it is: the column
   // scrolls. With nothing said yet, the agent's notes from their top.
   const said = shown.length > 0;
