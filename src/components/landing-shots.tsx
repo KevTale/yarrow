@@ -672,7 +672,7 @@ export function TicketSection({ cta }: { cta: ReactNode }) {
                       <button
                         type="submit"
                         className="tix-btn tix-btn-amber"
-                        disabled={!name}
+                        disabled={!name || words !== null}
                       >
                         <Play
                           size={11}
