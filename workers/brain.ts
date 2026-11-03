@@ -1612,10 +1612,12 @@ async function talkRoute(
             withDb(env, (db) => ticketForChat(db, projectId, key)),
         },
         stage: onStage
-          ? (hand) =>
-              dropped
-                ? Promise.reject(new Error("turn dropped"))
-                : stage.present(hand)
+          ? async (hand) => {
+              // The call may have opened before the stage was up.
+              await stageUp(stage);
+              if (dropped) throw new Error("turn dropped");
+              return stage.present(hand);
+            }
           : null,
         say: (text) => void say(text),
       });

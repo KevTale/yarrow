@@ -830,12 +830,12 @@ export function useLiveStage({
   /**
    * The call's pass (its ElevenLabs token and the brain's grant), and the
    * client: asked for before the click, so the call starts at once. Over
-   * the stage once it is up, by voice alone before.
+   * the stage when the ticket has one, up or not yet, by voice alone if not.
    */
   const language = () => (navigator.language || "en").slice(0, 2).toLowerCase();
   const warm = () => {
     void import("@elevenlabs/client");
-    const stage = up.current;
+    const stage = replayable;
     const kept = pass.current;
     if (kept && kept.stage === stage && Date.now() - kept.at < PASS_MS) return;
     const made = stageTalkFn({

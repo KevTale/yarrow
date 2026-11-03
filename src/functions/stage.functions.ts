@@ -135,7 +135,7 @@ export type TalkCall =
 /**
  * A live call about the pull request, by voice: what the page starts it
  * with (src/runner/talk.ts). The member's language picks the one heard.
- * Over the stage when it is up; otherwise by voice alone.
+ * Over the stage when the ticket has one; otherwise by voice alone.
  */
 export const stageTalkFn = createServerFn({ method: "POST" })
   .validator(
