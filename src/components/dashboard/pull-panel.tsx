@@ -478,16 +478,17 @@ export function PullPanel({
     : undefined;
   // The one thing that shows (decided 2026-10-30): the film passes over
   // everything; an image takes its place, cinema mode included.
-  const lead = leadProof(panel.proofs ?? []);
+  const proofs = panel.proofs ?? [];
+  const lead = leadProof(proofs);
   const image = !presentation && lead?.kind === "images" ? lead : null;
   const block =
     !presentation && (lead?.kind === "measure" || lead?.kind === "output")
       ? lead
       : null;
-  const linked =
-    lead?.kind === "document" || lead?.kind === "check" || !presentation
-      ? lead
-      : null;
+  // A document or a check opens elsewhere, whatever else proves the change.
+  const linked = proofs.find(
+    (proof) => proof.kind === "document" || proof.kind === "check",
+  );
   const proven = (
     <>
       {(presentation || image) && (

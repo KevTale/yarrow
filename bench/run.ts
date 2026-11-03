@@ -36,6 +36,7 @@ import {
 const OWNER = process.env.BENCH_OWNER ?? "KevTale";
 /** The dev GitHub App: a repository it is installed on becomes a project. */
 const APP_SLUG = process.env.BENCH_APP_SLUG ?? "yarrow-run-dev";
+const BOT = `${APP_SLUG}[bot]`;
 const APPS = join(import.meta.dirname, "apps");
 const REPORTS = join(import.meta.dirname, "reports");
 const POLL_MS = 30_000;
@@ -179,6 +180,7 @@ interface Pull {
   body: string | null;
   draft: boolean;
   head: { ref: string };
+  user: { login: string };
 }
 
 type Outcome =
@@ -194,16 +196,19 @@ async function waitFor(
 ): Promise<Outcome> {
   while (Date.now() - start < TIMEOUT_MS) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-    // Found by the ticket it names, closing it or not (checked later).
+    // Found by the ticket it names, closing it or not (checked later). A
+    // repository connected on prod too gets its answer as well: only this
+    // App's counts.
     const pull = api<Pull[]>(`repos/${repo}/pulls?state=all&per_page=50`).find(
       (candidate) =>
-        candidate.body?.includes(`Closes #${issue}`) ||
-        candidate.body?.includes(`/${repo}/issues/${issue}`),
+        candidate.user.login === BOT &&
+        (candidate.body?.includes(`Closes #${issue}`) ||
+          candidate.body?.includes(`/${repo}/issues/${issue}`)),
     );
     if (pull) return { kind: "pull_request", pull };
-    const comment = api<{ body: string; user: { type: string } }[]>(
+    const comment = api<{ body: string; user: { login: string } }[]>(
       `repos/${repo}/issues/${issue}/comments`,
-    ).find((candidate) => candidate.user.type === "Bot");
+    ).find((candidate) => candidate.user.login === BOT);
     if (comment) return { kind: "abstained", comment: comment.body };
     if ((Date.now() - start) % (5 * 60_000) < POLL_MS)
       console.log(`  … ${label}: ${elapsed(start)}`);

@@ -162,7 +162,7 @@ export const scenarios: Scenario[] = [
   {
     name: "api",
     app: "tally",
-    about: "An API change: an example of its answer, what changed marked.",
+    about: "An API change: the demo calls it, what changed in its answer.",
     title: "Return each task's due date from /api/tasks",
     body: "GET /api/tasks leaves out the due date. Add it as `dueOn`, an ISO date (YYYY-MM-DD), or null when the task has none.",
     expect: {
@@ -196,7 +196,7 @@ export const scenarios: Scenario[] = [
   {
     name: "perf",
     app: "tally",
-    about: "Speed: the number, before and after.",
+    about: "Speed: the demo measures it, before and after.",
     title: "The task list is slow for big teams",
     body: "Since we imported our backlog (about 3,000 tasks) the task list takes about a second to load, and it gets worse every week. It should load fast. You can reproduce with `npm run db:seed -- --many`.",
     expect: {
@@ -207,7 +207,7 @@ export const scenarios: Scenario[] = [
   {
     name: "refactor",
     app: "tally",
-    about: "Nothing anyone sees: no proof, the sentence says it.",
+    about: "Nothing anyone sees: the demo runs what still works.",
     title: "One date formatter for the app and the digest",
     body: "src/views.js (formatDue) and src/digest.js (dueLabel) each have their own copy of the due-date wording. Keep one, in its own module, used by both, so they can't drift. No change in what people see.",
     expect: {
@@ -219,7 +219,7 @@ export const scenarios: Scenario[] = [
   {
     name: "deps",
     app: "tally",
-    about: "A dependency upgrade: no proof, the sentence says it.",
+    about: "A dependency upgrade: the demo runs what still works.",
     title: "Upgrade pg to the latest 8.x",
     body: "We're on pg 8.11.0, pinned. Upgrade to the latest 8.x and keep it pinned to an exact version.",
     expect: {
@@ -244,7 +244,7 @@ export const scenarios: Scenario[] = [
   {
     name: "readme",
     app: "tally",
-    about: "A documentation change: the document, nothing else.",
+    about: "A documentation change: the demo reads the document.",
     title: "Document the task API in the README",
     body: "The README says nothing about the API. Add an API section for GET /api/tasks: that it needs a signed-in session, each field it returns, and an example response.",
     expect: {
@@ -265,7 +265,7 @@ export const scenarios: Scenario[] = [
   {
     name: "cli",
     app: "pace",
-    about: "A command line tool: an example of what it prints.",
+    about: "A command line tool: the demo runs it.",
     title: "`pace list --json` for scripts",
     body: "I want to graph my runs in a notebook. Add `--json` to `pace list`: it prints the runs as a JSON array (date, km, seconds, pace in seconds per km, note), newest first, and still honors `--last`. The table stays the default.",
     expect: {
@@ -277,7 +277,7 @@ export const scenarios: Scenario[] = [
   {
     name: "library",
     app: "tempo",
-    about: "A library: a short example of the new option, run for real.",
+    about: "A library: the demo runs a short example of the new option.",
     title: "format(): a `largest` option to round to the biggest units",
     body: 'Durations like "1 hour 30 minutes 30 seconds" are too precise for our UI. Add a `largest` option to `format()`: the number of units kept, starting from the biggest, the last one rounded. `format(5_430_000, { largest: 1 })` gives "2 hours", `{ largest: 2 }` gives "1 hour 31 minutes". Document it in the README.',
     expect: {
