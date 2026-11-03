@@ -7717,39 +7717,19 @@ body:has(.sb-dialog[open]) {
 }
 .lp-hero {
   display: grid;
-  gap: 28px;
-  padding-block: 96px 56px;
+  gap: 24px;
+  padding-block: 96px 64px;
+}
+.lp-hero p {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.5;
 }
 .lp-hero h1 {
   font-size: clamp(42px, 5.6vw, 72px);
   font-weight: 500;
   line-height: 1.02;
   letter-spacing: -0.025em;
-}
-.lp-hero-foot {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px 40px;
-  flex-wrap: wrap;
-}
-.lp-hero-foot p {
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.55;
-}
-.lp-hero-go {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.lp-free {
-  color: var(--muted);
-  font-size: 14px;
-  transition: color 0.15s;
-}
-.lp-free:hover {
-  color: var(--text);
 }
 .lp-sources {
   display: grid;
@@ -7826,137 +7806,206 @@ body:has(.sb-dialog[open]) {
   letter-spacing: -0.005em;
   text-wrap: pretty;
 }
-.lp-live .tk-stack {
-  padding-inline: 0;
-}
-.lp-live .tk-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.lp-end {
-  display: grid;
-  justify-items: center;
-  gap: 28px;
-  padding-block: 120px;
-  border-top: 1px solid var(--border-subtle);
-  text-align: center;
-}
-.lp-end h2 {
-  font-size: clamp(32px, 4vw, 48px);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-.landing-boards {
-  padding-top: 96px;
-  border-top: 1px solid var(--border-subtle);
+.sponsors-live {
+  max-width: 800px;
+  padding-block: 40px 0;
 }
 
-/* A new ticket beside its conversation, drawn. */
-.ls-draft {
+/* A project's tickets on the landing: the dashboard's rows in a window. */
+.lp-dash {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 18px;
+  padding: 20px 20px 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px #00000080;
+  pointer-events: none;
+  user-select: none;
+}
+.lp-dash-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 6px;
+  color: var(--muted);
+}
+.lp-dash-head b {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 500;
+}
+.lp-dash-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 6px 54px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+.lp-dash .tix-open {
+  cursor: default;
+}
+
+/* A ticket ready to send, and the work it starts beside it. */
+.lp-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
 }
-.ls-form {
-  display: grid;
-  align-content: start;
-  justify-items: start;
+.lp-draft {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 28px 32px;
+  padding: 24px;
   border-right: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.5;
 }
-.ls-where {
-  padding: 2px 8px;
+.lp-said.me {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: var(--hover);
+}
+.lp-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 12px;
+  border-radius: 12px;
+  transition: border-color 0.15s;
 }
-.ls-form h3 {
-  font-size: 24px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+.lp-fields:focus-within {
+  border-color: var(--border-strong);
 }
-.ls-form p,
-.ls-form li {
+.lp-fields input,
+.lp-fields textarea {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: none;
   color: var(--reading);
-  font-size: 15px;
+  font: inherit;
+  font-size: 14.5px;
   line-height: 1.55;
 }
-.ls-form h4 {
-  margin-top: 6px;
-  font-size: 15px;
+.lp-fields input {
+  color: var(--text);
+  font-size: 17px;
   font-weight: 500;
 }
-.ls-form ul {
-  display: grid;
-  gap: 4px;
-  padding-left: 18px;
-}
-.ls-create {
-  margin-top: 10px;
+.lp-fields button {
   justify-self: end;
   padding: 7px 14px;
+  border: 0;
   border-radius: 9px;
   background: var(--amber);
   color: #141714;
   font-size: 13.5px;
   font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
 }
-.ls-talk {
-  display: grid;
-  align-content: end;
-  gap: 16px;
-  padding: 24px;
-  font-size: 14.5px;
-  line-height: 1.5;
+.lp-fields button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
-
-/* A board, drawn, fading on its right as Linear's do. */
-.ls-board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 12px;
-  overflow: hidden;
-  mask-image: linear-gradient(to right, #000 78%, transparent);
-}
-.ls-col {
-  display: grid;
-  align-content: start;
-  gap: 8px;
+.lp-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
+  padding: 20px;
+  background: var(--bg);
 }
-.ls-col-name {
+.lp-flow .tix-gtoggle {
+  cursor: default;
+}
+.lp-ticket {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 4px 6px;
-  font-size: 13.5px;
-  font-weight: 500;
+  gap: 10px;
+  min-width: 0;
+  font-size: 14px;
 }
-.ls-card {
+.lp-ticket b {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-ticket .bd-num {
+  flex: none;
+}
+.lp-working {
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 12px;
+  margin: 2px 0 12px;
+  padding: 14px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
+  animation: lr-rise 0.3s var(--ease-enter);
 }
-.ls-card .mono {
+.lp-working ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #5b6068;
+  font-size: 13.5px;
+}
+.lp-working li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp-working li i {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.lp-working li.now {
+  color: var(--text);
+}
+.lp-working li.now i {
+  border-color: var(--amber);
+}
+.lp-working li.done {
   color: var(--muted);
-  font-size: 12px;
 }
-.ls-card b {
-  font-size: 14px;
-  font-weight: 500;
+.lp-working li.done i {
+  border-color: transparent;
+  background: var(--green);
+  color: #0b0c0e;
 }
-.ls-card em {
-  color: var(--amber);
-  font-size: 12px;
-  font-style: normal;
+.lp-landed {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+}
+.lp-landed .fresh {
+  animation: lr-rise 0.4s var(--ease-enter);
 }
 
 /* The sample ticket: a drawn demo, a real agent, a slide that merges. */
@@ -8433,11 +8482,10 @@ body:has(.sb-dialog[open]) {
     height: 300px;
   }
   .lp-part-head,
-  .ls-draft,
-  .lp-live .tk-list {
+  .lp-compose {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ls-form {
+  .lp-draft {
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -8451,11 +8499,6 @@ body:has(.sb-dialog[open]) {
   .lp-hero br {
     display: none;
   }
-  .lp-hero-go {
-    flex-direction: column-reverse;
-    align-items: flex-start;
-    gap: 14px;
-  }
   .lp-sources ul {
     gap: 12px 32px;
   }
@@ -8468,9 +8511,6 @@ body:has(.sb-dialog[open]) {
   .lp-part {
     gap: 40px;
     padding-block: 64px;
-  }
-  .lp-end {
-    padding-block: 80px;
   }
   .lr-film {
     aspect-ratio: auto;
@@ -8495,10 +8535,20 @@ body:has(.sb-dialog[open]) {
   .lr-form .lr-field:nth-child(2) {
     display: none;
   }
-  .ls-board {
-    grid-template-columns: repeat(4, 220px);
+  /* The only button on the page: it stays, the links give way. */
+  .header-actions .header-nav {
+    display: none;
   }
-  .header-actions .lp-cta {
+  .lp-dash {
+    padding: 14px 8px 6px;
+  }
+  .lp-dash-search {
+    display: none;
+  }
+  .lp-fields textarea {
+    min-height: 200px;
+  }
+  .lp-dash .tix-meta {
     display: none;
   }
 }

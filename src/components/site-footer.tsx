@@ -13,6 +13,7 @@ export function SiteFooter() {
       <div className="container footer-bottom">
         <span>Every ticket comes back with a demo.</span>
         <nav aria-label="Legal" className="footer-legal">
+          <Link to="/sponsors">Sponsors</Link>
           <Link to="/legal">Legal notice</Link>
           <Link to="/terms">Terms</Link>
           <Link to="/privacy">Privacy</Link>

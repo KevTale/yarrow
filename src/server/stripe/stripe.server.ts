@@ -66,7 +66,7 @@ export async function createCheckout(
     payment_intent_data: { metadata: { userId: input.userId } },
     success_url: `${env.APP_URL}${input.successPath}`,
     // Cancelled: back to the visitor's row on the landing, open.
-    cancel_url: `${env.APP_URL}/?edit=true#sponsors`,
+    cancel_url: `${env.APP_URL}/sponsors?edit=true`,
   });
   if (!session.url) throw new Error("Stripe returned no checkout URL");
   await createPendingContribution(db, {

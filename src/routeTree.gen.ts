@@ -15,6 +15,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SponsorsRouteImport } from './routes/sponsors'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TryAgentRouteImport } from './routes/try-agent'
@@ -75,6 +76,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SponsorsRoute = SponsorsRouteImport.update({
+  id: '/sponsors',
+  path: '/sponsors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StartRoute = StartRouteImport.update({
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -363,6 +372,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -441,6 +452,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -481,6 +493,7 @@ export interface RootRouteChildren {
   LegalRoute: typeof LegalRoute
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
+  SponsorsRoute: typeof SponsorsRoute
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   TryAgentRoute: typeof TryAgentRoute
@@ -556,6 +569,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sponsors': {
+      id: '/sponsors'
+      path: '/sponsors'
+      fullPath: '/sponsors'
+      preLoaderRoute: typeof SponsorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/start': {
@@ -785,6 +805,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalRoute: LegalRoute,
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
+  SponsorsRoute: SponsorsRoute,
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   TryAgentRoute: TryAgentRoute,

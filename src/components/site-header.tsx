@@ -89,14 +89,8 @@ export function SiteHeader({
         <div className="header-actions">
           {!member && (
             <nav className="header-nav" aria-label="Site">
-              {/* The sponsors' way in: the hero speaks to builders. */}
-              <Link
-                to="/"
-                hash="sponsors"
-                activeOptions={{ includeHash: true }}
-              >
-                Sponsors
-              </Link>
+              {/* The sponsors' way in: the page speaks to builders. */}
+              <Link to="/sponsors">Sponsors</Link>
               <Link to="/changelog">Changelog</Link>
             </nav>
           )}
