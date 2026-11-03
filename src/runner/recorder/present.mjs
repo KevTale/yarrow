@@ -4033,8 +4033,9 @@ function serve(presenter) {
 
 /**
  * What the stage's browser refuses, a member's to use once they take
- * control: the machine's files, its own pages, its developer tools. It reads
- * this as it starts.
+ * control: the machine's files, its own pages, its developer tools. By
+ * address: the policy that forbids those tools forbids Playwright too. It
+ * reads this as it starts.
  */
 function lockBrowser() {
   const dir = "/etc/opt/chrome_for_testing/policies/managed";
@@ -4050,7 +4051,6 @@ function lockBrowser() {
         "devtools://*",
         "chrome-devtools://*",
       ],
-      DeveloperToolsAvailability: 2,
     }),
   );
 }
