@@ -67,9 +67,21 @@ describe("an answer on the new ticket", () => {
 describe("a turn of the sample agent", () => {
   const turn = {
     kind: "review",
+    sample: "priority",
     said: [{ author: "builder", body: "Make urgent blue" }],
     chapter: 1,
   };
+
+  it("knows the film of the ticket it is on", () => {
+    const told = tryInstructions({
+      kind: "review",
+      sample: "archive",
+      said: [{ author: "builder", body: "Can I restore one?" }],
+      chapter: 3,
+    });
+    expect(told).toContain("Restoring (on the screen now)");
+    expect(told).not.toContain("Urgent");
+  });
 
   it("takes a visitor's line, on either sample", () => {
     expect(tryTurnSchema.safeParse(turn).success).toBe(true);

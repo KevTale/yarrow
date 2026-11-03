@@ -7826,6 +7826,9 @@ body:has(.sb-dialog[open]) {
   align-items: start;
   gap: 24px 48px;
 }
+.lp-part-head > * {
+  animation: lp-rise 0.4s var(--ease-enter);
+}
 .lp-part-head h2 {
   font-size: clamp(32px, 3.6vw, 44px);
   font-weight: 500;
@@ -7890,6 +7893,34 @@ body:has(.sb-dialog[open]) {
 }
 .lp-modal .pp-talk-thread {
   padding: 22px 18px;
+}
+.lp-activity {
+  display: block;
+  overflow-y: auto;
+  padding: 18px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.lp-modal .ra-line {
+  animation: lp-rise 0.3s var(--ease-enter);
+}
+.lp-reviewing {
+  position: relative;
+  z-index: 1;
+  width: min(860px, 74%);
+  padding: 12px 12px 4px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--bg);
+}
+.lp-reviewing .pp {
+  padding: 0;
+}
+.lp-reviewing .pp-room {
+  --tray: 280px;
+}
+.lp-reviewing .tix-go {
+  opacity: 1;
 }
 .lp-modal .pp-say,
 .lp-modal .pp-bubble {
@@ -7985,6 +8016,9 @@ body:has(.sb-dialog[open]) {
     grid-template-rows: 300px 320px;
     width: 100%;
     height: auto;
+  }
+  .lp-reviewing {
+    width: 100%;
   }
   .lp-modal .nt-talk {
     border-top: 1px solid var(--line);

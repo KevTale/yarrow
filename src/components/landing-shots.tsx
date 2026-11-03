@@ -15,7 +15,12 @@ import { ActivityList, type Crew } from "@/components/run-activity";
 import { storyLines, type ActivityLine } from "@/core/activity";
 import type { DraftLine } from "@/core/new-ticket";
 import type { TicketStage } from "@/core/tickets";
-import { readTicket, TRY_TURNS, TRY_WORDS } from "@/core/try-ticket";
+import {
+  readTicket,
+  TRY_NOT_BUILT,
+  TRY_TURNS,
+  TRY_WORDS,
+} from "@/core/try-ticket";
 
 interface SampleTicket {
   number: number;
@@ -93,13 +98,25 @@ const shipped: ShippedTicket[] = [
   },
 ];
 
-/** The activity of the ticket at work, as a run writes it. */
+type WorkStep = [
+  ActivityLine["actor"],
+  ActivityLine["kind"],
+  ActivityLine["detail"],
+];
+
+/** Steps as a run writes them, `gapMs` apart from `from`. */
+const asActivity = (steps: WorkStep[], from: number, gapMs: number) =>
+  steps.map(([actor, kind, detail], i): ActivityLine => ({
+    externalId: String(i),
+    at: new Date(from + i * gapMs).toISOString(),
+    actor,
+    kind,
+    detail,
+  }));
+
+/** The activity of the ticket at work, so far. */
 function workSoFar(): ActivityLine[] {
-  const lines: [
-    ActivityLine["actor"],
-    ActivityLine["kind"],
-    ActivityLine["detail"],
-  ][] = [
+  const lines: WorkStep[] = [
     ["yarrow", "phase", { phase: "implementing" }],
     ["implementer", "read", { path: "src/views.js", ok: true }],
     ["implementer", "read", { path: "src/db.js", ok: true }],
@@ -127,15 +144,37 @@ function workSoFar(): ActivityLine[] {
       { path: "src/views.js", added: 26, removed: 4, ok: true },
     ],
   ];
-  const now = Date.now();
-  return lines.map(([actor, kind, detail], i) => ({
-    externalId: String(i),
-    at: new Date(now - (lines.length - i) * 40_000).toISOString(),
-    actor,
-    kind,
-    detail,
-  }));
+  return asActivity(lines, Date.now() - lines.length * 40_000, 40_000);
 }
+
+/** The activity of the archive ticket: the real run's, from the start. */
+function archiveWork(gapMs: number): ActivityLine[] {
+  return asActivity(ARCHIVE_STEPS, Date.now(), gapMs);
+}
+
+const ARCHIVE_STEPS: WorkStep[] = [
+  ["yarrow", "phase", { phase: "implementing" }],
+  [
+    "implementer",
+    "edit",
+    { path: "src/db.js", added: 15, removed: 7, ok: true },
+  ],
+  [
+    "implementer",
+    "write",
+    { path: "db/migrations/004_archive.sql", lines: 2, ok: true },
+  ],
+  [
+    "implementer",
+    "edit",
+    { path: "test/views.test.js", added: 25, removed: 1, ok: true },
+  ],
+  ["implementer", "test", { passed: 8, failed: 0, ok: true }],
+  ["yarrow", "phase", { phase: "reviewing" }],
+  ["reviewer", "review", { passed: 0, failed: 0 }],
+  ["yarrow", "phase", { phase: "delivering" }],
+  ["yarrow", "outcome", { phase: "pull_request" }],
+];
 
 function TicketNumber({ number }: { number: number }) {
   return (
@@ -294,6 +333,7 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
       <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
         <TicketRow ticket={priority} merged={merged} opened>
           <SampleRoom
+            sample="priority"
             cta={cta}
             merged={merged}
             onMerged={() => setMerged(true)}
@@ -322,16 +362,36 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
 }
 
 const IDEA = "We need a way to archive old tasks";
+const LINE_MS = 800;
 const WORK = [
   `${crew.implementer} is writing`,
   `${crew.reviewer} is reviewing`,
   "Opening the PR",
 ];
-const STEP_MS = 2400;
+
+/** What the section says as the ticket goes. */
+const TELLS: Record<Phase, { title: [string, string]; says: string }> = {
+  write: {
+    title: ["Write your tickets", "with our agents"],
+    says: "Bring a rough idea. Think it through with the agent, push back, change your mind. When it feels right the ticket is written.",
+  },
+  work: {
+    title: ["Our agents take it", "from there"],
+    says: "One builds it, another checks the work. Follow every step or come back when it is ready.",
+  },
+  review: {
+    title: ["See a live demo", "before you merge"],
+    says: "Every ticket comes back with a demo. Ask anything, ask for a change and merge when it looks right.",
+  },
+};
+
+type Phase = "write" | "work" | "review";
 
 interface Drafted {
   number: number;
   title: string;
+  /** Written from the idea the film answers: anything else gets told so. */
+  sample?: boolean;
 }
 
 /** A ticket on the board beside the dialog, its state under it. */
@@ -382,12 +442,14 @@ function BoardGroup({
 }
 
 /**
- * The real new ticket dialog over the board, empty, a rough idea ready in the
- * box. A real agent writes the ticket into the form as it answers. Start
- * sends it to the board, where it goes through the work and lands to review;
- * Create leaves it in To do.
+ * The ticket's way through Yarrow, told in one place: the real new ticket
+ * dialog over the board, a rough idea ready in the box, a real agent writing
+ * into the form as it answers. Start sends it In progress, the dialog turning
+ * into its activity, then To review, into the real room on a real run's film.
+ * Merging starts over.
  */
-export function TicketShot() {
+export function TicketSection({ cta }: { cta: ReactNode }) {
+  const [phase, setPhase] = useState<Phase>("write");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [said, setSaid] = useState<DraftLine[]>([]);
@@ -395,29 +457,25 @@ export function TicketShot() {
   const [text, setText] = useState(IDEA);
   const [enough, setEnough] = useState(false);
   const [made, setMade] = useState(0);
-  // The step at work; null with no ticket on its way.
-  const [step, setStep] = useState<number | null>(null);
-  const [working, setWorking] = useState<Drafted>({ number: 0, title: "" });
-  const [landed, setLanded] = useState<Drafted[]>([]);
-  const [waiting, setWaiting] = useState<Drafted[]>([]);
+  const [ticket, setTicket] = useState<Drafted | null>(null);
+  const [lines, setLines] = useState<ActivityLine[]>([]);
+  const [seen, setSeen] = useState(0);
+  const [done, setDone] = useState<Drafted[]>([]);
   const thread = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (step === null) return;
+    if (phase !== "work") return;
     const timer = setTimeout(() => {
-      if (step + 1 < WORK.length) setStep(step + 1);
-      else {
-        setLanded((all) => [working, ...all].slice(0, 2));
-        setStep(null);
-      }
-    }, STEP_MS);
+      if (seen < lines.length) setSeen(seen + 1);
+      else setPhase("review");
+    }, LINE_MS);
     return () => clearTimeout(timer);
-  }, [step, working]);
+  }, [phase, seen, lines]);
 
   useEffect(() => {
     const box = thread.current;
     if (box) box.scrollTop = box.scrollHeight;
-  }, [said, words]);
+  }, [said, words, seen]);
 
   async function send() {
     const line = text.trim().slice(0, TRY_WORDS);
@@ -464,151 +522,220 @@ export function TicketShot() {
   }
 
   const name = title.trim();
-  // The dialog closes on the ticket it made: here, it starts over.
-  const draft = () => {
+  const start = () => {
+    if (!name || words !== null) return;
+    setTicket({
+      number: 149 + made,
+      title: name,
+      sample: said[0]?.body === IDEA,
+    });
     setMade(made + 1);
+    setLines(archiveWork(LINE_MS));
+    setSeen(1);
+    setPhase("work");
+  };
+  const merged = () => {
+    if (ticket) setDone((all) => [ticket, ...all].slice(0, 2));
+    setTicket(null);
     setTitle("");
     setBody("");
     setSaid([]);
-    return { number: 149 + made, title: name };
+    setText(IDEA);
+    setEnough(false);
+    setPhase("write");
   };
-  const start = () => {
-    if (!name || step !== null || words !== null) return;
-    setWorking(draft());
-    setStep(0);
-  };
-  const create = () => {
-    if (name && words === null)
-      setWaiting((all) => [draft(), ...all].slice(0, 2));
-  };
-  return (
-    <div className="lp-compose">
-      <div className="lp-flow" aria-live="polite">
-        {waiting.length > 0 && (
-          <BoardGroup stage="todo" label="To do" count={waiting.length}>
-            {waiting.map((ticket) => (
-              <BoardRow ticket={ticket} key={ticket.number} fresh />
-            ))}
-          </BoardGroup>
-        )}
-        <BoardGroup
-          stage="progress"
-          label="In progress"
-          count={1 + (step === null ? 0 : 1)}
-        >
-          {step !== null && (
-            <BoardRow ticket={working} state={WORK[step]} fresh />
-          )}
-          <BoardRow ticket={filtering} state={filtering.work} />
-        </BoardGroup>
-        <BoardGroup stage="review" label="To review" count={1 + landed.length}>
-          {landed.map((ticket) => (
-            <BoardRow ticket={ticket} key={ticket.number} fresh />
-          ))}
-          <BoardRow ticket={priority} />
-        </BoardGroup>
-      </div>
-      <div
-        className="nt nt-agent lp-modal"
-        role="group"
-        aria-label="New ticket"
-      >
-        <form
-          className="nt-card"
-          onSubmit={(event) => {
-            event.preventDefault();
-            start();
-          }}
-        >
-          <div className="nt-head">
-            <span className="nt-where">
-              <Github size={14} aria-hidden="true" /> GitHub
-            </span>
-            <ChevronRight size={13} className="nt-sep" aria-hidden="true" />
-            <span className="nt-crumb">Acme</span>
-          </div>
-          <input
-            className="nt-title"
-            aria-label="Title"
-            placeholder="Ticket title"
-            value={title}
-            maxLength={120}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <textarea
-            className="nt-body"
-            aria-label="Description"
-            placeholder="Description, in Markdown"
-            value={body}
-            maxLength={1500}
-            onChange={(event) => setBody(event.target.value)}
-          />
-          <div className="nt-foot">
-            <button
-              type="button"
-              className="tix-btn tix-btn-line"
-              disabled={!name}
-              onClick={create}
-            >
-              Create
-            </button>
-            <button
-              type="submit"
-              className="tix-btn tix-btn-amber"
-              disabled={!name || step !== null}
-            >
-              <Play size={11} fill="currentColor" aria-hidden="true" />
-              Start
-            </button>
-          </div>
-        </form>
-        <section className="nt-talk" aria-label="The agent">
-          <div className="pp-talk-thread" ref={thread}>
-            <ol className="pp-chat">
-              <li className="pp-it">
-                <p className="pp-say">What are we building?</p>
-              </li>
-              {said.map((line, i) =>
-                line.author === "builder" ? (
-                  <li className="pp-me" key={i}>
-                    <p className="pp-bubble">{line.body}</p>
-                  </li>
-                ) : (
-                  <li className="pp-it" key={i}>
-                    <Markdown source={line.body} className="pp-say" />
-                  </li>
-                ),
-              )}
-              {words !== null && (
-                <li className="pp-it">
-                  {words ? (
-                    <Markdown source={words} className="pp-say" />
-                  ) : (
-                    <p className="pp-say">
-                      <TextShimmer>Thinking</TextShimmer>
-                    </p>
-                  )}
-                </li>
-              )}
-              {enough && (
-                <li className="pp-it">
-                  <p className="pp-say">
-                    That is plenty for a sample. Try me on your own tickets.
-                  </p>
-                </li>
-              )}
-            </ol>
-          </div>
-          <SampleBox
-            label="Tell the agent what you want"
-            placeholder="Tell the agent what you want…"
-            text={text}
-            onText={setText}
-            onSend={() => void send()}
-            waiting={words !== null}
-          />
-        </section>
-      </div>
+
+  const tell = TELLS[phase];
+  const where = (
+    <div className="nt-head">
+      <span className="nt-where">
+        <Github size={14} aria-hidden="true" /> GitHub
+      </span>
+      <ChevronRight size={13} className="nt-sep" aria-hidden="true" />
+      <span className="nt-crumb">Acme</span>
     </div>
+  );
+  return (
+    <section className="lp-part">
+      <div className="container lp-part-head" key={phase}>
+        <h2>
+          {tell.title[0]}
+          <br />
+          {tell.title[1]}
+        </h2>
+        <p>{tell.says}</p>
+      </div>
+      <div className="container">
+        <div className="lp-compose">
+          <div className="lp-flow" aria-live="polite">
+            <BoardGroup
+              stage="progress"
+              label="In progress"
+              count={phase === "work" ? 2 : 1}
+            >
+              {phase === "work" && ticket && (
+                <BoardRow
+                  ticket={ticket}
+                  state={
+                    WORK[
+                      Math.min(
+                        WORK.length - 1,
+                        Math.floor((seen / lines.length) * WORK.length),
+                      )
+                    ]
+                  }
+                  fresh
+                />
+              )}
+              <BoardRow ticket={filtering} state={filtering.work} />
+            </BoardGroup>
+            <BoardGroup
+              stage="review"
+              label="To review"
+              count={phase === "review" ? 2 : 1}
+            >
+              {phase === "review" && ticket && (
+                <BoardRow ticket={ticket} fresh />
+              )}
+              <BoardRow ticket={priority} />
+            </BoardGroup>
+            {done.length > 0 && (
+              <BoardGroup stage="done" label="Done" count={done.length}>
+                {done.map((one) => (
+                  <BoardRow ticket={one} key={one.number} fresh />
+                ))}
+              </BoardGroup>
+            )}
+          </div>
+          {phase === "review" ? (
+            <div className="lp-reviewing">
+              <SampleRoom
+                sample="archive"
+                lead={ticket?.sample ? undefined : TRY_NOT_BUILT}
+                cta={cta}
+                merged={false}
+                onMerged={merged}
+              />
+            </div>
+          ) : (
+            <div
+              className="nt nt-agent lp-modal"
+              role="group"
+              aria-label="New ticket"
+            >
+              {phase === "work" ? (
+                <>
+                  <div className="nt-card">
+                    {where}
+                    <p className="nt-title">{name}</p>
+                    <Markdown source={body} className="nt-body" />
+                  </div>
+                  <section
+                    className="nt-talk lp-activity"
+                    aria-label="Activity"
+                    ref={thread}
+                  >
+                    <ActivityList
+                      lines={storyLines(lines.slice(0, seen))}
+                      live
+                      crew={crew}
+                    />
+                  </section>
+                </>
+              ) : (
+                <>
+                  <form
+                    className="nt-card"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      start();
+                    }}
+                  >
+                    {where}
+                    <input
+                      className="nt-title"
+                      aria-label="Title"
+                      placeholder="Ticket title"
+                      value={title}
+                      maxLength={120}
+                      onChange={(event) => setTitle(event.target.value)}
+                    />
+                    <textarea
+                      className="nt-body"
+                      aria-label="Description"
+                      placeholder="Description, in Markdown"
+                      value={body}
+                      maxLength={1500}
+                      onChange={(event) => setBody(event.target.value)}
+                    />
+                    <div className="nt-foot">
+                      <button
+                        type="submit"
+                        className="tix-btn tix-btn-amber"
+                        disabled={!name}
+                      >
+                        <Play
+                          size={11}
+                          fill="currentColor"
+                          aria-hidden="true"
+                        />
+                        Start
+                      </button>
+                    </div>
+                  </form>
+                  <section className="nt-talk" aria-label="The agent">
+                    <div className="pp-talk-thread" ref={thread}>
+                      <ol className="pp-chat">
+                        <li className="pp-it">
+                          <p className="pp-say">What are we building?</p>
+                        </li>
+                        {said.map((line, i) =>
+                          line.author === "builder" ? (
+                            <li className="pp-me" key={i}>
+                              <p className="pp-bubble">{line.body}</p>
+                            </li>
+                          ) : (
+                            <li className="pp-it" key={i}>
+                              <Markdown source={line.body} className="pp-say" />
+                            </li>
+                          ),
+                        )}
+                        {words !== null && (
+                          <li className="pp-it">
+                            {words ? (
+                              <Markdown source={words} className="pp-say" />
+                            ) : (
+                              <p className="pp-say">
+                                <TextShimmer>Thinking</TextShimmer>
+                              </p>
+                            )}
+                          </li>
+                        )}
+                        {enough && (
+                          <li className="pp-it">
+                            <p className="pp-say">
+                              That is plenty for a sample. Try me on your own
+                              tickets.
+                            </p>
+                          </li>
+                        )}
+                      </ol>
+                    </div>
+                    <SampleBox
+                      label="Tell the agent what you want"
+                      placeholder="Tell the agent what you want…"
+                      text={text}
+                      onText={setText}
+                      onSend={() => void send()}
+                      waiting={words !== null}
+                    />
+                  </section>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

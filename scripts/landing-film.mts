@@ -1,9 +1,10 @@
-// The landing's film: a real run's, on the bench's task app, served with the
+// A film of the landing: a real run's, on the bench's task app, served with the
 // site so it plays for anyone on any environment. Copies the run's timeline,
-// clips, voices and still into public/demo/, and its pull request's files.
-//   npx tsx scripts/landing-film.mts <timeline key> <still key> <pull request>
+// clips, voices and still into public/demo/<sample>/, and its pull request's
+// files.
+//   npx tsx scripts/landing-film.mts <sample> <timeline key> <still key> <pull request>
 // The keys are in the run's `results.artifacts`, its project must be public.
-// Prints what TRY_FILM needs.
+// Prints what the sample's film in TRY_SAMPLES needs.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -13,11 +14,13 @@ import { clockLabel } from "../src/core/chat";
 
 const SITE = "https://dev.yarrow.run";
 const REPOSITORY = "KevTale/yarrow-bench-app";
-const OUT = "public/demo";
 
-const [timelineKey, posterKey, number] = process.argv.slice(2);
-if (!timelineKey || !posterKey || !number)
-  throw new Error("landing-film <timeline key> <still key> <pull request>");
+const [sample, timelineKey, posterKey, number] = process.argv.slice(2);
+if (!sample || !timelineKey || !posterKey || !number)
+  throw new Error(
+    "landing-film <sample> <timeline key> <still key> <pull request>",
+  );
+const OUT = `public/demo/${sample}`;
 
 const gotten = async (key: string) => {
   const response = await fetch(`${SITE}/evidence/${key}`);
@@ -34,8 +37,8 @@ async function copy(key: string) {
   if (kept) return kept;
   const name = basename(key);
   writeFileSync(`${OUT}/${name}`, await gotten(key));
-  copied.set(key, `/demo/${name}`);
-  return `/demo/${name}`;
+  copied.set(key, `/demo/${sample}/${name}`);
+  return `/demo/${sample}/${name}`;
 }
 
 const timeline = presentationSchema.parse(
@@ -45,7 +48,7 @@ for (const chapter of timeline.chapters) {
   if (chapter.video) chapter.video.key = await copy(chapter.video.key);
   if (chapter.audio) chapter.audio.key = await copy(chapter.audio.key);
 }
-timeline.poster = "/demo/poster.jpg";
+timeline.poster = `/demo/${sample}/poster.jpg`;
 writeFileSync(`${OUT}/presentation.json`, JSON.stringify(timeline));
 writeFileSync(`${OUT}/poster.jpg`, await gotten(posterKey));
 

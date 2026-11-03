@@ -3,7 +3,7 @@ import { Github } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
-import { DashboardShot, TicketShot } from "@/components/landing-shots";
+import { DashboardShot, TicketSection } from "@/components/landing-shots";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
@@ -20,6 +20,12 @@ export const Route = createFileRoute("/")({
   },
   component: Landing,
 });
+
+const getStarted = (
+  <a className="lp-cta" href="/connect/github?start">
+    Get started
+  </a>
+);
 
 function Landing() {
   const navigate = useNavigate();
@@ -42,13 +48,7 @@ function Landing() {
       </section>
       <div className="lp-stage">
         <div className="container">
-          <DashboardShot
-            cta={
-              <a className="lp-cta" href="/connect/github?start">
-                Get started
-              </a>
-            }
-          />
+          <DashboardShot cta={getStarted} />
         </div>
       </div>
       <section className="container lp-sources" aria-label="Works with">
@@ -73,22 +73,7 @@ function Landing() {
         ticket and, once it is built, walks you through a live demo and answers
         your questions.
       </p>
-      <section className="lp-part">
-        <div className="container lp-part-head">
-          <h2>
-            Write your tickets
-            <br />
-            with our agents
-          </h2>
-          <p>
-            Bring a rough idea. Think it through with the agent, push back,
-            change your mind. When it feels right the ticket is written.
-          </p>
-        </div>
-        <div className="container">
-          <TicketShot />
-        </div>
-      </section>
+      <TicketSection cta={getStarted} />
     </main>
   );
 }

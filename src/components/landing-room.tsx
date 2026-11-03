@@ -16,25 +16,28 @@ import { chatParts } from "@/core/chat";
 import type { DraftLine } from "@/core/new-ticket";
 import {
   readAnswer,
-  TRY_FIRST_WORDS,
+  TRY_SAMPLES,
   TRY_TURNS,
   TRY_WORDS,
+  type TrySampleName,
 } from "@/core/try-ticket";
 import type { StoredArtifact } from "@/core/review";
 import type { PullFile } from "@/server/github/pulls.server";
 
-const FILM: StoredArtifact = {
+const filmOf = (sample: TrySampleName): StoredArtifact => ({
   kind: "presentation",
-  key: "/demo/presentation.json",
+  key: `/demo/${sample}/presentation.json`,
   label: "Demo",
   contentType: "application/json",
-  poster: "/demo/poster.jpg",
-};
-const FIRST_ASK = "Can urgent tasks drop down once they're done?";
+  poster: `/demo/${sample}/poster.jpg`,
+});
 
 interface Line extends DraftLine {
   change?: string | null;
 }
+
+/** The rooms of the page: one voice at a time. */
+let sounding: (() => void) | null = null;
 
 /**
  * The room of a ticket to review, as a real one: the real player on a real
@@ -43,21 +46,29 @@ interface Line extends DraftLine {
  * card, and the slide merges nothing.
  */
 export function SampleRoom({
+  sample,
+  lead,
   cta,
   merged,
   onMerged,
 }: {
+  sample: TrySampleName;
+  /** Said before the run's own words. */
+  lead?: string;
   cta: ReactNode;
   merged: boolean;
   onMerged: () => void;
 }) {
+  const { ask, changed } = TRY_SAMPLES[sample];
+  const [film] = useState(() => filmOf(sample));
   const [said, setSaid] = useState<Line[]>([]);
   const [words, setWords] = useState<string | null>(null);
-  const [text, setText] = useState(FIRST_ASK);
+  const [text, setText] = useState(ask);
   const [enough, setEnough] = useState(false);
   const [files, setFiles] = useState<PullFile[] | null>(null);
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
+  const room = useRef<HTMLDivElement>(null);
   const theater = useRef<HTMLDialogElement>(null);
   const tray = useRef<HTMLElement>(null);
   const thread = useRef<HTMLDivElement>(null);
@@ -66,12 +77,27 @@ export function SampleRoom({
 
   useEffect(() => {
     let live = true;
-    void fetch("/demo/files.json")
+    void fetch(`/demo/${sample}/files.json`)
       .then((response) => (response.ok ? response.json() : null))
       .then((list) => live && setFiles(list as PullFile[] | null))
       .catch(() => {});
     return () => {
       live = false;
+    };
+  }, [sample]);
+
+  useEffect(() => {
+    const here = room.current;
+    const hush = () => void pause.current?.();
+    const onPlay = () => {
+      if (sounding !== hush) sounding?.();
+      sounding = hush;
+    };
+    // Media events do not bubble: caught on their way down.
+    here?.addEventListener("play", onPlay, true);
+    return () => {
+      here?.removeEventListener("play", onPlay, true);
+      if (sounding === hush) sounding = null;
     };
   }, []);
 
@@ -109,6 +135,7 @@ export function SampleRoom({
       const answered = await askSample(
         {
           kind: "review",
+          sample,
           said: lines.map(({ author, body }) => ({ author, body })),
           chapter: moment?.index ?? 0,
         },
@@ -142,7 +169,7 @@ export function SampleRoom({
   }
 
   return (
-    <div className="pp pp-roomy">
+    <div className="pp pp-roomy" ref={room}>
       {cinema && <div style={{ height: slot }} />}
       <dialog
         ref={theater}
@@ -161,7 +188,7 @@ export function SampleRoom({
         <div className="pp-meet">
           <div className="pp-film">
             <Presentation
-              artifact={FILM}
+              artifact={film}
               cinema={cinema}
               onCinema={flipCinema}
               seekRef={seek}
@@ -191,7 +218,8 @@ export function SampleRoom({
             <div className="pp-talk-thread" ref={thread}>
               <ol className="pp-chat">
                 <li className="pp-it">
-                  <ChatWords body={TRY_FIRST_WORDS} onSeek={null} />
+                  {lead && <p className="pp-say">{lead}</p>}
+                  <ChatWords body={changed} onSeek={null} />
                 </li>
                 {said.map((line, i) =>
                   line.author === "builder" ? (
