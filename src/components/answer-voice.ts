@@ -2,13 +2,18 @@ import { stageVoiceFn } from "@/functions/stage.functions";
 
 /** The answer being said; only one at a time. */
 let saying: {
+  key: string;
   audio: HTMLAudioElement | null;
   timer: ReturnType<typeof setInterval> | null;
   end: (heard: boolean) => void;
 } | null = null;
 
-/** The answer stops where it is: someone else has the word. */
-export function hushAnswer(): void {
+/**
+ * The answer stops where it is: someone else has the word. With a `key`, only
+ * that ticket's: another row closing leaves this one's alone.
+ */
+export function hushAnswer(key?: string): void {
+  if (key !== undefined && saying?.key !== key) return;
   saying?.audio?.pause();
   if (saying?.timer) clearInterval(saying.timer);
   saying?.end(false);
@@ -30,6 +35,7 @@ export function sayAnswer(input: {
   const { onPart, ...answer } = input;
   return new Promise((resolve) => {
     const now = {
+      key: input.key,
       audio: null as HTMLAudioElement | null,
       timer: null,
       end: resolve,
@@ -61,6 +67,7 @@ export function sayAnswer(input: {
 
 /** The same with the sound off: the time to read it, `onPart` following. */
 export function readAnswer(
+  key: string,
   ms: number,
   onPart: (part: number) => void,
 ): Promise<boolean> {
@@ -75,6 +82,6 @@ export function readAnswer(
       saying = null;
       resolve(true);
     }, 200);
-    saying = { audio: null, timer, end: resolve };
+    saying = { key, audio: null, timer, end: resolve };
   });
 }

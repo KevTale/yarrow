@@ -408,7 +408,7 @@ export function PullPanel({
               messageId: answer.id,
               onPart: show,
             })
-          : await readAnswer(readingMs(text), show);
+          : await readAnswer(rowKey, readingMs(text), show);
       if (!heard) return;
       setSaid(null);
       carryOn();
@@ -416,7 +416,7 @@ export function PullPanel({
     // Only an answer ending moves it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answering]);
-  useEffect(() => hushAnswer, []);
+  useEffect(() => () => hushAnswer(rowKey), [rowKey]);
   useLayoutEffect(() => {
     const dialog = theater.current;
     if (!dialog) return;
