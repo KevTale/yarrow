@@ -1615,7 +1615,7 @@ osd.bg.color: #1c1e23
 osd.label.text.color: #e4e6ea
 `;
 
-function openboxConfig() {
+function openboxConfig(left = DOCK_WIDTH) {
   const rule = (match, box, extra = "") =>
     "<application " +
     match +
@@ -1648,7 +1648,7 @@ function openboxConfig() {
     "</theme><desktops><number>1</number></desktops>" +
     // A window maximized fills the screen beside the dock.
     "<margins><top>0</top><bottom>0</bottom><left>" +
-    DOCK_WIDTH +
+    left +
     "</left><right>0</right></margins>" +
     // One key no keyboard has: with none, openbox binds its own (Alt+Tab).
     '<keyboard><keybind key="W-F24"><action name="Focus"/></keybind></keyboard>' +
@@ -2000,11 +2000,14 @@ class Desktop {
   /**
    * The app's browser alone on the screen, for the member who takes
    * control: over the dock, the terminal gone, the dock's icons dead. Or
-   * the desktop as it was.
+   * the desktop as it was. The dock's margin goes too: openbox keeps a
+   * window out of it.
    */
   alone(on) {
     const { browser, terminal } = this.ids;
     this.locked = on;
+    fs.writeFileSync(this.rc, openboxConfig(on ? 0 : DOCK_WIDTH));
+    this.x("openbox", ["--reconfigure"]);
     this.x("xdotool", [on ? "windowunmap" : "windowmap", String(terminal)]);
     if (!browser) return;
     this.place(browser, on ? { x: 0, y: 0, ...SCREEN } : WINDOWS.browser);
@@ -2079,9 +2082,9 @@ class Desktop {
     fs.writeFileSync(path.join(theme, "themerc"), THEME);
     for (const [name, rows] of Object.entries(BUTTONS))
       fs.writeFileSync(path.join(theme, name + ".xbm"), xbm(name, rows));
-    const rc = path.join(home, ".config/openbox/rc.xml");
-    fs.writeFileSync(rc, openboxConfig());
-    this.spawn("openbox", "openbox", ["--config-file", rc], {
+    this.rc = path.join(home, ".config/openbox/rc.xml");
+    fs.writeFileSync(this.rc, openboxConfig());
+    this.spawn("openbox", "openbox", ["--config-file", this.rc], {
       env: {
         ...this.env,
         HOME: home,
@@ -3286,7 +3289,7 @@ class Presenter {
      * leads the rest. A chapter cut by it stops at its next gesture.
      */
     this.over = false;
-    this.run = 0;
+    this.round = 0;
     /** The chapters shown in full. */
     this.shown = new Set();
     /** The chapter the talk cut, if one was playing. */
@@ -3307,15 +3310,15 @@ class Presenter {
     while (this.hold) await this.hold.resumed;
   }
 
-  /** Waits while held; throws once the presentation `run` is over. */
-  async going(run) {
+  /** Waits while held; throws once the presentation `round` is over. */
+  async going(round) {
     await this.held();
-    if (run !== this.run) throw new Stopped();
+    if (round !== this.round) throw new Stopped();
   }
 
   /** The presentation ends here, the screen as the talk left it. */
   async stop() {
-    this.run++;
+    this.round++;
     const hold = this.hold;
     if (hold) {
       this.heldMs += Date.now() - hold.since;
@@ -3760,7 +3763,7 @@ class Presenter {
     const { desktop, plan } = this;
     // Played again: the recorded presentation leads anew.
     this.over = false;
-    this.run++;
+    this.round++;
     this.shown = new Set();
     this.cut = null;
     this.film = null;
@@ -3798,9 +3801,9 @@ class Presenter {
     this.untouched = false;
     log("live chapter " + (index + 1) + ": " + chapter.title);
     // Held before it began (the member spoke between chapters): it waits.
-    const run = this.run;
+    const round = this.round;
     try {
-      await this.going(run);
+      await this.going(round);
     } catch {
       return [];
     }
@@ -3810,7 +3813,7 @@ class Presenter {
         ? []
         : chapter.tab === "terminal"
           ? (await this.desktop.recordTerminal(chapter, null, voiceMs)).problems
-          : await this.app(chapter, index, voiceMs, run);
+          : await this.app(chapter, index, voiceMs, round);
       this.shown.add(index);
       return problems;
     } catch (error) {
@@ -3821,7 +3824,7 @@ class Presenter {
     }
   }
 
-  async app(chapter, index, voiceMs, run) {
+  async app(chapter, index, voiceMs, round) {
     const { desktop, plan } = this;
     const { which, app } = shownIn(plan, chapter);
     const tabs = desktop.tabs;
@@ -3870,7 +3873,7 @@ class Presenter {
       clock,
       marks,
       fail,
-      () => this.going(run),
+      () => this.going(round),
     );
     for (const [name, shown] of Object.entries(tabs.pages))
       log(

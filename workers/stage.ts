@@ -604,6 +604,13 @@ export class Stage extends DurableObject<StageEnv> {
         return;
       }
       if ((await this.#text(DESKTOP_EXIT)) !== undefined) {
+        // A snapshot the desktop does not start on: a fresh boot instead.
+        if (saved.warm) {
+          this.#kv.delete("snapshot");
+          await this.#container.destroy();
+          await this.#start(saved.asked);
+          return;
+        }
         const output = (await this.#text(DESKTOP_LOG)) ?? "";
         this.#save({
           ...this.#kv.get<Saved>("saved")!,
