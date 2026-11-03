@@ -6407,15 +6407,7 @@ button.st-back {
   text-align: right;
   color: var(--text);
 }
-.rp-facts dd/* The dashboard takes more of the window: a demo and its conversation side
-   by side. */
-@media (min-width: 1101px) {
-  body:has(.container.dashboard) .container {
-    max-width: 1680px;
-    padding-inline: 24px;
-  }
-}
-.mono {
+.rp-facts dd.mono {
   font-family: var(--font-geist-mono), monospace;
 }
 .rp-facts .rp-sponsors {
