@@ -7919,7 +7919,7 @@ body:has(.sb-dialog[open]) {
   margin: 4px 0 6px;
 }
 .pv-screen {
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #0f1013;
