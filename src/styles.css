@@ -8431,6 +8431,9 @@ body:has(.sb-dialog[open]) {
   color: rgba(255, 255, 255, 0.5);
   content: "•";
 }
+.pv-now.live::before {
+  color: #ff5a4f;
+}
 /* A small video keeps its time whole. */
 @container (max-width: 420px) {
   .pv-speed,

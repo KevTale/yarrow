@@ -411,16 +411,10 @@ export function PullPanel({
     leave();
     seek.current?.(ms);
   };
-  const askedAt = (question: string) => {
-    const at = stopped.current;
-    if (at?.title && at.ms !== undefined)
-      askedFrom.set(`${rowKey}:${question}`, { title: at.title, ms: at.ms });
-  };
   // No call to hear it (no microphone, it failed): the written way.
   const sending = (question: string) => {
     hushAnswer();
     askedHere.current = true;
-    askedAt(question);
     if (asksStage) stage.ask(stopped.current);
     else stage.hold();
     setPanel(withQuestion(question));
@@ -580,7 +574,6 @@ export function PullPanel({
                   }}
                   onWrite={(question) => {
                     stopHere();
-                    askedAt(question);
                     return stage.write(question);
                   }}
                   onSending={sending}
@@ -1044,12 +1037,6 @@ const withQuestion =
   };
 
 /**
- * Where the demo was when a question stopped it, for this page's life: the
- * thread does not keep it.
- */
-const askedFrom = new Map<string, { title: string; ms: number }>();
-
-/**
  * The conversation, oldest first: the questions and their answers, and the
  * changes asked elsewhere (on GitHub, before the conversation) where they
  * fall. A change made from an answer's card shows under that answer.
@@ -1255,12 +1242,6 @@ function Thread({
                   </span>
                 ))}
             </p>
-            {onSeek && (
-              <AskedFrom
-                at={askedFrom.get(`${rowKey}:${line.message.body}`)}
-                onSeek={onSeek}
-              />
-            )}
           </li>
         ) : (
           <li key={line.message.id} className="pp-it">
@@ -1281,28 +1262,6 @@ function Thread({
         ),
       )}
     </ol>
-  );
-}
-
-/** The moment of the demo a question stopped: plays it from there. */
-function AskedFrom({
-  at,
-  onSeek,
-}: {
-  at: { title: string; ms: number } | undefined;
-  onSeek: (ms: number) => void;
-}) {
-  if (!at) return null;
-  return (
-    <button
-      type="button"
-      className="pp-at"
-      aria-label={`Play from ${at.title}`}
-      onClick={() => onSeek(at.ms)}
-    >
-      <Play size={9} fill="currentColor" aria-hidden="true" />
-      {at.title}
-    </button>
   );
 }
 

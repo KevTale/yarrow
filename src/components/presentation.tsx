@@ -43,9 +43,6 @@ export interface FilmMoment {
   part: number;
   /** It was playing until now. */
   playing?: boolean;
-  /** Its chapter's title and its moment in the whole film, once under way. */
-  title?: string;
-  ms?: number;
 }
 
 /** A ticket's row, opened on its demo, waiting for Play. */
@@ -278,6 +275,7 @@ function Player({
   const pace = useRef(speed);
   // The controls hide while it plays and the pointer rests.
   const [awake, setAwake] = useState(true);
+  const [resting, setResting] = useState(false);
   const rest = useRef(0);
   // A tap on a phone first brings the controls back.
   const tapped = useRef(false);
@@ -529,6 +527,7 @@ function Player({
   const toggle = () => {
     if (!timeline) return;
     if (!playing) demo?.onBack();
+    setResting(false);
     if (finished) {
       jump(0);
       return;
@@ -540,9 +539,10 @@ function Player({
     setStarted(true);
     setPlaying((on) => !on);
   };
-  // Paused where it is, and where that is.
+  // Paused where it is, and where that is. Stopped for a conversation, its
+  // controls rest as they do while it plays.
   const pause = (): FilmMoment => {
-    wake();
+    if (playing) setResting(true);
     cut.current ||= playing;
     setPlaying(false);
     return finished
@@ -551,7 +551,6 @@ function Player({
           index,
           part: started ? Math.min(1, elapsed / (length || 1)) : 0,
           playing,
-          ...(started ? { title: chapter?.title, ms: played } : {}),
         };
   };
   function takeUp() {
@@ -564,6 +563,7 @@ function Player({
   }
   function jump(to: number, offset = 0, play = true, ended = false) {
     cut.current = false;
+    setResting(false);
     wake();
     allowSound();
     from.current = Math.max(0, Math.min(offset, (lengths[to] ?? 0) - 250));
@@ -639,6 +639,7 @@ function Player({
         if (chapter !== null) jump(Math.min(chapter, chapters.length - 1));
         else if (finished) jump(0);
         else if (!takeUp()) {
+          setResting(false);
           wake();
           allowSound();
           setPoised(false);
@@ -648,7 +649,7 @@ function Player({
       };
     if (pauseRef) pauseRef.current = pause;
   });
-  const idle = (playing || Boolean(demo?.liveNow)) && !awake;
+  const idle = (playing || resting || Boolean(demo?.liveNow)) && !awake;
   const waitsForPlay = !started || Boolean(demo && poised && !finished);
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
@@ -722,7 +723,11 @@ function Player({
   const part = demoParts(chapters)?.find(({ chapters: shown }) =>
     shown.includes(index),
   )?.part;
-  const named = part ? PART_LABELS[part] : chapter?.title;
+  const named = demo?.liveNow
+    ? "Live"
+    : part
+      ? PART_LABELS[part]
+      : chapter?.title;
   const soundButton = chapters.some((item) => item.audio) && (
     <button
       type="button"
@@ -778,7 +783,11 @@ function Player({
             {clockTime(played)} / {clockTime(total)}
           </span>
           {/* Before it starts the poster shows a later chapter: no title over it. */}
-          {started && named && <span className="pv-now">{named}</span>}
+          {(started || demo?.liveNow) && named && (
+            <span className={demo?.liveNow ? "pv-now live" : "pv-now"}>
+              {named}
+            </span>
+          )}
         </span>
         <span className="pv-glass-pill pv-tools">
           <button
