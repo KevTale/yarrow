@@ -71,6 +71,36 @@ const byNumber = (rows: TicketRow[], number: number) =>
   rows.find((row) => row.number === number)!;
 
 describe("the builder's ticket table", () => {
+  it("titles a row with the reviewer's headline, the latest one written", async () => {
+    const reviewed = async (workUnitId: string, headline?: string) =>
+      raw.insert(schema.results).values({
+        agentRunId: await run(workUnitId, { status: "completed" }),
+        outcome: "pull_request",
+        pullRequestUrl: "https://github.com/marie/halyard/pull/4",
+        summary: "Done",
+        review: {
+          summary: "Done",
+          comments: [],
+          reviewer: "openai-astra",
+          rounds: 1,
+          ...(headline ? { headline } : {}),
+        },
+      });
+    const shipped = await ticket(3);
+    await reviewed(shipped, "Low, Normal or High priority on tasks");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await reviewed(shipped);
+    const older = await ticket(4);
+    await reviewed(older);
+
+    const rows = await projectTickets(db, projectId);
+    expect(byNumber(rows, 3)).toMatchObject({
+      title: "Ticket 3",
+      headline: "Low, Normal or High priority on tasks",
+    });
+    expect(byNumber(rows, 4).headline).toBeNull();
+  });
+
   it("names who paid for each ticket, the largest share first", async () => {
     const shipped = await ticket(3);
     await raw
@@ -392,6 +422,7 @@ describe("merging GitHub's open issues", () => {
       title: "Old title",
       url: "",
       status: "queued",
+      headline: null,
       paidBy: [],
       runId: null,
       pending: true,
@@ -478,6 +509,7 @@ describe("the dashboard's groups", () => {
     title: "Fix the footer",
     url: "",
     status: "none",
+    headline: null,
     paidBy: [],
     runId: null,
     pending: false,

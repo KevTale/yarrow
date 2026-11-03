@@ -1265,7 +1265,7 @@ export function LiveCaption({
 /**
  * The stage on the demo's canvas, what happens now on one screen: the agent
  * showing something, on a call or in writing, or the member trying the app.
- * The demo's controls stay under it, and play the demo on where it paused.
+ * The demo's controls stay over it, and play the demo on where it paused.
  */
 export function LiveCall({
   stage,
@@ -1279,7 +1279,7 @@ export function LiveCall({
   const controlled = stage.control === "on";
   return (
     <div
-      className={`pv pv-on ${shown ? "" : "pv-behind"} ${controlled ? "pv-hands" : ""}`}
+      className={`pv pv-on ${shown ? "" : "pv-behind"}`}
       aria-hidden={!shown}
     >
       <div className="pv-screen">

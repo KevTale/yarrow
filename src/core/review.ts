@@ -19,9 +19,12 @@ export type ReviewComment = z.infer<typeof reviewCommentSchema>;
  * (decided 2026-10-27). Reviews written before have none, only a summary
  * in the reviewer's own voice; a new one's summary is its `changed`, so
  * the fix round, the conversation and the notes read one text either way.
+ * `headline` is the same in one line, the ticket's title on its row (decided
+ * 2026-10-31); not understood, it is dropped and the title stays.
  */
 export const storedReviewFields = z.object({
   changed: z.string().min(1).max(8000).optional(),
+  headline: z.string().trim().min(1).max(120).optional().catch(undefined),
   summary: z.string().min(1).max(8000),
   comments: z.array(reviewCommentSchema).max(50),
   // Acceptance criteria the implementer ticked that the change does not

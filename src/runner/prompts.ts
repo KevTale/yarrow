@@ -307,8 +307,10 @@ The implementer lists the ticket's acceptance criteria with how each was shown: 
 
 You write "changed": the pull request as it stands, the one text the owner reads under "What changed", in Yarrow and at the head of the pull request, right under what the ticket asks (never restate the ticket). The owner is often a product manager who does not read code. One or two short sentences, under 250 characters, plain prose with no list, in everyday words, in a neutral voice that tells the change, never "I" nor who did what: what the change does, as what people using the app now see or can do. Tell only what the change really does, from the diff: the implementer's summary is a lead, not the truth. Example: "Done tasks with a past due date now show the date plainly, without the red overdue label; open tasks past their date keep it." Say nothing of how it is known to work, nor of what is left to do: no tests, no "checked in the app", no risks. Yarrow's notes beside it tell the owner what they must do, what could not be checked and what is still wrong, from your comments and the implementer's lists; when there is none, silence means all is good. No verdict word ("Approved."), no list of criteria: the owner asks Yarrow's conversation for details. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
 
+You also write "headline": the same change in one line, the ticket's title on its row in Yarrow's list. Under 70 characters, no full stop, the same everyday words, what the change is and nothing else, never the ticket's own title copied. Example: "Low, Normal or High priority on tasks, Normal by default".
+
 Answer with JSON only, no prose and no code fence:
-{"changed": "the pull request as it stands, two or three sentences", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}], "unmet": ["an acceptance criterion the change does not deliver"]}`;
+{"changed": "the pull request as it stands, two or three sentences", "headline": "the same in one line", "comments": [{"severity": "blocking" | "suggestion" | "nit", "path": "file path (optional)", "line": 12, "body": "..."}], "unmet": ["an acceptance criterion the change does not deliver"]}`;
 
 export function reviewTask(input: {
   ticket: TaskContext["ticket"];
@@ -333,13 +335,13 @@ This is your second look. Your first review sent the change back for these:
 ${blockingComments(input.earlier)
   .map((comment) => `- ${comment.body}`)
   .join("\n")}
-Check each yourself, then review the whole change as usual. "changed" tells the pull request as it stands now, as if it had been right the first time, with no history of the fix round; what is still wrong goes in your comments, not in it.`
+Check each yourself, then review the whole change as usual. "changed" and "headline" tell the pull request as it stands now, as if it had been right the first time, with no history of the fix round; what is still wrong goes in your comments, not in it.`
     : "";
   const correction = input.pullRequestSummary
     ? `
 
 This is a correction on an open pull request: the staged change is the correction alone. The whole pull request, as the implementer tells it: ${input.pullRequestSummary}
-"changed" tells the whole pull request as it stands, the correction part of it.`
+"changed" and "headline" tell the whole pull request as it stands, the correction part of it.`
     : "";
   return `Ticket: ${input.ticket.url}
 Title: ${input.ticket.title}

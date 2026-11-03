@@ -58,8 +58,12 @@ export interface DemoRow {
   waiting: boolean;
   /** The member's way in: without it, nothing to ask from the player. */
   ask?: { open: boolean; onClick: () => void; onWarm: () => void };
-  /** What the agent says before it starts. */
-  message: ReactNode;
+  /** The stage, taking the demo's place when something happens now. */
+  live: ReactNode;
+  /** It is on the canvas: the controls rest, as they do while it plays. */
+  liveNow: boolean;
+  /** It is in the member's hands: the controls wait at the bottom edge. */
+  hands: boolean;
   /** What is left to decide once it ended. */
   end: ReactNode;
 }
@@ -207,7 +211,7 @@ export function Presentation({
   playRef?: RefObject<FilmControl | null>;
   /** Set to pause it and read where it is: taking control from there. */
   pauseRef?: RefObject<(() => FilmMoment) | null>;
-  /** In a ticket's row: the canvas, its controls under it. */
+  /** In a ticket's row. */
   demo?: DemoRow;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
@@ -639,7 +643,7 @@ function Player({
       };
     if (pauseRef) pauseRef.current = pause;
   });
-  const idle = !demo && playing && !awake;
+  const idle = (playing || Boolean(demo?.liveNow)) && !awake;
   const waitsForPlay = !started || Boolean(demo && poised && !finished);
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
@@ -672,10 +676,9 @@ function Player({
       )}
     </button>
   );
-  const chapterButtons = (shown: number[]) =>
-    shown.map((i) => {
-      const item = chapters[i]!;
-      return (
+  const chapterBar = (
+    <div className="pv-chapters">
+      {chapters.map((item, i) => (
         <button
           key={i}
           type="button"
@@ -707,12 +710,14 @@ function Player({
             />
           </i>
         </button>
-      );
-    });
-  const chapterBar = (
-    <div className="pv-chapters">{chapterButtons([...chapters.keys()])}</div>
+      ))}
+    </div>
   );
-  const parts = demoParts(chapters);
+  // The part of the demo it is in; a film without parts, its chapter.
+  const part = demoParts(chapters)?.find(({ chapters: shown }) =>
+    shown.includes(index),
+  )?.part;
+  const named = part ? PART_LABELS[part] : chapter?.title;
   const soundButton = chapters.some((item) => item.audio) && (
     <button
       type="button"
@@ -757,49 +762,6 @@ function Player({
       <RectangleHorizontal size={18} aria-hidden="true" />
     </button>
   );
-  // In a row, under the canvas: nothing lies over the app.
-  const dock = timeline && (
-    <div className="pv-dock">
-      {playButton}
-      {parts ? (
-        <div className="pv-parts three">
-          {parts.map(({ part, chapters: shown }) => (
-            <div
-              key={part}
-              className={shown.includes(index) ? "pv-part now" : "pv-part"}
-              style={{ flexGrow: 1 }}
-            >
-              <div className="pv-chapters">{chapterButtons(shown)}</div>
-              <span>{PART_LABELS[part]}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="pv-parts">
-          {chapterBar}
-          <span className="pv-part">{started ? chapter?.title : ""}</span>
-        </div>
-      )}
-      {demo?.ask && (
-        <button
-          type="button"
-          className="pv-ask"
-          aria-pressed={demo.ask.open}
-          onClick={demo.ask.onClick}
-          onPointerEnter={demo.ask.onWarm}
-          onFocus={demo.ask.onWarm}
-        >
-          <MessageSquare size={15} aria-hidden="true" />
-          <span>Ask</span>
-        </button>
-      )}
-      <span className="pv-tools">
-        {soundButton}
-        {captionsButton}
-        {cinemaButton}
-      </span>
-    </div>
-  );
   const controls = timeline && (
     <div className="pv-controls">
       {chapterBar}
@@ -811,11 +773,23 @@ function Player({
             {clockTime(played)} / {clockTime(total)}
           </span>
           {/* Before it starts the poster shows a later chapter: no title over it. */}
-          {started && chapter?.title && (
-            <span className="pv-now">{chapter.title}</span>
-          )}
+          {started && named && <span className="pv-now">{named}</span>}
         </span>
         <span className="pv-glass-pill pv-tools">
+          {demo?.ask && (
+            <button
+              type="button"
+              className="pv-icon pv-ask"
+              onClick={demo.ask.onClick}
+              onPointerEnter={demo.ask.onWarm}
+              onFocus={demo.ask.onWarm}
+              aria-pressed={demo.ask.open}
+              aria-label="Ask"
+              data-tip="Ask"
+            >
+              <MessageSquare size={18} aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             className="pv-icon pv-speed"
@@ -835,7 +809,10 @@ function Player({
 
   return (
     <div className={demo ? "pv pv-demo" : "pv"}>
-      <div className="pv-screen" ref={screen}>
+      <div
+        className={demo?.hands ? "pv-screen hands" : "pv-screen"}
+        ref={screen}
+      >
         <div
           className={`pv-view ${idle ? "idle" : ""} ${desktop ? "desktop" : ""}`}
           onPointerMove={(event) => {
@@ -904,10 +881,8 @@ function Player({
               </span>
             </button>
           )}
-          {demo && waitsForPlay && demo.message && (
-            <div className="pv-word">{demo.message}</div>
-          )}
           {demo && finished && <div className="pv-end">{demo.end}</div>}
+          {demo?.live}
           <div className="pv-overlay">
             <p className="pv-caption" aria-live="polite">
               {(demo ? playing : true) &&
@@ -926,11 +901,11 @@ function Player({
                   <span>{cue.text}</span>
                 ))}
             </p>
-            {!demo && controls}
+            {demo?.hands && <i className="pv-reveal" />}
+            {controls}
           </div>
         </div>
       </div>
-      {demo && dock}
     </div>
   );
 }

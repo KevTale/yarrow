@@ -93,6 +93,8 @@ export interface PaidBy {
 }
 
 export interface TicketRow extends TicketIdentity {
+  /** The change in one line, by the reviewer: the row's title once it has one. */
+  headline: string | null;
   status: TicketStatus;
   /** Every sponsor of the ticket's runs, the largest share first. */
   paidBy: PaidBy[];
@@ -199,6 +201,7 @@ export function mergeTickets(
     merged.push({
       ...issue,
       status: "none",
+      headline: null,
       paidBy: [],
       runId: null,
       pending: false,

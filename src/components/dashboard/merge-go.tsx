@@ -6,8 +6,8 @@ import { SlideGo } from "./slide-go";
 
 /**
  * Merge, like Start and Retry: slid to the end, it merges (ready first when
- * it is a draft). On the row's line, and where a demo ends. Hidden while a
- * change asked is at work, since its commit would be left out.
+ * it is a draft). At the end of the open row's bar. Hidden while a change
+ * asked is at work, since its commit would be left out.
  */
 export function MergeGo({
   rowKey,

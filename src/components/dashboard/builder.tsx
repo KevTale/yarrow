@@ -48,7 +48,6 @@ import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
 import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
-import { MergeGo } from "./merge-go";
 import { SlideGo } from "./slide-go";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
@@ -468,7 +467,9 @@ export function BuilderView({
 
   const q = query.trim().toLowerCase();
   const matches = rows.filter(
-    (row) => !q || `${row.ref} ${row.title}`.toLowerCase().includes(q),
+    (row) =>
+      !q ||
+      `${row.ref} ${row.title} ${row.headline ?? ""}`.toLowerCase().includes(q),
   );
   const choose = (id: string) =>
     navigate({
@@ -904,7 +905,9 @@ function TicketLine({
         >
           <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
           <TicketRef row={row} />
-          <span className="tix-title">{row.title}</span>
+          <span className="tix-title" title={row.title}>
+            {row.headline ?? row.title}
+          </span>
         </button>
         <span className="tix-meta">
           <span className="tix-cell">
@@ -931,13 +934,6 @@ function TicketLine({
                 label="Retry"
                 icon={<RotateCcw size={12} aria-hidden="true" />}
                 onGo={() => act("retry", [row.key])}
-              />
-            )}
-            {row.status === "pull_request" && row.change === null && (
-              <MergeGo
-                rowKey={row.key}
-                projectId={projectId}
-                onChanged={onChanged}
               />
             )}
           </span>

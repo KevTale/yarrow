@@ -449,6 +449,23 @@ describe("review", () => {
     );
   });
 
+  it("keeps the reviewer's headline, and drops one it cannot use", () => {
+    expect(
+      reviewSchema.parse({
+        changed: "Tasks have a priority.",
+        headline: " Tasks have a priority ",
+        comments: [],
+      }).headline,
+    ).toBe("Tasks have a priority");
+    expect(
+      reviewSchema.parse({
+        changed: "Tasks have a priority.",
+        headline: "x".repeat(121),
+        comments: [],
+      }).headline,
+    ).toBeUndefined();
+  });
+
   it("refuses a review that says nothing", () => {
     expect(() => reviewSchema.parse({ comments: [] })).toThrow();
   });

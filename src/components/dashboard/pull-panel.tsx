@@ -25,17 +25,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { answerToRead, chatParts, spokenAnswer } from "@/core/chat";
+import { answerToRead, chatParts } from "@/core/chat";
 import { previewHref } from "@/core/preview";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
 import { leadProof } from "@/core/proofs";
-import {
-  agentNotes,
-  firstSentence,
-  spottedTicket,
-} from "@/core/pull-notes";
+import { agentNotes, spottedTicket } from "@/core/pull-notes";
 import { formatSeconds } from "@/core/tickets";
 import {
   askChatFn,
@@ -250,11 +246,12 @@ function useSessionLost(
 }
 
 /**
- * A ticket's row, opened. With a demo, one room: the screen centered and a
- * decision where it ends. It waits for Play. Then the demo plays or they talk:
- * Ask stops it and opens the conversation beside it, the agent on a call,
- * listening; spoken or written, it answers aloud, its words in the
- * conversation. Play, closing the conversation or asking for it ends the call,
+ * A ticket's row, opened. With a demo, one room: the screen centered, its
+ * controls on it, Merge in the bar under it. It waits for Play. Then the demo
+ * plays or they talk: Ask stops it and opens the conversation over its side,
+ * nothing moving, the agent on a call, listening; spoken or written, it answers
+ * aloud, its words in the conversation. Play, closing the conversation or
+ * asking for it ends the call,
  * and the demo takes up from the sentence it cut. The pull request's stage
  * takes the demo's place, the app live where it stopped, during the call or
  * when the member takes the mouse; before it is up, the agent answers by voice
@@ -320,19 +317,16 @@ export function PullPanel({
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
-  // The conversation, shut at rest; the row keeps its height as it opens.
+  // The conversation, shut at rest.
   const [talkShown, setTalkShown] = useState(false);
-  const [heldHeight, setHeldHeight] = useState<number>();
   const theater = useRef<HTMLDialogElement>(null);
-  const seat = useRef<HTMLDivElement>(null);
   const seek = useRef<((ms: number) => void) | null>(null);
   const tray = useRef<HTMLElement>(null);
-  // Ask: the demo stops, the conversation opens beside it, the agent listening.
+  // Ask: the demo stops, the conversation opens over it, the agent listening.
   const askNow = () => {
     const at = pause.current?.() ?? null;
     stopped.current = at;
     goesOn.current = Boolean(at?.playing);
-    setHeldHeight(seat.current?.offsetHeight);
     setTalkShown(true);
     void stage.callFrom(at, false);
   };
@@ -342,7 +336,6 @@ export function PullPanel({
     askedHere.current = false;
     hushAnswer();
     setTalkShown(false);
-    setHeldHeight(undefined);
     stage.toDemo();
   };
   const closeTalk = () => {
@@ -468,6 +461,13 @@ export function PullPanel({
   const linked = proofs.find(
     (proof) => proof.kind === "document" || proof.kind === "check",
   );
+  const open = pullRequest?.state === "open" && live?.open !== false;
+  const changing =
+    panel.working !== null ||
+    panel.corrections.some(
+      (correction) =>
+        correction.status === "queued" || correction.status === "working",
+    );
   const away = (
     <span className="pp-foot-away">
       {linked && (
@@ -484,6 +484,9 @@ export function PullPanel({
         />
       )}
       {app && <OpenApp app={app} />}
+      {open && !changing && (
+        <MergeGo rowKey={rowKey} projectId={projectId} onChanged={onChanged} />
+      )}
     </span>
   );
   const ideas = (
@@ -497,19 +500,14 @@ export function PullPanel({
 
   if (presentation) {
     const word = agentWord(panel);
-    const open = pullRequest?.state === "open" && live?.open !== false;
-    const changing =
-      panel.working !== null ||
-      panel.corrections.some(
-        (correction) =>
-          correction.status === "queued" || correction.status === "working",
-      );
     return (
       <div className="pp pp-roomy">
         {cinema && <div style={{ height: slot }} />}
         <dialog
           ref={theater}
-          className="pp-stage pp-room"
+          className={
+            talkShown ? "pp-stage pp-room pp-talking" : "pp-stage pp-room"
+          }
           aria-label="Full screen"
           onClose={() => setCinema(false)}
         >
@@ -522,95 +520,56 @@ export function PullPanel({
             </div>
           )}
           <div className="pp-meet">
-            <div
-              ref={seat}
-              className="pp-seat"
-              style={{
-                minHeight: talkShown && !cinema ? heldHeight : undefined,
-              }}
-            >
-              <div className="pp-film">
-                <div className="pp-take">
-                  <Presentation
-                    artifact={presentation}
-                    cinema={cinema}
-                    onCinema={flipCinema}
-                    seekRef={seek}
-                    playRef={play}
-                    pauseRef={pause}
-                    demo={{
-                      onBack: leave,
-                      onTouch: canTry ? tryIt : undefined,
-                      waiting: stage.control === "asking",
-                      ask: pullRequest
-                        ? {
-                            open: talkShown,
-                            onClick: talkShown ? closeTalk : askNow,
-                            onWarm: stage.warm,
-                          }
-                        : undefined,
-                      message: word && (
-                        <>
-                          <p>{firstSentence(spokenAnswer(word.changed))}.</p>
-                          {word.notes[0] && (
-                            <p>
-                              <Rich text={word.notes[0]} />
-                            </p>
-                          )}
-                        </>
-                      ),
-                      end:
-                        open || word?.notes.length ? (
-                          <>
-                            {word?.notes.map((line) => (
-                              <p key={line}>
-                                <Rich text={line} />
-                              </p>
-                            ))}
-                            {open && (
-                              <span className="pv-end-go">
-                                {!changing && (
-                                  <MergeGo
-                                    rowKey={rowKey}
-                                    projectId={projectId}
-                                    onChanged={onChanged}
-                                  />
-                                )}
-                                <button
-                                  type="button"
-                                  className="pp-act"
-                                  onClick={() =>
-                                    talkShown
-                                      ? tray.current
-                                          ?.querySelector("textarea")
-                                          ?.focus()
-                                      : askNow()
-                                  }
-                                >
-                                  Ask for a change
-                                </button>
-                              </span>
-                            )}
-                          </>
-                        ) : null,
-                    }}
-                  />
-                </div>
-                {/* Up, its screen drawn behind the demo, ready for its canvas. */}
-                {onStage && <LiveCall stage={stage} shown={liveNow} />}
-              </div>
-              <div className="pp-foot pp-bar">
-                {pullRequest && (
-                  <ChangedFiles
-                    projectId={projectId}
-                    rowKey={rowKey}
-                    size={size}
-                    url={pullRequest.url}
-                  />
-                )}
-                {ideas}
-                {away}
-              </div>
+            <div className="pp-film">
+              <Presentation
+                artifact={presentation}
+                cinema={cinema}
+                onCinema={flipCinema}
+                seekRef={seek}
+                playRef={play}
+                pauseRef={pause}
+                demo={{
+                  onBack: leave,
+                  onTouch: canTry ? tryIt : undefined,
+                  waiting: stage.control === "asking",
+                  ask: pullRequest
+                    ? {
+                        open: talkShown,
+                        onClick: talkShown ? closeTalk : askNow,
+                        onWarm: stage.warm,
+                      }
+                    : undefined,
+                  // Up, its screen drawn behind the demo, ready for its canvas.
+                  live: onStage && <LiveCall stage={stage} shown={liveNow} />,
+                  liveNow,
+                  hands: stage.control === "on",
+                  end:
+                    open || word?.notes.length ? (
+                      <>
+                        {word?.notes.map((line) => (
+                          <p key={line}>
+                            <Rich text={line} />
+                          </p>
+                        ))}
+                        {open && (
+                          <button
+                            type="button"
+                            className="pp-act"
+                            onClick={() =>
+                              talkShown
+                                ? tray.current
+                                    ?.querySelector("textarea")
+                                    ?.focus()
+                                : askNow()
+                            }
+                          >
+                            Ask for a change
+                          </button>
+                        )}
+                      </>
+                    ) : null,
+                }}
+              />
             </div>
             {talkShown && (
               <aside ref={tray} className="pp-tray" aria-label="Conversation">
@@ -674,6 +633,18 @@ export function PullPanel({
                 />
               </aside>
             )}
+          </div>
+          <div className="pp-foot pp-bar">
+            {pullRequest && (
+              <ChangedFiles
+                projectId={projectId}
+                rowKey={rowKey}
+                size={size}
+                url={pullRequest.url}
+              />
+            )}
+            {ideas}
+            {away}
           </div>
         </dialog>
       </div>
@@ -990,11 +961,7 @@ function Ideas({
         draft(
           projectId,
           lines.map((line) => ({
-            ...spottedTicket(
-              line,
-              implementation.by,
-              pullRequest?.url ?? null,
-            ),
+            ...spottedTicket(line, implementation.by, pullRequest?.url ?? null),
             from: { key: rowKey, note: line },
           })),
           ({ from }) => {

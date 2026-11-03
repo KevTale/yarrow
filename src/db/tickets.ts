@@ -113,6 +113,7 @@ export async function projectTickets(
           finishedAt: agentRuns.finishedAt,
           abstentionReason: results.abstentionReason,
           summary: results.summary,
+          headline: sql<string | null>`${results.review}->>'headline'`,
         })
         .from(agentRuns)
         .leftJoin(results, eq(results.agentRunId, agentRuns.id))
@@ -120,8 +121,13 @@ export async function projectTickets(
         .orderBy(desc(agentRuns.createdAt))
     : [];
   const lastRun = new Map<string, (typeof runs)[number]>();
-  for (const run of runs)
+  // The latest run that wrote one: a change at work has not yet.
+  const headlines = new Map<string, string>();
+  for (const run of runs) {
     if (!lastRun.has(run.workUnitId)) lastRun.set(run.workUnitId, run);
+    if (run.headline && !headlines.has(run.workUnitId))
+      headlines.set(run.workUnitId, run.headline);
+  }
   const runIds = [...lastRun.values()].map((run) => run.id);
   const models = runIds.length
     ? await db
@@ -216,6 +222,7 @@ export async function projectTickets(
     return {
       ...identity,
       title: bareTitle(unit.title, unit.externalId),
+      headline: headlines.get(unit.id) ?? null,
       url: unit.url,
       status,
       paidBy:
@@ -247,6 +254,7 @@ export async function projectTickets(
       rows.push({
         ...ticketIdentity("github", String(number)),
         title: `#${number}`,
+        headline: null,
         url: "",
         status: "queued",
         paidBy: [],
