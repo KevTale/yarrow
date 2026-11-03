@@ -1394,6 +1394,60 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // A command's flags, written as one would type them.
 const flags = (text) => text.trim().split(/\s+/);
 
+/**
+ * The keyboard of whoever takes control of the stage's screen. x11vnc
+ * presses a real key for each character the page sends, and one added on a
+ * spare key (its -add_keysyms) types nothing in Chromium: so every accented
+ * letter sits on AltGr and Shift+AltGr of a real key, the us layout otherwise.
+ * Failing leaves the plain keyboard, ASCII only.
+ */
+function accentKeyboard(display) {
+  const code = (at) => "U" + at.toString(16).toUpperCase().padStart(4, "0");
+  const accents = [];
+  for (let at = 0xe0; at <= 0xfd; at++)
+    if (at !== 0xf7) accents.push([code(at), code(at - 32)]);
+  // By name: X's numbers for these are not Unicode's.
+  accents.push(
+    ["oe", "OE"],
+    [code(0xff), "Ydiaeresis"],
+    ["EuroSign", code(0xa3)],
+    [code(0xdf), code(0xa7)],
+  );
+  const row = (name, letters) =>
+    [...letters].map((letter, i) => [
+      name + String(i + 1).padStart(2, "0"),
+      letter,
+      letter.toUpperCase(),
+    ]);
+  const digits = "exclam at numbersign dollar percent asciicircum ampersand";
+  const keys = [
+    ...row("AD", "qwertyuiop"),
+    ...row("AC", "asdfghjkl"),
+    ...row("AB", "zxcvbnm"),
+    ...digits
+      .split(" ")
+      .map((shifted, i) => ["AE0" + (i + 1), String(i + 1), shifted]),
+  ];
+  const symbols = keys.map(([key, plain, shifted], i) => {
+    const type = i < 26 ? "FOUR_LEVEL_ALPHABETIC" : "FOUR_LEVEL";
+    const levels = [plain, shifted, ...accents[i]].join(",");
+    return "key <" + key + '> {type="' + type + '",[' + levels + "]};";
+  });
+  const file = path.join(os.tmpdir(), "yarrow-keyboard.xkb");
+  fs.writeFileSync(
+    file,
+    'xkb_keymap {xkb_keycodes {include "evdev+aliases(qwerty)"};' +
+      'xkb_types {include "complete"};xkb_compat {include "complete"};' +
+      'xkb_symbols {include "pc+us+inet(evdev)+level3(ralt_switch)"\n' +
+      symbols.join("\n") +
+      '\n};xkb_geometry {include "pc(pc105)"};};\n',
+  );
+  const loaded = spawnSync("xkbcomp", ["-w0", file, display], {
+    stdio: "ignore",
+  });
+  if (loaded.status !== 0) log("no accents on the screen's keyboard");
+}
+
 async function until(test, ms, step = 100) {
   const end = Date.now() + ms;
   for (;;) {
@@ -3943,6 +3997,7 @@ async function stage(spec) {
     });
   else await plain();
   serve(presenter);
+  accentKeyboard(desktop.env.DISPLAY);
   desktop.spawn("x11vnc", "x11vnc", [
     ...["-display", desktop.env.DISPLAY, "-rfbport", String(VNC_PORT)],
     // No cursor shapes: the pointer the agent moves is drawn into the screen.
