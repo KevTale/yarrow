@@ -29,7 +29,7 @@ import { siteJsonLd } from "@/core/company";
 
 const TITLE = "Yarrow · The best ticket harness for your team";
 const DESCRIPTION =
-  "Coding is solved. Writing the right ticket and reviewing what agents ship are not.";
+  "Coding is solved. Writing the right ticket and reviewing what agents ship are not. This is where Yarrow comes in.";
 
 export const Route = createRootRoute({
   loader: async () => {
