@@ -226,14 +226,6 @@ select:focus-visible {
   margin-inline: auto;
   padding-inline: 40px;
 }
-/* The dashboard's content takes more of the window: a demo and its conversation
-   side by side. The header keeps the site's width on every page. */
-@media (min-width: 1101px) {
-  .container.dashboard {
-    max-width: 1680px;
-    padding-inline: 24px;
-  }
-}
 .mono {
   font-family: var(--font-geist-mono), monospace;
   font-variant-numeric: tabular-nums;

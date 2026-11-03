@@ -36,8 +36,8 @@ function Landing() {
           for your team
         </h1>
         <p>
-          Our agents write and build your tickets. There is no better way to
-          review them.
+          Coding is solved. Writing the right ticket and reviewing what agents
+          ship are not.
         </p>
       </section>
       <div className="lp-stage">
@@ -69,8 +69,9 @@ function Landing() {
         <p className="mono">Import your tickets from your favorite tool</p>
       </section>
       <p className="container lp-statement">
-        <b>Coding is solved.</b> Writing the right ticket and reviewing what
-        agents ship are not. That is where Yarrow comes in.
+        <b>Yarrow does both with you.</b> An agent shapes your idea into a clear
+        ticket and, once it is built, walks you through a live demo and answers
+        your questions.
       </p>
       <section className="lp-part">
         <div className="container lp-part-head">

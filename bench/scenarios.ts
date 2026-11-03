@@ -137,6 +137,18 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "archive",
+    app: "tally",
+    about: "The landing's second film: a feature seen in the list, the app.",
+    title: "Archive old tasks",
+    body: "The task list keeps every finished task forever and they crowd out what people are working on. Add an Archive button on done tasks: an archived task leaves the list. A Show archived link under the list shows them, each with a Restore button.",
+    expect: {
+      outcome: "pull_request",
+      shows: ["app"],
+      touches: ["src/"],
+    },
+  },
+  {
     name: "filter",
     app: "tally",
     about: "A feature used in several steps: the film alone, and the app.",
