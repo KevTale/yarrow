@@ -317,6 +317,11 @@ export function NewTicket({
         <TicketTalk
           projectId={projectId}
           form={draft}
+          go={{
+            label: start ? "Start the ticket" : "Create the ticket",
+            busy: pending !== null,
+            onGo: () => void submit(start),
+          }}
           focused={!written}
           onBegun={() => setTalked(true)}
           onWrite={edit}

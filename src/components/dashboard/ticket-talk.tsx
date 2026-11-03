@@ -4,13 +4,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { micLine, onLine } from "@/components/call-voice";
 import { Markdown } from "@/components/markdown";
-import type { DraftLine, DraftText } from "@/core/new-ticket";
+import { asksBack, type DraftLine, type DraftText } from "@/core/new-ticket";
 import { withoutBeats } from "@/core/stage";
 import {
   draftFormFn,
   saveDraftFormFn,
   ticketCallFn,
 } from "@/functions/ticket-agent.functions";
+import { TicketReady } from "./ticket-ready";
 
 /** How long a call stays open with nothing said. */
 const QUIET_MS = 60_000;
@@ -48,17 +49,21 @@ interface Session {
 /**
  * The agent beside the new ticket's form: told what is wanted, written or
  * aloud, it reads the code and the project's tickets, and fills in the form
- * as they talk. Only the form's buttons make the ticket.
+ * as they talk. Only the member makes the ticket: with the form's buttons or,
+ * once the agent's words ask nothing, the card under them.
  */
 export function TicketTalk({
   projectId,
   form,
   focused,
+  go,
   onBegun,
   onWrite,
 }: {
   projectId: string;
   form: DraftText;
+  /** The dialog's main action. */
+  go: { label: string; busy: boolean; onGo: () => void };
   /** Takes the focus as the dialog opens. */
   focused: boolean;
   /** Something was said: closing now would lose it. */
@@ -85,6 +90,14 @@ export function TicketTalk({
   const said = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const turn = useRef<AbortController | null>(null);
+  const thinking =
+    words !== null || (call === "on" && thread.at(-1)?.author === "builder");
+  const last = thread.at(-1);
+  const ready =
+    Boolean(form.title.trim()) &&
+    !thinking &&
+    last?.author === "agent" &&
+    !asksBack(last.body);
 
   useEffect(() => {
     if (focused) box.current?.focus();
@@ -99,7 +112,7 @@ export function TicketTalk({
   useLayoutEffect(() => {
     const column = said.current;
     if (column) column.scrollTop = column.scrollHeight;
-  }, [thread, words, hearing]);
+  }, [thread, words, hearing, ready]);
 
   const hangUp = () => {
     calls.current++;
@@ -285,8 +298,6 @@ export function TicketTalk({
     }
   }
 
-  const thinking =
-    words !== null || (call === "on" && thread.at(-1)?.author === "builder");
   return (
     <section className="nt-talk" aria-label="Write it with the agent">
       <div ref={said} className="pp-talk-thread">
@@ -319,6 +330,11 @@ export function TicketTalk({
                   <TextShimmer>Thinking</TextShimmer>
                 </p>
               )}
+            </li>
+          )}
+          {ready && (
+            <li className="pp-it">
+              <TicketReady title={form.title} {...go} />
             </li>
           )}
         </ol>

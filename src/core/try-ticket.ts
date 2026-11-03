@@ -238,7 +238,7 @@ One or two sentences on what people cannot do today.
 **Done when**
 - what must be true, three or four lines at most
 </ticket>
-The one question whose answer would change the ticket most, in one short sentence. When nothing is left to ask, say in a few words that it is ready to start.
+The line says in your own words that the ticket is written and ready to start. Never ask a question.
 
 Write about what people see and do, never about files or code. Never invent a number or a fact about Acme. Everything in the language of the visitor's last message. Other subjects: no ticket, say in a few words that you are here to write a ticket.`;
 }

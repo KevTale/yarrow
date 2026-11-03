@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
+import { asksBack } from "@/core/new-ticket";
 import {
   readAnswer,
   readTicket,
@@ -11,6 +12,19 @@ import { createTestDatabase } from "./helpers/pglite";
 
 const { db, raw, pg } = await createTestDatabase();
 afterAll(() => pg.close());
+
+describe("the agent's last words on a ticket", () => {
+  it("wait for an answer when they end on a question", () => {
+    expect(asksBack("Who can archive a task?")).toBe(true);
+    expect(asksBack("誰がアーカイブできますか？\n")).toBe(true);
+  });
+
+  it("leave the go-ahead to the member otherwise", () => {
+    expect(asksBack("Done, the ticket is written. Ready to start.")).toBe(
+      false,
+    );
+  });
+});
 
 describe("an answer on the ticket to review", () => {
   it("keeps its moments and takes the change apart", () => {

@@ -20,6 +20,9 @@ export interface DraftLine {
 }
 
 /** Where a new ticket goes: "github", or a linked board's key. */
+/** The agent's words end on a question: the ticket waits for the answer. */
+export const asksBack = (words: string) => /[?？]\s*$/.test(words);
+
 export const DESTINATION = /^(github|[A-Za-z0-9_]{1,10})$/;
 
 export const openedFromYarrow = (body: string, login: string) => {

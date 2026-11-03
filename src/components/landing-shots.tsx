@@ -3,18 +3,19 @@ import {
   ChevronRight,
   FileText,
   Github,
-  Play,
+  Ticket,
 } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { StageMark } from "@/components/dashboard/stage-mark";
+import { TicketReady } from "@/components/dashboard/ticket-ready";
 import { askSample, SampleBox } from "@/components/landing-agent";
 import { SampleRoom } from "@/components/landing-room";
 import { Markdown } from "@/components/markdown";
 import { ActivityList, type Crew } from "@/components/run-activity";
 import { storyLines, type ActivityLine } from "@/core/activity";
-import type { DraftLine } from "@/core/new-ticket";
+import { asksBack, type DraftLine } from "@/core/new-ticket";
 import { firstSentence } from "@/core/pull-notes";
 import type { TicketStage } from "@/core/tickets";
 import {
@@ -230,20 +231,33 @@ export function TicketGroup({
 }
 
 /** A ticket at work, as the real one reads: the ticket, then the activity. */
-function TicketAtWork({ ticket }: { ticket: WrittenTicket }) {
-  const [lines] = useState(workSoFar);
+function TicketAtWork({
+  asks,
+  lines,
+  live = true,
+}: {
+  asks: string;
+  lines: ActivityLine[];
+  live?: boolean;
+}) {
   return (
     <div className="pp-grid">
       <section className="pp-main">
-        <Markdown source={ticket.asks} />
+        <Markdown source={asks} />
       </section>
       <aside className="pp-aside">
         <section className="ra-story" aria-label="Activity">
-          <ActivityList lines={storyLines(lines)} live crew={crew} />
+          <ActivityList lines={storyLines(lines)} live={live} crew={crew} />
         </section>
       </aside>
     </div>
   );
+}
+
+/** The list's ticket at work, its activity so far. */
+function TicketSoFar({ ticket }: { ticket: WrittenTicket }) {
+  const [lines] = useState(workSoFar);
+  return <TicketAtWork asks={ticket.asks} lines={lines} />;
 }
 
 /** A ticket merged: what it asked and what came of it. */
@@ -278,12 +292,13 @@ function TicketShipped({ ticket }: { ticket: ShippedTicket }) {
 function TicketRow({
   ticket,
   opened = false,
-  merged = false,
+  note,
   children,
 }: {
   ticket: SampleTicket;
   opened?: boolean;
-  merged?: boolean;
+  /** Where it ended up, in place of its state. */
+  note?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(opened);
@@ -307,7 +322,7 @@ function TicketRow({
                 {ticket.work}
               </TextShimmer>
             )}
-            {merged && <span className="lp-merged">Merged</span>}
+            {note && <span className="lp-merged">{note}</span>}
           </span>
           <span className="tix-sponsor">
             <span className="tix-paid">Created by</span>
@@ -334,7 +349,11 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
   return (
     <div className="tix-list glass lp-dash">
       <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
-        <TicketRow ticket={priority} merged={merged} opened>
+        <TicketRow
+          ticket={priority}
+          note={merged ? "Merged" : undefined}
+          opened
+        >
           <SampleRoom
             sample="priority"
             cta={cta}
@@ -345,7 +364,7 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
       </TicketGroup>
       <TicketGroup stage="progress" label="In progress" count={1}>
         <TicketRow ticket={filtering}>
-          <TicketAtWork ticket={filtering} />
+          <TicketSoFar ticket={filtering} />
         </TicketRow>
       </TicketGroup>
       <TicketGroup stage="stopped" label="Stopped" count={0} />
@@ -390,10 +409,7 @@ const TELLS: Record<Step, { title: [string, string]; says: string }> = {
 
 type Step = "write" | "work" | "review";
 
-interface Drafted {
-  number: number;
-  title: string;
-  body: string;
+interface Drafted extends WrittenTicket {
   /** Written from the idea the film answers: anything else gets told so. */
   sample?: boolean;
 }
@@ -403,9 +419,20 @@ const archiveTitle = firstSentence(TRY_SAMPLES.archive.ticket);
 const SAMPLE: Drafted = {
   number: 149,
   title: archiveTitle,
-  body: TRY_SAMPLES.archive.ticket.slice(archiveTitle.length + 2),
+  who: "Léa Martin",
+  when: "Nov 1, 11:40",
+  asks: TRY_SAMPLES.archive.ticket.slice(archiveTitle.length + 2),
   sample: true,
 };
+
+const today = () =>
+  new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
 function StepHead({ step }: { step: Step }) {
   const { title, says } = TELLS[step];
@@ -421,98 +448,13 @@ function StepHead({ step }: { step: Step }) {
   );
 }
 
-/** A ticket on the board beside the dialog, its state under it. */
-function BoardRow({
-  ticket,
-  state,
-  fresh = false,
-}: {
-  ticket: Drafted;
-  state?: string;
-  fresh?: boolean;
-}) {
-  return (
-    <li className={fresh ? "lp-board-row fresh" : "lp-board-row"}>
-      <TicketNumber number={ticket.number} />
-      <span className="tix-title">{ticket.title}</span>
-      {state && (
-        <TextShimmer className="tix-state working">{state}</TextShimmer>
-      )}
-    </li>
-  );
-}
-
-function BoardGroup({
-  stage,
-  label,
-  count,
-  children,
-}: {
-  stage: TicketStage;
-  label: string;
-  count: number;
-  children: ReactNode;
-}) {
-  return (
-    <section>
-      <div className="tix-ghead">
-        <span className="tix-gtoggle">
-          <ChevronDown size={14} className="tix-gchev" aria-hidden="true" />
-          <StageMark stage={stage} />
-          {label}
-          <span className="tix-count">{count}</span>
-        </span>
-      </div>
-      {count > 0 && <ul className="lp-board-rows">{children}</ul>}
-    </section>
-  );
-}
-
-/** The board behind a step, the ticket where it stands. */
-function Board({
-  ticket,
-  at,
-  state,
-  done,
-}: {
-  ticket: Drafted;
-  at?: "progress" | "review";
-  state?: string;
-  done: Drafted[];
-}) {
-  return (
-    <div className="lp-flow">
-      <BoardGroup
-        stage="progress"
-        label="In progress"
-        count={at === "progress" ? 1 : 0}
-      >
-        <BoardRow ticket={ticket} state={state} fresh />
-      </BoardGroup>
-      <BoardGroup
-        stage="review"
-        label="To review"
-        count={at === "review" ? 1 : 0}
-      >
-        <BoardRow ticket={ticket} fresh />
-      </BoardGroup>
-      {done.length > 0 && (
-        <BoardGroup stage="done" label="Done" count={done.length}>
-          {done.map((one) => (
-            <BoardRow ticket={one} key={one.number} fresh />
-          ))}
-        </BoardGroup>
-      )}
-    </div>
-  );
-}
-
 /**
  * A ticket's way through Yarrow, in three steps taken at the visitor's pace.
- * The real new ticket dialog over the board, a rough idea ready in the box, a
- * real agent writing into the form as it answers; a real run's activity, which
- * starts as it comes into view, on the ticket sent or on the film's own; the
- * real room on that run's film.
+ * The real new ticket dialog, a rough idea ready in the box, a real agent
+ * writing into the form and offering to start it; the list's In progress with
+ * that ticket open, a real run's activity starting as it comes into view, on
+ * the film's own ticket for whoever sent none; To review with it open on the
+ * real room, on that run's film.
  */
 export function TicketSteps({ cta }: { cta: ReactNode }) {
   const reduced = useReducedMotion();
@@ -524,13 +466,10 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
   const [enough, setEnough] = useState(false);
   const [made, setMade] = useState(0);
   const [ticket, setTicket] = useState(SAMPLE);
-  const [sent, setSent] = useState(false);
   const [lines, setLines] = useState<ActivityLine[]>([]);
   const [seen, setSeen] = useState(0);
   const [merged, setMerged] = useState(false);
-  const [done, setDone] = useState<Drafted[]>([]);
   const thread = useRef<HTMLDivElement>(null);
-  const log = useRef<HTMLElement>(null);
   const work = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -559,11 +498,6 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
     const box = thread.current;
     if (box) box.scrollTop = box.scrollHeight;
   }, [said, words]);
-
-  useEffect(() => {
-    const box = log.current;
-    if (box) box.scrollTop = box.scrollHeight;
-  }, [seen]);
 
   async function send() {
     const line = text.trim().slice(0, TRY_WORDS);
@@ -609,34 +543,33 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
     }
   }
 
+  const toWork = () =>
+    work.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
   const name = title.trim();
   const start = () => {
-    if (!name || words !== null) return;
     setTicket({
       number: 150 + made,
       title: name,
-      body,
+      who: "You",
+      when: today(),
+      asks: body,
       sample: said[0]?.body === IDEA,
     });
     setMade(made + 1);
-    setSent(true);
     setMerged(false);
     setLines(archiveWork(LINE_MS));
     setSeen(1);
-    setTitle("");
-    setBody("");
-    setSaid([]);
-    setText(IDEA);
-    setEnough(false);
-    work.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
-  };
-  const merge = () => {
-    setDone((all) => [ticket, ...all].slice(0, 2));
-    setMerged(true);
+    toWork();
   };
 
+  const last = said.at(-1);
+  const started =
+    ticket !== SAMPLE && ticket.title === name && ticket.asks === body;
+  const ready =
+    Boolean(name) &&
+    words === null &&
+    (enough || (last?.author === "agent" && !asksBack(last.body)));
   const built = seen > 0 && seen >= lines.length;
-  const at = merged ? undefined : built ? "review" : "progress";
   const state =
     WORK[
       Math.min(
@@ -644,167 +577,148 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
         Math.floor((seen / Math.max(lines.length, 1)) * WORK.length),
       )
     ];
-  const where = (
-    <div className="nt-head">
-      <span className="nt-where">
-        <Github size={14} aria-hidden="true" /> GitHub
-      </span>
-      <ChevronRight size={13} className="nt-sep" aria-hidden="true" />
-      <span className="nt-crumb">Acme</span>
-    </div>
-  );
   return (
     <>
       <section className="lp-part">
         <StepHead step="write" />
         <div className="container">
-          <div className="lp-compose">
-            <Board
-              ticket={ticket}
-              at={sent ? at : undefined}
-              state={state}
-              done={done}
-            />
-            <div
-              className="nt nt-agent lp-modal"
-              role="group"
-              aria-label="New ticket"
-            >
-              <form
-                className="nt-card"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  start();
-                }}
-              >
-                {where}
-                <input
-                  className="nt-title"
-                  aria-label="Title"
-                  placeholder="Ticket title"
-                  value={title}
-                  maxLength={120}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-                <textarea
-                  className="nt-body"
-                  aria-label="Description"
-                  placeholder="Description, in Markdown"
-                  value={body}
-                  maxLength={1500}
-                  onChange={(event) => setBody(event.target.value)}
-                />
-                <div className="nt-foot">
-                  <button
-                    type="submit"
-                    className="tix-btn tix-btn-amber"
-                    disabled={!name || words !== null}
-                  >
-                    <Play size={11} fill="currentColor" aria-hidden="true" />
-                    Start
-                  </button>
-                </div>
-              </form>
-              <section className="nt-talk" aria-label="The agent">
-                <div className="pp-talk-thread" ref={thread}>
-                  <ol className="pp-chat">
-                    <li className="pp-it">
-                      <p className="pp-say">What are we building?</p>
-                    </li>
-                    {said.map((line, i) =>
-                      line.author === "builder" ? (
-                        <li className="pp-me" key={i}>
-                          <p className="pp-bubble">{line.body}</p>
-                        </li>
-                      ) : (
-                        <li className="pp-it" key={i}>
-                          <Markdown source={line.body} className="pp-say" />
-                        </li>
-                      ),
-                    )}
-                    {words !== null && (
-                      <li className="pp-it">
-                        {words ? (
-                          <Markdown source={words} className="pp-say" />
-                        ) : (
-                          <p className="pp-say">
-                            <TextShimmer>Thinking</TextShimmer>
-                          </p>
-                        )}
-                      </li>
-                    )}
-                    {enough && (
-                      <li className="pp-it">
-                        <p className="pp-say">
-                          That is plenty for a sample. Try me on your own
-                          tickets.
-                        </p>
-                      </li>
-                    )}
-                  </ol>
-                </div>
-                <SampleBox
-                  label="Tell the agent what you want"
-                  placeholder="Tell the agent what you want…"
-                  text={text}
-                  onText={setText}
-                  onSend={() => void send()}
-                  waiting={words !== null}
-                />
-              </section>
+          <div
+            className="nt nt-agent lp-modal"
+            role="group"
+            aria-label="New ticket"
+          >
+            <div className="nt-card">
+              <input
+                className="nt-title"
+                aria-label="Title"
+                placeholder="Ticket title"
+                value={title}
+                maxLength={120}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+              <textarea
+                className="nt-body"
+                aria-label="Description"
+                placeholder="Description, in Markdown"
+                value={body}
+                maxLength={1500}
+                onChange={(event) => setBody(event.target.value)}
+              />
             </div>
+            <section className="nt-talk" aria-label="The agent">
+              <div className="pp-talk-thread" ref={thread}>
+                <ol className="pp-chat">
+                  <li className="pp-it">
+                    <p className="pp-say">What are we building?</p>
+                  </li>
+                  {said.map((line, i) =>
+                    line.author === "builder" ? (
+                      <li className="pp-me" key={i}>
+                        <p className="pp-bubble">{line.body}</p>
+                      </li>
+                    ) : (
+                      <li className="pp-it" key={i}>
+                        <Markdown source={line.body} className="pp-say" />
+                      </li>
+                    ),
+                  )}
+                  {words !== null && (
+                    <li className="pp-it">
+                      {words ? (
+                        <Markdown source={words} className="pp-say" />
+                      ) : (
+                        <p className="pp-say">
+                          <TextShimmer>Thinking</TextShimmer>
+                        </p>
+                      )}
+                    </li>
+                  )}
+                  {enough && (
+                    <li className="pp-it">
+                      <p className="pp-say">
+                        That is plenty for a sample. Try me on your own tickets.
+                      </p>
+                    </li>
+                  )}
+                  {ready && (
+                    <li className="pp-it">
+                      {started ? (
+                        <button
+                          type="button"
+                          className="pp-act pp-ticket-made"
+                          onClick={toWork}
+                        >
+                          <Ticket size={15} aria-hidden="true" />
+                          <span>{ticket.title}</span>
+                          <small>#{ticket.number}</small>
+                        </button>
+                      ) : (
+                        <TicketReady
+                          title={name}
+                          label="Start the ticket"
+                          onGo={start}
+                        />
+                      )}
+                    </li>
+                  )}
+                </ol>
+              </div>
+              <SampleBox
+                label="Tell the agent what you want"
+                placeholder="Tell the agent what you want…"
+                text={text}
+                onText={setText}
+                onSend={() => void send()}
+                waiting={words !== null}
+              />
+            </section>
           </div>
         </div>
       </section>
       <section className="lp-part" ref={work}>
         <StepHead step="work" />
         <div className="container">
-          <div className="lp-compose">
-            <Board ticket={ticket} at={at} state={state} done={done} />
-            <div
-              className="nt nt-agent lp-modal"
-              role="group"
-              aria-label="Ticket at work"
-            >
-              <div className="nt-card">
-                {where}
-                <p className="nt-title">{ticket.title}</p>
-                <Markdown source={ticket.body} className="nt-body" />
-              </div>
-              <section
-                className="nt-talk lp-activity"
-                aria-label="Activity"
-                ref={log}
+          <div className="tix-list glass lp-dash lp-at-work">
+            <TicketGroup stage="progress" label="In progress" count={1}>
+              <TicketRow
+                ticket={{ ...ticket, work: built ? undefined : state }}
+                note={built ? "Ready to review" : undefined}
+                opened
               >
-                <ActivityList
-                  lines={storyLines(lines.slice(0, seen))}
+                <TicketAtWork
+                  asks={ticket.asks}
+                  lines={lines.slice(0, seen)}
                   live={!built}
-                  crew={crew}
                 />
-              </section>
-            </div>
+              </TicketRow>
+            </TicketGroup>
           </div>
         </div>
       </section>
       <section className="lp-part">
         <StepHead step="review" />
         <div className="container">
-          <div className="lp-compose">
-            <Board
-              ticket={ticket}
-              at={merged ? undefined : "review"}
-              done={done}
-            />
-            <div className="lp-reviewing">
-              <SampleRoom
-                key={ticket.number}
-                sample="archive"
-                lead={ticket.sample ? undefined : TRY_NOT_BUILT}
-                cta={cta}
-                merged={merged}
-                onMerged={merge}
-              />
-            </div>
+          <div className="tix-list glass lp-dash">
+            <TicketGroup
+              stage="review"
+              label="To review"
+              count={merged ? 0 : 1}
+            >
+              <TicketRow
+                ticket={ticket}
+                note={merged ? "Merged" : undefined}
+                opened
+              >
+                <SampleRoom
+                  key={ticket.number}
+                  sample="archive"
+                  lead={ticket.sample ? undefined : TRY_NOT_BUILT}
+                  cta={cta}
+                  merged={merged}
+                  onMerged={() => setMerged(true)}
+                />
+              </TicketRow>
+            </TicketGroup>
           </div>
         </div>
       </section>
