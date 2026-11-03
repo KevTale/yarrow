@@ -11,10 +11,10 @@ import {
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -23,24 +23,16 @@ import {
   demoParts,
   posterChapter,
   presentationSchema,
-  spokenWords,
   urlAt,
   wordsSaid,
   type DemoPart,
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
+import { asCall } from "@/components/call-voice";
 import { Spinner } from "@/components/navigation-feedback";
 
 const evidence = (key: string) => `/evidence/${key}`;
-
-/** The call to the agent, from the conversation: the film's moment goes with it. */
-export interface FilmCall {
-  state: "off" | "starting" | "on";
-  /** Called, the film paused in chapter `index`, `part` of it seen (0 to 1). */
-  onCall: (at: { index: number; part: number }) => void;
-  onHangUp: () => void;
-}
 
 /** The film played on by the page: from a chapter's start, or where it was. */
 export type FilmControl = (chapter: number | null) => void;
@@ -51,34 +43,25 @@ export interface FilmMoment {
   part: number;
   /** It was playing until now. */
   playing?: boolean;
+  /** Its chapter's title and its moment in the whole film, once under way. */
+  title?: string;
+  ms?: number;
 }
 
-/** What the demo said, as the conversation shows it. */
-export interface DemoLine {
-  id: string;
-  body: string;
-  at: string;
-}
-
-/** Words of a chapter the demo said in one go. */
-interface Told {
-  index: number;
-  from: number;
-  to: number;
-  at: number;
-}
-
-/** A ticket's row, opened on its demo. */
+/** A ticket's row, opened on its demo, waiting for Play. */
 export interface DemoRow {
-  /** The first time it starts by itself; after, it waits where it was left. */
-  autoStart: boolean;
   /** Played on: whatever took the canvas gives it back. */
   onBack: () => void;
   /** The canvas touched; without it, a touch plays and pauses. */
   onTouch?: () => void;
   /** The app is on its way to the member's hands. */
   waiting: boolean;
-  onLines: (lines: DemoLine[]) => void;
+  /** The microphone is open: its voice must not reach it. */
+  listening: boolean;
+  /** What the agent says before it starts. */
+  message: ReactNode;
+  /** What is left to decide once it ended. */
+  end: ReactNode;
 }
 
 const PART_LABELS: Record<DemoPart, string> = {
@@ -92,7 +75,6 @@ interface Left {
   index: number;
   ms: number;
   finished: boolean;
-  told: Told[];
 }
 const leftKey = (key: string) => `yarrow.demo.${key}`;
 function leftAt(key: string): Left | null {
@@ -212,9 +194,7 @@ export function Presentation({
   onCinema,
   seekRef,
   playRef,
-  phoneRef,
   pauseRef,
-  call,
   demo,
 }: {
   artifact: StoredArtifact;
@@ -225,12 +205,8 @@ export function Presentation({
   seekRef?: RefObject<((ms: number) => void) | null>;
   /** Set to play the film on: the agent's resume_presentation. */
   playRef?: RefObject<FilmControl | null>;
-  /** Set to call (or hang up) from where it is: the conversation's. */
-  phoneRef?: RefObject<(() => void) | null>;
   /** Set to pause it and read where it is: taking control from there. */
   pauseRef?: RefObject<(() => FilmMoment) | null>;
-  /** The agent can be called from it. */
-  call?: FilmCall;
   /** In a ticket's row: the canvas, its controls under it. */
   demo?: DemoRow;
 }) {
@@ -253,16 +229,13 @@ export function Presentation({
       onCinema={onCinema}
       seekRef={seekRef}
       playRef={playRef}
-      phoneRef={phoneRef}
       pauseRef={pauseRef}
-      call={call}
       demo={demo}
       memory={artifact.key}
     />
   );
 }
 
-/** The agent called, from the film's bar or from over an image. */
 function Player({
   timeline,
   poster,
@@ -270,9 +243,7 @@ function Player({
   onCinema,
   seekRef,
   playRef,
-  phoneRef,
   pauseRef,
-  call,
   demo,
   memory,
 }: {
@@ -282,9 +253,7 @@ function Player({
   onCinema?: () => void;
   seekRef?: RefObject<((ms: number) => void) | null>;
   playRef?: RefObject<FilmControl | null>;
-  phoneRef?: RefObject<(() => void) | null>;
   pauseRef?: RefObject<(() => FilmMoment) | null>;
-  call?: FilmCall;
   demo?: DemoRow;
   memory: string;
 }) {
@@ -296,6 +265,8 @@ function Player({
   const [playing, setPlaying] = useState(false);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
+  // Opened, it waits for Play, where it was left; played, that is behind it.
+  const [poised, setPoised] = useState(true);
   // The timeline loads in the browser: the button never renders on the server.
   const [voice, setVoice] = useState(() => saved(VOICE_KEY));
   const [captions, setCaptions] = useState(() => saved(CAPTIONS_KEY));
@@ -467,60 +438,26 @@ function Player({
     return () => clip?.removeEventListener("seeked", onReady);
   }, [playing, playMedia]);
 
-  // What it says goes to the conversation as it says it, a pause opening a
-  // new line; what was already said, heard again, is not written twice.
-  const told = useRef<Told[]>([]);
-  const heard = useRef(new Map<number, number>());
-  const broke = useRef(true);
-  const lines = useRef(demo?.onLines);
-  const tell = () =>
-    lines.current?.(
-      told.current.flatMap(({ index: said, from: first, to, at }) => {
-        const told = chapters[said];
-        if (!told) return [];
-        return {
-          id: `said${said}:${first}`,
-          body: spokenWords(told)
-            .slice(first, to)
-            .map((word) => word.text)
-            .join(" "),
-          at: new Date(at).toISOString(),
-        };
-      }),
-    );
-  const words = useMemo(() => (chapter ? spokenWords(chapter) : []), [chapter]);
+  // The microphone open: its voice played as a call's, so it does not hear it.
+  const routed = useRef<Promise<() => void> | null>(null);
+  const listening = demo?.listening ?? false;
   useEffect(() => {
-    if (!playing) broke.current = true;
-    if (!demo || !playing) return;
-    const count = words.filter((word) => word.startMs <= time.spoken).length;
-    const before = heard.current.get(index) ?? 0;
-    if (count <= before) return;
-    heard.current.set(index, count);
-    const last = told.current.at(-1);
-    if (last?.index === index && last.to === before && !broke.current)
-      last.to = count;
-    else told.current.push({ index, from: before, to: count, at: Date.now() });
-    broke.current = false;
-    tell();
-    // Only its words move it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, time.spoken, words]);
+    if (listening && audio.current) routed.current ??= asCall(audio.current);
+  }, [listening]);
+  useEffect(
+    () => () => void routed.current?.then((hangUp) => hangUp()),
+    [],
+  );
 
   // Where it is, kept each time it stops or moves on, and as the row closes.
   const keep = useRef(() => {});
   useEffect(() => {
-    lines.current = demo?.onLines;
     keep.current = () => {
       if (!demo || !started) return;
       try {
         localStorage.setItem(
           leftKey(memory),
-          JSON.stringify({
-            index,
-            ms: now(),
-            finished,
-            told: told.current,
-          } satisfies Left),
+          JSON.stringify({ index, ms: now(), finished } satisfies Left),
         );
       } catch {
         // Private window: it starts over next time.
@@ -592,14 +529,13 @@ function Player({
   const toggle = () => {
     if (!timeline) return;
     if (!playing) demo?.onBack();
-    // Played on during a call: the call ends.
-    if (!playing && call && call.state !== "off") call.onHangUp();
     if (finished) {
       jump(0);
       return;
     }
     wake();
     allowSound();
+    setPoised(false);
     setStarted(true);
     setPlaying((on) => !on);
   };
@@ -613,17 +549,8 @@ function Player({
           index,
           part: started ? Math.min(1, elapsed / (length || 1)) : 0,
           playing,
+          ...(started ? { title: chapter?.title, ms: played } : {}),
         };
-  };
-  // The film paused where it is, the agent called there.
-  const phone = () => {
-    if (!call) return;
-    if (call.state !== "off") {
-      call.onHangUp();
-      return;
-    }
-    allowSound();
-    call.onCall(pause());
   };
   function jump(to: number, offset = 0, play = true, ended = false) {
     wake();
@@ -634,20 +561,16 @@ function Player({
     setIndex(to);
     setTake((n) => n + 1);
     setPlaying(play);
+    if (play) setPoised(false);
   }
-  // The row opened: it starts, or waits where it was left.
+  // The row opened: it waits for Play, where it was left.
   const begun = useRef(false);
   useEffect(() => {
     if (!demo || !timeline || begun.current) return;
     begun.current = true;
     const left = leftAt(memory);
-    if (left && left.index < chapters.length) {
-      told.current = left.told;
-      for (const { index: said, to } of left.told)
-        heard.current.set(said, Math.max(to, heard.current.get(said) ?? 0));
-      tell();
+    if (left && left.index < chapters.length)
       jump(left.index, left.ms, false, left.finished);
-    } else if (demo.autoStart) jump(0);
     // Once, as its timeline arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeline]);
@@ -706,14 +629,16 @@ function Player({
         else if (finished) jump(0);
         else {
           wake();
+          allowSound();
+          setPoised(false);
           setStarted(true);
           setPlaying(true);
         }
       };
-    if (phoneRef) phoneRef.current = phone;
     if (pauseRef) pauseRef.current = pause;
   });
   const idle = !demo && playing && !awake;
+  const waitsForPlay = !started || Boolean(demo && poised && !finished);
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
   // A document is a page in the browser, as the app's are.
@@ -802,6 +727,22 @@ function Player({
       )}
     </button>
   );
+  const captionsButton = (
+    <button
+      type="button"
+      className="pv-icon"
+      onClick={flipCaptions}
+      aria-pressed={captions}
+      aria-label="Captions"
+      data-tip={captions ? "Hide captions" : "Show captions"}
+    >
+      {captions ? (
+        <Captions size={18} aria-hidden="true" />
+      ) : (
+        <CaptionsOff size={18} aria-hidden="true" />
+      )}
+    </button>
+  );
   const cinemaButton = onCinema && (
     <button
       type="button"
@@ -839,6 +780,7 @@ function Player({
       )}
       <span className="pv-tools">
         {soundButton}
+        {captionsButton}
         {cinemaButton}
       </span>
     </div>
@@ -868,20 +810,7 @@ function Player({
           >
             {speed}×
           </button>
-          <button
-            type="button"
-            className="pv-icon"
-            onClick={flipCaptions}
-            aria-pressed={captions}
-            aria-label="Captions"
-            data-tip={captions ? "Hide captions" : "Show captions"}
-          >
-            {captions ? (
-              <Captions size={18} aria-hidden="true" />
-            ) : (
-              <CaptionsOff size={18} aria-hidden="true" />
-            )}
-          </button>
+          {captionsButton}
           {soundButton}
           {cinemaButton}
         </span>
@@ -948,7 +877,7 @@ function Player({
               <Spinner />
             </span>
           )}
-          {!started && (
+          {waitsForPlay && (
             <button
               type="button"
               className="pv-start"
@@ -960,9 +889,13 @@ function Player({
               </span>
             </button>
           )}
+          {demo && waitsForPlay && demo.message && (
+            <div className="pv-word">{demo.message}</div>
+          )}
+          {demo && finished && <div className="pv-end">{demo.end}</div>}
           <div className="pv-overlay">
             <p className="pv-caption" aria-live="polite">
-              {!demo &&
+              {(demo ? playing : true) &&
                 captions &&
                 started &&
                 cue?.text &&

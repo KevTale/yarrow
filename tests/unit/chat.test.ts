@@ -8,7 +8,10 @@ import {
   chatCostCents,
   chatDayStart,
   chatParts,
+  answerToRead,
+  captionLines,
   clockLabel,
+  lineAt,
   spokenAnswer,
 } from "../../src/core/chat";
 import { ensureAccount } from "../../src/db/accounts";
@@ -86,6 +89,29 @@ describe("the conversation's rules", () => {
       ),
     ).toBe("Yes. See the README and dueDate. Done");
     expect(spokenAnswer("a".repeat(3000))).toHaveLength(1500);
+    expect(spokenAnswer("Here [at 0:23], as you saw.")).toBe(
+      "Here , as you saw.",
+    );
+  });
+
+  it("cuts an answer for the screen, at its sentences", () => {
+    const long = `${"word ".repeat(40)}end.`;
+    const lines = captionLines(`${long} Short one.`);
+    expect(lines.every((line) => line.length <= 112)).toBe(true);
+    expect(lines.join(" ")).toBe(`${long} Short one.`);
+    expect(captionLines("Yes.")).toEqual(["Yes."]);
+    expect(lineAt(["one", "two"], 0)).toBe("one");
+    expect(lineAt(["one", "two"], 0.6)).toBe("two");
+    expect(lineAt(["one", "two"], 1)).toBe("two");
+    expect(lineAt([], 0.5)).toBeNull();
+  });
+
+  it("knows an answer that only the eye can follow", () => {
+    expect(answerToRead("Above the list.", null)).toBe(false);
+    expect(answerToRead("Three files:\n- a\n- b", null)).toBe(true);
+    expect(answerToRead("```ts\nconst a = 1;\n```", null)).toBe(true);
+    expect(answerToRead("I can do that.", "Add a filter")).toBe(true);
+    expect(answerToRead("a".repeat(1501), null)).toBe(true);
   });
 
   it("turns [at m:ss] into moments of the film", () => {

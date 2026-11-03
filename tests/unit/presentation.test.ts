@@ -11,7 +11,6 @@ import {
   estimatedCues,
   estimateSpeechMs,
   posterChapter,
-  spokenWords,
   urlAt,
   wordsSaid,
 } from "../../src/core/presentation";
@@ -176,33 +175,6 @@ describe("chapter length", () => {
       { part: "proof", chapters: [1, 2] },
     ]);
     expect(demoParts([parted("context"), parted(null)])).toBeNull();
-    // Word by word when the voice gave their times, a cue whole otherwise.
-    expect(
-      spokenWords({
-        ...base,
-        video: null,
-        audio: null,
-        cues: [
-          {
-            startMs: 0,
-            endMs: 900,
-            text: "Two words",
-            words: [
-              { startMs: 0, text: "Two" },
-              { startMs: 500, text: "words" },
-            ],
-          },
-          { startMs: 900, endMs: 1500, text: "Then a cue", words: [] },
-        ],
-      }),
-    ).toEqual([
-      { startMs: 0, text: "Two" },
-      { startMs: 500, text: "words" },
-      { startMs: 900, text: "Then a cue" },
-    ]);
-    expect(
-      spokenWords({ ...base, video: null, audio: null, cues: [] })[0]?.startMs,
-    ).toBe(0);
     // A voice longer than the clip: the clip holds its last frame.
     expect(
       chapterMs({ ...base, video, audio: { key: "a", durationMs: 6200 } }),

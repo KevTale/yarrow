@@ -9136,6 +9136,260 @@ html:has(.pp-stage:modal) {
   }
 }
 
+/* A ticket with its demo: one room. The screen centered, as large as the
+   window leaves it over its two bars (194px are the header's room and the
+   row's own line and margins); the conversation beside it only when it opens,
+   taken from the room around the screen first. */
+.pp.pp-roomy {
+  padding: 8px 24px 24px;
+}
+.pp-room {
+  --room: max(380px, calc(100dvh - 194px));
+  --screen-h: calc(var(--room) - 110px);
+}
+.pp-meet {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+.pp-seat {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(var(--screen-h) * 1.6));
+  min-width: 0;
+}
+.pp-bar {
+  margin-top: 0;
+}
+.pp-bar > .pp-asking {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.pp-bar .pp-input {
+  align-items: center;
+  padding: 2px;
+}
+.pp-bar .pp-input textarea {
+  padding: 5px 0;
+  font-size: 13px;
+  line-height: 18px;
+}
+.pp-bar .pp-call {
+  height: 28px;
+  padding: 0 7px;
+}
+.pp-bar .pp-go {
+  width: 28px;
+  height: 28px;
+}
+.pp-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  min-width: 28px;
+  margin-right: 6px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--muted);
+  font:
+    500 12px var(--font-geist-mono),
+    monospace;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.pp-toggle:hover,
+.pp-toggle[aria-pressed="true"] {
+  background: #ffffff14;
+  color: var(--text);
+}
+/* What is being said, where the demo's own words go, the app under it. */
+.pp-said {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 1;
+  align-items: center;
+  align-self: start;
+  justify-content: flex-end;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  container-type: size;
+  pointer-events: none;
+}
+.pp-said-q {
+  display: -webkit-box;
+  align-self: flex-end;
+  max-width: 60%;
+  margin: 0 12px 10px;
+  padding: 6px 12px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #3a3f47;
+  color: #fff;
+  font-size: clamp(12px, 1.8cqw, 18px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.pp-said .pp-dots {
+  padding: 0.55em 0.7em;
+}
+/* Before it starts: what the agent says first, under its Play. */
+.pv-demo .pv-start {
+  padding-bottom: 8%;
+  background: rgba(10, 12, 14, 0.58);
+}
+.pv-demo .pv-start:hover {
+  background: rgba(10, 12, 14, 0.44);
+}
+.pv-word {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  gap: 2px;
+  padding: 0 6cqw 3cqh;
+  color: #fff;
+  font-size: clamp(13px, 1.9cqw, 20px);
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+.pv-word p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* Where it ends: what is left to know, and the decision. */
+.pv-end {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: safe center;
+  padding: 16px 10cqw;
+  overflow-y: auto;
+  background: rgba(10, 12, 14, 0.82);
+  color: #fff;
+  font-size: clamp(13px, 1.9cqw, 18px);
+  line-height: 1.5;
+  text-align: center;
+}
+.pv-end p {
+  margin: 0;
+}
+.pv-end-go {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+/* The conversation, beside the screen, as tall as it and its bars. */
+.pp-tray {
+  position: relative;
+  display: grid;
+  flex: 0 0 340px;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.pp-tray .pp-talk-thread {
+  contain: size;
+  padding: 40px 12px 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.pp-tray-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+.pp-me {
+  gap: 6px;
+}
+.pp-ideas-box {
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(70dvh, 560px);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+.pp-ideas-box::backdrop {
+  background: rgba(8, 9, 11, 0.6);
+}
+.pp-ideas-box .pp-ideas {
+  padding: 14px;
+}
+/* Full screen is the same room, the window its only limit. */
+.pp-room:modal {
+  --room: calc(100dvh - 86px);
+  display: block;
+  padding: 66px 20px 20px;
+}
+.pp-room:modal .pp-film {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: stretch;
+  padding: 0;
+  container-type: normal;
+}
+.pp-room:modal .pv {
+  width: auto;
+}
+.pp-room:modal .pp-tray {
+  flex-basis: 400px;
+}
+@media (max-width: 760px) {
+  .pp.pp-roomy {
+    padding: 4px 4px 22px;
+  }
+  .pp-meet {
+    flex-direction: column;
+  }
+  .pp-seat {
+    width: 100%;
+  }
+  .pp-bar > .pp-asking {
+    order: 1;
+    flex-basis: 100%;
+  }
+  .pp-tray {
+    flex: none;
+  }
+  .pp-tray .pp-talk-thread {
+    contain: none;
+    max-height: 65vh;
+  }
+  .pp-room:modal {
+    padding: 58px 0 0;
+    overflow-y: auto;
+  }
+  .pp-room:modal .pp-bar {
+    padding: 0 8px;
+  }
+}
+
 /* The implementer's screenshots, under the summary; full size on a click. */
 .pp-shots {
   display: grid;

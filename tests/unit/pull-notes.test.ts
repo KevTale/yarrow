@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { TITLE_MAX } from "../../src/core/new-ticket";
 import {
   agentNotes,
+  firstSentence,
   criterionMarkdown,
-  noticedLine,
   splitNote,
   spottedTicket,
 } from "../../src/core/pull-notes";
@@ -123,19 +123,12 @@ describe("pull request notes", () => {
     ]);
   });
 
-  it("leads to what it noticed as a colleague would", () => {
-    const clean = { notes: false, good: true };
-    expect(noticedLine(1, clean)).toBe(
-      "All good on my side, but I noticed something outside this ticket:",
+  it("says what changed in its first sentence, whole numbers kept", () => {
+    expect(firstSentence("Tasks have a priority. Old ones stay normal.")).toBe(
+      "Tasks have a priority",
     );
-    expect(noticedLine(2, clean)).toBe(
-      "All good on my side, but I noticed two things outside this ticket:",
-    );
-    expect(noticedLine(3, { notes: false, good: false })).toBe(
-      "I noticed a few things outside this ticket:",
-    );
-    expect(noticedLine(1, { notes: true, good: true })).toBe(
-      "I also noticed something outside this ticket:",
+    expect(firstSentence("Node 20.1 is required now")).toBe(
+      "Node 20.1 is required now",
     );
   });
 

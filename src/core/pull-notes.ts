@@ -67,24 +67,8 @@ export function agentNotes(input: {
   return [...new Set(lines)];
 }
 
-/**
- * What the agent says before what it noticed outside the ticket, as a
- * colleague would: after its notes, or after "all good" on a pull request
- * it has reviewed and nothing is left to do on.
- */
-export function noticedLine(
-  count: number,
-  said: { notes: boolean; good: boolean },
-): string {
-  const what =
-    count === 1 ? "something" : count === 2 ? "two things" : "a few things";
-  if (said.notes) return `I also noticed ${what} outside this ticket:`;
-  const lead = said.good ? "All good on my side, but I" : "I";
-  return `${lead} noticed ${what} outside this ticket:`;
-}
-
-/** A suggestion's first sentence, the title of the ticket made from it. */
-function firstSentence(text: string): string {
+/** A text's first sentence, without its full stop: a ticket's title, a poster's line. */
+export function firstSentence(text: string): string {
   const end = text.search(/[.!?](\s|$)/);
   return (end === -1 ? text : text.slice(0, end)).trim();
 }

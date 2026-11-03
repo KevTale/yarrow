@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronDown,
   ChevronRight,
-  GitMerge,
   Github,
   Play,
   Plus,
@@ -34,7 +33,6 @@ import {
 } from "@/core/tickets";
 import {
   getBuilderFn,
-  pullRequestActionFn,
   queueTicketsFn,
   retryTicketFn,
   setProjectLogoFn,
@@ -50,6 +48,7 @@ import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
 import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
+import { MergeGo } from "./merge-go";
 import { SlideGo } from "./slide-go";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
@@ -931,7 +930,11 @@ function TicketLine({
               />
             )}
             {row.status === "pull_request" && row.change === null && (
-              <MergeGo row={row} projectId={projectId} onChanged={onChanged} />
+              <MergeGo
+                rowKey={row.key}
+                projectId={projectId}
+                onChanged={onChanged}
+              />
             )}
           </span>
           <SponsorCell row={row} projectId={projectId} />
@@ -983,58 +986,6 @@ function RowState({ row }: { row: TicketRow }) {
   return work ? (
     <TextShimmer className="tix-state working">{work}</TextShimmer>
   ) : null;
-}
-
-/**
- * Merge, on the line under the pointer like Start and Retry: slid to the
- * end, it merges (ready first when it is a draft). Hidden while a change
- * asked is at work, since its commit would be left out.
- */
-function MergeGo({
-  row,
-  projectId,
-  onChanged,
-}: {
-  row: TicketRow;
-  projectId: string;
-  onChanged: () => void;
-}) {
-  const merge = useServerFn(pullRequestActionFn);
-  const [merging, setMerging] = useState(false);
-  const [error, setError] = useState("");
-
-  async function go() {
-    if (merging) return;
-    setError("");
-    setMerging(true);
-    try {
-      const result = await merge({
-        data: { projectId, key: row.key, action: "merge" },
-      });
-      if (result.ok) onChanged();
-      else setError(result.error);
-    } catch {
-      setError("That did not go through. Try again.");
-    } finally {
-      setMerging(false);
-    }
-  }
-  return (
-    <>
-      {error && (
-        <span className="tix-state stopped" title={error}>
-          Not merged
-        </span>
-      )}
-      <SlideGo
-        label="Merge"
-        tone="green"
-        icon={<GitMerge size={12} aria-hidden="true" />}
-        busy={merging}
-        onGo={go}
-      />
-    </>
-  );
 }
 
 /** The opened row unfolds under its row and folds back on a spring. */

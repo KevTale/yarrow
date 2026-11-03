@@ -22,11 +22,52 @@ const SPOKEN_CHARS = 1500;
 export function spokenAnswer(body: string): string {
   return body
     .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\[at \d{1,2}:[0-5]\d\]/g, "")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[`*#>]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, SPOKEN_CHARS);
+}
+
+/** An answer that is read, not heard: what it shows only the eye can follow. */
+export function answerToRead(body: string, change: string | null): boolean {
+  return (
+    Boolean(change) ||
+    body.length > SPOKEN_CHARS ||
+    /```|^\s*(?:[-*]|\d+\.)\s/m.test(body)
+  );
+}
+
+/** The most of an answer on the screen at once. */
+const CAPTION_CHARS = 110;
+
+/** An answer cut for the screen: a line at a time, at its sentences. */
+export function captionLines(text: string): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    if (line && line.length + word.length >= CAPTION_CHARS) {
+      lines.push(line);
+      line = "";
+    }
+    line = line ? `${line} ${word}` : word;
+    if (/[.!?…]$/.test(word) && line.length > CAPTION_CHARS / 2) {
+      lines.push(line);
+      line = "";
+    }
+  }
+  return line ? [...lines, line] : lines;
+}
+
+/** The line being said, `part` of them said (0 to 1), by their length. */
+export function lineAt(lines: string[], part: number): string | null {
+  let left = part * lines.reduce((sum, line) => sum + line.length, 0);
+  for (const line of lines) {
+    if (left < line.length) return line;
+    left -= line.length;
+  }
+  return lines.at(-1) ?? null;
 }
 
 /** What one answer used, as the provider counts it. */

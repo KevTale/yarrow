@@ -8,6 +8,8 @@ import {
   CircleDashed,
   FileDiff,
   GitCommitHorizontal,
+  Lightbulb,
+  MessageSquare,
   Mic,
   MicOff,
   Play,
@@ -25,15 +27,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { chatParts } from "@/core/chat";
+import {
+  answerToRead,
+  captionLines,
+  chatParts,
+  lineAt,
+  spokenAnswer,
+} from "@/core/chat";
 import { previewHref } from "@/core/preview";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
 import { modelShortName } from "@/core/pipeline";
+import { estimateSpeechMs } from "@/core/presentation";
 import { leadProof } from "@/core/proofs";
 import {
   agentNotes,
-  noticedLine,
+  firstSentence,
   splitNote,
   spottedTicket,
 } from "@/core/pull-notes";
@@ -46,17 +55,15 @@ import {
 } from "@/functions/builder.functions";
 import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { hushAnswer, sayAnswer } from "@/components/answer-voice";
+import { hushAnswer, readAnswer, sayAnswer } from "@/components/answer-voice";
 import { LiveCall, useLiveStage } from "@/components/live-stage";
 import {
   loadPresentation,
   Presentation,
   saved,
   VOICE_KEY,
-  type FilmCall,
   type FilmControl,
   type FilmMoment,
-  type DemoLine,
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
@@ -68,6 +75,7 @@ import {
   Slider,
   type AppLink,
 } from "@/components/proofs";
+import { MergeGo } from "./merge-go";
 import { DraftTicket } from "./new-ticket";
 
 type Panel = NonNullable<Awaited<ReturnType<typeof getPullPanelFn>>>;
@@ -251,15 +259,43 @@ function useSessionLost(
   return lost;
 }
 
+/** What is said over the screen: the question, then the agent's line. */
+interface SaidNow {
+  question: string;
+  line: string | null;
+}
+
+/** The line the agent is saying on a call, by how long its words take. */
+function useSpokenLine(text: string): string | null {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    if (!text) return;
+    const cut = captionLines(text);
+    const length = estimateSpeechMs(text);
+    const started = Date.now();
+    const timer = setInterval(
+      () => setLine(lineAt(cut, (Date.now() - started) / length)),
+      250,
+    );
+    return () => {
+      clearInterval(timer);
+      setLine(null);
+    };
+  }, [text]);
+  return line;
+}
+
 /**
- * A ticket's row, opened: what the ticket asks, what changed with the one
- * thing that proves it, and at its foot the files and what opens elsewhere;
- * the agent's notes and the conversation on the right, where a change asked
- * goes to the pull request. Who paid is on the row's line. The film plays
- * first when there is one; the member calls the agent from the conversation,
- * and the pull request's stage takes the film's place, the app live where it
- * was paused, until the film plays on. Before the stage is up, the call is by
- * voice alone.
+ * A ticket's row, opened. With a demo, one room: the screen centered, what is
+ * said written over it, the member's word under it and a decision where it
+ * ends. It waits for Play; a question sent or a voice stops it, the agent
+ * answers over the screen and it goes on by itself. What must be read opens
+ * beside the screen, as the conversation does when asked for. The pull
+ * request's stage takes the demo's place, the app live where it was paused,
+ * when the agent shows something or the member takes the mouse; before it is
+ * up, the agent answers by voice alone. Without a demo: what the ticket asks,
+ * what changed with the one thing that proves it, the conversation on the
+ * right, and at the foot the files and what opens elsewhere.
  */
 export function PullPanel({
   projectId,
@@ -285,8 +321,11 @@ export function PullPanel({
       window.matchMedia("(min-width: 761px)").matches,
   );
   const play = useRef<FilmControl | null>(null);
-  const phone = useRef<(() => void) | null>(null);
   const pause = useRef<(() => FilmMoment) | null>(null);
+  // Stopped as it played, the demo goes on by itself once the agent is done.
+  const goesOn = useRef(false);
+  const askedHere = useRef(false);
+  const resting = useRef(false);
   const stage = useLiveStage({
     projectId,
     rowKey,
@@ -300,27 +339,42 @@ export function PullPanel({
     answering: panel?.messages.some((message) => message.status === "pending"),
     refresh,
     onResume: (chapter) => play.current?.(chapter),
+    onVoice: () => {
+      const at = pause.current?.() ?? null;
+      goesOn.current = goesOn.current || Boolean(at?.playing);
+      return at;
+    },
+    onVoiceEnd: () => carryOn(),
   });
+  const carryOn = () => {
+    if (!goesOn.current) return;
+    goesOn.current = false;
+    stage.toDemo();
+    play.current?.(null);
+  };
   const lost = useSessionLost(
     projectId,
     rowKey,
     Boolean(panel?.preview?.signIn),
   );
 
-  // Cinema: the film or the image fills the window beside the conversation,
-  // which goes with it; the page under it held where it was.
+  // Cinema: the demo or the image fills the window, the page under it held
+  // where it was.
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
-  const [told, setTold] = useState<DemoLine[]>([]);
+  // The conversation, shut at rest; the row keeps its height as it opens.
+  const [talkShown, setTalkShown] = useState(false);
+  const [heldHeight, setHeldHeight] = useState<number>();
+  const [said, setSaid] = useState<SaidNow | null>(null);
+  const spokenLine = useSpokenLine(stage.spoken);
   const theater = useRef<HTMLDialogElement>(null);
+  const seat = useRef<HTMLDivElement>(null);
   const seek = useRef<((ms: number) => void) | null>(null);
-  // Interrupted, the demo goes on by itself once the agent has answered:
-  // stopped for what is being typed, and asked here.
-  const typing = useRef<{ playing: boolean } | null>(null);
-  const goesOn = useRef(false);
-  const askedHere = useRef(false);
-  const resting = useRef(false);
+  const openTray = () => {
+    setHeldHeight(seat.current?.offsetHeight);
+    setTalkShown(true);
+  };
   const answering = Boolean(
     panel?.messages.some((message) => message.status === "pending"),
   );
@@ -332,15 +386,32 @@ export function PullPanel({
     const answer = panel?.messages
       .filter((message) => message.author === "agent")
       .at(-1);
-    if (!answer) return;
     void (async () => {
-      const heard = saved(VOICE_KEY)
-        ? await sayAnswer(projectId, rowKey, answer.id)
-        : await sleep(readingMs(answer.body)).then(() => true);
-      if (!heard || !goesOn.current) return;
-      goesOn.current = false;
-      stage.toDemo();
-      play.current?.(null);
+      if (!answer) return setSaid(null);
+      // What only reads opens beside the screen: the demo waits for it to
+      // be closed.
+      if (answerToRead(answer.body, answer.change)) {
+        setSaid(null);
+        openTray();
+        return;
+      }
+      const failed = answer.status === "failed";
+      const text = failed ? "No answer this time." : spokenAnswer(answer.body);
+      const cut = captionLines(text);
+      const show = (part: number) =>
+        setSaid((now) => now && { ...now, line: lineAt(cut, part) });
+      const heard =
+        saved(VOICE_KEY) && !failed
+          ? await sayAnswer({
+              projectId,
+              key: rowKey,
+              messageId: answer.id,
+              onPart: show,
+            })
+          : await readAnswer(readingMs(text), show);
+      if (!heard) return;
+      setSaid(null);
+      carryOn();
     })();
     // Only an answer ending moves it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -395,81 +466,38 @@ export function PullPanel({
   const canTry = wide && panel.preview;
   const stayHere = () => {
     goesOn.current = false;
-    typing.current = null;
     hushAnswer();
+    setSaid(null);
   };
   const tryIt = () => {
     stayHere();
     stage.takeControl(pause.current?.() ?? null);
-  };
-  // The demo waits for what is being typed, and goes on if it is taken back.
-  const typed = (text: string) => {
-    setDraft(text);
-    const words = text.trim().length > 0;
-    if (words && !typing.current)
-      typing.current = { playing: pause.current?.().playing ?? false };
-    else if (!words && typing.current) {
-      if (typing.current.playing) play.current?.(null);
-      typing.current = null;
-    }
   };
   // The demo again: at a moment, or where it was.
   const toFilm = (ms: number) => {
     stage.toDemo();
     seek.current?.(ms);
   };
-  // The agent called from the conversation: over the stage once it is up,
-  // by voice alone before.
-  const call: FilmCall | undefined = pullRequest
-    ? {
-        state: stage.talk,
-        onCall: (at) => void stage.callFrom(at),
-        onHangUp: () => stage.endTalk(),
-      }
-    : undefined;
-  // The conversation, the panel's right column, beside the film in cinema;
-  // beside the stage, the agent acts on it.
-  const talk = (
-    <Conversation
-      panel={panel}
-      projectId={projectId}
-      rowKey={rowKey}
-      draft={draft}
-      onDraft={typed}
-      onPanel={setPanel}
-      onRefresh={refresh}
-      onSeek={presentation ? toFilm : null}
-      onMade={() => {
-        void refresh();
-        onChanged();
-      }}
-      stage={asksStage}
-      turn={stage.turn}
-      told={told}
-      onAsking={() => {
-        const at = pause.current?.() ?? null;
-        hushAnswer();
-        goesOn.current = Boolean(at?.playing || typing.current?.playing);
-        typing.current = null;
-        askedHere.current = true;
-        if (asksStage) stage.ask(at);
-        else stage.hold();
-      }}
-      call={
-        call && {
-          state: call.state,
-          // Through the film, paused where it is; without one, from here.
-          onCall: () => {
-            stayHere();
-            if (phone.current) phone.current();
-            else void stage.callFrom(null);
-          },
-          onHangUp: call.onHangUp,
-          onWarm: () => stage.warm(),
-        }
-      }
-    />
-  );
+  // Closed, what was being read is done with: the demo goes on.
+  const closeTray = () => {
+    setTalkShown(false);
+    setHeldHeight(undefined);
+    if (!said) carryOn();
+  };
+  // A question sent: the demo stops as a colleague would, the question over
+  // the screen while the agent thinks.
+  const sending = (question: string) => {
+    const at = pause.current?.() ?? null;
+    hushAnswer();
+    goesOn.current = goesOn.current || Boolean(at?.playing);
+    askedHere.current = true;
+    setSaid({ question, line: null });
+    if (at?.title && at.ms !== undefined)
+      askedFrom.set(`${rowKey}:${question}`, { title: at.title, ms: at.ms });
+    if (asksStage) stage.ask(at);
+    else stage.hold();
+    setPanel(withQuestion(question));
+  };
   const app: AppLink | undefined = panel.preview
     ? {
         href: `${previewHref(projectId, rowKey)}${panel.preview.path ? `?path=${encodeURIComponent(panel.preview.path)}` : ""}`,
@@ -489,9 +517,266 @@ export function PullPanel({
   const linked = proofs.find(
     (proof) => proof.kind === "document" || proof.kind === "check",
   );
+  const away = (
+    <span className="pp-foot-away">
+      {linked && (
+        <ProofLink
+          proof={linked}
+          document={(file) =>
+            branchFileUrl(
+              pullRequest?.url ?? null,
+              pullRequest?.branch ?? null,
+              file,
+            )
+          }
+          checks={panel.checks}
+        />
+      )}
+      {app && <OpenApp app={app} />}
+    </span>
+  );
+  const ideas = (
+    <Ideas
+      panel={panel}
+      projectId={projectId}
+      rowKey={rowKey}
+      onMade={() => void refresh()}
+    />
+  );
+
+  if (presentation) {
+    const word = agentWord(panel);
+    const open = pullRequest?.state === "open" && live?.open !== false;
+    const changing =
+      panel.working !== null ||
+      panel.corrections.some(
+        (correction) =>
+          correction.status === "queued" || correction.status === "working",
+      );
+    // On a call, what is being said; written, what was asked.
+    const heard = stage.turn
+      .filter((line) => line.author === "builder")
+      .at(-1);
+    const saying =
+      said ??
+      (stage.talk !== "off" && (spokenLine || heard?.status === "pending")
+        ? { question: heard?.body ?? "", line: spokenLine }
+        : null);
+    return (
+      <div className="pp pp-roomy">
+        {cinema && <div style={{ height: slot }} />}
+        <dialog
+          ref={theater}
+          className="pp-stage pp-room"
+          aria-label="Full screen"
+          onClose={() => setCinema(false)}
+        >
+          {cinema && (
+            <div className="pp-stage-head">
+              <button type="button" className="pp-back" onClick={flipCinema}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                Back
+              </button>
+            </div>
+          )}
+          <div className="pp-meet">
+            <div
+              ref={seat}
+              className="pp-seat"
+              style={{
+                minHeight: talkShown && !cinema ? heldHeight : undefined,
+              }}
+            >
+              <div className="pp-film">
+                <div className="pp-take">
+                  <Presentation
+                    artifact={presentation}
+                    cinema={cinema}
+                    onCinema={flipCinema}
+                    seekRef={seek}
+                    playRef={play}
+                    pauseRef={pause}
+                    demo={{
+                      onBack: () => {
+                        stayHere();
+                        stage.toDemo();
+                      },
+                      onTouch: canTry ? tryIt : undefined,
+                      waiting: stage.control === "asking",
+                      listening: stage.talk !== "off",
+                      message: !saying && word && (
+                        <>
+                          <p>{firstSentence(spokenAnswer(word.changed))}.</p>
+                          {word.notes[0] && (
+                            <p>
+                              <Rich text={word.notes[0]} />
+                            </p>
+                          )}
+                        </>
+                      ),
+                      end:
+                        open || word?.notes.length ? (
+                          <>
+                            {word?.notes.map((line) => (
+                              <p key={line}>
+                                <Rich text={line} />
+                              </p>
+                            ))}
+                            {open && (
+                              <span className="pv-end-go">
+                                {!changing && (
+                                  <MergeGo
+                                    rowKey={rowKey}
+                                    projectId={projectId}
+                                    onChanged={onChanged}
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  className="pp-act"
+                                  onClick={() =>
+                                    theater.current
+                                      ?.querySelector("textarea")
+                                      ?.focus()
+                                  }
+                                >
+                                  Ask for a change
+                                </button>
+                              </span>
+                            )}
+                          </>
+                        ) : null,
+                    }}
+                  />
+                </div>
+                {/* Up, its screen drawn behind the demo, ready for its canvas. */}
+                {onStage && <LiveCall stage={stage} shown={liveNow} />}
+                {saying && (
+                  <Said
+                    question={saying.question}
+                    line={saying.line}
+                    thinking={said !== null && said.line === null}
+                  />
+                )}
+              </div>
+              <div className="pp-foot pp-bar">
+                {pullRequest && (
+                  <ChangedFiles
+                    projectId={projectId}
+                    rowKey={rowKey}
+                    size={size}
+                    url={pullRequest.url}
+                    compact
+                  />
+                )}
+                {ideas}
+                {pullRequest && (
+                  <Ask
+                    projectId={projectId}
+                    rowKey={rowKey}
+                    text={draft}
+                    onText={setDraft}
+                    waiting={answering}
+                    stage={asksStage}
+                    leading={
+                      <button
+                        type="button"
+                        className="pp-toggle"
+                        aria-pressed={talkShown}
+                        aria-label="Conversation"
+                        onClick={talkShown ? closeTray : openTray}
+                      >
+                        <MessageSquare size={16} aria-hidden="true" />
+                        {lines(panel).length > 0 && lines(panel).length}
+                      </button>
+                    }
+                    call={{
+                      state: stage.talk,
+                      onCall: () => stage.openMic(),
+                      onHangUp: () => {
+                        goesOn.current = false;
+                        stage.endTalk();
+                      },
+                      onWarm: () => stage.warm(),
+                    }}
+                    onSending={sending}
+                    onFailed={() => {
+                      askedHere.current = false;
+                      stayHere();
+                    }}
+                    onSettled={() => void refresh()}
+                  />
+                )}
+                {away}
+              </div>
+            </div>
+            {talkShown && (
+              <aside className="pp-tray" aria-label="Conversation">
+                <button
+                  type="button"
+                  className="tix-icon-btn pp-tray-close"
+                  aria-label="Close the conversation"
+                  onClick={closeTray}
+                >
+                  <X size={15} />
+                </button>
+                <div className="pp-talk-thread">
+                  <Thread
+                    panel={
+                      stage.turn.length
+                        ? {
+                            ...panel,
+                            messages: [...panel.messages, ...stage.turn],
+                          }
+                        : panel
+                    }
+                    projectId={projectId}
+                    rowKey={rowKey}
+                    open={open}
+                    summed
+                    onSeek={toFilm}
+                    onMade={() => {
+                      void refresh();
+                      onChanged();
+                    }}
+                  />
+                </div>
+              </aside>
+            )}
+          </div>
+        </dialog>
+      </div>
+    );
+  }
+
+  // The conversation, the panel's right column, beside the image in cinema.
+  const talk = (
+    <Conversation
+      panel={panel}
+      projectId={projectId}
+      rowKey={rowKey}
+      draft={draft}
+      onDraft={setDraft}
+      onPanel={setPanel}
+      onRefresh={refresh}
+      onSeek={null}
+      onMade={() => {
+        void refresh();
+        onChanged();
+      }}
+      turn={stage.turn}
+      onAsking={stage.hold}
+      call={{
+        state: stage.talk,
+        onCall: () => void stage.callFrom(null),
+        onHangUp: () => stage.endTalk(),
+        onWarm: () => stage.warm(),
+      }}
+    />
+  );
   const proven = (
     <>
-      {(presentation || image) && (
+      {image && (
         <>
           {cinema && <div style={{ height: slot }} />}
           <dialog
@@ -514,54 +799,24 @@ export function PullPanel({
                   {app && <OpenApp app={app} />}
                 </div>
               )}
-              {presentation && (
-                <div className="pp-take">
-                  <Presentation
-                    artifact={presentation}
-                    cinema={cinema}
-                    onCinema={flipCinema}
-                    seekRef={seek}
-                    playRef={play}
-                    phoneRef={phone}
-                    pauseRef={pause}
-                    call={call}
-                    demo={{
-                      autoStart: pullRequest?.state === "open",
-                      onBack: () => {
-                        stayHere();
-                        stage.toDemo();
-                      },
-                      onTouch: canTry ? tryIt : undefined,
-                      waiting: stage.control === "asking",
-                      onLines: setTold,
-                    }}
-                  />
-                </div>
-              )}
-              {/* Up, its screen drawn behind the demo, ready for its canvas. */}
-              {presentation && onStage && (
-                <LiveCall stage={stage} shown={liveNow} />
-              )}
-              {image && (
-                <Slider
-                  proof={image}
-                  tools={
-                    !cinema && (
-                      <span className="pv-glass-pill pv-tools">
-                        <button
-                          type="button"
-                          className="pv-icon"
-                          onClick={flipCinema}
-                          aria-label="Full screen"
-                          data-tip="Full screen"
-                        >
-                          <RectangleHorizontal size={18} aria-hidden="true" />
-                        </button>
-                      </span>
-                    )
-                  }
-                />
-              )}
+              <Slider
+                proof={image}
+                tools={
+                  !cinema && (
+                    <span className="pv-glass-pill pv-tools">
+                      <button
+                        type="button"
+                        className="pv-icon"
+                        onClick={flipCinema}
+                        aria-label="Full screen"
+                        data-tip="Full screen"
+                      >
+                        <RectangleHorizontal size={18} aria-hidden="true" />
+                      </button>
+                    </span>
+                  )
+                }
+              />
             </div>
             {cinema && talk}
           </dialog>
@@ -574,11 +829,10 @@ export function PullPanel({
     <div className="pp">
       <div className="pp-grid">
         <div className="pp-main">
-          {/* The demo says all of it, what it says written in the conversation. */}
-          {!presentation && panel.implementation?.ask && (
+          {panel.implementation?.ask && (
             <TicketAsk ask={panel.implementation.ask} />
           )}
-          {!presentation && panel.implementation ? (
+          {panel.implementation ? (
             <Changed
               implementation={panel.implementation}
               review={panel.review}
@@ -601,28 +855,44 @@ export function PullPanel({
                   url={pullRequest.url}
                 />
               )}
-              <span className="pp-foot-away">
-                {linked && (
-                  <ProofLink
-                    proof={linked}
-                    document={(file) =>
-                      branchFileUrl(
-                        pullRequest?.url ?? null,
-                        pullRequest?.branch ?? null,
-                        file,
-                      )
-                    }
-                    checks={panel.checks}
-                  />
-                )}
-                {app && <OpenApp app={app} />}
-              </span>
+              {ideas}
+              {away}
             </div>
           )}
         </div>
-
         {!cinema && talk}
       </div>
+    </div>
+  );
+}
+
+/** What is said over the screen, where the demo's own words were. */
+function Said({
+  question,
+  line,
+  thinking,
+}: {
+  question: string;
+  line: string | null;
+  /** The answer is on its way. */
+  thinking: boolean;
+}) {
+  return (
+    <div className="pp-said">
+      {question && <p className="pp-said-q">{question}</p>}
+      <p className="pv-caption" aria-live="polite">
+        {line ? (
+          <span>{line}</span>
+        ) : (
+          thinking && (
+            <span className="pp-dots" aria-label="Thinking">
+              <i />
+              <i />
+              <i />
+            </span>
+          )
+        )}
+      </p>
     </div>
   );
 }
@@ -752,12 +1022,49 @@ function Changed({
   );
 }
 
+/** What the agent tells the owner first: what changed, what they must know. */
+function agentWord(panel: Panel) {
+  const { implementation, review } = panel;
+  if (!implementation) return null;
+  return {
+    changed: review?.changed ?? implementation.summary,
+    notes: agentNotes({
+      blocking: review?.blocking ?? [],
+      criteria: implementation.criteria,
+      risks: implementation.risks,
+      notVerified: implementation.notVerified,
+      checked: panel.checks?.state === "passed",
+    }),
+  };
+}
+
 /**
- * What the agent tells the owner first, before any question: what must be
- * done, what could not be checked; then what it noticed outside the ticket.
- * With nothing to say, it says nothing.
+ * What the agent says before any question: what must be done, what could not
+ * be checked, led beside a demo by what changed. With nothing to say, it says
+ * nothing.
  */
-function Notes({
+function Notes({ panel, summed }: { panel: Panel; summed?: boolean }) {
+  const word = agentWord(panel);
+  if (!word || (word.notes.length === 0 && !summed)) return null;
+  return (
+    <li className="pp-it">
+      {summed && <Markdown source={word.changed} className="pp-say" />}
+      {word.notes.map((line) => (
+        <p key={line} className="pp-say">
+          <Rich text={line} />
+        </p>
+      ))}
+    </li>
+  );
+}
+
+/**
+ * What the agents noticed outside the ticket and left alone, a button at the
+ * foot opening them: a small card each in everyday words, the whole card a
+ * ticket to write, its words drafted (its technical pointer goes in the
+ * ticket).
+ */
+function Ideas({
   panel,
   projectId,
   rowKey,
@@ -766,117 +1073,83 @@ function Notes({
   panel: Panel;
   projectId: string;
   rowKey: string;
-  onMade: () => void;
-}) {
-  const { implementation, pullRequest, review } = panel;
-  if (!implementation) return null;
-  const notes = agentNotes({
-    blocking: review?.blocking ?? [],
-    criteria: implementation.criteria,
-    risks: implementation.risks,
-    notVerified: implementation.notVerified,
-    checked: panel.checks?.state === "passed",
-  });
-  if (notes.length === 0 && implementation.spotted.length === 0) return null;
-  const good =
-    !!review &&
-    !implementation.legacy &&
-    !panel.working &&
-    pullRequest?.state === "open";
-  return (
-    <li className="pp-it">
-      {notes.map((line) => (
-        <p key={line} className="pp-say">
-          <Rich text={line} />
-        </p>
-      ))}
-      <Suggested
-        said={{ notes: notes.length > 0, good }}
-        projectId={projectId}
-        rowKey={rowKey}
-        onMade={onMade}
-        pullRequestUrl={pullRequest?.url ?? null}
-        by={implementation.by}
-        lines={implementation.spotted}
-      />
-    </li>
-  );
-}
-
-/**
- * What the agents noticed outside the ticket and left alone, in the agent's
- * notes: a small card each in everyday words, the whole card a ticket to
- * write, its words drafted (its technical pointer goes in the ticket).
- */
-function Suggested({
-  said,
-  projectId,
-  rowKey,
-  onMade,
-  pullRequestUrl,
-  by,
-  lines: listed,
-}: {
-  /** What the agent has said before them. */
-  said: { notes: boolean; good: boolean };
-  projectId: string;
-  rowKey: string;
   /** A suggestion was made a ticket: the panel reads it gone. */
   onMade: () => void;
-  pullRequestUrl: string | null;
-  /** The implementer, named in the drafted ticket. */
-  by: string;
-  lines: string[];
 }) {
   const draft = useContext(DraftTicket);
+  const dialog = useRef<HTMLDialogElement>(null);
   // Gone at once, before the panel is read again.
   const [made, setMade] = useState<string[]>([]);
-  const lines = listed.filter((line) => !made.includes(line));
+  const { implementation, pullRequest } = panel;
+  if (!implementation) return null;
+  const lines = implementation.spotted.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
     <>
-      <p className="pp-say">{noticedLine(lines.length, said)}</p>
-      <ul className="pp-ideas">
-        {lines.map((line) => {
-          const { plain } = splitNote(line);
-          const ticket = spottedTicket(line, by, pullRequestUrl);
-          return (
-            <li key={line}>
-              {draft ? (
-                <button
-                  type="button"
-                  className="pp-idea"
-                  aria-label={`Make it a ticket: ${ticket.title}`}
-                  onClick={() =>
-                    draft(
-                      projectId,
-                      { ...ticket, from: { key: rowKey, note: line } },
-                      () => {
-                        setMade((shown) => [...shown, line]);
-                        onMade();
-                      },
-                    )
-                  }
-                >
-                  <span>
-                    <Rich text={plain} />
+      <button
+        type="button"
+        className="pp-act"
+        onClick={() => dialog.current?.showModal()}
+      >
+        <Lightbulb size={15} aria-hidden="true" />
+        {lines.length} suggested {lines.length === 1 ? "ticket" : "tickets"}
+      </button>
+      <dialog
+        ref={dialog}
+        className="pp-ideas-box"
+        aria-label="Suggested tickets"
+        // A click beside them closes them.
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+      >
+        <ul className="pp-ideas">
+          {lines.map((line) => {
+            const { plain } = splitNote(line);
+            const ticket = spottedTicket(
+              line,
+              implementation.by,
+              pullRequest?.url ?? null,
+            );
+            return (
+              <li key={line}>
+                {draft ? (
+                  <button
+                    type="button"
+                    className="pp-idea"
+                    aria-label={`Make it a ticket: ${ticket.title}`}
+                    onClick={() => {
+                      dialog.current?.close();
+                      draft(
+                        projectId,
+                        { ...ticket, from: { key: rowKey, note: line } },
+                        () => {
+                          setMade((shown) => [...shown, line]);
+                          onMade();
+                        },
+                      );
+                    }}
+                  >
+                    <span>
+                      <Rich text={plain} />
+                    </span>
+                    <span className="pp-idea-go">
+                      <Plus size={13} aria-hidden="true" />
+                      Make it a ticket
+                    </span>
+                  </button>
+                ) : (
+                  <span className="pp-idea">
+                    <span>
+                      <Rich text={plain} />
+                    </span>
                   </span>
-                  <span className="pp-idea-go">
-                    <Plus size={13} aria-hidden="true" />
-                    Make it a ticket
-                  </span>
-                </button>
-              ) : (
-                <span className="pp-idea">
-                  <span>
-                    <Rich text={plain} />
-                  </span>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </dialog>
     </>
   );
 }
@@ -974,6 +1247,26 @@ const local = (
   createdAt: new Date(at).toISOString(),
 });
 
+const withQuestion =
+  (question: string) => (shown: Panel | null | undefined) => {
+    if (!shown) return shown;
+    const at = Date.now();
+    return {
+      ...shown,
+      messages: [
+        ...shown.messages,
+        local(`q${at}`, "builder", question, at),
+        local(`a${at}`, "agent", "", at + 1),
+      ],
+    };
+  };
+
+/**
+ * Where the demo was when a question stopped it, for this page's life: the
+ * thread does not keep it.
+ */
+const askedFrom = new Map<string, { title: string; ms: number }>();
+
 /**
  * The conversation, oldest first: the questions and their answers, and the
  * changes asked elsewhere (on GitHub, before the conversation) where they
@@ -981,13 +1274,11 @@ const local = (
  */
 type Line =
   | { kind: "message"; at: string; message: Message }
-  | { kind: "correction"; at: string; correction: Correction }
-  | { kind: "said"; at: string; said: DemoLine };
+  | { kind: "correction"; at: string; correction: Correction };
 
-function lines(panel: Panel, told: DemoLine[] = []): Line[] {
+function lines(panel: Panel): Line[] {
   const made = new Set(panel.messages.map((m) => m.correctionRequestId));
   return [
-    ...told.map((said) => ({ kind: "said" as const, at: said.at, said })),
     ...panel.messages.map((message) => ({
       kind: "message" as const,
       at: message.createdAt,
@@ -1003,14 +1294,8 @@ function lines(panel: Panel, told: DemoLine[] = []): Line[] {
   ].sort((a, b) => a.at.localeCompare(b.at));
 }
 
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-
-/** Time to read an answer, the sound off, before the demo goes on. */
-const readingMs = (text: string) =>
-  Math.min(12_000, 1500 + text.split(/\s+/).length * 250);
-
-/** Further than this from the end, the thread is being read. */
-const READING_UP = 140;
+/** Time to read an answer over the screen, the sound off. */
+const readingMs = (text: string) => 1500 + text.split(/\s+/).length * 250;
 
 /** A line of the thread, as the brain keeps it. */
 export type ThreadMessage = Message;
@@ -1034,7 +1319,6 @@ export function Conversation({
   onMade,
   stage = false,
   turn = [],
-  told,
   onAsking,
   call,
 }: {
@@ -1054,8 +1338,6 @@ export function Conversation({
   stage?: boolean;
   /** Last, pending: the member's words as the call hears them. */
   turn?: Message[];
-  /** What the demo said, where it falls in the conversation. */
-  told?: DemoLine[];
   /** A question is on its way. */
   onAsking?: () => void;
   /** The agent can be called from here. */
@@ -1098,10 +1380,8 @@ export function Conversation({
           projectId={projectId}
           rowKey={rowKey}
           open={open}
-          told={told}
           onSeek={onSeek}
           onMade={onMade}
-          onRefresh={onRefresh}
         />
       </div>
       <Ask
@@ -1114,18 +1394,7 @@ export function Conversation({
         call={call}
         onSending={(question) => {
           onAsking?.();
-          onPanel((shown) => {
-            if (!shown) return shown;
-            const at = Date.now();
-            return {
-              ...shown,
-              messages: [
-                ...shown.messages,
-                local(`q${at}`, "builder", question, at),
-                local(`a${at}`, "agent", "", at + 1),
-              ],
-            };
-          });
+          onPanel(withQuestion(question));
         }}
         onSettled={() => void onRefresh()}
       />
@@ -1133,9 +1402,9 @@ export function Conversation({
   );
 }
 
-/** The call, from the conversation: from the film's moment when there is one. */
+/** The microphone, in the question box. */
 export interface ConversationCall {
-  state: FilmCall["state"];
+  state: "off" | "starting" | "on";
   onCall: () => void;
   onHangUp: () => void;
   onWarm?: () => void;
@@ -1150,52 +1419,38 @@ function Thread({
   projectId,
   rowKey,
   open,
-  told,
+  summed,
   onSeek,
   onMade,
-  onRefresh,
 }: {
   panel: Panel;
   projectId: string;
   rowKey: string;
   /** The pull request can still change. */
   open: boolean;
-  told?: DemoLine[];
+  /** Beside a demo: the notes lead with what changed. */
+  summed?: boolean;
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
-  onRefresh: () => Promise<unknown>;
 }) {
-  const shown = lines(panel, told);
+  const shown = lines(panel);
   const working = workingText(panel);
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
-  const narrating = last?.kind === "said";
-  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : narrating ? last.said.body.length : ""}`;
+  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : ""}`;
   // The latest in view as it comes, the page left where it is: the column
-  // scrolls. With nothing said yet, the agent's notes from their top. Someone
-  // reading further up is left there while the demo goes on.
+  // scrolls. With nothing said yet, the agent's notes from their top.
   const said = shown.length > 0;
   useLayoutEffect(() => {
     const box = list.current?.parentElement;
-    if (!box || !said) return;
-    const below = box.scrollHeight - box.scrollTop - box.clientHeight;
-    if (!narrating || below < READING_UP) box.scrollTop = box.scrollHeight;
-  }, [latest, said, narrating]);
+    if (box && said) box.scrollTop = box.scrollHeight;
+  }, [latest, said]);
   return (
     <ol className="pp-chat" ref={list}>
-      <Notes
-        panel={panel}
-        projectId={projectId}
-        rowKey={rowKey}
-        onMade={() => void onRefresh()}
-      />
+      <Notes panel={panel} summed={summed} />
       {shown.map((line) =>
-        line.kind === "said" ? (
-          <li key={line.said.id} className="pp-it">
-            <p className="pp-say">{line.said.body}</p>
-          </li>
-        ) : line.kind === "correction" ? (
+        line.kind === "correction" ? (
           <Fragment key={line.correction.id}>
             <li className="pp-me">
               <p className="pp-bubble">{line.correction.instruction}</p>
@@ -1221,6 +1476,12 @@ function Thread({
                   </span>
                 ))}
             </p>
+            {onSeek && (
+              <AskedFrom
+                at={askedFrom.get(`${rowKey}:${line.message.body}`)}
+                onSeek={onSeek}
+              />
+            )}
           </li>
         ) : (
           <li key={line.message.id} className="pp-it">
@@ -1241,6 +1502,28 @@ function Thread({
         ),
       )}
     </ol>
+  );
+}
+
+/** The moment of the demo a question stopped: plays it from there. */
+function AskedFrom({
+  at,
+  onSeek,
+}: {
+  at: { title: string; ms: number } | undefined;
+  onSeek: (ms: number) => void;
+}) {
+  if (!at) return null;
+  return (
+    <button
+      type="button"
+      className="pp-at"
+      aria-label={`Play from ${at.title}`}
+      onClick={() => onSeek(at.ms)}
+    >
+      <Play size={9} fill="currentColor" aria-hidden="true" />
+      {at.title}
+    </button>
   );
 }
 
@@ -1443,8 +1726,10 @@ function Ask({
   onText: setText,
   waiting,
   stage,
+  leading,
   call,
   onSending,
+  onFailed,
   onSettled,
 }: {
   projectId: string;
@@ -1454,9 +1739,13 @@ function Ask({
   /** An answer is being written: the next question waits for it. */
   waiting: boolean;
   stage: boolean;
+  /** At the start of the box. */
+  leading?: ReactNode;
   call?: ConversationCall;
   /** The question shows in the thread before the brain has it. */
   onSending: (question: string) => void;
+  /** It did not go through: nothing will answer it. */
+  onFailed?: () => void;
   onSettled: () => void;
 }) {
   const ask = useServerFn(askChatFn);
@@ -1490,10 +1779,12 @@ function Ask({
       if (!result.ok) {
         setText(question);
         setError(result.error);
+        onFailed?.();
       }
     } catch {
       setText(question);
       setError("That did not go through. Try again.");
+      onFailed?.();
     } finally {
       setPending(false);
       onSettled();
@@ -1509,6 +1800,7 @@ function Ask({
           void submit();
         }}
       >
+        {leading}
         <textarea
           ref={box}
           aria-label="Ask about this ticket"
@@ -1593,12 +1885,15 @@ function ChangedFiles({
   rowKey,
   size,
   url,
+  compact,
 }: {
   projectId: string;
   rowKey: string;
   /** Lines and files changed: a different size is a new commit. */
   size: string;
   url: string;
+  /** Beside the question box: how many, nothing more. */
+  compact?: boolean;
 }) {
   const files = usePullFiles(projectId, rowKey, size);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -1653,8 +1948,14 @@ function ChangedFiles({
     <>
       <button type="button" className="pp-act" onClick={() => setOpen(0)}>
         <FileDiff size={15} aria-hidden="true" />
-        {title}
-        {total}
+        {compact ? (
+          `${files.length} ${files.length === 1 ? "file" : "files"}`
+        ) : (
+          <>
+            {title}
+            {total}
+          </>
+        )}
       </button>
       <dialog
         ref={dialog}

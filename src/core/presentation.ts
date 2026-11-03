@@ -371,18 +371,6 @@ export function cueAt(cues: Cue[], ms: number): Cue | null {
   return shown;
 }
 
-/** A chapter's words and when each is said; a cue without word times, whole. */
-export function spokenWords(
-  chapter: PresentationChapter,
-): { startMs: number; text: string }[] {
-  const cues = chapter.cues.length
-    ? chapter.cues
-    : estimatedCues(chapter.say, chapterMs(chapter));
-  return cues.flatMap((cue) =>
-    cue.words.length ? cue.words : [{ startMs: cue.startMs, text: cue.text }],
-  );
-}
-
 /** How many of the cue's words are said at `ms`: all of a cue without word times. */
 export function wordsSaid(cue: Cue, ms: number): number {
   if (cue.words.length === 0) return Infinity;
