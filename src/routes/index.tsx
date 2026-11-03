@@ -46,8 +46,8 @@ function Landing() {
           for your team
         </h1>
         <p>
-          Our agents write your tickets and build them, then walk you through
-          the result. There is no better way to review a ticket.
+          Our agents write and build your tickets. There is no better way to
+          review them.
         </p>
       </section>
       <div className="container">
@@ -93,7 +93,7 @@ function Landing() {
       <section className="lp-part" id="review">
         <div className="container lp-part-head">
           <h2>
-            See it work
+            See a live demo
             <br />
             before you merge
           </h2>

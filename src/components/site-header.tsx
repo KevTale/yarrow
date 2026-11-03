@@ -46,14 +46,14 @@ export function SiteHeader({
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <div className="header-start">
-          <Link
-            to={member ? "/dashboard" : "/"}
-            aria-label="Yarrow home"
-            className="header-brand"
-          >
-            <Brand />
-          </Link>
+        <Link
+          to={member ? "/dashboard" : "/"}
+          aria-label="Yarrow home"
+          className="header-brand"
+        >
+          <Brand />
+        </Link>
+        <div className="header-actions">
           {member ? (
             // Signed in: the two places one works in, side by side.
             <nav className="header-nav" aria-label="Dashboard">
@@ -84,11 +84,8 @@ export function SiteHeader({
                 Sponsoring
               </Link>
             </nav>
-          ) : null}
-        </div>
-        <div className="header-actions">
-          {!member && (
-            <nav className="header-nav" aria-label="Site">
+          ) : (
+            <nav className="header-nav header-site" aria-label="Site">
               {/* The sponsors' way in: the page speaks to builders. */}
               <Link to="/sponsors">Sponsors</Link>
               <Link to="/changelog">Changelog</Link>

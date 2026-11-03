@@ -227,9 +227,10 @@ select:focus-visible {
   padding-inline: 40px;
 }
 /* The dashboard takes more of the window: a demo and its conversation side
-   by side. */
+   by side. The header has that width on every page. */
 @media (min-width: 1101px) {
-  body:has(.container.dashboard) .container {
+  body:has(.container.dashboard) .container,
+  .container.header-inner {
     max-width: 1680px;
     padding-inline: 24px;
   }
@@ -375,13 +376,7 @@ select:focus-visible {
   align-items: center;
   gap: 16px;
 }
-.header-start {
-  display: flex;
-  align-items: center;
-  gap: 36px;
-  min-width: 0;
-}
-/* Beside the logo, a step above Sign in: the site's own places. */
+/* On the right whoever is reading: a step above Sign in, the site's places. */
 .header-nav {
   display: flex;
   align-items: center;
@@ -8002,7 +7997,7 @@ body:has(.sb-dialog[open]) {
     padding-block: 64px;
   }
   /* The only button on the page: it stays, the links give way. */
-  .header-actions .header-nav {
+  .header-site {
     display: none;
   }
   .lp-dash {
@@ -10426,9 +10421,6 @@ html:has(.pp-stage:modal) {
   }
 }
 @media (max-width: 560px) {
-  .header-start {
-    gap: 20px;
-  }
   .header-nav {
     gap: 16px;
   }
