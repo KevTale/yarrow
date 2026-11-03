@@ -10,7 +10,9 @@ import { appEnv } from "@/server/env.server";
  * "Connect GitHub" and "Get a pull request": sign in with GitHub, tick the
  * Terms once (`/connect/terms`), then install the App on the repositories. Projects are created from the installation;
  * a repository that is already connected skips GitHub entirely. Jira
- * tickets start here too: their code lives on GitHub.
+ * tickets start here too: their code lives on GitHub. `start`, from the
+ * landing, goes on to the setup for someone who has repositories already:
+ * on an App already installed GitHub shows its settings and never comes back.
  */
 export const Route = createFileRoute("/connect/github")({
   server: {
@@ -48,15 +50,22 @@ export const Route = createFileRoute("/connect/github")({
         // A Jira ticket needs a repository, any of them: the dashboard asks
         // which one. Builders who have one already skip GitHub.
         const jira = intent.source === "jira";
-        const connected =
-          (repository || jira) && databaseConfigured()
-            ? (await withDb((db) => projectsForUser(db, data.user!.id))).some(
-                (project) =>
-                  project.linked &&
-                  (jira || project.repository.toLowerCase() === repository),
+        const start = url.searchParams.has("start");
+        const linked =
+          (repository || jira || start) && databaseConfigured()
+            ? (await withDb((db) => projectsForUser(db, data.user!.id))).filter(
+                (project) => project.linked,
               )
-            : false;
-        if (connected) return auth.redirect("/dashboard", [cookie]);
+            : [];
+        if (start && linked.length > 0)
+          return auth.redirect("/start", [cookie]);
+        if (
+          linked.some(
+            (project) =>
+              jira || project.repository.toLowerCase() === repository,
+          )
+        )
+          return auth.redirect("/dashboard", [cookie]);
         return auth.redirect(
           `https://github.com/apps/${appEnv().GITHUB_APP_SLUG}/installations/new`,
           [cookie],

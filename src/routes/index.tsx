@@ -2,6 +2,7 @@ import {
   createFileRoute,
   getRouteApi,
   Link,
+  redirect,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
@@ -22,6 +23,7 @@ import { SponsorBoard } from "@/components/sponsor-board";
 import { TicketStack } from "@/components/ticket-stack";
 import { PULL_REQUEST_COST_CENTS } from "@/core/pricing";
 import { getBoardsFn } from "@/functions/public.functions";
+import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
   // Guests come back here from Stripe Checkout.
@@ -30,6 +32,12 @@ export const Route = createFileRoute("/")({
     checkout: z.enum(["success"]).optional(),
     edit: z.boolean().optional(),
   }),
+  // Signed in, the address opens the dashboard. A sponsor's row and the way
+  // back from Stripe still land here.
+  beforeLoad: async ({ search }) => {
+    if (search.edit === undefined && !search.checkout && (await getViewerFn()))
+      throw redirect({ to: "/dashboard" });
+  },
   loader: () => getBoardsFn(),
   component: Landing,
 });
@@ -102,7 +110,7 @@ function Landing() {
     if (edit)
       void navigate({
         to: "/",
-        search: { checkout },
+        search: { checkout, edit: false },
         replace: true,
         resetScroll: false,
       });
@@ -133,7 +141,7 @@ function Landing() {
               </i>
             </Link>
           ) : (
-            <a className="go" href="/connect/github">
+            <a className="go" href="/connect/github?start">
               Connect your backlog
               <i>
                 <ArrowRight size={14} strokeWidth={2.2} />

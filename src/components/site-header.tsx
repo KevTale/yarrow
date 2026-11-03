@@ -47,7 +47,11 @@ export function SiteHeader({
     <header className="site-header">
       <div className="container header-inner">
         <div className="header-start">
-          <Link to="/" aria-label="Yarrow home" className="header-brand">
+          <Link
+            to={member ? "/dashboard" : "/"}
+            aria-label="Yarrow home"
+            className="header-brand"
+          >
             <Brand />
           </Link>
           {member ? (

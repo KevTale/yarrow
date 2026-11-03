@@ -1,9 +1,13 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
 import { ArrowRight, ExternalLink, Github } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
-import { SignInPrompt } from "@/components/email-sign-in";
 import { Spinner } from "@/components/navigation-feedback";
 import {
   BoardMoves,
@@ -22,7 +26,12 @@ export const Route = createFileRoute("/start")({
     error: z.string().optional().catch(undefined),
   }),
   loaderDeps: ({ search }) => ({ project: search.project }),
-  loader: ({ deps }) => getStartFn({ data: { projectId: deps.project } }),
+  loader: async ({ deps }) => {
+    const data = await getStartFn({ data: { projectId: deps.project } });
+    if (data.status === "signed_out")
+      throw redirect({ href: "/connect/github?start" });
+    return data;
+  },
   head: () => ({ meta: [{ title: "Set up · Yarrow" }] }),
   component: StartPage,
 });
@@ -34,7 +43,6 @@ const INSTALL_POLLS = 10;
 
 function StartPage() {
   const data = Route.useLoaderData();
-  if (data.status === "signed_out") return <SignInPrompt next="/start" />;
   if (data.status === "not_configured")
     return (
       <main id="main" className="container page-main">
