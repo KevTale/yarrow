@@ -1,5 +1,4 @@
 import type { Language } from "@elevenlabs/client";
-import { MousePointer2, Play, RectangleHorizontal } from "lucide-react";
 import type RFB from "@novnc/novnc";
 import {
   useCallback,
@@ -7,7 +6,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
 import { asCall } from "@/components/call-voice";
@@ -1185,70 +1183,26 @@ export function LiveCaption({
   );
 }
 
-/** The app in the member's hands; it says so while the stage comes up. */
-export function TryIt({
-  stage,
-  className,
-  onTake,
-}: {
-  stage: LiveStage;
-  className: string;
-  onTake: () => void;
-}) {
-  const asking = stage.control !== "off";
-  return (
-    <button
-      type="button"
-      className={className}
-      disabled={asking}
-      onClick={onTake}
-    >
-      <MousePointer2 size={15} aria-hidden="true" />
-      {asking ? "Starting" : stage.phase === "failed" ? "Try again" : "Try it"}
-    </button>
-  );
-}
-
 /**
- * The stage in the demo's place, what happens now on one screen: the agent
+ * The stage on the demo's canvas, what happens now on one screen: the agent
  * showing something, on a call or in writing, or the member trying the app.
- * Play and Resume demo play the demo on where it was paused. In their hands
- * nothing lies over the app: what they need is under it.
+ * The demo's controls stay under it, and play the demo on where it paused.
  */
 export function LiveCall({
   stage,
   shown,
-  cinema,
-  onCinema,
-  onResume,
-  tool,
 }: {
   stage: LiveStage;
   /** Off: behind the demo, its screen drawn, ready to take its place. */
   shown: boolean;
-  cinema: boolean;
-  onCinema: () => void;
-  /** The demo on, where it was paused. */
-  onResume: () => void;
-  /** In its bar, before its own tools. */
-  tool?: ReactNode;
 }) {
   const { setScreen } = stage;
   const controlled = stage.control === "on";
-  const fullScreen = (
-    <button
-      type="button"
-      className="pv-icon"
-      onClick={onCinema}
-      aria-pressed={cinema}
-      aria-label={cinema ? "Exit full screen" : "Full screen"}
-      data-tip={cinema ? "Exit full screen" : "Full screen"}
-    >
-      <RectangleHorizontal size={18} aria-hidden="true" />
-    </button>
-  );
   return (
-    <div className={shown ? "pv" : "pv pv-behind"} aria-hidden={!shown}>
+    <div
+      className={`pv pv-on ${shown ? "" : "pv-behind"} ${controlled ? "pv-hands" : ""}`}
+      aria-hidden={!shown}
+    >
       <div className="pv-screen">
         <div className="pv-view desktop">
           <div
@@ -1263,39 +1217,7 @@ export function LiveCall({
               />
             </div>
           </div>
-          {!controlled && (
-            <div className="pv-overlay">
-              <p className="pv-caption" />
-              <div className="pv-controls">
-                <div className="pv-bar">
-                  <button
-                    type="button"
-                    className="pv-icon pv-glass-pill pv-play"
-                    onClick={onResume}
-                    aria-label="Resume demo"
-                    data-tip="Resume demo"
-                  >
-                    <Play size={18} aria-hidden="true" />
-                  </button>
-                  <span className="pv-glass-pill pv-clock">
-                    <span className="pv-live-tag">Showing you</span>
-                  </span>
-                  {tool}
-                  <span className="pv-glass-pill pv-tools">{fullScreen}</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-        {controlled && (
-          <div className="pv-under">
-            <span className="pv-live-tag">Your turn</span>
-            <button type="button" className="pv-give" onClick={onResume}>
-              Resume demo
-            </button>
-            {fullScreen}
-          </div>
-        )}
       </div>
     </div>
   );

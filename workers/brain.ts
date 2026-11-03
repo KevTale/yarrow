@@ -33,6 +33,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import type { FundingStart } from "../src/core/daily-funding";
 import {
+  answerBody,
   askedToday,
   askQuestion,
   chatContext,
@@ -147,7 +148,11 @@ import {
   type StageSpec,
   type StageStatus,
 } from "../src/core/stage";
-import { CHAT_DAILY_QUESTIONS, chatCostCents } from "../src/core/chat";
+import {
+  CHAT_DAILY_QUESTIONS,
+  chatCostCents,
+  spokenAnswer,
+} from "../src/core/chat";
 import { stageContext } from "../src/db/stage";
 import { installationToken } from "../src/server/github/app";
 import { RECORDER_SOURCE } from "../src/runner/recorder/source";
@@ -1356,6 +1361,23 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
    * the stage, or by voice alone when it is not up: the stage keeps the
    * call's context either way.
    */
+  async answerVoice(input: {
+    workUnitId: string;
+    messageId: string;
+  }): Promise<{ audio: string; contentType: string } | null> {
+    const voice = voiceProvider(this.env);
+    if (!voice) return null;
+    const body = await withDb(this.env, (db) => answerBody(db, input));
+    const text = spokenAnswer(body ?? "");
+    if (!text) return null;
+    // The model reads the language from the text.
+    const speech = await voice.speak({ text, language: "" });
+    let audio = "";
+    for (let at = 0; at < speech.audio.length; at += 0x8000)
+      audio += String.fromCharCode(...speech.audio.subarray(at, at + 0x8000));
+    return { audio: btoa(audio), contentType: speech.contentType };
+  }
+
   async talkCall(input: {
     workUnitId: string;
     userId: string;

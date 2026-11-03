@@ -216,6 +216,25 @@ export async function threadMessages(
 }
 
 /** The change the agent proposed, while it is still there to make. */
+/** An answer's words, once it is whole. */
+export async function answerBody(
+  db: Database,
+  input: { workUnitId: string; messageId: string },
+): Promise<string | null> {
+  const [answer] = await db
+    .select({ body: chatMessages.body })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.id, input.messageId),
+        eq(chatMessages.workUnitId, input.workUnitId),
+        eq(chatMessages.author, "agent"),
+        eq(chatMessages.status, "done"),
+      ),
+    );
+  return answer?.body ?? null;
+}
+
 export async function openProposal(
   db: Database,
   input: { messageId: string; workUnitId: string },

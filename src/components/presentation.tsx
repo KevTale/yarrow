@@ -11,10 +11,10 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -22,11 +22,13 @@ import {
   cueAt,
   posterChapter,
   presentationSchema,
+  spokenWords,
   urlAt,
   wordsSaid,
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
+import { Spinner } from "@/components/navigation-feedback";
 
 const evidence = (key: string) => `/evidence/${key}`;
 
@@ -45,6 +47,53 @@ export type FilmControl = (chapter: number | null) => void;
 export interface FilmMoment {
   index: number;
   part: number;
+  /** It was playing until now. */
+  playing?: boolean;
+}
+
+/** What the demo said, as the conversation shows it. */
+export interface DemoLine {
+  id: string;
+  body: string;
+  at: string;
+}
+
+/** Words of a chapter the demo said in one go. */
+interface Told {
+  index: number;
+  from: number;
+  to: number;
+  at: number;
+}
+
+/** A ticket's row, opened on its demo. */
+export interface DemoRow {
+  /** The first time it starts by itself; after, it waits where it was left. */
+  autoStart: boolean;
+  /** Played on: whatever took the canvas gives it back. */
+  onBack: () => void;
+  /** The canvas touched; without it, a touch plays and pauses. */
+  onTouch?: () => void;
+  /** The app is on its way to the member's hands. */
+  waiting: boolean;
+  onLines: (lines: DemoLine[]) => void;
+}
+
+/** Where the viewer left a demo: theirs, this browser's. */
+interface Left {
+  index: number;
+  ms: number;
+  finished: boolean;
+  told: Told[];
+}
+const leftKey = (key: string) => `yarrow.demo.${key}`;
+function leftAt(key: string): Left | null {
+  try {
+    const kept = localStorage.getItem(leftKey(key));
+    return kept ? (JSON.parse(kept) as Left) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Timelines never change under their key: one fetch per page. */
@@ -66,7 +115,7 @@ export function loadPresentation(key: string): Promise<Timeline | null> {
   return pending;
 }
 
-const VOICE_KEY = "yarrow.presentation.voice";
+export const VOICE_KEY = "yarrow.presentation.voice";
 const SPEED_KEY = "yarrow.presentation.speed";
 /** Each click goes to the next, round to the first. */
 const SPEEDS = [1, 1.25, 1.5, 2];
@@ -158,7 +207,7 @@ export function Presentation({
   phoneRef,
   pauseRef,
   call,
-  tool,
+  demo,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -174,8 +223,8 @@ export function Presentation({
   pauseRef?: RefObject<(() => FilmMoment) | null>;
   /** The agent can be called from it. */
   call?: FilmCall;
-  /** In its bar, before its own tools. */
-  tool?: ReactNode;
+  /** In a ticket's row: the canvas, its controls under it. */
+  demo?: DemoRow;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -199,7 +248,8 @@ export function Presentation({
       phoneRef={phoneRef}
       pauseRef={pauseRef}
       call={call}
-      tool={tool}
+      demo={demo}
+      memory={artifact.key}
     />
   );
 }
@@ -215,7 +265,8 @@ function Player({
   phoneRef,
   pauseRef,
   call,
-  tool,
+  demo,
+  memory,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
@@ -226,7 +277,8 @@ function Player({
   phoneRef?: RefObject<(() => void) | null>;
   pauseRef?: RefObject<(() => FilmMoment) | null>;
   call?: FilmCall;
-  tool?: ReactNode;
+  demo?: DemoRow;
+  memory: string;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -407,6 +459,69 @@ function Player({
     return () => clip?.removeEventListener("seeked", onReady);
   }, [playing, playMedia]);
 
+  // What it says goes to the conversation as it says it, a pause opening a
+  // new line; what was already said, heard again, is not written twice.
+  const told = useRef<Told[]>([]);
+  const heard = useRef(new Map<number, number>());
+  const broke = useRef(true);
+  const lines = useRef(demo?.onLines);
+  const tell = () =>
+    lines.current?.(
+      told.current.flatMap(({ index: said, from: first, to, at }) => {
+        const told = chapters[said];
+        if (!told) return [];
+        return {
+          id: `said${said}:${first}`,
+          body: spokenWords(told)
+            .slice(first, to)
+            .map((word) => word.text)
+            .join(" "),
+          at: new Date(at).toISOString(),
+        };
+      }),
+    );
+  const words = useMemo(() => (chapter ? spokenWords(chapter) : []), [chapter]);
+  useEffect(() => {
+    if (!playing) broke.current = true;
+    if (!demo || !playing) return;
+    const count = words.filter((word) => word.startMs <= time.spoken).length;
+    const before = heard.current.get(index) ?? 0;
+    if (count <= before) return;
+    heard.current.set(index, count);
+    const last = told.current.at(-1);
+    if (last?.index === index && last.to === before && !broke.current)
+      last.to = count;
+    else told.current.push({ index, from: before, to: count, at: Date.now() });
+    broke.current = false;
+    tell();
+    // Only its words move it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, time.spoken, words]);
+
+  // Where it is, kept each time it stops or moves on, and as the row closes.
+  const keep = useRef(() => {});
+  useEffect(() => {
+    lines.current = demo?.onLines;
+    keep.current = () => {
+      if (!demo || !started) return;
+      try {
+        localStorage.setItem(
+          leftKey(memory),
+          JSON.stringify({
+            index,
+            ms: now(),
+            finished,
+            told: told.current,
+          } satisfies Left),
+        );
+      } catch {
+        // Private window: it starts over next time.
+      }
+    };
+  });
+  useEffect(() => keep.current(), [playing, index, finished]);
+  useEffect(() => () => keep.current(), []);
+
   useEffect(() => {
     const self = me.current;
     keyed ??= self;
@@ -468,6 +583,7 @@ function Player({
 
   const toggle = () => {
     if (!timeline) return;
+    if (!playing) demo?.onBack();
     // Played on during a call: the call ends.
     if (!playing && call && call.state !== "off") call.onHangUp();
     if (finished) {
@@ -485,7 +601,11 @@ function Player({
     setPlaying(false);
     return finished
       ? { index: Math.max(0, chapters.length - 1), part: 1 }
-      : { index, part: started ? Math.min(1, elapsed / (length || 1)) : 0 };
+      : {
+          index,
+          part: started ? Math.min(1, elapsed / (length || 1)) : 0,
+          playing,
+        };
   };
   // The film paused where it is, the agent called there.
   const phone = () => {
@@ -497,16 +617,32 @@ function Player({
     allowSound();
     call.onCall(pause());
   };
-  function jump(to: number, offset = 0, play = true) {
+  function jump(to: number, offset = 0, play = true, ended = false) {
     wake();
     allowSound();
     from.current = Math.max(0, Math.min(offset, (lengths[to] ?? 0) - 250));
-    setFinished(false);
+    setFinished(ended);
     setStarted(true);
     setIndex(to);
     setTake((n) => n + 1);
     setPlaying(play);
   }
+  // The row opened: it starts, or waits where it was left.
+  const begun = useRef(false);
+  useEffect(() => {
+    if (!demo || !timeline || begun.current) return;
+    begun.current = true;
+    const left = leftAt(memory);
+    if (left && left.index < chapters.length) {
+      told.current = left.told;
+      for (const { index: said, to } of left.told)
+        heard.current.set(said, Math.max(to, heard.current.get(said) ?? 0));
+      tell();
+      jump(left.index, left.ms, false, left.finished);
+    } else if (demo.autoStart) jump(0);
+    // Once, as its timeline arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline]);
   const flipVoice = () =>
     setVoice((on) => {
       save(VOICE_KEY, !on);
@@ -569,7 +705,7 @@ function Player({
     if (phoneRef) phoneRef.current = phone;
     if (pauseRef) pauseRef.current = pause;
   });
-  const idle = playing && !awake;
+  const idle = !demo && playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.
   const framed = started ? chapter : timeline && posterChapter(timeline);
   // A document is a page in the browser, as the app's are.
@@ -584,8 +720,150 @@ function Player({
     ? (framed?.urls.filter((step) => step.atMs <= at).length ?? 0)
     : 0;
 
+  const playButton = (
+    <button
+      type="button"
+      className="pv-icon pv-glass-pill pv-play"
+      onClick={toggle}
+      aria-label={finished ? "Play again" : playing ? "Pause" : "Play"}
+      data-tip={finished ? "Play again" : playing ? "Pause" : "Play"}
+    >
+      {finished ? (
+        <RotateCcw size={18} aria-hidden="true" />
+      ) : playing ? (
+        <Pause size={18} aria-hidden="true" />
+      ) : (
+        <Play size={18} aria-hidden="true" />
+      )}
+    </button>
+  );
+  const chapterBar = (
+    <div className="pv-chapters">
+      {chapters.map((item, i) => (
+        <button
+          key={i}
+          type="button"
+          className={`pv-chapter ${i === index ? "now" : ""}`}
+          style={{ flexGrow: lengths[i] }}
+          onClick={(event) => {
+            // Where it was clicked; from the keyboard, its start.
+            const box = event.currentTarget.getBoundingClientRect();
+            const at = event.detail
+              ? (event.clientX - box.left) / box.width
+              : 0;
+            demo?.onBack();
+            jump(i, at * lengths[i]!);
+          }}
+          aria-current={i === index ? "step" : undefined}
+          aria-label={item.title}
+          data-title={item.title}
+        >
+          <i>
+            <b
+              style={{
+                width:
+                  i < index || (finished && i === index)
+                    ? "100%"
+                    : i === index
+                      ? `${Math.min(100, (elapsed / (length || 1)) * 100)}%`
+                      : "0%",
+              }}
+            />
+          </i>
+        </button>
+      ))}
+    </div>
+  );
+  const soundButton = chapters.some((item) => item.audio) && (
+    <button
+      type="button"
+      className="pv-icon"
+      onClick={flipVoice}
+      aria-pressed={voice}
+      aria-label="Sound"
+      data-tip={voice ? "Mute" : "Unmute"}
+    >
+      {voice ? (
+        <Volume2 size={18} aria-hidden="true" />
+      ) : (
+        <VolumeX size={18} aria-hidden="true" />
+      )}
+    </button>
+  );
+  const cinemaButton = onCinema && (
+    <button
+      type="button"
+      className="pv-icon"
+      onClick={onCinema}
+      aria-pressed={cinema}
+      aria-label={cinema ? "Exit full screen" : "Full screen"}
+      data-tip={cinema ? "Exit full screen" : "Full screen"}
+    >
+      <RectangleHorizontal size={18} aria-hidden="true" />
+    </button>
+  );
+  // In a row, under the canvas: nothing lies over the app.
+  const dock = timeline && (
+    <div className="pv-dock">
+      {playButton}
+      <div className="pv-parts">
+        {chapterBar}
+        <span className="pv-part">{started ? chapter?.title : ""}</span>
+      </div>
+      <span className="pv-tools">
+        {soundButton}
+        {cinemaButton}
+      </span>
+    </div>
+  );
+  const controls = timeline && (
+    <div className="pv-controls">
+      {chapterBar}
+      {/* On rounded glass, readable over any page, as in YouTube's player. */}
+      <div className="pv-bar">
+        {playButton}
+        <span className="pv-glass-pill pv-clock">
+          <span className="pv-time">
+            {clockTime(played)} / {clockTime(total)}
+          </span>
+          {/* Before it starts the poster shows a later chapter: no title over it. */}
+          {started && chapter?.title && (
+            <span className="pv-now">{chapter.title}</span>
+          )}
+        </span>
+        <span className="pv-glass-pill pv-tools">
+          <button
+            type="button"
+            className="pv-icon pv-speed"
+            onClick={nextSpeed}
+            aria-label={`Speed, ${speed} times`}
+            data-tip="Speed"
+          >
+            {speed}×
+          </button>
+          <button
+            type="button"
+            className="pv-icon"
+            onClick={flipCaptions}
+            aria-pressed={captions}
+            aria-label="Captions"
+            data-tip={captions ? "Hide captions" : "Show captions"}
+          >
+            {captions ? (
+              <Captions size={18} aria-hidden="true" />
+            ) : (
+              <CaptionsOff size={18} aria-hidden="true" />
+            )}
+          </button>
+          {soundButton}
+          {cinemaButton}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="pv">
+    <div className={demo ? "pv pv-demo" : "pv"}>
       <div className="pv-screen" ref={screen}>
         <div
           className={`pv-view ${idle ? "idle" : ""} ${desktop ? "desktop" : ""}`}
@@ -633,9 +911,16 @@ function Player({
             tabIndex={-1}
             aria-hidden="true"
             onClick={() => {
-              if (!tapped.current) toggle();
+              if (tapped.current) return;
+              if (demo?.onTouch) demo.onTouch();
+              else toggle();
             }}
           />
+          {demo?.waiting && (
+            <span className="pv-waiting">
+              <Spinner />
+            </span>
+          )}
           {!started && (
             <button
               type="button"
@@ -650,7 +935,8 @@ function Player({
           )}
           <div className="pv-overlay">
             <p className="pv-caption" aria-live="polite">
-              {captions &&
+              {!demo &&
+                captions &&
                 started &&
                 cue?.text &&
                 (cue.words.length ? (
@@ -665,132 +951,11 @@ function Player({
                   <span>{cue.text}</span>
                 ))}
             </p>
-            {timeline && (
-              <div className="pv-controls">
-                <div className="pv-chapters">
-                  {chapters.map((item, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`pv-chapter ${i === index ? "now" : ""}`}
-                      style={{ flexGrow: lengths[i] }}
-                      onClick={(event) => {
-                        // Where it was clicked; from the keyboard, its start.
-                        const box = event.currentTarget.getBoundingClientRect();
-                        const at = event.detail
-                          ? (event.clientX - box.left) / box.width
-                          : 0;
-                        jump(i, at * lengths[i]!);
-                      }}
-                      aria-current={i === index ? "step" : undefined}
-                      aria-label={item.title}
-                      data-title={item.title}
-                    >
-                      <i>
-                        <b
-                          style={{
-                            width:
-                              i < index || (finished && i === index)
-                                ? "100%"
-                                : i === index
-                                  ? `${Math.min(100, (elapsed / (length || 1)) * 100)}%`
-                                  : "0%",
-                          }}
-                        />
-                      </i>
-                    </button>
-                  ))}
-                </div>
-                {/* On rounded glass, readable over any page, as in YouTube's player. */}
-                <div className="pv-bar">
-                  <button
-                    type="button"
-                    className="pv-icon pv-glass-pill pv-play"
-                    onClick={toggle}
-                    aria-label={
-                      finished ? "Play again" : playing ? "Pause" : "Play"
-                    }
-                    data-tip={
-                      finished ? "Play again" : playing ? "Pause" : "Play"
-                    }
-                  >
-                    {finished ? (
-                      <RotateCcw size={18} aria-hidden="true" />
-                    ) : playing ? (
-                      <Pause size={18} aria-hidden="true" />
-                    ) : (
-                      <Play size={18} aria-hidden="true" />
-                    )}
-                  </button>
-                  <span className="pv-glass-pill pv-clock">
-                    <span className="pv-time">
-                      {clockTime(played)} / {clockTime(total)}
-                    </span>
-                    {/* Before it starts the poster shows a later chapter: no title over it. */}
-                    {started && chapter?.title && (
-                      <span className="pv-now">{chapter.title}</span>
-                    )}
-                  </span>
-                  {tool}
-                  <span className="pv-glass-pill pv-tools">
-                    <button
-                      type="button"
-                      className="pv-icon pv-speed"
-                      onClick={nextSpeed}
-                      aria-label={`Speed, ${speed} times`}
-                      data-tip="Speed"
-                    >
-                      {speed}×
-                    </button>
-                    <button
-                      type="button"
-                      className="pv-icon"
-                      onClick={flipCaptions}
-                      aria-pressed={captions}
-                      aria-label="Captions"
-                      data-tip={captions ? "Hide captions" : "Show captions"}
-                    >
-                      {captions ? (
-                        <Captions size={18} aria-hidden="true" />
-                      ) : (
-                        <CaptionsOff size={18} aria-hidden="true" />
-                      )}
-                    </button>
-                    {chapters.some((item) => item.audio) && (
-                      <button
-                        type="button"
-                        className="pv-icon"
-                        onClick={flipVoice}
-                        aria-pressed={voice}
-                        aria-label="Sound"
-                        data-tip={voice ? "Mute" : "Unmute"}
-                      >
-                        {voice ? (
-                          <Volume2 size={18} aria-hidden="true" />
-                        ) : (
-                          <VolumeX size={18} aria-hidden="true" />
-                        )}
-                      </button>
-                    )}
-                    {onCinema && (
-                      <button
-                        type="button"
-                        className="pv-icon"
-                        onClick={onCinema}
-                        aria-pressed={cinema}
-                        aria-label={cinema ? "Exit full screen" : "Full screen"}
-                        data-tip={cinema ? "Exit full screen" : "Full screen"}
-                      >
-                        <RectangleHorizontal size={18} aria-hidden="true" />
-                      </button>
-                    )}
-                  </span>
-                </div>
-              </div>
-            )}
+            {!demo && controls}
           </div>
         </div>
       </div>
+      {demo && dock}
     </div>
   );
 }

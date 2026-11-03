@@ -15,6 +15,20 @@ export const CHAT_DAILY_QUESTIONS = 80;
 /** Tool calls one answer may make before it must answer with what it has. */
 export const CHAT_MAX_STEPS = 12;
 
+/** The most of an answer read aloud: the thread keeps the rest. */
+const SPOKEN_CHARS = 1500;
+
+/** An answer as it is said: its words, without what only reads. */
+export function spokenAnswer(body: string): string {
+  return body
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, SPOKEN_CHARS);
+}
+
 /** What one answer used, as the provider counts it. */
 export interface ChatUsage {
   model: string;

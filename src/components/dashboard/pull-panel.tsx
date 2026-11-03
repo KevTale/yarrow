@@ -46,14 +46,17 @@ import {
 } from "@/functions/builder.functions";
 import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { LiveCall, TryIt, useLiveStage } from "@/components/live-stage";
+import { hushAnswer, sayAnswer } from "@/components/answer-voice";
+import { LiveCall, useLiveStage } from "@/components/live-stage";
 import {
-  clockTime,
   loadPresentation,
   Presentation,
+  saved,
+  VOICE_KEY,
   type FilmCall,
   type FilmControl,
   type FilmMoment,
+  type DemoLine,
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
@@ -308,8 +311,40 @@ export function PullPanel({
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
+  const [told, setTold] = useState<DemoLine[]>([]);
   const theater = useRef<HTMLDialogElement>(null);
   const seek = useRef<((ms: number) => void) | null>(null);
+  // Interrupted, the demo goes on by itself once the agent has answered:
+  // stopped for what is being typed, and asked here.
+  const typing = useRef<{ playing: boolean } | null>(null);
+  const goesOn = useRef(false);
+  const askedHere = useRef(false);
+  const resting = useRef(false);
+  const answering = Boolean(
+    panel?.messages.some((message) => message.status === "pending"),
+  );
+  useEffect(() => {
+    const was = resting.current;
+    resting.current = answering;
+    if (!was || answering || !askedHere.current) return;
+    askedHere.current = false;
+    const answer = panel?.messages
+      .filter((message) => message.author === "agent")
+      .at(-1);
+    if (!answer) return;
+    void (async () => {
+      const heard = saved(VOICE_KEY)
+        ? await sayAnswer(projectId, rowKey, answer.id)
+        : await sleep(readingMs(answer.body)).then(() => true);
+      if (!heard || !goesOn.current) return;
+      goesOn.current = false;
+      stage.toDemo();
+      play.current?.(null);
+    })();
+    // Only an answer ending moves it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answering]);
+  useEffect(() => hushAnswer, []);
   useLayoutEffect(() => {
     const dialog = theater.current;
     if (!dialog) return;
@@ -357,7 +392,26 @@ export function PullPanel({
       stage.status?.live,
     );
   const canTry = wide && panel.preview;
-  const tryIt = () => stage.takeControl(pause.current?.() ?? null);
+  const stayHere = () => {
+    goesOn.current = false;
+    typing.current = null;
+    hushAnswer();
+  };
+  const tryIt = () => {
+    stayHere();
+    stage.takeControl(pause.current?.() ?? null);
+  };
+  // The demo waits for what is being typed, and goes on if it is taken back.
+  const typed = (text: string) => {
+    setDraft(text);
+    const words = text.trim().length > 0;
+    if (words && !typing.current)
+      typing.current = { playing: pause.current?.().playing ?? false };
+    else if (!words && typing.current) {
+      if (typing.current.playing) play.current?.(null);
+      typing.current = null;
+    }
+  };
   // The demo again: at a moment, or where it was.
   const toFilm = (ms: number) => {
     stage.toDemo();
@@ -380,7 +434,7 @@ export function PullPanel({
       projectId={projectId}
       rowKey={rowKey}
       draft={draft}
-      onDraft={setDraft}
+      onDraft={typed}
       onPanel={setPanel}
       onRefresh={refresh}
       onSeek={presentation ? toFilm : null}
@@ -390,18 +444,25 @@ export function PullPanel({
       }}
       stage={asksStage}
       turn={stage.turn}
+      told={told}
       onAsking={() => {
         const at = pause.current?.() ?? null;
+        hushAnswer();
+        goesOn.current = Boolean(at?.playing || typing.current?.playing);
+        typing.current = null;
+        askedHere.current = true;
         if (asksStage) stage.ask(at);
         else stage.hold();
       }}
       call={
         call && {
           state: call.state,
-          since: call.state === "on" ? stage.talkSince : null,
           // Through the film, paused where it is; without one, from here.
-          onCall: () =>
-            phone.current ? phone.current() : void stage.callFrom(null),
+          onCall: () => {
+            stayHere();
+            if (phone.current) phone.current();
+            else void stage.callFrom(null);
+          },
           onHangUp: call.onHangUp,
           onWarm: () => stage.warm(),
         }
@@ -445,31 +506,8 @@ export function PullPanel({
                   {app && <OpenApp app={app} />}
                 </div>
               )}
-              {/* Up, its screen already drawn behind the demo. */}
-              {presentation && onStage && (
-                <LiveCall
-                  stage={stage}
-                  shown={liveNow}
-                  cinema={cinema}
-                  onCinema={flipCinema}
-                  onResume={() => {
-                    stage.toDemo();
-                    play.current?.(null);
-                  }}
-                  tool={
-                    canTry && (
-                      <TryIt
-                        stage={stage}
-                        className="pv-glass-pill pv-take"
-                        onTake={() => stage.takeControl()}
-                      />
-                    )
-                  }
-                />
-              )}
-              {/* Kept behind the stage, paused where it took its place. */}
               {presentation && (
-                <div className="pp-take" hidden={liveNow}>
+                <div className="pp-take">
                   <Presentation
                     artifact={presentation}
                     cinema={cinema}
@@ -479,17 +517,22 @@ export function PullPanel({
                     phoneRef={phone}
                     pauseRef={pause}
                     call={call}
-                    tool={
-                      canTry && (
-                        <TryIt
-                          stage={stage}
-                          className="pv-glass-pill pv-take"
-                          onTake={tryIt}
-                        />
-                      )
-                    }
+                    demo={{
+                      autoStart: pullRequest?.state === "open",
+                      onBack: () => {
+                        stayHere();
+                        stage.toDemo();
+                      },
+                      onTouch: canTry ? tryIt : undefined,
+                      waiting: stage.control === "asking",
+                      onLines: setTold,
+                    }}
                   />
                 </div>
+              )}
+              {/* Up, its screen drawn behind the demo, ready for its canvas. */}
+              {presentation && onStage && (
+                <LiveCall stage={stage} shown={liveNow} />
               )}
               {image && (
                 <Slider
@@ -523,10 +566,11 @@ export function PullPanel({
     <div className="pp">
       <div className="pp-grid">
         <div className="pp-main">
-          {panel.implementation?.ask && (
+          {/* The demo says all of it, what it says written in the conversation. */}
+          {!presentation && panel.implementation?.ask && (
             <TicketAsk ask={panel.implementation.ask} />
           )}
-          {panel.implementation ? (
+          {!presentation && panel.implementation ? (
             <Changed
               implementation={panel.implementation}
               review={panel.review}
@@ -929,11 +973,13 @@ const local = (
  */
 type Line =
   | { kind: "message"; at: string; message: Message }
-  | { kind: "correction"; at: string; correction: Correction };
+  | { kind: "correction"; at: string; correction: Correction }
+  | { kind: "said"; at: string; said: DemoLine };
 
-function lines(panel: Panel): Line[] {
+function lines(panel: Panel, told: DemoLine[] = []): Line[] {
   const made = new Set(panel.messages.map((m) => m.correctionRequestId));
   return [
+    ...told.map((said) => ({ kind: "said" as const, at: said.at, said })),
     ...panel.messages.map((message) => ({
       kind: "message" as const,
       at: message.createdAt,
@@ -948,6 +994,15 @@ function lines(panel: Panel): Line[] {
       })),
   ].sort((a, b) => a.at.localeCompare(b.at));
 }
+
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** Time to read an answer, the sound off, before the demo goes on. */
+const readingMs = (text: string) =>
+  Math.min(12_000, 1500 + text.split(/\s+/).length * 250);
+
+/** Further than this from the end, the thread is being read. */
+const READING_UP = 140;
 
 /** A line of the thread, as the brain keeps it. */
 export type ThreadMessage = Message;
@@ -971,6 +1026,7 @@ export function Conversation({
   onMade,
   stage = false,
   turn = [],
+  told,
   onAsking,
   call,
 }: {
@@ -990,6 +1046,8 @@ export function Conversation({
   stage?: boolean;
   /** Last, pending: the member's words as the call hears them. */
   turn?: Message[];
+  /** What the demo said, where it falls in the conversation. */
+  told?: DemoLine[];
   /** A question is on its way. */
   onAsking?: () => void;
   /** The agent can be called from here. */
@@ -1032,6 +1090,7 @@ export function Conversation({
           projectId={projectId}
           rowKey={rowKey}
           open={open}
+          told={told}
           onSeek={onSeek}
           onMade={onMade}
           onRefresh={onRefresh}
@@ -1069,8 +1128,6 @@ export function Conversation({
 /** The call, from the conversation: from the film's moment when there is one. */
 export interface ConversationCall {
   state: FilmCall["state"];
-  /** When it came on: how long it has lasted shows beside the hang up. */
-  since: number | null;
   onCall: () => void;
   onHangUp: () => void;
   onWarm?: () => void;
@@ -1085,6 +1142,7 @@ function Thread({
   projectId,
   rowKey,
   open,
+  told,
   onSeek,
   onMade,
   onRefresh,
@@ -1094,23 +1152,28 @@ function Thread({
   rowKey: string;
   /** The pull request can still change. */
   open: boolean;
+  told?: DemoLine[];
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
   onRefresh: () => Promise<unknown>;
 }) {
-  const shown = lines(panel);
+  const shown = lines(panel, told);
   const working = workingText(panel);
   const list = useRef<HTMLOListElement>(null);
   const last = shown.at(-1);
-  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : ""}`;
+  const narrating = last?.kind === "said";
+  const latest = `${shown.length}:${last?.kind === "message" ? `${last.message.status}:${last.message.body.length}` : narrating ? last.said.body.length : ""}`;
   // The latest in view as it comes, the page left where it is: the column
-  // scrolls. With nothing said yet, the agent's notes from their top.
+  // scrolls. With nothing said yet, the agent's notes from their top. Someone
+  // reading further up is left there while the demo goes on.
   const said = shown.length > 0;
   useLayoutEffect(() => {
     const box = list.current?.parentElement;
-    if (box && said) box.scrollTop = box.scrollHeight;
-  }, [latest, said]);
+    if (!box || !said) return;
+    const below = box.scrollHeight - box.scrollTop - box.clientHeight;
+    if (!narrating || below < READING_UP) box.scrollTop = box.scrollHeight;
+  }, [latest, said, narrating]);
   return (
     <ol className="pp-chat" ref={list}>
       <Notes
@@ -1120,7 +1183,11 @@ function Thread({
         onMade={() => void onRefresh()}
       />
       {shown.map((line) =>
-        line.kind === "correction" ? (
+        line.kind === "said" ? (
+          <li key={line.said.id} className="pp-it">
+            <p className="pp-say">{line.said.body}</p>
+          </li>
+        ) : line.kind === "correction" ? (
           <Fragment key={line.correction.id}>
             <li className="pp-me">
               <p className="pp-bubble">{line.correction.instruction}</p>
@@ -1401,8 +1468,8 @@ function Ask({
     if (!question || blocked) return;
     setError("");
     setPending(true);
-    setText("");
     onSending(question);
+    setText("");
     try {
       const result = await ask({
         data: {
@@ -1453,7 +1520,6 @@ function Ask({
             }
           }}
         />
-        {call?.since && <CallClock since={call.since} />}
         {call && (call.state !== "off" || !text.trim()) && (
           <button
             type="button"
@@ -1461,13 +1527,14 @@ function Ask({
             onClick={call.state === "off" ? call.onCall : call.onHangUp}
             onPointerEnter={call.onWarm}
             onFocus={call.onWarm}
+            aria-pressed={call.state !== "off"}
+            aria-label="Microphone"
           >
-            {call.state === "on" ? (
-              <MicOff size={15} aria-hidden="true" />
+            {call.state === "off" ? (
+              <MicOff size={17} aria-hidden="true" />
             ) : (
-              <Mic size={15} aria-hidden="true" />
+              <Mic size={17} aria-hidden="true" />
             )}
-            {call.state === "off" ? "Talk" : "End"}
           </button>
         )}
         {text.trim() && (
@@ -1488,16 +1555,6 @@ function Ask({
       )}
     </div>
   );
-}
-
-/** How long the call has lasted. */
-function CallClock({ since }: { since: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return <span className="pp-call-time">{clockTime(now - since)}</span>;
 }
 
 /** Lines added and taken away. */

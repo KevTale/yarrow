@@ -9,9 +9,11 @@ import {
   chatDayStart,
   chatParts,
   clockLabel,
+  spokenAnswer,
 } from "../../src/core/chat";
 import { ensureAccount } from "../../src/db/accounts";
 import {
+  answerBody,
   askedToday,
   askQuestion,
   chatContext,
@@ -77,6 +79,15 @@ beforeEach(async () => {
 afterAll(() => t.pg.close());
 
 describe("the conversation's rules", () => {
+  it("says an answer's words, not what only reads", () => {
+    expect(
+      spokenAnswer(
+        "**Yes.** See [the README](https://x.dev/a) and `dueDate`.\n\n```ts\nconst a = 1;\n```\n> Done",
+      ),
+    ).toBe("Yes. See the README and dueDate. Done");
+    expect(spokenAnswer("a".repeat(3000))).toHaveLength(1500);
+  });
+
   it("turns [at m:ss] into moments of the film", () => {
     expect(chatParts("Checked [at 0:56], then [at 12:05].")).toEqual([
       { kind: "text", text: "Checked " },
@@ -127,6 +138,29 @@ describe("questions and answers", () => {
       ["builder", "done"],
       ["agent", "pending"],
     ]);
+  });
+
+  it("reads aloud only a whole answer of this ticket", async () => {
+    const asked = await askQuestion(db, {
+      workUnitId,
+      userId: marie.userId,
+      text: "Where is it?",
+    });
+    if (!asked.ok) throw new Error("not asked");
+    const input = { workUnitId, messageId: asked.answerId };
+    expect(await answerBody(db, input)).toBeNull();
+    await saveAnswer(db, asked.answerId, {
+      body: "Above the list.",
+      change: null,
+      usage: null,
+    });
+    expect(await answerBody(db, input)).toBe("Above the list.");
+    expect(
+      await answerBody(db, {
+        workUnitId: "00000000-0000-4000-8000-000000000000",
+        messageId: asked.answerId,
+      }),
+    ).toBeNull();
   });
 
   it("gives up an answer lost for five minutes", async () => {

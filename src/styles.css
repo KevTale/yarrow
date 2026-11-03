@@ -8428,6 +8428,70 @@ body:has(.sb-dialog[open]) {
 .pp-take {
   display: contents;
 }
+/* In a ticket's row: the canvas, its controls under it, the stage in its
+   place when something happens now. */
+.pv-demo {
+  max-width: none;
+  margin: 0;
+}
+.pv-demo .pv-view {
+  cursor: pointer;
+}
+.pv-dock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+.pv-dock .pv-icon.pv-play {
+  flex-shrink: 0;
+  background: var(--text);
+  color: var(--bg);
+  backdrop-filter: none;
+  text-shadow: none;
+}
+.pv-dock .pv-icon.pv-play:hover {
+  background: #fff;
+}
+.pv-parts {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+.pv-part {
+  overflow: hidden;
+  min-height: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pv-dock .pv-chapters {
+  padding: 0;
+}
+.pv-dock .pv-tools {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--secondary);
+}
+.pv-waiting {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 9, 11, 0.3);
+  pointer-events: none;
+}
+.pv-on {
+  align-self: start;
+  margin: 0;
+  max-width: none;
+}
+.pv-hands .pv-screen {
+  border-color: var(--text);
+}
 /* The film and the live stage in one place, the stage behind until called. */
 .pp-film {
   display: grid;

@@ -99,6 +99,10 @@ export interface AppEnv {
       cue: StageCue;
     }): Promise<StageCueResult>;
     /** A live call about the pull request, by voice (src/runner/talk.ts). */
+    answerVoice(input: {
+      workUnitId: string;
+      messageId: string;
+    }): Promise<{ audio: string; contentType: string } | null>;
     talkCall(input: {
       workUnitId: string;
       userId: string;

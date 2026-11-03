@@ -105,6 +105,18 @@ export const stageCueFn = createServerFn({ method: "POST" })
     });
   });
 
+/** An answer of the conversation, in the agent's voice. */
+export const stageVoiceFn = createServerFn({ method: "POST" })
+  .validator(z.object({ ...ticket, messageId: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const found = await stageOf(data);
+    if (!found) return null;
+    return found.brain.answerVoice({
+      workUnitId: found.workUnitId,
+      messageId: data.messageId,
+    });
+  });
+
 export type TalkCall =
   | {
       ok: true;
