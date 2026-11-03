@@ -1,7 +1,6 @@
 import {
   Captions,
   CaptionsOff,
-  MessageSquare,
   Pause,
   Play,
   RectangleHorizontal,
@@ -30,6 +29,7 @@ import {
   type Presentation as Timeline,
 } from "@/core/presentation";
 import type { StoredArtifact } from "@/core/review";
+import { asCall } from "@/components/call-voice";
 import { Spinner } from "@/components/navigation-feedback";
 
 const evidence = (key: string) => `/evidence/${key}`;
@@ -56,8 +56,8 @@ export interface DemoRow {
   onTouch?: () => void;
   /** The app is on its way to the member's hands. */
   waiting: boolean;
-  /** The member's way in: without it, nothing to ask from the player. */
-  ask?: { open: boolean; onClick: () => void; onWarm: () => void };
+  /** A call is on: the microphone must not hear the demo's voice. */
+  onCall: boolean;
   /** The stage, taking the demo's place when something happens now. */
   live: ReactNode;
   /** It is on the canvas: the controls rest, as they do while it plays. */
@@ -446,6 +446,10 @@ function Player({
 
   // Where it is, kept each time it stops or moves on, and as the row closes.
   const keep = useRef(() => {});
+  const routed = useRef<Promise<() => void> | null>(null);
+  useEffect(() => {
+    if (demo?.onCall && audio.current) routed.current ??= asCall(audio.current);
+  }, [demo?.onCall]);
   useEffect(() => {
     keep.current = () => {
       if (!demo || !started) return;
@@ -499,6 +503,7 @@ function Player({
       audio.current?.pause();
       clearTimeout(rest.current);
       void sound.current?.context.close().catch(() => {});
+      void routed.current?.then((hangUp) => hangUp());
     },
     [],
   );
@@ -775,20 +780,6 @@ function Player({
           {/* Before it starts the poster shows a later chapter: no title over it. */}
           {started && named && <span className="pv-now">{named}</span>}
         </span>
-        {demo?.ask && (
-          <button
-            type="button"
-            className="pv-icon pv-glass-pill pv-ask"
-            onClick={demo.ask.onClick}
-            onPointerEnter={demo.ask.onWarm}
-            onFocus={demo.ask.onWarm}
-            aria-pressed={demo.ask.open}
-            aria-label="Ask"
-            data-tip="Ask"
-          >
-            <MessageSquare size={18} aria-hidden="true" />
-          </button>
-        )}
         <span className="pv-glass-pill pv-tools">
           <button
             type="button"

@@ -90,7 +90,7 @@ The stage:
 ${
   video
     ? `The demo:
-- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the demo plays on from where they stopped it and the conversation closes; they ask again to talk.
+- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the demo plays on from where they stopped it, and you stay on the call, silent, until they speak over it again.
 - To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the demo plays from there, its recorded voice with it.${onStage ? " Never play the demo's chapters yourself on the stage.\n- On the stage, show what the demo does not." : " To show them something, point them to its moment in the demo."}
 
 `
@@ -113,11 +113,11 @@ const WRITE: Anthropic.Beta.BetaTool = {
   },
 };
 
-/** The page's tool: the demo plays on, and the call ends. */
+/** The page's tool: the demo plays on, the call staying. */
 const RESUME: Anthropic.Beta.BetaTool = {
   name: "resume_presentation",
   description:
-    "The demo plays on and the call ends: from where they stopped it, or from the start of a chapter. Only when they want it to, after your last words.",
+    "The demo plays on, from where they stopped it or from the start of a chapter, and the call stays until they hang up. Only when they want it to, after your last words.",
   input_schema: {
     type: "object",
     properties: {

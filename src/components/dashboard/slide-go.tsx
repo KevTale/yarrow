@@ -21,6 +21,7 @@ const THRESHOLD = 0.8;
  */
 export function SlideGo({
   label,
+  prompt = label,
   icon,
   tone = "amber",
   busy = false,
@@ -29,8 +30,10 @@ export function SlideGo({
 }: {
   /** The act, a word: "Start", "Retry", "Merge". */
   label: string;
+  /** What the track says, when more than the word. */
+  prompt?: string;
   icon: React.ReactNode;
-  tone?: "amber" | "green";
+  tone?: "amber" | "dark";
   /** The act is under way: the knob stays at the end, spinning. */
   busy?: boolean;
   disabled?: boolean;
@@ -39,6 +42,7 @@ export function SlideGo({
 }) {
   const reduced = useReducedMotion();
   const track = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLButtonElement>(null);
   const [run, setRun] = useState(0);
   const [armed, setArmed] = useState(false);
   const x = useMotionValue(0);
@@ -55,7 +59,7 @@ export function SlideGo({
     const measure = () =>
       setRun(
         element.clientWidth -
-          KNOB -
+          (knob.current?.offsetWidth ?? KNOB) -
           2 * parseFloat(getComputedStyle(element).paddingLeft),
       );
     measure();
@@ -91,12 +95,13 @@ export function SlideGo({
     >
       <motion.span className="tix-slide-fill" style={{ width: fill }} />
       <motion.span className="tix-slide-label" style={{ opacity: fade }}>
-        {label}
+        {prompt}
         <span className="tix-slide-hint" aria-hidden="true">
           ›››
         </span>
       </motion.span>
       <motion.button
+        ref={knob}
         type="button"
         className="tix-slide-knob"
         aria-label={`Slide to ${label.toLowerCase()}`}

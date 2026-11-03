@@ -73,7 +73,7 @@ interface Transcription {
 interface Call {
   endSession(): Promise<void>;
   sendUserMessage(text: string): void;
-  setMicMuted(muted: boolean): void;
+  setVolume(options: { volume: number }): void;
 }
 
 /** A voice in the microphone: ElevenLabs' VAD score past this. */
@@ -85,6 +85,9 @@ const STILL_VOICED = 0.4;
 /** No word of it, and quiet this long: the presentation goes on. */
 const UNVOICED_MS = 2000;
 
+/** Where the demo was as they spoke; `playing`, it had to be stopped. */
+type Interrupted = { index: number; part: number; playing?: boolean };
+
 const voiceMs = (chapter: PresentationChapter) =>
   chapter.audio?.durationMs ?? estimateSpeechMs(chapter.say);
 
@@ -92,12 +95,12 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
 
 /**
  * A pull request's stage, its app live on Yarrow's desktop (workers/stage.ts),
- * and the member's call to the agent over it (src/runner/talk.ts). From
- * the film (`callFrom`): the stage brought to where the film was stopped,
- * the agent greeting them or listening, until it plays the film on
- * (`onResume`), spoken to or written to (`write`); by
- * voice alone while the stage is not up (no recipe yet, still coming up, a
- * phone), the film paused where it was. Or the
+ * and the member's call to the agent over it (src/runner/talk.ts). Beside
+ * the film (`openCall`): the agent listens while it plays, until they speak or
+ * send (`onVoice`, `write`): the film stops and the stage goes where it
+ * stopped, or the call is by voice alone while the stage is not up (no recipe
+ * yet, still coming up, a phone). Played on (`toDemo`, `onResume`), the call
+ * stays, quiet, for the next time they speak. Or the
  * presentation played live on it, the voice here, the gestures there: their
  * first words end it there. Or they write to it in the pull request's
  * conversation beside it: the demo pauses, the stage goes there behind it,
@@ -126,6 +129,7 @@ export function useLiveStage({
   answering = false,
   refresh,
   onResume,
+  onVoice,
 }: {
   projectId: string;
   rowKey: string;
@@ -145,6 +149,8 @@ export function useLiveStage({
    * the presentation plays live again from that chapter.
    */
   onResume?: (chapter: number | null) => void;
+  /** They spoke or sent over the film: it stops, and says where. */
+  onVoice?: () => Interrupted | null;
 }) {
   const [status, setStatus] = useState<StageView | null>(initial ?? null);
   const [timeline, setTimeline] = useState<Presentation | null>(null);
@@ -165,8 +171,6 @@ export function useLiveStage({
   const [writing, setWriting] = useState("");
   /** They said it, no word of the agent's yet. */
   const [thinking, setThinking] = useState(false);
-  /** The call goes on, the microphone off. */
-  const [muted, setMuted] = useState(false);
   /** A voice in the microphone, no word of it heard yet. */
   const [voicing, setVoicing] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
@@ -218,8 +222,14 @@ export function useLiveStage({
   /** The call's handlers, made once, reach these as they are now. */
   const latest = useRef<{
     onResume?: (chapter: number | null) => void;
+    onVoice?: () => Interrupted | null;
     play: (opened?: (ok: boolean) => void, from?: number) => Promise<void>;
-  }>({ onResume, play: async () => {} });
+    interrupt: (words?: boolean) => void;
+  }>({ onResume, onVoice, play: async () => {}, interrupt: () => {} });
+  /** The film and the member: on, stopped by a voice, stopped for their words. */
+  const heardOver = useRef<"no" | "voice" | "words">("no");
+  /** Where it stopped for them. */
+  const stoppedAt = useRef<Interrupted | null>(null);
   /** A voice heard over the presentation's, before any word of it. */
   const voiced = useRef<{
     since: number;
@@ -376,14 +386,18 @@ export function useLiveStage({
     if (talk === "off") setReached(false);
   };
 
-  /** Back to the demo: whatever the screen was doing ends there. */
+  /**
+   * Back to the demo: whatever the screen was doing ends there. A call goes
+   * on, the agent not heard over it until they speak.
+   */
   const toDemo = () => {
     setControl("off");
     setAgentShows(false);
     setAsked(null);
     setReached(false);
     reachedAt.current = null;
-    endTalk();
+    heardOver.current = "no";
+    conversation.current?.setVolume({ volume: 0 });
   };
 
   /**
@@ -664,11 +678,50 @@ export function useLiveStage({
     if (heard && now - heard.last > 2 * UNVOICED_MS) {
       voicedOnCall.current = null;
       setVoicing(false);
+      unheard();
       return;
     }
     if (speaking.current || score < VOICED) return;
     if (!heard) voicedOnCall.current = { since: now, last: now };
-    else if (now - heard.since >= VOICED_MS) setVoicing(true);
+    else if (now - heard.since >= VOICED_MS) {
+      setVoicing(true);
+      if (unvoiced.current < 3) latest.current.interrupt(false);
+    }
+  };
+
+  /**
+   * They speak or send over the film: it stops at once, for a voice alone
+   * (`words` false) before any word of it. Once there are words, the agent is
+   * heard again and the stage takes the film's place where it stopped.
+   */
+  const interrupt = (words = true) => {
+    const was = heardOver.current;
+    if (was === "words" || (was === "voice" && !words)) return;
+    if (was === "no") stoppedAt.current = latest.current.onVoice?.() ?? null;
+    heardOver.current = words ? "words" : "voice";
+    if (!words) return;
+    conversation.current?.setVolume({ volume: 1 });
+    const at = stoppedAt.current;
+    // In the member's hands, the stage stays as they have it.
+    if (control !== "off") setReached(true);
+    else if (at && up.current)
+      void cue({ action: "reach", ...at }).then((result) => {
+        if (result.problems.length)
+          setProblems((now) => [...now, ...result.problems]);
+        if (result.ok && calling.current && heardOver.current === "words")
+          setReached(true);
+      });
+  };
+
+  /**
+   * Stopped for a voice no word came of, quiet now: the film goes on. Past a
+   * few, the film's own echo: words only.
+   */
+  const unheard = () => {
+    if (heardOver.current !== "voice") return;
+    heardOver.current = "no";
+    unvoiced.current += 1;
+    if (stoppedAt.current?.playing) latest.current.onResume?.(null);
   };
 
   /**
@@ -739,17 +792,19 @@ export function useLiveStage({
     return made;
   };
 
-  /** The agent asked for the film: the call ends, the film plays on. */
+  /** The agent asked for the film: it plays on, the call staying, or ending. */
   const resumeNow = () => {
     const asked = resumeAsked.current;
     if (!asked) return;
     resumeAsked.current = null;
     setAgentShows(false);
     reachedAt.current = null;
-    endTalk();
     const { onResume, play } = latest.current;
     if (onResume) onResume(asked.chapter);
-    else void play(undefined, asked.chapter ?? saying.current);
+    else {
+      endTalk();
+      void play(undefined, asked.chapter ?? saying.current);
+    }
   };
 
   /** A line of the call: one bubble a turn, until the thread has the turn. */
@@ -760,6 +815,7 @@ export function useLiveStage({
     }
     if (who === "member") {
       unvoiced.current = 0;
+      latest.current.interrupt();
       takeOver();
       setThinking(/\p{L}/u.test(text));
       if (lastWho.current !== "member") {
@@ -804,6 +860,8 @@ export function useLiveStage({
     calling.current = true;
     resumeAsked.current = null;
     speaking.current = false;
+    heardOver.current = "no";
+    unvoiced.current = 0;
     setTalk("starting");
     try {
       const [given, eleven] = await Promise.all([
@@ -851,6 +909,8 @@ export function useLiveStage({
             event.tentative_user_transcription_event?.user_transcript ?? "";
           setHearing(heard.trim());
           if (!/\p{L}/u.test(heard)) return;
+          unvoiced.current = 0;
+          latest.current.interrupt();
           hold();
         },
         onAgentChatResponsePart: ({ type, text }) => {
@@ -880,7 +940,6 @@ export function useLiveStage({
           setVoicing(false);
           setWriting("");
           setThinking(false);
-          setMuted(false);
           voicedOnCall.current = null;
           lastWho.current = null;
           setLines((now) => now.filter((line) => line.turn !== -1));
@@ -919,12 +978,12 @@ export function useLiveStage({
     conversation.current = null;
     calling.current = false;
     resumeAsked.current = null;
+    heardOver.current = "no";
     setReached(false);
     setTalk("off");
     setVoicing(false);
     setWriting("");
     setThinking(false);
-    setMuted(false);
     setLines((now) => now.filter((line) => line.turn !== -1));
     // The next call's pass, the stage up: a pass is for one call. Without
     // it, the phone's hover asks for one.
@@ -932,26 +991,14 @@ export function useLiveStage({
   };
 
   /**
-   * The member calls from the film, paused in chapter `index`, `part` of it
-   * seen, or from the conversation without a film (null): the agent greets
-   * them at once (`greeted`; if not, silent until they speak), while the
-   * stage is brought there; once it is, the stage takes the film's place. Not
-   * up, the call is by voice alone.
+   * The member calls: the agent greets them at once (`greeted`; if not, it
+   * listens, the film playing on until they speak).
    */
-  const callFrom = async (
-    at: { index: number; part: number } | null,
-    greeted = true,
-  ) => {
+  const openCall = (greeted = true) => {
     const talking = startTalk(greeted ? CALL_GREETING : undefined);
     // In the member's hands, the stage stays as they have it.
     if (control !== "off") setReached(true);
-    else if (at && up.current) {
-      const result = await cue({ action: "reach", ...at });
-      if (result.problems.length)
-        setProblems((now) => [...now, ...result.problems]);
-      if (result.ok && calling.current) setReached(true);
-    }
-    await talking;
+    return talking;
   };
 
   /**
@@ -965,13 +1012,6 @@ export function useLiveStage({
     addLine("member", text);
     session.sendUserMessage(text);
     return true;
-  };
-
-  /** The microphone off, or on again, the call going on. */
-  const mute = (on: boolean) => {
-    if (!conversation.current) return;
-    conversation.current.setMicMuted(on);
-    setMuted(on);
   };
 
   /**
@@ -1124,7 +1164,7 @@ export function useLiveStage({
   const live = Boolean(status?.live);
   useEffect(() => {
     ending.current = { stop, endTalk, hangUpVoice, warm };
-    latest.current = { onResume, play };
+    latest.current = { onResume, onVoice, play, interrupt };
   });
   useEffect(() => {
     const was = up.current;
@@ -1174,7 +1214,6 @@ export function useLiveStage({
     agentShows,
     reached,
     hearing,
-    muted,
     problems,
     notes,
     /**
@@ -1229,9 +1268,8 @@ export function useLiveStage({
     carryOn,
     startTalk,
     endTalk,
-    callFrom,
+    openCall,
     write,
-    mute,
     warm,
   };
 }

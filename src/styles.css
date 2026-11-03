@@ -3885,30 +3885,21 @@ tbody tr:hover {
   user-select: none;
   touch-action: pan-y;
 }
-.tix-slide.green {
-  border-color: #5ccb9559;
-  background: #5ccb951c;
-  color: var(--green);
-}
-.tix-slide.green:hover {
-  border-color: #5ccb9599;
-  background: #5ccb952e;
-}
-/* Merge, the one act that ends a review: the solid button of the bar, its
-   knob the dark square at its left. */
-.tix-slide.green {
-  width: 124px;
-  height: 30px;
+/* Merge, the one act that ends a review: a dark track, its knob the grey block
+   at its left, lit as letting go does it. */
+.tix-slide.dark {
+  width: 176px;
+  height: 34px;
   padding: 3px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--green);
-  color: #07140d;
+  border: 1px solid #ffffff1f;
+  border-radius: 10px;
+  background: #0a0b0d;
+  color: var(--muted);
   font-size: 13px;
-  font-weight: 600;
 }
-.tix-slide.green:hover {
-  background: color-mix(in srgb, var(--green) 88%, #fff);
+.tix-slide.dark:hover {
+  border-color: #ffffff33;
+  background: #0a0b0d;
 }
 .tix-slide-fill {
   position: absolute;
@@ -3971,29 +3962,6 @@ tbody tr:hover {
   box-shadow: 0 1px 3px #00000059;
   transition: box-shadow 0.15s;
 }
-.tix-slide.green .tix-slide-fill {
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  border-radius: 6px;
-  opacity: 0.12;
-}
-.tix-slide.green.armed .tix-slide-fill,
-.tix-slide.green.busy .tix-slide-fill {
-  opacity: 0.24;
-}
-.tix-slide.green .tix-slide-label {
-  padding-left: 24px;
-}
-.tix-slide.green .tix-slide-hint {
-  display: none;
-}
-.tix-slide.green .tix-slide-knob {
-  border-radius: 6px;
-  background: #07140d;
-  color: var(--green);
-  box-shadow: none;
-}
 .tix-slide-knob:active {
   cursor: grabbing;
 }
@@ -4001,6 +3969,42 @@ tbody tr:hover {
   box-shadow:
     0 1px 3px #00000059,
     0 0 12px 2px color-mix(in srgb, var(--amber) 55%, transparent);
+}
+.tix-slide.dark .tix-slide-fill {
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  border-radius: 7px;
+  background: #fff;
+  opacity: 0.05;
+}
+.tix-slide.dark.armed .tix-slide-fill,
+.tix-slide.dark.busy .tix-slide-fill {
+  background: var(--green);
+  opacity: 0.14;
+}
+.tix-slide.dark .tix-slide-label {
+  padding-left: 42px;
+}
+.tix-slide.dark .tix-slide-hint {
+  display: none;
+}
+.tix-slide.dark .tix-slide-knob {
+  width: 42px;
+  height: 26px;
+  border: 1px solid #ffffff24;
+  border-radius: 7px;
+  background: #2b2d31;
+  color: #fff;
+  box-shadow: none;
+  transition: background-color 0.15s;
+}
+.tix-slide.dark.armed .tix-slide-knob,
+.tix-slide.dark.busy .tix-slide-knob {
+  border-color: transparent;
+  background: var(--green);
+  color: #07140d;
+  box-shadow: none;
 }
 .tix-slide-knob:focus-visible {
   outline: 2px solid var(--text);
@@ -4087,12 +4091,11 @@ tbody tr:hover {
 .tix-opened {
   overflow: clip;
 }
-/* A light line under the row's own, from its first mark to its date; the
-   content lined up with the ticket's number and the date. */
+/* From the row's first mark to its date; the content lined up with the
+   ticket's number and the date. */
 .tix-card {
   margin: 0 10px 0 11px;
   padding: 22px 0 26px 49px;
-  border-top: 1px solid #ffffff0f;
 }
 .tix-card .pp {
   padding: 0;
@@ -8373,19 +8376,6 @@ body:has(.sb-dialog[open]) {
   height: 38px;
   background: rgba(0, 0, 0, 0.36);
 }
-.pv-icon.pv-ask {
-  width: 38px;
-  height: 38px;
-  margin-left: auto;
-  background: rgba(0, 0, 0, 0.36);
-}
-.pv-icon.pv-ask:hover,
-.pv-icon.pv-ask[aria-pressed="true"] {
-  background: rgba(255, 255, 255, 0.2);
-}
-.pv-ask + .pv-tools {
-  margin-left: 0;
-}
 .pv-speed {
   width: 44px;
   font-size: 13px;
@@ -9160,13 +9150,11 @@ html:has(.pp-stage:modal) {
     height: 36px;
   }
   .pv-glass-pill,
-  .pv-icon.pv-play,
-  .pv-icon.pv-ask {
+  .pv-icon.pv-play {
     height: 32px;
   }
   .pv-play,
-  .pv-icon.pv-play,
-  .pv-icon.pv-ask {
+  .pv-icon.pv-play {
     width: 32px;
   }
   .pv-clock {
@@ -9182,10 +9170,9 @@ html:has(.pp-stage:modal) {
   }
 }
 
-/* A ticket with its demo: one room, from the row's first mark to its date, as
-   the line over it. The screen is sized once, leaving the conversation's room
-   (140px are the header's room and the row's own line and margins): centered at
-   rest, it slides aside at that size as the conversation comes in. */
+/* A ticket with its demo: one room, from the row's first mark to its date. The
+   screen is sized once (140px are the header's room and the row's own line and
+   margins), the conversation beside it to the room's end. */
 .tix-card:has(.pp-roomy) {
   padding: 12px 0 8px;
 }
@@ -9195,7 +9182,8 @@ html:has(.pp-stage:modal) {
   --tray: 340px;
 }
 .pp-meet {
-  position: relative;
+  display: flex;
+  gap: 16px;
   min-width: 0;
   container-type: inline-size;
 }
@@ -9204,12 +9192,8 @@ html:has(.pp-stage:modal) {
     calc(100cqw - var(--tray) - 16px),
     calc(var(--screen-h) * 1.6)
   );
+  flex: none;
   width: var(--screen-w);
-  margin-inline: auto;
-  transition: transform 0.25s ease-out;
-}
-.pp-talking .pp-film {
-  transform: translateX(calc((100cqw - var(--screen-w)) / -2));
 }
 .pp-bar {
   margin-top: 8px;
@@ -9236,35 +9220,14 @@ html:has(.pp-stage:modal) {
   margin: 0;
 }
 .pp-tray {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
   display: grid;
+  flex: 1;
   grid-template-rows: minmax(0, 1fr) auto;
-  width: var(--tray);
   min-width: 0;
-  padding-top: 38px;
+  padding-top: 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
-  animation: pp-tray-in 0.2s ease-out;
-}
-@keyframes pp-tray-in {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pp-tray {
-    animation: none;
-  }
-  .pp-room .pp-film {
-    transition: none;
-  }
 }
 .pp-tray .pp-talk-thread {
   contain: size;
@@ -9274,12 +9237,6 @@ html:has(.pp-stage:modal) {
 }
 .pp-tray > .pp-asking {
   margin: 0 10px 10px;
-}
-.pp-tray-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
 }
 .pp-me {
   gap: 6px;
@@ -9319,16 +9276,10 @@ html:has(.pp-stage:modal) {
     width: min(100%, calc(var(--screen-h) * 1.6));
     max-width: 100%;
   }
-  .pp-room.pp-talking .pp-film {
-    transform: none;
-  }
   .pp-tray {
-    position: relative;
+    flex: none;
     order: 1;
-    width: auto;
     margin-top: 8px;
-    box-shadow: none;
-    animation: none;
   }
   .pp-tray .pp-talk-thread {
     contain: none;

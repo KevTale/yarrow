@@ -248,12 +248,12 @@ function useSessionLost(
 /**
  * A ticket's row, opened. With a demo, one room: the screen centered, its
  * controls on it, Merge in the bar under it. It waits for Play. Then the demo
- * plays or they talk: Ask stops it and moves it aside for the conversation, at
- * its size; the microphone there puts the agent on a call. On a call it answers
- * aloud, spoken to or written to, its words in the conversation; written to with
- * no call, the written way, said aloud. Play, closing the conversation or asking
- * for it ends the call,
- * and the demo takes up from the sentence it cut. The pull request's stage
+ * plays or they talk, the conversation always beside it, the screen at one size:
+ * it stops as they start speaking or send, not as the microphone opens. The
+ * microphone puts the agent on a call: it answers aloud, spoken to or written to,
+ * its words in the conversation; written to with no call, the written way, said
+ * aloud. Play or asking for it takes the demo up from the sentence it cut, the
+ * call staying until the microphone is turned off. The pull request's stage
  * takes the demo's place, the app live where it stopped, during the call or
  * when the member takes the mouse; before it is up, the agent answers by voice
  * alone. Without a demo: what the ticket asks, what changed with the one thing
@@ -285,9 +285,8 @@ export function PullPanel({
   );
   const play = useRef<FilmControl | null>(null);
   const pause = useRef<(() => FilmMoment) | null>(null);
-  // Where Ask stopped it; stopped as it played, it goes on once they are done.
+  // Where they stopped it.
   const stopped = useRef<FilmMoment | null>(null);
-  const goesOn = useRef(false);
   const askedHere = useRef(false);
   const resting = useRef(false);
   const stage = useLiveStage({
@@ -306,6 +305,7 @@ export function PullPanel({
       leave();
       play.current?.(chapter);
     },
+    onVoice: () => stopHere(),
   });
   const lost = useSessionLost(
     projectId,
@@ -318,37 +318,20 @@ export function PullPanel({
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
   const [draft, setDraft] = useState("");
-  // The conversation, shut at rest.
-  const [talkShown, setTalkShown] = useState(false);
   const theater = useRef<HTMLDialogElement>(null);
   const seek = useRef<((ms: number) => void) | null>(null);
   const tray = useRef<HTMLElement>(null);
-  // Ask: the demo stops and moves aside for the conversation. A call needs the
-  // microphone from its first second: it starts from the microphone's button.
-  const askNow = () => {
-    const at = pause.current?.() ?? null;
-    stopped.current = at;
-    goesOn.current = Boolean(at?.playing);
-    setTalkShown(true);
+  // They speak or send: the demo stops there.
+  const stopHere = () => {
+    stopped.current = pause.current?.() ?? null;
+    return stopped.current;
   };
-  // The demo plays or they talk: the conversation leaves with the call.
+  // The demo plays or they talk: it plays, whatever took its place gives it back.
   const leave = () => {
-    goesOn.current = false;
     askedHere.current = false;
     hushAnswer();
-    setTalkShown(false);
     stage.toDemo();
   };
-  const closeTalk = () => {
-    const playingOn = goesOn.current;
-    leave();
-    if (playingOn) play.current?.(null);
-  };
-  // On a narrow window it opens under the bar.
-  useEffect(() => {
-    if (talkShown)
-      tray.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [talkShown]);
   const answering = Boolean(
     panel?.messages.some((message) => message.status === "pending"),
   );
@@ -420,7 +403,6 @@ export function PullPanel({
     );
   const canTry = wide && panel.preview;
   const tryIt = () => {
-    goesOn.current = false;
     hushAnswer();
     stage.takeControl(pause.current?.() ?? null);
   };
@@ -506,9 +488,7 @@ export function PullPanel({
         {cinema && <div style={{ height: slot }} />}
         <dialog
           ref={theater}
-          className={
-            talkShown ? "pp-stage pp-room pp-talking" : "pp-stage pp-room"
-          }
+          className="pp-stage pp-room"
           aria-label="Full screen"
           onClose={() => setCinema(false)}
         >
@@ -533,13 +513,7 @@ export function PullPanel({
                   onBack: leave,
                   onTouch: canTry ? tryIt : undefined,
                   waiting: stage.control === "asking",
-                  ask: pullRequest
-                    ? {
-                        open: talkShown,
-                        onClick: talkShown ? closeTalk : askNow,
-                        onWarm: stage.warm,
-                      }
-                    : undefined,
+                  onCall: stage.talk !== "off",
                   // Up, its screen drawn behind the demo, ready for its canvas.
                   live: onStage && <LiveCall stage={stage} shown={liveNow} />,
                   liveNow,
@@ -557,11 +531,7 @@ export function PullPanel({
                             type="button"
                             className="pp-act"
                             onClick={() =>
-                              talkShown
-                                ? tray.current
-                                    ?.querySelector("textarea")
-                                    ?.focus()
-                                : askNow()
+                              tray.current?.querySelector("textarea")?.focus()
                             }
                           >
                             Ask for a change
@@ -572,16 +542,8 @@ export function PullPanel({
                 }}
               />
             </div>
-            {talkShown && (
+            {pullRequest && (
               <aside ref={tray} className="pp-tray" aria-label="Conversation">
-                <button
-                  type="button"
-                  className="tix-icon-btn pp-tray-close"
-                  aria-label="Close the conversation"
-                  onClick={closeTalk}
-                >
-                  <X size={15} />
-                </button>
                 <div className="pp-talk-thread">
                   <Thread
                     panel={
@@ -610,18 +572,14 @@ export function PullPanel({
                   onText={setDraft}
                   waiting={answering}
                   stage={asksStage}
-                  focused={wide}
                   call={{
-                    // Off, the call goes on: their words stay theirs to write.
-                    state: stage.muted ? "off" : stage.talk,
-                    onCall: () =>
-                      stage.muted
-                        ? stage.mute(false)
-                        : void stage.callFrom(stopped.current, false),
-                    onHangUp: () => stage.mute(true),
+                    state: stage.talk,
+                    onCall: () => void stage.openCall(false),
+                    onHangUp: () => stage.endTalk(),
                     onWarm: () => stage.warm(),
                   }}
                   onWrite={(question) => {
+                    stopHere();
                     askedAt(question);
                     return stage.write(question);
                   }}
@@ -671,7 +629,7 @@ export function PullPanel({
       onAsking={stage.hold}
       call={{
         state: stage.talk,
-        onCall: () => void stage.callFrom(null),
+        onCall: () => void stage.openCall(),
         onHangUp: () => stage.endTalk(),
         onWarm: () => stage.warm(),
       }}
@@ -1547,7 +1505,6 @@ function Ask({
   onText: setText,
   waiting,
   stage,
-  focused,
   call,
   onWrite,
   onSending,
@@ -1561,8 +1518,6 @@ function Ask({
   /** An answer is being written: the next question waits for it. */
   waiting: boolean;
   stage: boolean;
-  /** Ready to type as it opens. */
-  focused?: boolean;
   call?: ConversationCall;
   /** A call hears it instead: false with no call. */
   onWrite?: (question: string) => Promise<boolean>;
@@ -1582,11 +1537,6 @@ function Ask({
     area.style.height = "auto";
     area.style.height = `${area.scrollHeight}px`;
   }, [text]);
-  useEffect(() => {
-    if (focused) box.current?.focus({ preventScroll: true });
-    // As it opens only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const blocked = pending || waiting;
 
   async function submit() {

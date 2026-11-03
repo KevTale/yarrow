@@ -47,8 +47,9 @@ export function MergeGo({
       )}
       <SlideGo
         label="Merge"
-        tone="green"
-        icon={<GitMerge size={12} aria-hidden="true" />}
+        prompt="Slide to merge"
+        tone="dark"
+        icon={<GitMerge size={15} aria-hidden="true" />}
         busy={merging}
         onGo={go}
       />
