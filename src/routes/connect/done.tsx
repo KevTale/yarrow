@@ -3,9 +3,9 @@ import { z } from "zod";
 
 /**
  * The GitHub App's Setup URL: GitHub sends the owner here after installing,
- * often before its webhook has created the projects. The dashboard waits
- * for them, and picks up the pasted ticket. A member who is not an admin
- * of the organization only asked its admins (`setup_action=request`).
+ * often before its webhook has created the projects. The setup waits for
+ * them. A member who is not an admin of the organization only asked its
+ * admins (`setup_action=request`).
  */
 export const Route = createFileRoute("/connect/done")({
   validateSearch: z.object({
@@ -20,11 +20,6 @@ export const Route = createFileRoute("/connect/done")({
         to: "/dashboard",
         search: { tab: "builder", requested: true },
       });
-    throw redirect({
-      to: "/dashboard",
-      search: installation
-        ? { tab: "builder", installation }
-        : { tab: "builder" },
-    });
+    throw redirect({ to: "/start", search: { installation } });
   },
 });

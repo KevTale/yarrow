@@ -8131,6 +8131,80 @@ body:has(.sb-dialog[open]) {
 }
 
 /* Before GitHub: the Terms, ticked once per version. */
+/* The setup after connecting GitHub: one step at a time. */
+.start {
+  display: grid;
+  gap: 32px;
+  width: min(640px, 100%);
+  margin-inline: auto;
+  padding-block: 56px 120px;
+}
+.start-steps {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+.start-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.start-steps li + li::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: var(--line);
+}
+.start-steps a {
+  transition: color 0.15s;
+}
+.start-steps a:hover {
+  color: var(--text);
+}
+.start-steps [aria-current] {
+  color: var(--text);
+}
+.start h1 {
+  font-size: clamp(34px, 5vw, 44px);
+  letter-spacing: -0.02em;
+}
+.start-waiting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--secondary);
+}
+.start-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.start-foot > :only-child {
+  margin-left: auto;
+}
+.start-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--secondary);
+  font-size: 14px;
+  transition: color 0.15s;
+}
+.start-add:hover {
+  color: var(--text);
+}
+.start .st-moves {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
 .connect-terms {
   display: grid;
   justify-items: center;

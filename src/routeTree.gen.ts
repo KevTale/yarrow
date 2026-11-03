@@ -15,6 +15,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AccountEmailRouteImport } from './routes/account/email'
@@ -73,6 +74,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StartRoute = StartRouteImport.update({
+  id: '/start',
+  path: '/start',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -231,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/account/email': typeof AccountEmailRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/start'
     | '/terms'
     | '/account/email'
     | '/auth/callback'
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/start'
     | '/terms'
     | '/account/email'
     | '/auth/callback'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/privacy'
     | '/sign-in'
+    | '/start'
     | '/terms'
     | '/account/email'
     | '/auth/callback'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   LegalRoute: typeof LegalRoute
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
+  StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   AccountEmailRoute: typeof AccountEmailRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/start': {
+      id: '/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof StartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -745,6 +765,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalRoute: LegalRoute,
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
+  StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   AccountEmailRoute: AccountEmailRoute,
   AuthCallbackRoute: AuthCallbackRoute,

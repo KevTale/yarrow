@@ -25,20 +25,24 @@ export const Route = createFileRoute("/integrations/$tracker/callback")({
         const [expectedTracker, expectedState, projectId, next] = (
           readCookie(request, STATE_COOKIE) ?? ""
         ).split(":");
-        const back = `/projects/${projectId ?? ""}`;
+        const setup = `/start?project=${projectId}&step=tickets`;
+        const back =
+          next === "start" ? `${setup}&` : `/projects/${projectId ?? ""}?`;
         // From the dashboard's Jira card: back there, where the pasted
         // ticket is linked and queued.
         const done =
           next === "dashboard"
             ? `/dashboard?tab=builder&project=${projectId}&from=${tracker}`
-            : `${back}?connected=${tracker}`;
+            : next === "start"
+              ? setup
+              : `${back}connected=${tracker}`;
         if (
           !projectId ||
           expectedTracker !== tracker ||
           expectedState !== url.searchParams.get("state")
         )
           return auth.redirect(
-            `${back}?error=${encodeURIComponent("The authorization expired. Try again.")}`,
+            `${back}error=${encodeURIComponent("The authorization expired. Try again.")}`,
             [clear],
           );
         const { data } = await auth.client.auth.getUser();
@@ -47,7 +51,7 @@ export const Route = createFileRoute("/integrations/$tracker/callback")({
         const adapter = trackerAdapter(tracker);
         if (!code || !adapter.exchangeCode)
           return auth.redirect(
-            `${back}?error=${encodeURIComponent("The authorization was declined.")}`,
+            `${back}error=${encodeURIComponent("The authorization was declined.")}`,
             [clear],
           );
         try {
@@ -68,7 +72,7 @@ export const Route = createFileRoute("/integrations/$tracker/callback")({
           return auth.redirect(done, [clear]);
         } catch (error) {
           return auth.redirect(
-            `${back}?error=${encodeURIComponent((error as Error).message)}`,
+            `${back}error=${encodeURIComponent((error as Error).message)}`,
             [clear],
           );
         }

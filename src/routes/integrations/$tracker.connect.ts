@@ -15,8 +15,8 @@ import {
 
 /**
  * Starts the Linear, Jira or Trello authorization for one project.
- * `next=dashboard` brings the builder back to the dashboard (the Jira card)
- * instead of the project's settings.
+ * `next=dashboard` brings the builder back to the dashboard (the Jira card),
+ * `next=start` to the setup, instead of the project's settings.
  */
 export const Route = createFileRoute("/integrations/$tracker/connect")({
   server: {
@@ -27,8 +27,8 @@ export const Route = createFileRoute("/integrations/$tracker/connect")({
           return new Response("Unknown tracker", { status: 404 });
         const url = new URL(request.url);
         const projectId = url.searchParams.get("projectId") ?? "";
-        const next =
-          url.searchParams.get("next") === "dashboard" ? "dashboard" : "";
+        const asked = url.searchParams.get("next");
+        const next = asked === "dashboard" || asked === "start" ? asked : "";
         const auth = supabaseForRequest(request);
         const { data } = await auth.client.auth.getUser();
         if (!data.user)

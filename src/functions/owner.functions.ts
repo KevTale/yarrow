@@ -7,6 +7,7 @@ import {
   runConfigSchema,
 } from "@/core/forms";
 import { ensureAccount, requireProjectMember } from "@/db/accounts";
+import type { Database } from "@/db/client";
 import {
   createProject,
   deleteSecretReference,
@@ -15,6 +16,7 @@ import {
   setProjectVisibility,
   updateProject,
 } from "@/db/projects";
+import { projectsForUser } from "@/db/github-tasks";
 import { ownerDashboard, projectForOwner } from "@/db/queries";
 import { setAnthropicResources } from "@/db/runs";
 import {
@@ -60,31 +62,70 @@ export const createProjectFn = createServerFn({ method: "POST" })
 
 const projectId = z.object({ projectId: z.uuid() });
 
+/** What a project's connections show, in its settings and in the setup. */
+async function projectSetup(db: Database, id: string, accountId: string) {
+  const env = appEnv();
+  const secrets = trackerSecretsFromEnv(env);
+  return {
+    status: "ok" as const,
+    ...(await projectForOwner(db, id))!,
+    connections: await connectionsForAccount(db, accountId),
+    githubInstallUrl: githubInstallUrl(),
+    trackersAvailable: {
+      linear: Boolean(secrets.linear && secrets.encryptionKey),
+      jira: Boolean(secrets.jira && secrets.encryptionKey),
+      trello: Boolean(secrets.trello && secrets.encryptionKey),
+    },
+    secretsAvailable: Boolean(env.ANTHROPIC_API_KEY),
+  };
+}
+
+const githubInstallUrl = () =>
+  `https://github.com/apps/${appEnv().GITHUB_APP_SLUG}/installations/new`;
+
 export const getProjectFn = createServerFn({ method: "GET" })
   .validator(projectId)
   .handler(async ({ data }) => {
     const viewer = await getViewer().catch(() => null);
     if (!viewer) return { status: "signed_out" as const };
     if (!databaseConfigured()) return { status: "not_configured" as const };
-    const env = appEnv();
     return withDb(async (db) => {
       const project = await requireProjectMember(
         db,
         viewer.userId,
         data.projectId,
       );
-      const secrets = trackerSecretsFromEnv(env);
+      return projectSetup(db, project.id, project.accountId);
+    });
+  });
+
+/**
+ * The setup after connecting GitHub: the repositories that came, and the
+ * connections of the one being set up (the newest, unless one is chosen).
+ */
+export const getStartFn = createServerFn({ method: "GET" })
+  .validator(z.object({ projectId: z.uuid().optional() }))
+  .handler(async ({ data }) => {
+    const viewer = await getViewer().catch(() => null);
+    if (!viewer) return { status: "signed_out" as const };
+    if (!databaseConfigured()) return { status: "not_configured" as const };
+    return withDb(async (db) => {
+      const repositories = (await projectsForUser(db, viewer.userId)).filter(
+        (project) => project.linked,
+      );
+      const chosen =
+        repositories.find((project) => project.id === data.projectId) ??
+        repositories[0];
       return {
         status: "ok" as const,
-        ...(await projectForOwner(db, project.id))!,
-        connections: await connectionsForAccount(db, project.accountId),
-        githubInstallUrl: `https://github.com/apps/${env.GITHUB_APP_SLUG}/installations/new`,
-        trackersAvailable: {
-          linear: Boolean(secrets.linear && secrets.encryptionKey),
-          jira: Boolean(secrets.jira && secrets.encryptionKey),
-          trello: Boolean(secrets.trello && secrets.encryptionKey),
-        },
-        secretsAvailable: Boolean(env.ANTHROPIC_API_KEY),
+        repositories: repositories.map(({ id, repository }) => ({
+          id,
+          repository,
+        })),
+        githubInstallUrl: githubInstallUrl(),
+        setup: chosen
+          ? await projectSetup(db, chosen.id, chosen.accountId)
+          : null,
       };
     });
   });
@@ -259,9 +300,9 @@ export const saveTrelloTokenFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const viewer = await requireViewer();
-    const [tracker, state, project] = (getCookie(STATE_COOKIE) ?? "").split(
-      ":",
-    );
+    const [tracker, state, project, next] = (
+      getCookie(STATE_COOKIE) ?? ""
+    ).split(":");
     setCookie(STATE_COOKIE, "", { maxAge: 0, path: "/" });
     if (tracker !== "trello" || state !== data.state || !project)
       throw new Error("The authorization expired. Try again.");
@@ -273,5 +314,5 @@ export const saveTrelloTokenFn = createServerFn({ method: "POST" })
         tokens: { accessToken: data.token },
       }),
     );
-    return { projectId: project };
+    return { projectId: project, next };
   });

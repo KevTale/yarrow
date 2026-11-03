@@ -24,12 +24,17 @@ function TrelloCallback() {
         ? save({ data: { token, state } })
         : Promise.reject(new Error("Trello did not return a token."));
     saved
-      .then(({ projectId }) =>
-        navigate({
-          to: "/projects/$projectId",
-          params: { projectId },
-          search: { connected: "trello" },
-        }),
+      .then(({ projectId, next }) =>
+        next === "start"
+          ? navigate({
+              to: "/start",
+              search: { project: projectId, step: "tickets" },
+            })
+          : navigate({
+              to: "/projects/$projectId",
+              params: { projectId },
+              search: { connected: "trello" },
+            }),
       )
       .catch((cause: Error) => setError(cause.message));
   }, [save, navigate]);

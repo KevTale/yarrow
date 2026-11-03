@@ -27,6 +27,9 @@ export const openedFromYarrow = (body: string, login: string) => {
   return `${text}${text ? "\n\n" : ""}_Opened from Yarrow by **${login}**_`;
 };
 
+/** That line, its italics lost in Jira. */
+const OPENED_LINE = /\n*_?Opened from Yarrow by \*\*([^*\n]+)\*\*_?\s*$/;
+
 /**
  * Who wrote a ticket: the person the line above names, else its tracker's
  * author. An app (Yarrow's own) is no one's name.
@@ -35,7 +38,7 @@ export function ticketAuthor(
   author: string | null | undefined,
   body: string,
 ): string | null {
-  const named = /_Opened from Yarrow by \*\*([^*\n]+)\*\*_\s*$/.exec(body)?.[1];
+  const named = OPENED_LINE.exec(body)?.[1];
   return named ?? (author && !author.endsWith("[bot]") ? author : null);
 }
 
@@ -44,9 +47,7 @@ export function ticketAuthor(
  * here, and empty when all it says is the title again.
  */
 export function ticketText(body: string, title: string): string {
-  const text = body
-    .replace(/\n*_Opened from Yarrow by \*\*[^*\n]+\*\*_\s*$/, "")
-    .trim();
+  const text = body.replace(OPENED_LINE, "").trim();
   const plain = (value: string) =>
     value
       .trim()
