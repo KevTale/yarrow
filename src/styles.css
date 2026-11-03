@@ -9985,6 +9985,10 @@ button.pp-idea:focus-visible .pp-idea-go {
   background: var(--surface);
   overflow: hidden;
 }
+/* The member's own pointer: it answers at once, whatever the line. */
+.stage-screen[data-control] canvas {
+  cursor: default !important;
+}
 .stage-events {
   margin: 16px 0 0;
   padding: 0;

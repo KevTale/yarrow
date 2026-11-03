@@ -31,6 +31,7 @@ function StagePage() {
     refresh,
   });
   const { phase, problems, notes, held, talk, chapter, setScreen } = stage;
+  const { control, flipControl } = stage;
   const status = stage.status ?? initial;
 
   const act = async (action: "open" | "close", fresh = false) => {
@@ -48,6 +49,15 @@ function StagePage() {
       <header className="stage-head">
         <h1>{chapter ? chapter.title : "Stage"}</h1>
         <div className="stage-actions">
+          {phase === "ready" && location.hostname.startsWith("dev.") && (
+            <button
+              type="button"
+              className="button button-secondary button-small"
+              onClick={flipControl}
+            >
+              {control ? "Give back" : "Take control"}
+            </button>
+          )}
           {phase === "ready" && held && (
             <button
               type="button"
@@ -134,7 +144,12 @@ function StagePage() {
       <div className="stage-body">
         <div className="stage-main">
           <div className="stage-view">
-            <div className="stage-screen" ref={setScreen} data-phase={phase} />
+            <div
+              className="stage-screen"
+              ref={setScreen}
+              data-phase={phase}
+              data-control={control || undefined}
+            />
             <LiveCaption stage={stage} className="pv-caption stage-caption" />
           </div>
           {problems.length > 0 && (

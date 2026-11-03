@@ -148,6 +148,9 @@ export function useLiveStage({
   const [voicing, setVoicing] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [screen, setScreen] = useState<HTMLDivElement | null>(null);
+  /** The member's mouse and keyboard reach the app. */
+  const [control, setControl] = useState(false);
+  const viewer = useRef<{ viewOnly: boolean; focus(): void } | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   /** The voice played as a call's, so the microphone does not hear it. */
   const routed = useRef<Promise<() => void> | null>(null);
@@ -301,12 +304,23 @@ export function useLiveStage({
         if (!gone) void call("status");
       });
       rfb = client;
+      viewer.current = client;
     });
     return () => {
       gone = true;
+      viewer.current = null;
+      setControl(false);
       rfb?.disconnect();
     };
   }, [phase, screen, projectId, rowKey, call]);
+
+  const flipControl = () => {
+    const client = viewer.current;
+    if (!client) return;
+    client.viewOnly = !client.viewOnly;
+    if (!client.viewOnly) client.focus();
+    setControl(!client.viewOnly);
+  };
 
   const unhear = () => {
     clearInterval(voiced.current?.quiet);
@@ -912,6 +926,8 @@ export function useLiveStage({
     led,
     talk,
     talkSince,
+    control,
+    flipControl,
     reached,
     hearing,
     problems,

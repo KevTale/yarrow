@@ -9,6 +9,7 @@ declare module "@novnc/novnc" {
     viewOnly: boolean;
     scaleViewport: boolean;
     background: string;
+    focus(): void;
     disconnect(): void;
   }
 }
