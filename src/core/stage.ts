@@ -125,7 +125,8 @@ export type StageCue =
   | { action: "resume"; restore?: boolean }
   | { action: "stop" }
   | { action: "reach"; index: number; part: number }
-  | { action: "control"; on: boolean };
+  | { action: "control"; on: boolean }
+  | { action: "state" };
 
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
@@ -134,6 +135,8 @@ export type StageCue =
 export type StageHand =
   | { action: "state" }
   | { action: "look" }
+  // About to show something in writing: the page's screen goes to it.
+  | { action: "showing" }
   | { action: "act"; actions: LiveAction[] }
   | { action: "window"; window: "after" | "before" | "terminal" }
   | { action: "run"; command: string; cwd?: string }
@@ -178,6 +181,8 @@ export interface StageState {
   film?: number | null;
   /** A member has control of the app: the agent looks, and does not act. */
   control?: boolean;
+  /** How many times the agent showed something, in writing. */
+  showing?: number;
 }
 
 /** A recipe step that leaves something running: a database, a server. */

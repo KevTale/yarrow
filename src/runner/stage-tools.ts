@@ -183,7 +183,7 @@ export function stageNote(state: StageState | null): string {
   if (state.control)
     return "[The member has taken control of the app and is using it themselves. Look at the screen to see what they do; you cannot act on it until they give it back.]";
   if (state.film !== null && state.film !== undefined)
-    return `[The video is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the video had it there.]`;
+    return `[The demo is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the demo had it there.]`;
   if (state.over)
     return `[On the stage: the presentation stopped${state.cut === null || state.cut === undefined ? "" : ` in chapter ${state.cut + 1} of ${state.chapters}`} when they spoke.]`;
   if (state.chapter)

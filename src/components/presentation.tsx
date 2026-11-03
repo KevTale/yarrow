@@ -641,7 +641,7 @@ function Player({
               type="button"
               className="pv-start"
               onClick={toggle}
-              aria-label="Play the presentation"
+              aria-label="Play the demo"
             >
               <span className="pv-big">
                 <Play size={26} aria-hidden="true" />

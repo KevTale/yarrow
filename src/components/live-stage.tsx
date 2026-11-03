@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import type { ThreadMessage } from "@/components/dashboard/pull-panel";
 import { asCall } from "@/components/call-voice";
@@ -48,6 +49,10 @@ interface Line {
 /** The call's pass, fetched before the click, used while this fresh. */
 const PASS_MS = 4 * 60_000;
 
+/** How often the page looks whether the agent is showing something. */
+const SHOW_LOOK_MS = 700;
+/** How long it looks, a question's answer never coming. */
+const ANSWER_MS = 90_000;
 /** Asked again this often while the member has control; past a few, it ends. */
 const CONTROL_MS = 15_000;
 /** X's numbers for the keys of Ctrl+V. */
@@ -95,10 +100,11 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * phone), the film paused where it was. Or the
  * presentation played live on it, the voice here, the gestures there: their
  * first words end it there. Or they write to it in the pull request's
- * conversation beside it. The thread keeps what was said as what was
- * written. Or they take control of the app themselves, the agent only
- * watching until they give it back. The call and the voice end with the
- * stage, and with the page or the panel.
+ * conversation beside it: the demo pauses, the stage goes there behind it,
+ * and its screen takes the demo's place the moment the agent shows something.
+ * The thread keeps what was said as what was written. Or they try the app
+ * themselves, the agent only watching until the demo plays on. The call and
+ * the voice end with the stage, and with the page or the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
 function brainAsked(): { model?: string; screen?: boolean } {
@@ -117,6 +123,7 @@ export function useLiveStage({
   initial,
   start = false,
   messages,
+  answering = false,
   refresh,
   onResume,
 }: {
@@ -128,6 +135,8 @@ export function useLiveStage({
   start?: boolean;
   /** How long the thread is now. */
   messages: number;
+  /** An answer is being written. */
+  answering?: boolean;
   /** The thread read again: what it read, or undefined when it could not. */
   refresh: () => Promise<{ messages: readonly unknown[] } | null | undefined>;
   /**
@@ -160,6 +169,16 @@ export function useLiveStage({
   const [control, setControl] = useState<"off" | "asking" | "on">("off");
   /** The film's moment they took control from. */
   const controlFrom = useRef<{ index: number; part: number } | null>(null);
+  /** The agent showed something in writing: the screen is in the film's place. */
+  const [agentShows, setAgentShows] = useState(false);
+  /** A question written beside the film, from its moment, being answered. */
+  const [asked, setAsked] = useState<{
+    at: { index: number; part: number } | null;
+    wasUp: boolean;
+  } | null>(null);
+  /** The moment the stage is at: a next question from it does not go back. */
+  const reachedAt = useRef<string | null>(null);
+  const answer = useRef(answering);
   const [viewer, setViewer] = useState<RFB | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   /** The voice played as a call's, so the microphone does not hear it. */
@@ -224,6 +243,9 @@ export function useLiveStage({
   useEffect(() => {
     known.current = messages;
   }, [messages]);
+  useEffect(() => {
+    answer.current = answering;
+  }, [answering]);
 
   const cue = useCallback(
     (data: Cue) =>
@@ -320,6 +342,7 @@ export function useLiveStage({
       gone = true;
       setViewer(null);
       setControl("off");
+      setAgentShows(false);
       rfb?.disconnect();
     };
   }, [phase, screen, projectId, rowKey, call]);
@@ -345,6 +368,67 @@ export function useLiveStage({
     if (talk === "off") setReached(false);
   };
 
+  /** Back to the demo: whatever the screen was doing ends there. */
+  const toDemo = () => {
+    setControl("off");
+    setAgentShows(false);
+    setAsked(null);
+    reachedAt.current = null;
+    endTalk();
+  };
+
+  /**
+   * A question written beside the demo, paused at `at`: the stage woken if
+   * it slept, and looked at until the answer is there.
+   */
+  const ask = (at: { index: number; part: number } | null) => {
+    hold();
+    if (control !== "off" || agentShows || reached) return;
+    if (phase !== "ready" && phase !== "booting")
+      void call("open", false, true);
+    setAsked({ at, wasUp: up.current });
+  };
+
+  useEffect(() => {
+    if (!asked) return;
+    let gone = false;
+    void (async () => {
+      const until = Date.now() + ANSWER_MS;
+      while (!gone && !up.current && Date.now() < until) await sleep(500);
+      if (gone) return;
+      if (!up.current) {
+        setAsked(null);
+        return;
+      }
+      // The agent's moves wait for it there (the presenter's hands).
+      const { at, wasUp } = asked;
+      const moment = at && (at.index > 0 || at.part > 0) ? at : null;
+      const key = moment && `${moment.index}:${moment.part}`;
+      if (moment && key !== reachedAt.current) {
+        reachedAt.current = key;
+        void cue({ action: "reach", ...moment });
+      }
+      const base = wasUp
+        ? ((await cue({ action: "state" })).state?.showing ?? 0)
+        : 0;
+      let began = false;
+      while (!gone && Date.now() < until) {
+        await sleep(SHOW_LOOK_MS);
+        if (answer.current) began = true;
+        else if (began) break;
+        const now = await cue({ action: "state" });
+        if ((now.state?.showing ?? 0) > base) {
+          setAgentShows(true);
+          break;
+        }
+      }
+      if (!gone) setAsked(null);
+    })();
+    return () => {
+      gone = true;
+    };
+  }, [asked, cue]);
+
   const replayable = Boolean(status?.live);
   useEffect(() => {
     if (control !== "asking") return;
@@ -357,6 +441,7 @@ export function useLiveStage({
     void (async () => {
       const at = controlFrom.current;
       if (at && replayable) {
+        reachedAt.current = `${at.index}:${at.part}`;
         const there = await cue({ action: "reach", ...at });
         if (gone) return;
         if (there.ok) setReached(true);
@@ -650,6 +735,8 @@ export function useLiveStage({
     const asked = resumeAsked.current;
     if (!asked) return;
     resumeAsked.current = null;
+    setAgentShows(false);
+    reachedAt.current = null;
     endTalk();
     const { onResume, play } = latest.current;
     if (onResume) onResume(asked.chapter);
@@ -1022,6 +1109,9 @@ export function useLiveStage({
     control,
     takeControl,
     giveBack,
+    toDemo,
+    ask,
+    agentShows,
     reached,
     hearing,
     problems,
@@ -1095,8 +1185,8 @@ export function LiveCaption({
   );
 }
 
-/** Takes control of the app; it says so while the stage comes up. */
-export function TakeControl({
+/** The app in the member's hands; it says so while the stage comes up. */
+export function TryIt({
   stage,
   className,
   onTake,
@@ -1114,38 +1204,34 @@ export function TakeControl({
       onClick={onTake}
     >
       <MousePointer2 size={15} aria-hidden="true" />
-      {asking
-        ? "Starting"
-        : stage.phase === "failed"
-          ? "Try again"
-          : "Take control"}
+      {asking ? "Starting" : stage.phase === "failed" ? "Try again" : "Try it"}
     </button>
   );
 }
 
 /**
- * The stage in the film's place while the member is on a call from it, or
- * has control of the app: the app live, where the film was paused. Play
- * plays the film on there, the call ending; hanging up leaves the film
- * paused. In their hands nothing lies over the app: what they need is under
- * it.
+ * The stage in the demo's place, what happens now on one screen: the agent
+ * showing something, on a call or in writing, or the member trying the app.
+ * Play and Resume demo play the demo on where it was paused. In their hands
+ * nothing lies over the app: what they need is under it.
  */
 export function LiveCall({
   stage,
   shown,
   cinema,
   onCinema,
-  onFilm,
-  onGiveBack,
+  onResume,
+  tool,
 }: {
   stage: LiveStage;
-  /** Off a call: behind the film, its screen drawn, ready to take its place. */
+  /** Off: behind the demo, its screen drawn, ready to take its place. */
   shown: boolean;
   cinema: boolean;
   onCinema: () => void;
-  /** The film on, where it was paused. */
-  onFilm: () => void;
-  onGiveBack: () => void;
+  /** The demo on, where it was paused. */
+  onResume: () => void;
+  /** In its bar, before its own tools. */
+  tool?: ReactNode;
 }) {
   const { setScreen } = stage;
   const controlled = stage.control === "on";
@@ -1185,18 +1271,16 @@ export function LiveCall({
                   <button
                     type="button"
                     className="pv-icon pv-glass-pill pv-play"
-                    onClick={() => {
-                      stage.endTalk();
-                      onFilm();
-                    }}
-                    aria-label="Play"
-                    data-tip="Play"
+                    onClick={onResume}
+                    aria-label="Resume demo"
+                    data-tip="Resume demo"
                   >
                     <Play size={18} aria-hidden="true" />
                   </button>
                   <span className="pv-glass-pill pv-clock">
-                    <span className="pv-live-tag">Live</span>
+                    <span className="pv-live-tag">Showing you</span>
                   </span>
+                  {tool}
                   <span className="pv-glass-pill pv-tools">{fullScreen}</span>
                 </div>
               </div>
@@ -1205,9 +1289,9 @@ export function LiveCall({
         </div>
         {controlled && (
           <div className="pv-under">
-            <span className="pv-live-tag">Live</span>
-            <button type="button" className="pv-give" onClick={onGiveBack}>
-              Give back
+            <span className="pv-live-tag">Your turn</span>
+            <button type="button" className="pv-give" onClick={onResume}>
+              Resume demo
             </button>
             {fullScreen}
           </div>

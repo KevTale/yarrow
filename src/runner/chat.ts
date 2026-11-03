@@ -62,10 +62,10 @@ How you answer:
 - Never guess how the code behaves: read it with your tools first. When you could not check something, say so.
 - The repository is read at the pull request's branch. Code search only covers the default branch; read files to see the branch.
 - The project's other tickets are there to spot duplicates, overlaps and what is already planned.
-- Talk about what the page shows (below), and never mention a video, an image or anything else it does not show.${
+- Talk about what the page shows (below), and never mention a demo, an image or anything else it does not show.${
   video
     ? `
-- When a moment of the video shows what you talk about, point to it with its time written exactly like [at 0:56] (the times are below). At most two per answer, only where they help. Call it a video, never a film.`
+- When a moment of the demo shows what you talk about, point to it with its time written exactly like [at 0:56] (the times are below). At most two per answer, only where they help. Call it the demo, never a video or a film.`
     : ""
 }
 
@@ -77,10 +77,13 @@ Changes:
 
 /** When the member writes beside the stage, the app running live. */
 const ON_STAGE = `The stage:
-- The member writes to you beside the stage: the app of the pull request's branch running live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The video may play there; it stops while you answer.
-- When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. They see the pointer move and click as you do it. Then say in your answer what you did and what you saw.
+- The member writes to you beside the demo: behind it runs the app of the pull request's branch, live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The demo stands paused while you answer.
+- When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. The moment you act, the app takes the demo's place on their screen, and they see the pointer move and click as you do it. A question words can answer needs no gesture: the demo stays where it is. Then say in your answer what you did and what you saw.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
+
+/** When no live app is beside the member. */
+const OFF_STAGE = `You cannot touch the app from here: asked to click or try something, say so in one sentence and that they can do it themselves with Open the app.`;
 
 export const CHAT_TOOLS: Tool[] = [
   {
@@ -199,11 +202,11 @@ export function presentationLines(timeline: Presentation): string {
   return lines.join("\n");
 }
 
-/** The change has a video, on the page and for the agent. */
+/** The change has a demo, on the page and for the agent. */
 export const hasVideo = (panel: ChatContext["panel"]) =>
   Boolean(panel?.screens.some((screen) => screen.kind === "presentation"));
 
-/** The one thing the page shows of the change beside no video (src/core/proofs.ts). */
+/** The one thing the page shows of the change beside no demo (src/core/proofs.ts). */
 function shownBesideNoVideo(panel: ChatContext["panel"]): string {
   const lead = leadProof(panel?.proofs ?? []);
   switch (lead?.kind) {
@@ -230,8 +233,8 @@ function shownBesideNoVideo(panel: ChatContext["panel"]): string {
 function pageShows(panel: ChatContext["panel"]): string {
   const page = `On the page, beside the conversation: the ticket, the summary, the files changed${panel?.preview ? ", a button that opens the app" : ""}`;
   return hasVideo(panel)
-    ? `${page}, and the video below.`
-    : `${page}, and ${shownBesideNoVideo(panel)}. There is no video on this ticket.`;
+    ? `${page}, and the demo below.`
+    : `${page}, and ${shownBesideNoVideo(panel)}. There is no demo on this ticket.`;
 }
 
 /** Everything about the pull request, before the conversation. */
@@ -302,7 +305,7 @@ export function chatContextText(
   parts.push(pageShows(panel));
   if (extra.presentation)
     parts.push(
-      `The video (your screen with your voice; what is said, with its time):\n${presentationLines(extra.presentation)}`,
+      `The demo (your screen with your voice; what is said, with its time):\n${presentationLines(extra.presentation)}`,
     );
   if (extra.diff) {
     const files = extra.diff
@@ -459,7 +462,12 @@ export async function answerQuestion(input: {
   sources: ChatSources;
   presentation: Presentation | null;
   /** Asked beside the stage while it is up: the agent acts on it too. */
-  stage?: { state: StageState | null; hands: StageHands } | null;
+  stage?: {
+    state: StageState | null;
+    hands: StageHands;
+    /** Before the first move: the member's screen goes to the app. */
+    show?: () => Promise<void>;
+  } | null;
 }): Promise<ChatAnswer> {
   const { client, context, sources, stage } = input;
   const diff =
@@ -471,7 +479,7 @@ export async function answerQuestion(input: {
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     {
       type: "text",
-      text: `${instructions(hasVideo(context.panel))}${stage ? `\n\n${ON_STAGE}` : ""}`,
+      text: `${instructions(hasVideo(context.panel))}\n\n${stage ? ON_STAGE : OFF_STAGE}`,
     },
     {
       type: "text",
@@ -500,6 +508,7 @@ export async function answerQuestion(input: {
     cacheWrite: 0,
   };
   let change: string | null = null;
+  let shown = false;
   for (let step = 0; ; step++) {
     const last = step >= CHAT_MAX_STEPS;
     const response = await client.beta.messages.create({
@@ -534,6 +543,10 @@ export async function answerQuestion(input: {
     }
     messages.push({ role: "assistant", content: response.content });
     const run = async (call: Anthropic.Beta.BetaToolUseBlock) => {
+      if (stage && isStageTool(call.name) && call.name !== "look_at_screen") {
+        if (!shown) await stage.show?.();
+        shown = true;
+      }
       const result: { text: string; error?: boolean; change?: string } = await (
         stage && isStageTool(call.name)
           ? runStageTool(call, stage.hands)

@@ -3273,6 +3273,8 @@ class Presenter {
     this.reopen = reopen;
     /** A member's mouse and keyboard are on the app: the agent looks only. */
     this.controlled = false;
+    /** How many times the agent showed something, in writing. */
+    this.showings = 0;
     /** The opening is on screen, nothing played since: it stays. */
     this.untouched = false;
     /** The chapter playing: its index, null between chapters. */
@@ -3476,6 +3478,7 @@ class Presenter {
       cut: this.cut,
       film: this.film,
       control: this.controlled,
+      showing: this.showings,
     };
   }
 
@@ -3981,6 +3984,9 @@ function serve(presenter) {
           return { ok: true, ...(await presenter.signInAgain()) };
         case "/state":
           return { ok: true, problems: [], state: presenter.state() };
+        case "/showing":
+          presenter.showings++;
+          return { ok: true, problems: [] };
         case "/look":
           return { ok: true, problems: [], screen: await presenter.look() };
         case "/act":

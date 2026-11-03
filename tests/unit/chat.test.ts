@@ -471,7 +471,7 @@ describe("what the agent knows the page shows", () => {
         ],
       }),
     ).toContain(
-      "and a number, Loading the list: 1240 ms before, 23 ms now. There is no video on this ticket.",
+      "and a number, Loading the list: 1240 ms before, 23 ms now. There is no demo on this ticket.",
     );
     expect(
       shown({
@@ -489,7 +489,7 @@ describe("what the agent knows the page shows", () => {
     expect(
       shown({ proofs: [{ kind: "document", file: "README.md" }] }),
     ).toContain("a button to the document README.md");
-    expect(shown({})).toContain("and nothing else. There is no video");
+    expect(shown({})).toContain("and nothing else. There is no demo");
   });
 
   it("names the video when there is one, and the app's button", () => {
@@ -497,8 +497,8 @@ describe("what the agent knows the page shows", () => {
       screens: [{ kind: "presentation", key: "runs/r/film.json" }] as never,
       preview: { path: null, signIn: null } as never,
     });
-    expect(text).toContain("a button that opens the app, and the video below.");
-    expect(text).not.toContain("no video");
+    expect(text).toContain("a button that opens the app, and the demo below.");
+    expect(text).not.toContain("no demo");
   });
 });
 
@@ -662,15 +662,20 @@ describe("the agent that answers", () => {
             await new Promise((done) => setTimeout(done, 20));
           return { ok: true, problems: [], screen: `after ${hand.action}` };
         },
+        show: async () => {
+          hands.push({ action: "showing" });
+        },
       },
     });
     expect(answer.body).toBe("Done is on.");
+    // The member's screen goes to the app before its first move, once.
     expect(hands).toEqual([
+      { action: "showing" },
       { action: "act", actions: [{ do: "click", target: "e12" }] },
       { action: "look" },
     ]);
     const first = requests[0]!.body;
-    expect(JSON.stringify(first.system)).toContain("beside the stage");
+    expect(JSON.stringify(first.system)).toContain("beside the demo");
     expect(
       (first.tools as { name: string }[]).map((tool) => tool.name),
     ).toEqual(
@@ -707,7 +712,7 @@ describe("the agent that answers", () => {
     );
     expect(tools).not.toContain("act_on_screen");
     expect(JSON.stringify(away.requests[0]!.body.system)).not.toContain(
-      "beside the stage",
+      "beside the demo",
     );
   });
 

@@ -776,6 +776,25 @@ export class ChatWorkflow extends WorkflowEntrypoint<BrainEnv, ChatRequest> {
   }
 }
 
+/** How long the page gets to go to the app, before the agent's first move. */
+const SHOW_MS = 1500;
+/** How long a question waits for a stage the page woke, and for its wake. */
+const STAGE_WAIT_MS = 25_000;
+const STAGE_WOKEN_MS = 5_000;
+
+/** Up, or past waiting: a question beside a demo wakes its stage (the page). */
+async function stageUp(stage: {
+  status(): Promise<{ phase: string }>;
+}): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < STAGE_WAIT_MS) {
+    const { phase } = await stage.status();
+    if (phase === "ready" || phase === "failed") return;
+    if (phase === "off" && Date.now() - started > STAGE_WOKEN_MS) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
 async function answerChat(
   env: BrainEnv,
   answerId: string,
@@ -790,8 +809,8 @@ async function answerChat(
     const film = context.panel?.screens.find(
       (screen) => screen.kind === "presentation",
     );
-    // The stage only while it is up: a question never wakes it.
     const hands = stageOf && env.STAGE ? env.STAGE.getByName(stageOf) : null;
+    if (hands) await stageUp(hands);
     const [presentation, reader, state] = await Promise.all([
       film && env.EVIDENCE
         ? env.EVIDENCE.get(film.key)
@@ -831,6 +850,10 @@ async function answerChat(
           ? {
               state: state.state ?? null,
               hands: (hand) => hands.present(hand),
+              show: async () => {
+                await hands.present({ action: "showing" });
+                await new Promise((resolve) => setTimeout(resolve, SHOW_MS));
+              },
             }
           : null,
     });

@@ -41,7 +41,7 @@ const TALK_MAX_STEPS = 10;
 export interface TalkContext {
   /** The pull request, its ticket, its review, what the page shows, the diff. */
   text: string;
-  /** The change has a video: its rules and its tool are the agent's. */
+  /** The change has a demo: its rules and its tool are the agent's. */
   video: boolean;
   project: ChatContext["project"];
   pullRequest: ChatContext["pullRequest"];
@@ -58,9 +58,9 @@ const instructions = (
 
 ${
   onStage
-    ? "They were watching the change's video: the app, your recorded voice over it. They paused it to call you. The video stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the video had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
+    ? "They were watching the change's demo: the app, your recorded voice over it. They paused it to call you. The demo stands still where they paused it, and the stage takes its place: the app of the pull request's branch running live on a desktop, as the demo had it there, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo)."
     : video
-      ? "They called you from the ticket's page, by voice: the change's video, the app with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its video and its review, and they see the video and the conversation."
+      ? "They called you from the ticket's page, by voice: the change's demo, the app with your recorded voice over it, stands still where they paused it, if they were watching it. No live app is on this call: you answer from the pull request, its code, its demo and its review, and they see the demo and the conversation."
       : "They called you from the ticket's page, by voice. No live app is on this call: you answer from the pull request, its code and its review, and they see what the page shows and the conversation."
 }
 
@@ -72,8 +72,8 @@ How you talk:
 - Never describe your own gestures, before or after ("I click on To do", "I'm looking at the other tab", "I type in the field", "done"): they see them. Talk about what the app shows and why it matters.`
     : ""
 }
-- Answer what they asked, then stop: no question to end on, no offer of what you could do next${video ? ', never "shall the video play on?"' : ""}.
-- Talk about what the page shows (below), and never mention a video, an image or anything else it does not show.${video ? " Call it a video, never a film." : ""}
+- Answer what they asked, then stop: no question to end on, no offer of what you could do next${video ? ', never "shall the demo play on?"' : ""}.
+- Talk about what the page shows (below), and never mention a demo, an image or anything else it does not show.${video ? " Call it the demo, never a video or a film." : ""}
 - Your earlier answers in the conversation may break these rules: follow these rules, not them.
 - Never guess how the code or the app behaves: ${onStage ? "read the code, or try it on the stage" : "read the code"}.
 ${
@@ -88,22 +88,22 @@ The stage:
 }
 ${
   video
-    ? `The video:
-- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the video plays on where they paused it and the call ends; they call again to talk.
-- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the video plays from there, its recorded voice with it.${onStage ? " Never play the video's chapters yourself on the stage.\n- On the stage, show what the video does not." : " To show them something, point them to its moment in the video."}
+    ? `The demo:
+- It plays on only when they ask for it. Never offer it, never ask whether it should: they play it themselves when they want. When they ask, a few words to close, and call resume_presentation: the demo plays on where they paused it and the call ends; they call again to talk.
+- To see a chapter again, or all of it from the start, call resume_presentation with that chapter (1 for the start): the demo plays from there, its recorded voice with it.${onStage ? " Never play the demo's chapters yourself on the stage.\n- On the stage, show what the demo does not." : " To show them something, point them to its moment in the demo."}
 
 `
     : ""
 }The conversation:
-- Beside ${onStage ? "the stage" : video ? "the video" : "what the page shows"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
+- Beside ${onStage ? "the stage" : video ? "the demo" : "what the page shows"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
 - The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
 
-/** The page's tool: the video plays on, and the call ends. */
+/** The page's tool: the demo plays on, and the call ends. */
 const RESUME: Anthropic.Beta.BetaTool = {
   name: "resume_presentation",
   description:
-    "The video plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
+    "The demo plays on and the call ends: where they paused it, or from the start of a chapter. Only when they want it to, after your last words.",
   input_schema: {
     type: "object",
     properties: {

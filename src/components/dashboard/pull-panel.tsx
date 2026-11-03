@@ -8,8 +8,8 @@ import {
   CircleDashed,
   FileDiff,
   GitCommitHorizontal,
-  Phone,
-  PhoneOff,
+  Mic,
+  MicOff,
   Play,
   Plus,
   RectangleHorizontal,
@@ -46,7 +46,7 @@ import {
 } from "@/functions/builder.functions";
 import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { LiveCall, TakeControl, useLiveStage } from "@/components/live-stage";
+import { LiveCall, TryIt, useLiveStage } from "@/components/live-stage";
 import {
   clockTime,
   loadPresentation,
@@ -293,6 +293,7 @@ export function PullPanel({
       panel.screens.some((screen) => screen.kind === "presentation"),
     ),
     messages: panel?.messages.length ?? 0,
+    answering: panel?.messages.some((message) => message.status === "pending"),
     refresh,
     onResume: (chapter) => play.current?.(chapter),
   });
@@ -337,17 +338,29 @@ export function PullPanel({
   const presentation = panel.screens.find(
     (screen) => screen.kind === "presentation",
   );
-  // Up: what is written in the conversation acts on it.
   const onStage = stage.phase === "ready";
-  // The app in the member's hands: it takes the place of what shows.
-  const controlled = stage.control === "on";
-  const canTake = wide && panel.preview;
-  const take = () => stage.takeControl(pause.current?.() ?? null);
-  // On a call over the film, once the stage is where it was paused.
+  // One screen: the demo, unless something happens now. On a call, once the
+  // stage is where it was paused; the agent showing, or the member trying it.
   const onCall = Boolean(presentation && stage.reached && stage.talk !== "off");
-  // The film from a moment: the call ends.
+  const liveNow =
+    onCall ||
+    Boolean(
+      presentation && (stage.control === "on" || (onStage && stage.agentShows)),
+    );
+  // What is written beside a demo acts on its stage, woken if it slept.
+  const asksStage =
+    onStage ||
+    Boolean(
+      wide &&
+      presentation &&
+      pullRequest?.state === "open" &&
+      stage.status?.live,
+    );
+  const canTry = wide && panel.preview;
+  const tryIt = () => stage.takeControl(pause.current?.() ?? null);
+  // The demo again: at a moment, or where it was.
   const toFilm = (ms: number) => {
-    stage.endTalk();
+    stage.toDemo();
     seek.current?.(ms);
   };
   // The agent called from the conversation: over the stage once it is up,
@@ -375,9 +388,13 @@ export function PullPanel({
         void refresh();
         onChanged();
       }}
-      stage={onStage}
+      stage={asksStage}
       turn={stage.turn}
-      onAsking={stage.hold}
+      onAsking={() => {
+        const at = pause.current?.() ?? null;
+        if (asksStage) stage.ask(at);
+        else stage.hold();
+      }}
       call={
         call && {
           state: call.state,
@@ -405,7 +422,7 @@ export function PullPanel({
     lead?.kind === "measure" || lead?.kind === "output" ? lead : null;
   const proven = (
     <>
-      {(presentation || image || controlled) && (
+      {(presentation || image) && (
         <>
           {cinema && <div style={{ height: slot }} />}
           <dialog
@@ -428,24 +445,31 @@ export function PullPanel({
                   {app && <OpenApp app={app} />}
                 </div>
               )}
-              {/* Up, its screen already drawn behind the film. */}
-              {((presentation && onStage) || controlled) && (
+              {/* Up, its screen already drawn behind the demo. */}
+              {presentation && onStage && (
                 <LiveCall
                   stage={stage}
-                  shown={onCall || controlled}
+                  shown={liveNow}
                   cinema={cinema}
                   onCinema={flipCinema}
-                  onFilm={() => play.current?.(null)}
-                  onGiveBack={() => {
-                    // Nothing else shows here: the full screen goes with it.
-                    if (!presentation && !image) setCinema(false);
-                    stage.giveBack();
+                  onResume={() => {
+                    stage.toDemo();
+                    play.current?.(null);
                   }}
+                  tool={
+                    canTry && (
+                      <TryIt
+                        stage={stage}
+                        className="pv-glass-pill pv-take"
+                        onTake={() => stage.takeControl()}
+                      />
+                    )
+                  }
                 />
               )}
-              {/* Kept behind the stage, paused where the call began. */}
+              {/* Kept behind the stage, paused where it took its place. */}
               {presentation && (
-                <div className="pp-take" hidden={onCall || controlled}>
+                <div className="pp-take" hidden={liveNow}>
                   <Presentation
                     artifact={presentation}
                     cinema={cinema}
@@ -456,43 +480,34 @@ export function PullPanel({
                     pauseRef={pause}
                     call={call}
                     tool={
-                      canTake && (
-                        <TakeControl
+                      canTry && (
+                        <TryIt
                           stage={stage}
                           className="pv-glass-pill pv-take"
-                          onTake={take}
+                          onTake={tryIt}
                         />
                       )
                     }
                   />
                 </div>
               )}
-              {image && !controlled && (
+              {image && (
                 <Slider
                   proof={image}
                   tools={
-                    <>
-                      {canTake && (
-                        <TakeControl
-                          stage={stage}
-                          className="pv-glass-pill pv-take"
-                          onTake={take}
-                        />
-                      )}
-                      {!cinema && (
-                        <span className="pv-glass-pill pv-tools">
-                          <button
-                            type="button"
-                            className="pv-icon"
-                            onClick={flipCinema}
-                            aria-label="Full screen"
-                            data-tip="Full screen"
-                          >
-                            <RectangleHorizontal size={18} aria-hidden="true" />
-                          </button>
-                        </span>
-                      )}
-                    </>
+                    !cinema && (
+                      <span className="pv-glass-pill pv-tools">
+                        <button
+                          type="button"
+                          className="pv-icon"
+                          onClick={flipCinema}
+                          aria-label="Full screen"
+                          data-tip="Full screen"
+                        >
+                          <RectangleHorizontal size={18} aria-hidden="true" />
+                        </button>
+                      </span>
+                    )
                   }
                 />
               )}
@@ -501,7 +516,7 @@ export function PullPanel({
           </dialog>
         </>
       )}
-      {block && !controlled && <ProofBlock proof={block} />}
+      {block && <ProofBlock proof={block} />}
     </>
   );
   return (
@@ -533,9 +548,6 @@ export function PullPanel({
                   size={size}
                   url={pullRequest.url}
                 />
-              )}
-              {canTake && !presentation && !image && !controlled && (
-                <TakeControl stage={stage} className="pp-act" onTake={take} />
               )}
               <span className="pp-foot-away">
                 {lead && (
@@ -1444,11 +1456,11 @@ function Ask({
             onFocus={call.onWarm}
           >
             {call.state === "on" ? (
-              <PhoneOff size={15} aria-hidden="true" />
+              <MicOff size={15} aria-hidden="true" />
             ) : (
-              <Phone size={15} aria-hidden="true" />
+              <Mic size={15} aria-hidden="true" />
             )}
-            {call.state === "off" ? "Call" : "Hang up"}
+            {call.state === "off" ? "Talk" : "End"}
           </button>
         )}
         {text.trim() && (

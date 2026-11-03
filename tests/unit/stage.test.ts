@@ -37,7 +37,7 @@ const BENCH = [
 describe("the stage", () => {
   it("tells the agent it cannot act while the member has control", () => {
     const state = { chapter: null, held: false, chapters: 2, film: 1 };
-    expect(stageNote(state)).toContain("The video is paused in chapter 2");
+    expect(stageNote(state)).toContain("The demo is paused in chapter 2");
     expect(stageNote({ ...state, control: true })).toContain(
       "The member has taken control",
     );
