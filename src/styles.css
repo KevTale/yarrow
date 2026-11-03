@@ -9470,10 +9470,11 @@ html:has(.pp-stage:modal) {
   }
 }
 
-/* A ticket with its demo: one room, from the row's first mark to its date. The
+/* A ticket with its demo: one room, from the row's chevron to its date. The
    screen is sized once (140px are the header's room and the row's own line and
    margins), the conversation beside it to the room's end. */
 .tix-card:has(.pp-roomy) {
+  margin-left: 39px;
   padding: 12px 0 8px;
 }
 .pp-room {
@@ -9560,6 +9561,9 @@ html:has(.pp-stage:modal) {
 }
 /* Too narrow for both side by side: the conversation under the bar. */
 @media (max-width: 1000px) {
+  .tix-card:has(.pp-roomy) {
+    margin-left: 10px;
+  }
   .pp-room,
   .pp-room:modal {
     display: flex;
