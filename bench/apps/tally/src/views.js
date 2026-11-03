@@ -36,12 +36,12 @@ function layout({ title, user, body }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escape(title)} · Tally</title>
+<title>${escape(title)} · Acme</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/">Tally</a>
+  <a class="brand" href="/">Acme</a>
   ${
     user
       ? `<nav>
@@ -54,7 +54,7 @@ function layout({ title, user, body }) {
 </header>
 ${
   user
-    ? `<div class="promo">Tally Pro is here: unlimited projects, reports and guests. <a href="https://tally.dev/pro">Try it free for 14 days</a></div>`
+    ? `<div class="promo">Acme Pro is here: unlimited projects, reports and guests. <a href="https://acme.dev/pro">Try it free for 14 days</a></div>`
     : ""
 }
 <main>${body}</main>

@@ -1,5 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { changeLook, LOOK, readTags, tryTurnSchema } from "@/core/try-ticket";
+import {
+  readAnswer,
+  readTicket,
+  tryInstructions,
+  tryTurnSchema,
+} from "@/core/try-ticket";
 import { tryDays } from "@/db/schema";
 import { countTryTurn } from "@/db/try-days";
 import { createTestDatabase } from "./helpers/pglite";
@@ -7,76 +12,81 @@ import { createTestDatabase } from "./helpers/pglite";
 const { db, raw, pg } = await createTestDatabase();
 afterAll(() => pg.close());
 
-describe("the sample agent's tags", () => {
-  it("takes them out of the words, in order", () => {
-    expect(readTags("[show:form]Here it is. [set:theme=light]Done.")).toEqual({
-      text: "Here it is. Done.",
-      acts: [
-        { kind: "show", moment: "form" },
-        { kind: "set", change: "theme=light" },
-      ],
-    });
+describe("an answer on the ticket to review", () => {
+  it("keeps its moments and takes the change apart", () => {
+    expect(
+      readAnswer("Blue it is [at 0:12]. [change:Urgent turns blue]"),
+    ).toEqual({ text: "Blue it is [at 0:12].", change: "Urgent turns blue" });
   });
 
   it("holds back a tag still arriving", () => {
-    expect(readTags("Here it is [sho")).toEqual({
+    expect(readAnswer("Here it is [at 0:")).toEqual({
       text: "Here it is",
-      acts: [],
+      change: null,
     });
-  });
-
-  it("drops a moment that does not exist", () => {
-    expect(readTags("[show:settings]Sorry.")).toEqual({
-      text: "Sorry.",
-      acts: [],
-    });
-  });
-
-  it("leaves no space before punctuation", () => {
-    expect(readTags("Sorted [show:sorted].").text).toBe("Sorted.");
   });
 });
 
-describe("a change on the sample app", () => {
-  it("changes what is asked and nothing else", () => {
-    expect(
-      changeLook(LOOK, "urgentColor=#2563eb, hideDone=true, sort=added"),
-    ).toEqual({
-      ...LOOK,
-      urgentColor: "#2563eb",
-      hideDone: true,
-      sort: "added",
+describe("an answer on the new ticket", () => {
+  const whole =
+    "<ticket>\nArchive old tasks\n---\nLists get long.\n\n**Done when**\n- A task can be archived\n</ticket>\nShould archived tasks come back?";
+
+  it("reads the ticket and the words after it", () => {
+    expect(readTicket(whole)).toEqual({
+      ticket: {
+        title: "Archive old tasks",
+        body: "Lists get long.\n\n**Done when**\n- A task can be archived",
+      },
+      words: "Should archived tasks come back?",
     });
   });
 
-  it("ignores what it cannot mean", () => {
-    expect(
-      changeLook(
-        LOOK,
-        "urgentColor=red,shape=star,urgentName=a name far too long,price=9,x",
-      ),
-    ).toEqual(LOOK);
+  it("writes the form as it arrives, a closing tag held back", () => {
+    expect(readTicket("<ticket>\nArchive old")).toEqual({
+      ticket: { title: "Archive old", body: "" },
+      words: "",
+    });
+    expect(readTicket("<ticket>\nArchive old tasks\n--")).toEqual({
+      ticket: { title: "Archive old tasks", body: "" },
+      words: "",
+    });
+    expect(readTicket("<ticket>\nA\n---\nLists get long.</tick")).toEqual({
+      ticket: { title: "A", body: "Lists get long." },
+      words: "",
+    });
+  });
+
+  it("leaves the form alone when there is no ticket", () => {
+    expect(readTicket("I am here to write a ticket. <tic")).toEqual({
+      ticket: null,
+      words: "I am here to write a ticket.",
+    });
   });
 });
 
-describe("a turn on the sample ticket", () => {
+describe("a turn of the sample agent", () => {
   const turn = {
+    kind: "review",
     said: [{ author: "builder", body: "Make urgent blue" }],
-    moment: "sorted",
-    look: LOOK,
+    chapter: 1,
   };
 
-  it("takes a visitor's line", () => {
+  it("takes a visitor's line, on either sample", () => {
     expect(tryTurnSchema.safeParse(turn).success).toBe(true);
-  });
-
-  it("refuses a look it would have to trust", () => {
     expect(
       tryTurnSchema.safeParse({
-        ...turn,
-        look: { ...LOOK, urgentColor: "red;}" },
+        kind: "ticket",
+        said: turn.said,
+        title: "",
+        body: "",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("refuses a sample it does not know", () => {
+    expect(tryTurnSchema.safeParse({ ...turn, kind: "other" }).success).toBe(
+      false,
+    );
   });
 
   it("refuses a line too long, or a turn the agent ends", () => {
@@ -92,6 +102,17 @@ describe("a turn on the sample ticket", () => {
         said: [{ author: "agent", body: "Hello" }],
       }).success,
     ).toBe(false);
+  });
+
+  it("tells the agent the form as it stands", () => {
+    expect(
+      tryInstructions({
+        kind: "ticket",
+        said: [{ author: "builder", body: "Go on" }],
+        title: "Archive old tasks",
+        body: "",
+      }),
+    ).toContain("Archive old tasks");
   });
 });
 

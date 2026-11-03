@@ -1,165 +1,183 @@
 import { z } from "zod";
 
 /**
- * The sample ticket on the landing: a small app drawn in the page, and what
- * its agent knows of it. No repository, no run: the agent's words carry tags
- * that move the drawing, read as they stream.
+ * The landing's two samples, a ticket being written and a ticket to review,
+ * and what their agent knows. No repository behind them: the ticket to review
+ * is a real run's, on the bench's task app, its film served with the site
+ * (`scripts/landing-film.mts`), and a change asked of it stays a card.
  */
-
-export const MOMENTS = ["list", "form", "added", "sorted"] as const;
-export type Moment = (typeof MOMENTS)[number];
-
-export const lookSchema = z.object({
-  urgentColor: z.string().regex(/^#[0-9a-f]{6}$/i),
-  highColor: z.string().regex(/^#[0-9a-f]{6}$/i),
-  urgentName: z.string().min(1).max(14),
-  highName: z.string().min(1).max(14),
-  sort: z.enum(["added", "priority"]),
-  hideDone: z.boolean(),
-  shape: z.enum(["pill", "dot"]),
-  theme: z.enum(["dark", "light"]),
-});
-export type Look = z.infer<typeof lookSchema>;
-
-/**
- * The demo, its moments as the voice reaches them. `at` and the length are
- * measured by `scripts/landing-voice.mts`, which reads these words.
- */
-export const TRY_FILM: { moment: Moment; at: number; say: string }[] = [
-  {
-    moment: "list",
-    at: 0,
-    say: "Here's the list before the change. Nothing tells you what comes first.",
-  },
-  {
-    moment: "form",
-    at: 5.2,
-    say: "Now a new task asks for a priority. Normal, unless you pick another one.",
-  },
-  {
-    moment: "added",
-    at: 11.7,
-    say: "I'll add this one as urgent, and it lands in the list with its tag.",
-  },
-  {
-    moment: "sorted",
-    at: 16.8,
-    say: "Sort by priority, and the urgent work comes first.",
-  },
-];
-export const TRY_FILM_LENGTH = 20.6;
-
-/** How the app looks once the ticket is done, before anyone asks for more. */
-export const LOOK: Look = {
-  urgentColor: "#ee7b6e",
-  highColor: "#f2b544",
-  urgentName: "Urgent",
-  highName: "High",
-  sort: "priority",
-  hideDone: false,
-  shape: "pill",
-  theme: "light",
-};
 
 /** A visitor's words, the turns of a visit, and of a day for everyone. */
 export const TRY_WORDS = 300;
 export const TRY_TURNS = 12;
 export const TRY_TURNS_A_DAY = 5000;
 
-export const tryTurnSchema = z.object({
-  said: z
-    .array(
-      z.object({
-        author: z.enum(["builder", "agent"]),
-        body: z.string().trim().min(1).max(600),
-      }),
-    )
-    .min(1)
-    .max(TRY_TURNS * 2 + 1)
-    .refine((said) => {
-      const last = said.at(-1)!;
-      return last.author === "builder" && last.body.length <= TRY_WORDS;
+const said = z
+  .array(
+    z.object({
+      author: z.enum(["builder", "agent"]),
+      body: z.string().trim().min(1).max(600),
     }),
-  moment: z.enum(MOMENTS),
-  look: lookSchema,
-});
+  )
+  .min(1)
+  .max(TRY_TURNS * 2 + 1)
+  .refine((lines) => {
+    const last = lines.at(-1)!;
+    return last.author === "builder" && last.body.length <= TRY_WORDS;
+  });
 
-export type TryAct =
-  { kind: "show"; moment: Moment } | { kind: "set"; change: string };
+export const tryTurnSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("review"),
+    said,
+    /** The chapter on the screen. */
+    chapter: z.number().int().min(0).max(12),
+  }),
+  z.object({
+    kind: z.literal("ticket"),
+    said,
+    /** The form as it stands: the visitor may have edited it. */
+    title: z.string().max(200),
+    body: z.string().max(2000),
+  }),
+]);
+export type TryTurn = z.infer<typeof tryTurnSchema>;
 
-const TAG = /\[(show|set):([^\]\n]{1,200})\]/g;
+/** The film's chapters, each line with its moment: the run's own words. */
+export const TRY_FILM: { title: string; said: string }[] = [
+  {
+    title: "Before",
+    said: "0:00 Okay, so this is the team's task list as it is today...\n0:04 every task looks exactly the same, so there's no way to tell that,\n0:08 say, Update the team page is the one that really can't wait.\n0:11 It just sits down here in the middle.\n0:14 So the ticket asks for a priority on each task, Low,\n0:17 Normal or Urgent, picked when you create it,\n0:19 with a badge on the ones that aren't Normal and urgent ones at the top.",
+  },
+  {
+    title: "The change",
+    said: "0:24 And here it is with the change.\n0:26 Update the team page is marked urgent, so it's jumped to the top with a red Urgent\n0:30 badge, and Sam's design review is low priority, so it gets a quiet grey Low badge.\n0:36 Everything that's Normal looks just like before,\n0:38 and down in the add form there's a new priority picker that starts on Normal.",
+  },
+  {
+    title: "Add urgent task",
+    said: "0:43 Let's try it for real.\n0:45 I type Call the client back, pick Urgent priority,\n0:48 and click Add... and there it is, right up top with the other urgent one,\n0:52 ahead of the tasks people are already doing.",
+  },
+  {
+    title: "Normal by default",
+    said: "0:55 And if you don't touch the picker, you get Normal.\n0:58 So I type Order new chairs and just click Add...\n1:01 it lands in the usual spot with no badge at all.\n1:04 One thing to know, an urgent task stays on top even once it's done,\n1:08 because the ticket says urgent comes first,\n1:10 so that's easy to change if you'd rather it drop down.",
+  },
+];
+
+const CHANGE = /\[change:([^\]\n]{1,200})\]/;
 /** A tag still arriving: its start stays out of the words. */
 const OPEN_TAG = /\[[^\]\n]{0,200}$/;
 
-/** What an answer says so far, and what it asked the drawing to do. */
-export function readTags(raw: string): { text: string; acts: TryAct[] } {
-  const acts: TryAct[] = [];
-  const text = raw.replace(TAG, (_, kind: string, value: string) => {
-    const wanted = value.trim();
-    if (kind === "set") acts.push({ kind: "set", change: wanted });
-    else if (MOMENTS.includes(wanted as Moment))
-      acts.push({ kind: "show", moment: wanted as Moment });
-    return "";
-  });
+/**
+ * What an answer on the ticket to review says so far, its moments (`[at 0:12]`)
+ * left in for the chat, and the change it proposes.
+ */
+export function readAnswer(raw: string): {
+  text: string;
+  change: string | null;
+} {
   return {
-    text: text
+    text: raw
+      .replace(CHANGE, "")
       .replace(OPEN_TAG, "")
       .replace(/[ \t]+([.,!?])/g, "$1")
       .replace(/[ \t]{2,}/g, " ")
       .trim(),
-    acts,
+    change: CHANGE.exec(raw)?.[1]?.trim() ?? null,
   };
 }
 
-/** A `set` tag's change on the look; what it cannot mean is left out. */
-export function changeLook(look: Look, change: string): Look {
-  const asked: Record<string, unknown> = {};
-  for (const pair of change.split(",")) {
-    const at = pair.indexOf("=");
-    const key = pair.slice(0, at).trim();
-    const value = pair.slice(at + 1).trim();
-    if (at < 0) continue;
-    if (key === "hideDone") asked.hideDone = value === "true";
-    else asked[key] = value;
-  }
-  const next = { ...look };
-  const fields = lookSchema.partial();
-  for (const [key, value] of Object.entries(asked)) {
-    const one = fields.safeParse({ [key]: value });
-    if (one.success) Object.assign(next, one.data);
-  }
-  return next;
+const OPENS = "<ticket>";
+const CLOSES = "</ticket>";
+
+/**
+ * What an answer on the new ticket says so far: the ticket it is writing,
+ * title and body as they arrive, null until it starts, then its words.
+ */
+export function readTicket(raw: string): {
+  ticket: { title: string; body: string } | null;
+  words: string;
+} {
+  const from = raw.indexOf(OPENS);
+  if (from === -1)
+    return { ticket: null, words: raw.replace(/<[^>\n]*$/, "").trim() };
+  const start = from + OPENS.length;
+  const end = raw.indexOf(CLOSES, start);
+  const inside = raw
+    .slice(start, end === -1 ? undefined : end)
+    .replace(/<[^>\n]*$/, "");
+  const cut = inside.indexOf("---");
+  return {
+    ticket: {
+      title: (cut === -1 ? inside : inside.slice(0, cut))
+        .replace(/-+\s*$/, "")
+        .trim(),
+      body: cut === -1 ? "" : inside.slice(cut + 3).trim(),
+    },
+    words: end === -1 ? "" : raw.slice(end + CLOSES.length).trim(),
+  };
 }
 
+/** What the run said it changed: the chat's first words. */
 export const TRY_FIRST_WORDS =
-  "Tasks now have a priority, from the new task form to the list. Urgent and high show a tag, normal shows nothing so the list stays quiet.";
+  "The new-task form has a priority picker (Low, Normal, Urgent) that starts on Normal, and existing tasks become Normal. The list shows a grey Low badge or a red Urgent badge, and urgent tasks sit at the top. They stay there even once they're done, because the ticket says urgent comes first.";
 
-/** What the agent is told, the screen as the visitor sees it now. */
-export function tryInstructions(moment: Moment, look: Look): string {
-  return `You are the agent on Yarrow's website, beside a sample ticket. A visitor is trying Yarrow: talk to them as you would to a colleague reviewing this ticket.
+const YARROW =
+  "What Yarrow is: builders write tickets with an agent that knows their code and their other tickets. Agents build and review each ticket in the cloud and it comes back with a demo of the result, beside this conversation. The builder asks anything, asks for a change, then merges. It connects to GitHub, Jira, Linear and Trello. Free for builders: sponsors fund the compute, their card ships in the pull requests they fund.";
 
-What Yarrow is: builders write tickets with an agent that knows their code and their other tickets. Agents build and review each ticket in the cloud and it comes back with a demo of the result, beside this conversation. The builder asks anything, asks for a change, then merges. It connects to GitHub, Jira, Linear and Trello. Free for builders: sponsors fund the compute, their card ships in the pull requests they fund.
+const ACME =
+  "Acme is a small team task app: tasks with a title, a status (to do, doing or done), an assignee and a due date, a settings page, a weekly email.";
 
-The sample ticket, on a small task app called Acme:
-#137 Tasks need a priority. People could not tell what mattered first in a long list.
+function reviewInstructions(chapter: number): string {
+  const film = TRY_FILM.map(
+    (part, i) =>
+      `${part.title}${i === chapter ? " (on the screen now)" : ""}:\n${part.said}`,
+  ).join("\n\n");
+  return `You are the agent on Yarrow's website, in the room of a ticket to review. A visitor is trying Yarrow: talk to them as you would to a colleague reviewing this ticket.
 
-The change, 6 files, +44 −6:
-- db/migrations/012_task_priority.sql: a priority column, low, normal, high or urgent, normal by default, so existing tasks stay normal
-- src/api/tasks.ts: reads and writes the priority, orders by it when asked
-- src/components/task-form.tsx: a priority picker, normal selected
-- src/components/task-row.tsx: a tag for urgent and high, nothing for normal and low, to keep the list quiet
-- src/components/task-list.tsx: a sort by priority
-- tests/tasks.test.ts: five new tests, all passing
-The reviewer ran the app and found nothing to change.
+${YARROW}
 
-The demo on the screen has four moments: list (the list before the change), form (the new task form with its picker), added (a new urgent task lands in the list with its tag), sorted (the list sorted, urgent first). It is at: ${moment}.
-The app as it looks now: ${JSON.stringify(look)}.
+${ACME}
 
-You move the screen by writing tags in your words, the visitor never sees them:
-- [show:list], [show:form], [show:added] or [show:sorted] goes to that moment. Write it when you talk about what it shows.
-- [set:key=value,key=value] changes the app at once. Keys: urgentColor and highColor (#rrggbb), urgentName and highName (a word), sort (added or priority), hideDone (true or false), shape (pill or dot), theme (dark or light).
+The ticket: Tasks need a priority. Everything in the task list looks equally important. Add a priority to tasks: Low, Normal or Urgent, chosen when a task is created, Normal by default. The list shows a badge on each task that is not Normal, red for Urgent, and urgent tasks come first.
 
-When they ask for a change those keys can make, make it now with a [set:...] tag and say it is done, in a few words. Anything else they ask to change: on a real ticket you would push a commit, on this sample you can only change what those keys do, so say that plainly and offer what comes closest.
+What changed: ${TRY_FIRST_WORDS}
+The files: db/migrations/004_task_priority.sql, public/style.css, src/db.js, src/server.js, src/views.js, test/views.test.js. The tests pass.
 
-At most two short sentences and thirty words, plain words, in the language of the visitor's last message. A tag is not a word: every sentence reads whole without it, so write tags between sentences, never in place of a word. No lists, no headings, no Markdown. Never invent anything about this ticket or about Yarrow. Other subjects: say in a few words that you are here for this ticket.`;
+The demo beside you is a recording of the real app, made and narrated by the agent who built the change:
+${film}
+
+Point at a moment by writing it as [at 0:12]: the screen goes there and the visitor can play it from there. Do it each time you talk about something the demo shows, at the line that shows it.
+
+When they ask for a change, say in a few words what you would do, then write [change:what the app will do, in a few words]: it shows a card they can accept. You never change the app from here.
+
+At most two short sentences and thirty words, plain words, in the language of the visitor's last message. No lists, no headings. Never invent anything about this ticket or about Yarrow. Other subjects: say in a few words that you are here for this ticket.`;
 }
+
+function ticketInstructions(title: string, body: string): string {
+  return `You write tickets with a builder on Yarrow's website. A visitor is trying it on a sample project.
+
+${YARROW}
+
+${ACME}
+
+The ticket so far: ${title || body ? `${title}\n${body}` : "nothing yet."}
+
+Every turn, write the whole ticket again from everything said, in exactly this shape, then one short line:
+<ticket>
+A title of at most 60 characters, no period
+---
+One or two sentences on what people cannot do today.
+
+**Done when**
+- what must be true, three or four lines at most
+</ticket>
+The one question whose answer would change the ticket most, in one short sentence. When nothing is left to ask, say in a few words that it is ready to start.
+
+Write about what people see and do, never about files or code. Never invent a number or a fact about Acme. Everything in the language of the visitor's last message. Other subjects: no ticket, say in a few words that you are here to write a ticket.`;
+}
+
+/** What the agent is told, the screen or the form as the visitor sees it. */
+export const tryInstructions = (turn: TryTurn): string =>
+  turn.kind === "ticket"
+    ? ticketInstructions(turn.title, turn.body)
+    : reviewInstructions(turn.chapter);

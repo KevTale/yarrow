@@ -103,8 +103,8 @@ export const scenarios: Scenario[] = [
     app: "tally",
     about:
       "Something taken away on every page: the film, or one screen with it and without it.",
-    title: "Remove the Tally Pro banner",
-    body: "Every page shows a purple banner about Tally Pro. Pro was cancelled: remove the banner everywhere. Nothing else changes.",
+    title: "Remove the Acme Pro banner",
+    body: "Every page shows a purple banner about Acme Pro. Pro was cancelled: remove the banner everywhere. Nothing else changes.",
     expect: {
       outcome: "pull_request",
       shows: ["app"],
@@ -121,6 +121,19 @@ export const scenarios: Scenario[] = [
       outcome: "pull_request",
       shows: ["app"],
       touches: ["public/"],
+    },
+  },
+  {
+    name: "priority",
+    app: "tally",
+    about:
+      "The landing's film: a feature seen in the form and the list, the app.",
+    title: "Tasks need a priority",
+    body: "Everything in the task list looks equally important. Add a priority to tasks: Low, Normal or Urgent, chosen when a task is created, Normal by default. The list shows a badge on each task that is not Normal, red for Urgent, and urgent tasks come first.",
+    expect: {
+      outcome: "pull_request",
+      shows: ["app"],
+      touches: ["src/"],
     },
   },
   {

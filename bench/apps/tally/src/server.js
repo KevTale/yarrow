@@ -96,4 +96,4 @@ app.get("/api/tasks", signedIn, async (_req, res) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, () => console.log(`Tally on http://localhost:${port}`));
+app.listen(port, () => console.log(`Acme on http://localhost:${port}`));

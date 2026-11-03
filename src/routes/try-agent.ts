@@ -11,8 +11,8 @@ import { appEnv } from "@/server/env.server";
 import { talkStep } from "@/runner/talk-models";
 
 /**
- * The agent of the sample ticket on the landing, for anyone: nothing to read
- * or write but the words, on Yarrow's own key. Cloudflare's limits slow a
+ * The agent of the landing's two samples, for anyone: nothing to read or
+ * write but the words, on Yarrow's own key. Cloudflare's limits slow a
  * script down, late and roughly; the day's ceiling is what bounds the bill.
  * Its words stream as plain text.
  */
@@ -40,7 +40,6 @@ export const Route = createFileRoute("/try-agent")({
         )
           return new Response("Enough", { status: 429 });
 
-        const { moment, look } = turn.data;
         const said = turn.data.said.slice(-10);
         // A conversation starts with the visitor, not the agent's first words.
         const first = said.findIndex((line) => line.author === "builder");
@@ -55,8 +54,8 @@ export const Route = createFileRoute("/try-agent")({
                 clients: {
                   anthropic: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
                 },
-                maxTokens: 300,
-                system: [{ type: "text", text: tryInstructions(moment, look) }],
+                maxTokens: turn.data.kind === "ticket" ? 500 : 300,
+                system: [{ type: "text", text: tryInstructions(turn.data) }],
                 tools: [],
                 messages: said.slice(first).map((line) => ({
                   role: line.author === "builder" ? "user" : "assistant",

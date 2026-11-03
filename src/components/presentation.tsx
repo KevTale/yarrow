@@ -32,7 +32,9 @@ import type { StoredArtifact } from "@/core/review";
 import { asCall } from "@/components/call-voice";
 import { Spinner } from "@/components/navigation-feedback";
 
-const evidence = (key: string) => `/evidence/${key}`;
+// The landing's film is served with the site, under its own path.
+const evidence = (key: string) =>
+  key.startsWith("/") ? key : `/evidence/${key}`;
 
 /** The film played on by the page: from a chapter's start, or where it was. */
 export type FilmControl = (chapter: number | null) => void;
@@ -203,8 +205,8 @@ export function Presentation({
   /** Filling the window beside the conversation: the page offers it. */
   cinema?: boolean;
   onCinema?: () => void;
-  /** Set to play the film from a moment: the conversation's `0:56`. */
-  seekRef?: RefObject<((ms: number) => void) | null>;
+  /** Set to take the film to a moment: the conversation's `0:56`. */
+  seekRef?: RefObject<((ms: number, play?: boolean) => void) | null>;
   /** Set to play the film on: the agent's resume_presentation. */
   playRef?: RefObject<FilmControl | null>;
   /** Set to pause it and read where it is: taking control from there. */
@@ -257,7 +259,7 @@ function Player({
   poster: string | null;
   cinema: boolean;
   onCinema?: () => void;
-  seekRef?: RefObject<((ms: number) => void) | null>;
+  seekRef?: RefObject<((ms: number, play?: boolean) => void) | null>;
   playRef?: RefObject<FilmControl | null>;
   pauseRef?: RefObject<(() => FilmMoment) | null>;
   whereRef?: RefObject<(() => FilmMoment) | null>;
@@ -635,8 +637,8 @@ function Player({
   useEffect(() => {
     skipping.current = skip;
     if (seekRef)
-      seekRef.current = (ms) => {
-        go(ms, true);
+      seekRef.current = (ms, play = true) => {
+        go(ms, play);
         screen.current?.scrollIntoView({
           block: "nearest",
           behavior: "smooth",

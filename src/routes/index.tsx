@@ -3,8 +3,11 @@ import { Github } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
-import { LandingRoom } from "@/components/landing-room";
-import { DashboardShot, TicketShot } from "@/components/landing-shots";
+import {
+  DashboardShot,
+  ReviewShot,
+  TicketShot,
+} from "@/components/landing-shots";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
@@ -22,6 +25,12 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
+const getStarted = (
+  <a className="lp-cta" href="/connect/github?start">
+    Get started
+  </a>
+);
+
 function Landing() {
   const navigate = useNavigate();
   // Pull requests already out link to the board's old place on this page.
@@ -34,15 +43,15 @@ function Landing() {
       <section className="lp-hero container">
         <h1>
           The best ticket harness <br />
-          in the world
+          for your team
         </h1>
         <p>
-          Our agents write your tickets, implement them and show you the result
-          working.
+          Our agents write your tickets and build them, then walk you through
+          the result. There is no better way to review a ticket.
         </p>
       </section>
       <div className="container">
-        <DashboardShot />
+        <DashboardShot cta={getStarted} />
       </div>
       <section className="container lp-sources" aria-label="Works with">
         <ul>
@@ -94,13 +103,7 @@ function Landing() {
           </p>
         </div>
         <div className="container">
-          <LandingRoom
-            cta={
-              <a className="lp-cta" href="/connect/github?start">
-                Get started
-              </a>
-            }
-          />
+          <ReviewShot cta={getStarted} />
         </div>
       </section>
     </main>

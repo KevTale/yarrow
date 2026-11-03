@@ -32,7 +32,7 @@ import { Spinner } from "@/components/navigation-feedback";
 import { Rich } from "./markdown";
 
 /** The run's two models as the feed names them: "Claude Opus", "GPT Astra". */
-interface Crew {
+export interface Crew {
   implementer: string;
   reviewer: string;
 }

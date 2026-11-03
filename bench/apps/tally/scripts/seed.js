@@ -8,9 +8,9 @@ const many = process.argv.includes("--many");
 await pool.query("TRUNCATE comments, tasks, users RESTART IDENTITY CASCADE");
 
 const people = [
-  ["demo@tally.dev", "Demo User", "demo1234"],
-  ["lea@tally.dev", "Léa Martin", "unused-password"],
-  ["sam@tally.dev", "Sam Okafor", "unused-password"],
+  ["demo@acme.dev", "Demo User", "demo1234"],
+  ["lea@acme.dev", "Léa Martin", "unused-password"],
+  ["sam@acme.dev", "Sam Okafor", "unused-password"],
 ];
 for (const [email, name, password] of people)
   await pool.query(

@@ -13,7 +13,7 @@ test("the digest lists the open tasks only", () => {
       { title: "Renew", status: "done", due_on: null },
     ],
   });
-  assert.equal(email.subject, "Your week in Tally: 1 open task");
+  assert.equal(email.subject, "Your week in Acme: 1 open task");
   assert.match(email.html, /Hi Léa/);
   assert.match(email.html, /Plan &lt;release&gt;/);
   assert.doesNotMatch(email.html, /Renew/);

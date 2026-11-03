@@ -1,6 +1,4 @@
 import {
-  ArrowUp,
-  Check,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -8,171 +6,137 @@ import {
   Play,
   Search,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { StageMark } from "@/components/dashboard/stage-mark";
+import { askSample, SampleBox } from "@/components/landing-agent";
+import { SampleRoom } from "@/components/landing-room";
 import { Markdown } from "@/components/markdown";
+import { ActivityList, type Crew } from "@/components/run-activity";
+import { storyLines, type ActivityLine } from "@/core/activity";
+import type { DraftLine } from "@/core/new-ticket";
 import type { TicketStage } from "@/core/tickets";
+import { readTicket, TRY_TURNS, TRY_WORDS } from "@/core/try-ticket";
 
-export interface SampleTicket {
+interface SampleTicket {
   number: number;
   title: string;
   who: string;
   when: string;
   work?: string;
-  asks: string;
-  changed?: string;
-  /** What the reviewer says beside it. */
-  reviewed?: string;
-  files?: { count: number; add: number; del: number };
 }
 
-export const toReview: SampleTicket[] = [
-  {
-    number: 137,
-    title: "Tasks need a priority",
-    who: "Sam Okafor",
-    when: "Nov 1, 09:12",
-    asks: `People can't tell what matters first in a long list.
+interface WrittenTicket extends SampleTicket {
+  asks: string;
+}
 
-**Done when**
-- A task can be urgent, high, normal or low
-- The list can be sorted by priority
-- Existing tasks stay normal`,
-    changed:
-      "A priority column, normal by default, so existing tasks stay normal. The new task form has a picker and the list a sort. Urgent and high show a tag, normal shows nothing so the list stays quiet.",
-    reviewed:
-      "I added a task of each priority and sorted the list. Nothing to change.",
-    files: { count: 6, add: 44, del: 6 },
-  },
-  {
-    number: 134,
-    title: "Export tasks as CSV",
-    who: "Léa Martin",
-    when: "Oct 31, 18:40",
-    asks: `Teams copy their tasks into a spreadsheet by hand every Friday.
+interface ShippedTicket extends WrittenTicket {
+  changed: string;
+  /** What the reviewer says beside it. */
+  reviewed: string;
+  files: { count: number; add: number; del: number };
+}
 
-**Done when**
-- An Export button sits above the list
-- The file follows the filters on screen
-- A comma in a title stays in its column`,
-    changed:
-      "Export sits above the list and downloads what the filters show. Titles are quoted, so a comma stays in its column.",
-    reviewed:
-      "I exported 2,000 tasks in under a second. Dates are in UTC, you may want them in the viewer's time zone.",
-    files: { count: 4, add: 71, del: 2 },
-  },
-  {
-    number: 131,
-    title: "Invite a teammate by link",
-    who: "Sam Okafor",
-    when: "Oct 31, 16:05",
-    asks: `Inviting someone takes an email and a wait.
+const crew: Crew = { implementer: "Claude Opus", reviewer: "GPT Astra" };
 
-**Done when**
-- Settings shows a link to copy
-- The link lasts seven days
-- It can be revoked`,
-    changed:
-      "Settings has an invite link that lasts seven days. Revoking makes a new one, and an old one says it expired.",
-    reviewed:
-      "I opened an expired link in a private window and got the right page. Nothing to change.",
-    files: { count: 9, add: 128, del: 14 },
-  },
-];
+/** The ticket to review: the bench's real ticket, its film served with the site. */
+const priority: SampleTicket = {
+  number: 145,
+  title: "Tasks need a priority",
+  who: "Sam Okafor",
+  when: "Nov 1, 09:12",
+};
 
-const groups: { stage: TicketStage; label: string; rows: SampleTicket[] }[] = [
-  { stage: "review", label: "To review", rows: toReview },
-  {
-    stage: "progress",
-    label: "In progress",
-    rows: [
-      {
-        number: 139,
-        title: "Filter tasks by due date",
-        who: "Léa Martin",
-        when: "Nov 1, 10:26",
-        work: "Writing the code",
-        asks: `People plan their week from the list and can't narrow it down.
+const filtering: WrittenTicket = {
+  number: 147,
+  title: "Filter tasks by due date",
+  who: "Léa Martin",
+  when: "Nov 1, 10:26",
+  work: `${crew.implementer} is writing`,
+  asks: `People plan their week from the list and can't narrow it down.
 
 **Done when**
 - The list filters by today, this week and overdue
 - The filter is still there after a reload`,
-      },
-    ],
-  },
-  { stage: "stopped", label: "Stopped", rows: [] },
+};
+
+const shipped: ShippedTicket[] = [
   {
-    stage: "done",
-    label: "Done",
-    rows: [
-      {
-        number: 129,
-        title: "Comments on tasks",
-        who: "Léa Martin",
-        when: "Oct 30, 11:48",
-        asks: `What is said about a task gets lost in chat.
+    number: 143,
+    title: "Comments on tasks",
+    who: "Léa Martin",
+    when: "Oct 30, 11:48",
+    asks: `What is said about a task gets lost in chat.
 
 **Done when**
 - Anyone on the task can comment
 - A mention sends an email`,
-        changed:
-          "Comments sit under each task, newest last. A mention sends one email, even when the comment is edited.",
-        reviewed: "Merged on Oct 30.",
-        files: { count: 11, add: 203, del: 9 },
-      },
-      {
-        number: 126,
-        title: "Search across projects",
-        who: "Sam Okafor",
-        when: "Oct 29, 17:22",
-        asks: `Finding a task means opening each project.
+    changed:
+      "Comments sit under each task, newest last. A mention sends one email, even when the comment is edited.",
+    reviewed: "Merged on Oct 30.",
+    files: { count: 11, add: 203, del: 9 },
+  },
+  {
+    number: 141,
+    title: "Search across projects",
+    who: "Sam Okafor",
+    when: "Oct 29, 17:22",
+    asks: `Finding a task means opening each project.
 
 **Done when**
 - A search box sits in the header
 - It looks through every project
 - Archived tasks stay out`,
-        changed:
-          "A search box in the header looks through every project the person can see. Archived tasks stay out.",
-        reviewed: "Merged on Oct 29.",
-        files: { count: 7, add: 96, del: 12 },
-      },
-      {
-        number: 124,
-        title: "Dark theme",
-        who: "Léa Martin",
-        when: "Oct 29, 09:31",
-        asks: `The app is hard on the eyes at night.
-
-**Done when**
-- It follows the system setting
-- It can be set by hand`,
-        changed:
-          "Colors moved to variables. The theme follows the system and can be set by hand in settings.",
-        reviewed: "Merged on Oct 29.",
-        files: { count: 23, add: 310, del: 287 },
-      },
-      {
-        number: 121,
-        title: "Keyboard shortcuts",
-        who: "Sam Okafor",
-        when: "Oct 28, 15:03",
-        asks: `Some people never want to leave the keyboard.
-
-**Done when**
-- N opens a new task
-- / goes to search
-- ? lists the shortcuts`,
-        changed:
-          "N, / and ? work anywhere except inside a text field. The list of shortcuts opens with ?.",
-        reviewed: "Merged on Oct 28.",
-        files: { count: 3, add: 58, del: 1 },
-      },
-    ],
+    changed:
+      "A search box in the header looks through every project the person can see. Archived tasks stay out.",
+    reviewed: "Merged on Oct 29.",
+    files: { count: 7, add: 96, del: 12 },
   },
 ];
 
-const shipped = groups.at(-1)!.rows;
+/** The activity of the ticket at work, as a run writes it. */
+function workSoFar(): ActivityLine[] {
+  const lines: [
+    ActivityLine["actor"],
+    ActivityLine["kind"],
+    ActivityLine["detail"],
+  ][] = [
+    ["yarrow", "phase", { phase: "implementing" }],
+    ["implementer", "read", { path: "src/views.js", ok: true }],
+    ["implementer", "read", { path: "src/db.js", ok: true }],
+    ["implementer", "search", { pattern: "due_on", ok: true }],
+    [
+      "implementer",
+      "note",
+      {
+        text: "The list has no notion of a week yet: the filter goes in the query, so a reload keeps it.",
+      },
+    ],
+    [
+      "implementer",
+      "edit",
+      { path: "src/db.js", added: 14, removed: 3, ok: true },
+    ],
+    [
+      "implementer",
+      "edit",
+      { path: "src/server.js", added: 9, removed: 1, ok: true },
+    ],
+    [
+      "implementer",
+      "edit",
+      { path: "src/views.js", added: 26, removed: 4, ok: true },
+    ],
+  ];
+  const now = Date.now();
+  return lines.map(([actor, kind, detail], i) => ({
+    externalId: String(i),
+    at: new Date(now - (lines.length - i) * 40_000).toISOString(),
+    actor,
+    kind,
+    detail,
+  }));
+}
 
 function TicketNumber({ number }: { number: number }) {
   return (
@@ -182,27 +146,6 @@ function TicketNumber({ number }: { number: number }) {
       </span>
       #{number}
     </span>
-  );
-}
-
-function GroupHead({
-  stage,
-  label,
-  count,
-}: {
-  stage: TicketStage;
-  label: string;
-  count: number;
-}) {
-  return (
-    <div className="tix-ghead">
-      <span className="tix-gtoggle">
-        <ChevronDown size={14} className="tix-gchev" aria-hidden="true" />
-        <StageMark stage={stage} />
-        {label}
-        <span className="tix-count">{count}</span>
-      </span>
-    </div>
   );
 }
 
@@ -216,7 +159,7 @@ export function TicketGroup({
   stage: TicketStage;
   label: string;
   count: number;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const [folded, setFolded] = useState(false);
   return (
@@ -238,50 +181,32 @@ export function TicketGroup({
           <span className="tix-count">{count}</span>
         </button>
       </div>
-      {!folded && count > 0 && <ul className="tix-rows">{children}</ul>}
+      {!folded && Children.count(children) > 0 && (
+        <ul className="tix-rows">{children}</ul>
+      )}
     </section>
   );
 }
 
-export function FilesChanged({
-  count,
-  add,
-  del,
-}: NonNullable<SampleTicket["files"]>) {
+/** A ticket at work, as the real one reads: the ticket, then the activity. */
+function TicketAtWork({ ticket }: { ticket: WrittenTicket }) {
+  const [lines] = useState(workSoFar);
   return (
-    <span className="lr-files">
-      <FileText size={14} aria-hidden="true" /> {count} files changed{" "}
-      <b className="add">+{add}</b> <b className="del">−{del}</b>
-    </span>
+    <div className="pp-grid">
+      <section className="pp-main">
+        <Markdown source={ticket.asks} />
+      </section>
+      <aside className="pp-aside">
+        <section className="ra-story" aria-label="Activity">
+          <ActivityList lines={storyLines(lines)} live crew={crew} />
+        </section>
+      </aside>
+    </div>
   );
 }
 
-const STEPS = [
-  "Reading the code",
-  "Writing the change",
-  "Reviewing it",
-  "Recording the demo",
-];
-
-function Steps({ at }: { at: number }) {
-  return (
-    <ol className="lp-steps">
-      {STEPS.map((label, index) => (
-        <li
-          key={label}
-          className={index < at ? "done" : index === at ? "now" : undefined}
-        >
-          <i aria-hidden="true">
-            {index < at && <Check size={11} strokeWidth={3} />}
-          </i>
-          {index === at ? <TextShimmer>{label}</TextShimmer> : label}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function TicketInside({ ticket }: { ticket: SampleTicket }) {
+/** A ticket merged: what it asked and what came of it. */
+function TicketShipped({ ticket }: { ticket: ShippedTicket }) {
   return (
     <div className="pp">
       <div className="pp-grid">
@@ -290,28 +215,26 @@ function TicketInside({ ticket }: { ticket: SampleTicket }) {
             <h3>What the ticket asks</h3>
             <Markdown source={ticket.asks} className="pp-text" />
           </section>
-          {ticket.changed && (
-            <section className="pp-section">
-              <h3>What changed</h3>
-              <Markdown source={ticket.changed} className="pp-text" />
-            </section>
-          )}
+          <section className="pp-section">
+            <h3>What changed</h3>
+            <Markdown source={ticket.changed} className="pp-text" />
+          </section>
         </div>
         <aside className="pp-aside">
-          {ticket.work ? (
-            <Steps at={1} />
-          ) : (
-            <p className="pp-say">{ticket.reviewed}</p>
-          )}
-          {ticket.files && <FilesChanged {...ticket.files} />}
+          <p className="pp-say">{ticket.reviewed}</p>
+          <span className="lp-files">
+            <FileText size={14} aria-hidden="true" /> {ticket.files.count} files
+            changed <b className="add">+{ticket.files.add}</b>{" "}
+            <b className="del">−{ticket.files.del}</b>
+          </span>
         </aside>
       </div>
     </div>
   );
 }
 
-/** A row of the list that opens; `children` take the place of its text. */
-export function TicketRow({
+/** A row of the list that opens on `children`. */
+function TicketRow({
   ticket,
   opened = false,
   merged = false,
@@ -320,7 +243,7 @@ export function TicketRow({
   ticket: SampleTicket;
   opened?: boolean;
   merged?: boolean;
-  children?: React.ReactNode;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(opened);
   return (
@@ -343,7 +266,7 @@ export function TicketRow({
                 {ticket.work}
               </TextShimmer>
             )}
-            {merged && <span className="lr-state-merged">Merged</span>}
+            {merged && <span className="lp-merged">Merged</span>}
           </span>
           <span className="tix-sponsor">
             <span className="tix-paid">Created by</span>
@@ -354,9 +277,7 @@ export function TicketRow({
       </div>
       {open && (
         <div className="tix-opened">
-          <div className="tix-card">
-            {children ?? <TicketInside ticket={ticket} />}
-          </div>
+          <div className="tix-card">{children}</div>
         </div>
       )}
     </li>
@@ -364,7 +285,8 @@ export function TicketRow({
 }
 
 /** A project's tickets, on the dashboard's own styles: they open. */
-export function DashboardShot() {
+export function DashboardShot({ cta }: { cta: ReactNode }) {
+  const [merged, setMerged] = useState(false);
   return (
     <div className="lp-dash">
       <div className="lp-dash-head">
@@ -374,79 +296,130 @@ export function DashboardShot() {
         </span>
       </div>
       <div className="tix-list">
-        {groups.map((group) => (
-          <TicketGroup
-            key={group.stage}
-            stage={group.stage}
-            label={group.label}
-            count={group.rows.length}
-          >
-            {group.rows.map((row) => (
-              <TicketRow ticket={row} key={row.number} />
-            ))}
-          </TicketGroup>
-        ))}
+        <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
+          <TicketRow ticket={priority} merged={merged}>
+            <SampleRoom
+              cta={cta}
+              merged={merged}
+              onMerged={() => setMerged(true)}
+            />
+          </TicketRow>
+        </TicketGroup>
+        <TicketGroup stage="progress" label="In progress" count={1}>
+          <TicketRow ticket={filtering}>
+            <TicketAtWork ticket={filtering} />
+          </TicketRow>
+        </TicketGroup>
+        <TicketGroup stage="stopped" label="Stopped" count={0} />
+        <TicketGroup
+          stage="done"
+          label="Done"
+          count={shipped.length + (merged ? 1 : 0)}
+        >
+          {shipped.map((ticket) => (
+            <TicketRow ticket={ticket} key={ticket.number}>
+              <TicketShipped ticket={ticket} />
+            </TicketRow>
+          ))}
+        </TicketGroup>
       </div>
     </div>
   );
 }
 
-const STEP_MS = 1900;
+/** The same ticket, already open: the review is the page's last word. */
+export function ReviewShot({ cta }: { cta: ReactNode }) {
+  const [merged, setMerged] = useState(false);
+  return (
+    <div className="lp-dash lp-review">
+      <div className="tix-list">
+        <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
+          <TicketRow ticket={priority} merged={merged} opened>
+            <SampleRoom
+              cta={cta}
+              merged={merged}
+              onMerged={() => setMerged(true)}
+            />
+          </TicketRow>
+        </TicketGroup>
+      </div>
+    </div>
+  );
+}
 
-const DRAFT_TITLE = "Archive a task";
-const DRAFT_BODY = `People want to clear their list without losing anything.
-
-Done when
-- A task can be archived from the list
-- Archived tasks sit in a tab of their own
-- Nothing is deleted`;
-const DRAFT_TALK = [
-  { me: true, text: "People should be able to archive a task" },
-  {
-    me: false,
-    text: "Should archived tasks stay reachable, or leave for good?",
-  },
-  { me: true, text: "Stay reachable, in a tab of their own" },
-  { me: false, text: "Written. Anything to add before it goes?" },
+const IDEA = "We need a way to archive old tasks";
+const WORK = [
+  `${crew.implementer} is writing`,
+  `${crew.reviewer} is reviewing`,
+  "Opening the PR",
 ];
-const NEXT_ASK = "Add an undo right after archiving";
-const NEXT_ANSWER = "Added, the ticket says so.";
-const NEXT_LINE = "- Archiving can be undone for a few seconds";
+const STEP_MS = 2400;
 
 interface Drafted {
   number: number;
   title: string;
 }
 
-function Landed({ tickets }: { tickets: Drafted[] }) {
-  return tickets.map((ticket) => (
-    <li className="lp-ticket fresh" key={ticket.number}>
+/** A ticket on the board beside the dialog, its state under it. */
+function BoardRow({
+  ticket,
+  state,
+  fresh = false,
+}: {
+  ticket: Drafted;
+  state?: string;
+  fresh?: boolean;
+}) {
+  return (
+    <li className={fresh ? "lp-board-row fresh" : "lp-board-row"}>
       <TicketNumber number={ticket.number} />
-      <b>{ticket.title}</b>
+      <span className="tix-title">{ticket.title}</span>
+      {state && (
+        <TextShimmer className="tix-state working">{state}</TextShimmer>
+      )}
     </li>
-  ));
+  );
 }
 
-function Listed({ tickets }: { tickets: SampleTicket[] }) {
-  return tickets.map((ticket) => (
-    <li className="lp-ticket" key={ticket.number}>
-      <TicketNumber number={ticket.number} />
-      <b>{ticket.title}</b>
-    </li>
-  ));
+function BoardGroup({
+  stage,
+  label,
+  count,
+  children,
+}: {
+  stage: TicketStage;
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <div className="tix-ghead">
+        <span className="tix-gtoggle">
+          <ChevronDown size={14} className="tix-gchev" aria-hidden="true" />
+          <StageMark stage={stage} />
+          {label}
+          <span className="tix-count">{count}</span>
+        </span>
+      </div>
+      <ul className="lp-board-rows">{children}</ul>
+    </section>
+  );
 }
 
 /**
- * The real new ticket dialog over the board. A line waits in the agent's box
- * and the ticket can be edited; Start sends it to the right, where it goes
- * through the work and lands to review, Create leaves it in To do. Drawn: the
- * ticket to review further down has the real agent.
+ * The real new ticket dialog over the board, empty, a rough idea ready in the
+ * box. A real agent writes the ticket into the form as it answers. Start
+ * sends it to the board, where it goes through the work and lands to review;
+ * Create leaves it in To do.
  */
 export function TicketShot() {
-  const [title, setTitle] = useState(DRAFT_TITLE);
-  const [body, setBody] = useState(DRAFT_BODY);
-  const [said, setSaid] = useState(DRAFT_TALK);
-  const [talk, setTalk] = useState<"ready" | "thinking" | "done">("ready");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [said, setSaid] = useState<DraftLine[]>([]);
+  const [words, setWords] = useState<string | null>(null);
+  const [text, setText] = useState(IDEA);
+  const [enough, setEnough] = useState(false);
   const [made, setMade] = useState(0);
   // The step at work; null with no ticket on its way.
   const [step, setStep] = useState<number | null>(null);
@@ -458,7 +431,7 @@ export function TicketShot() {
   useEffect(() => {
     if (step === null) return;
     const timer = setTimeout(() => {
-      if (step + 1 < STEPS.length) setStep(step + 1);
+      if (step + 1 < WORK.length) setStep(step + 1);
       else {
         setLanded((all) => [working, ...all].slice(0, 2));
         setStep(null);
@@ -468,72 +441,98 @@ export function TicketShot() {
   }, [step, working]);
 
   useEffect(() => {
-    if (talk !== "thinking") return;
-    const timer = setTimeout(() => {
-      setSaid((all) => [...all, { me: false, text: NEXT_ANSWER }]);
-      setBody((all) => `${all}\n${NEXT_LINE}`);
-      setTalk("done");
-    }, 900);
-    return () => clearTimeout(timer);
-  }, [talk]);
-
-  useEffect(() => {
     const box = thread.current;
     if (box) box.scrollTop = box.scrollHeight;
-  }, [said]);
+  }, [said, words]);
+
+  async function send() {
+    const line = text.trim().slice(0, TRY_WORDS);
+    if (!line || words !== null) return;
+    setText("");
+    const lines: DraftLine[] = [...said, { author: "builder", body: line }];
+    setSaid(lines);
+    if (lines.filter((one) => one.author === "builder").length > TRY_TURNS) {
+      setEnough(true);
+      return;
+    }
+    setWords("");
+    let answer = "";
+    try {
+      const answered = await askSample(
+        { kind: "ticket", said: lines, title, body },
+        (raw) => {
+          const read = readTicket(raw);
+          if (read.ticket) {
+            setTitle(read.ticket.title);
+            setBody(read.ticket.body);
+          }
+          answer = read.words;
+          setWords(read.words);
+        },
+      );
+      if (!answered) {
+        setEnough(true);
+        return;
+      }
+      const words = answer;
+      setSaid((all) => [
+        ...all,
+        { author: "agent", body: words || "Written. Ready to start." },
+      ]);
+    } catch {
+      setSaid((all) => [
+        ...all,
+        { author: "agent", body: "I lost my words there. Try again." },
+      ]);
+    } finally {
+      setWords(null);
+    }
+  }
 
   const name = title.trim();
+  // The dialog closes on the ticket it made: here, it starts over.
   const draft = () => {
     setMade(made + 1);
-    return { number: 141 + made, title: name };
+    setTitle("");
+    setBody("");
+    setSaid([]);
+    return { number: 149 + made, title: name };
   };
   const start = () => {
-    if (!name || step !== null) return;
+    if (!name || step !== null || words !== null) return;
     setWorking(draft());
     setStep(0);
   };
   const create = () => {
-    if (name) setWaiting((all) => [draft(), ...all].slice(0, 2));
-  };
-  const ask = () => {
-    if (talk !== "ready") return;
-    setSaid((all) => [...all, { me: true, text: NEXT_ASK }]);
-    setTalk("thinking");
+    if (name && words === null)
+      setWaiting((all) => [draft(), ...all].slice(0, 2));
   };
   return (
     <div className="lp-compose">
       <div className="lp-flow" aria-live="polite">
         {waiting.length > 0 && (
-          <>
-            <GroupHead stage="todo" label="To do" count={waiting.length} />
-            <ul className="lp-landed">
-              <Landed tickets={waiting} />
-            </ul>
-          </>
+          <BoardGroup stage="todo" label="To do" count={waiting.length}>
+            {waiting.map((ticket) => (
+              <BoardRow ticket={ticket} key={ticket.number} fresh />
+            ))}
+          </BoardGroup>
         )}
-        <GroupHead
+        <BoardGroup
           stage="progress"
           label="In progress"
-          count={step === null ? 0 : 1}
-        />
-        {step !== null && (
-          <div className="lp-working" key={working.number}>
-            <p className="lp-ticket">
-              <TicketNumber number={working.number} />
-              <b>{working.title}</b>
-            </p>
-            <Steps at={step} />
-          </div>
-        )}
-        <GroupHead stage="review" label="To review" count={3 + landed.length} />
-        <ul className="lp-landed">
-          <Landed tickets={landed} />
-          <Listed tickets={toReview} />
-        </ul>
-        <GroupHead stage="done" label="Done" count={shipped.length} />
-        <ul className="lp-landed">
-          <Listed tickets={shipped} />
-        </ul>
+          count={1 + (step === null ? 0 : 1)}
+        >
+          {step !== null && (
+            <BoardRow ticket={working} state={WORK[step]} fresh />
+          )}
+          <BoardRow ticket={filtering} state={filtering.work} />
+        </BoardGroup>
+        <BoardGroup stage="review" label="To review" count={1 + landed.length}>
+          {landed.map((ticket) => (
+            <BoardRow ticket={ticket} key={ticket.number} fresh />
+          ))}
+          <BoardRow ticket={priority} />
+        </BoardGroup>
       </div>
       <div
         className="nt nt-agent lp-modal"
@@ -559,7 +558,7 @@ export function TicketShot() {
             aria-label="Title"
             placeholder="Ticket title"
             value={title}
-            maxLength={60}
+            maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
           />
           <textarea
@@ -567,7 +566,7 @@ export function TicketShot() {
             aria-label="Description"
             placeholder="Description, in Markdown"
             value={body}
-            maxLength={600}
+            maxLength={1500}
             onChange={(event) => setBody(event.target.value)}
           />
           <div className="nt-foot">
@@ -592,54 +591,48 @@ export function TicketShot() {
         <section className="nt-talk" aria-label="The agent">
           <div className="pp-talk-thread" ref={thread}>
             <ol className="pp-chat">
-              {said.map((line) =>
-                line.me ? (
-                  <li className="pp-me" key={line.text}>
-                    <p className="pp-bubble">{line.text}</p>
+              <li className="pp-it">
+                <p className="pp-say">What are we building?</p>
+              </li>
+              {said.map((line, i) =>
+                line.author === "builder" ? (
+                  <li className="pp-me" key={i}>
+                    <p className="pp-bubble">{line.body}</p>
                   </li>
                 ) : (
-                  <li className="pp-it" key={line.text}>
-                    <p className="pp-say">{line.text}</p>
+                  <li className="pp-it" key={i}>
+                    <Markdown source={line.body} className="pp-say" />
                   </li>
                 ),
               )}
-              {talk === "thinking" && (
+              {words !== null && (
                 <li className="pp-it">
-                  <TextShimmer className="pp-say">Writing</TextShimmer>
+                  {words ? (
+                    <Markdown source={words} className="pp-say" />
+                  ) : (
+                    <p className="pp-say">
+                      <TextShimmer>Thinking</TextShimmer>
+                    </p>
+                  )}
+                </li>
+              )}
+              {enough && (
+                <li className="pp-it">
+                  <p className="pp-say">
+                    That is plenty for a sample. Try me on your own tickets.
+                  </p>
                 </li>
               )}
             </ol>
           </div>
-          <div className="pp-asking">
-            <form
-              className="pp-input"
-              onSubmit={(event) => {
-                event.preventDefault();
-                ask();
-              }}
-            >
-              <textarea
-                aria-label="Tell the agent what you want"
-                placeholder="Tell the agent what you want…"
-                rows={1}
-                readOnly
-                value={talk === "ready" ? NEXT_ASK : ""}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  ask();
-                }}
-              />
-              <button
-                type="submit"
-                className="pp-go"
-                aria-label="Send"
-                aria-disabled={talk !== "ready"}
-              >
-                <ArrowUp size={17} strokeWidth={2.2} />
-              </button>
-            </form>
-          </div>
+          <SampleBox
+            label="Tell the agent what you want"
+            placeholder="Tell the agent what you want…"
+            text={text}
+            onText={setText}
+            onSend={() => void send()}
+            waiting={words !== null}
+          />
         </section>
       </div>
     </div>

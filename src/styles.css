@@ -3972,8 +3972,6 @@ tbody tr:hover {
 .ra-story {
   display: grid;
   gap: 14px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-subtle);
 }
 .row-menu-error {
   margin: 4px 9px;
@@ -7852,7 +7850,7 @@ body:has(.sb-dialog[open]) {
    hairline above, the board fading out at its edges. */
 .lp-compose {
   position: relative;
-  min-height: 680px;
+  min-height: 560px;
   padding-top: 40px;
   border-top: 1px solid var(--line);
 }
@@ -7862,7 +7860,7 @@ body:has(.sb-dialog[open]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
   width: min(800px, 68%);
-  height: 580px;
+  height: 480px;
   margin: 0;
 }
 .lp-modal .pp-talk-thread {
@@ -7877,7 +7875,7 @@ body:has(.sb-dialog[open]) {
   inset: 104px 0 0 58%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 18px;
   padding: 20px 0 40px 15%;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -7890,466 +7888,65 @@ body:has(.sb-dialog[open]) {
 .lp-flow .tix-gtoggle {
   cursor: default;
 }
-.lp-ticket {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  font-size: 14px;
-}
-.lp-ticket b {
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.lp-ticket .bd-num {
-  flex: none;
-}
-.lp-working {
+.lp-flow > section {
   display: grid;
-  gap: 12px;
-  margin: 2px 24px 12px 0;
-  padding: 14px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  animation: lr-rise 0.3s var(--ease-enter);
+  gap: 4px;
 }
-.lp-steps {
+.lp-board-rows {
   display: grid;
-  gap: 8px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
-  color: #5b6068;
-  font-size: 13.5px;
 }
-.lp-steps li {
-  display: flex;
+.lp-board-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-}
-.lp-steps li i {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-}
-.lp-steps li.now {
-  color: var(--text);
-}
-.lp-steps li.now i {
-  border-color: var(--amber);
-}
-.lp-steps li.done {
-  color: var(--muted);
-}
-.lp-steps li.done i {
-  border-color: transparent;
-  background: var(--green);
-  color: #0b0c0e;
-}
-.lp-landed {
-  display: grid;
-  gap: 10px;
-  margin: 0;
+  gap: 2px 10px;
   padding: 8px 10px;
-  list-style: none;
+  font-size: 14px;
 }
-.lp-landed .fresh {
-  animation: lr-rise 0.4s var(--ease-enter);
+.lp-board-row .tix-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-/* The sample ticket: a drawn demo, a real agent, a slide that merges. */
-.lr {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+.lp-board-row .tix-state {
+  grid-column: 2;
+  font-size: 13px;
 }
-.tix-card:has(.lr) {
-  padding: 12px 0 8px;
+.lp-board-row.fresh {
+  animation: lp-rise 0.4s var(--ease-enter);
 }
-.lr-state-merged {
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.lp-merged {
   color: var(--green);
   font-size: 13px;
 }
-.lr-meet {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 12px;
-}
-.lr-film {
-  position: relative;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #fff;
-}
-.lr-app {
-  --page: #0b0c0e;
-  --row: #101114;
-  --rule: #1c1e22;
-  --ink: #e9eaec;
-  --soft: #80848c;
-  position: absolute;
-  inset: 0;
-  display: grid;
-  align-content: start;
-  gap: 16px;
-  padding: 28px clamp(18px, 6%, 56px);
-  background: var(--page);
-  color: var(--ink);
-  transition:
-    background 0.3s,
-    color 0.3s;
-}
-.lr-app.light {
-  --page: #fff;
-  --row: #fff;
-  --rule: #e6e6e2;
-  --ink: #1f2126;
-  --soft: #6f737b;
-}
-.lr-app-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.lr-app-head p {
-  font-size: 20px;
-  font-weight: 600;
-}
-.lr-app-head span {
-  margin-left: 6px;
-  color: var(--soft);
-  font-size: 12px;
-  font-weight: 400;
-}
-.lr-sort {
-  position: relative;
-  padding: 3px 10px;
-  border: 1px solid var(--rule);
-  border-radius: 7px;
-  color: var(--soft);
-  font-size: 12px;
-  font-style: normal;
-}
-.lr-table {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  list-style: none;
-  background: var(--row);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-}
-.lr-task {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px 84px;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--row);
-  font-size: 14px;
-}
-.lr-task + .lr-task {
-  border-top: 1px solid var(--rule);
-}
-.lr-task.is-new {
-  animation: lr-new 1.4s ease-out;
-}
-@keyframes lr-new {
-  from {
-    background: color-mix(in srgb, var(--amber) 26%, var(--row));
-  }
-}
-.lr-task-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.lr-task-name > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.lr-tag {
-  flex: none;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 600;
-  background: color-mix(in srgb, var(--tint) 16%, transparent);
-  color: var(--tint);
-  transition:
-    color 0.3s,
-    background 0.3s;
-}
-.lr-tag.urgent {
-  --tint: var(--urgent);
-}
-.lr-tag.high {
-  --tint: var(--high);
-}
-.lr-app.dot .lr-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0;
-  background: none;
-}
-.lr-app.dot .lr-tag::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--tint);
-}
-.lr-state {
-  justify-self: start;
-  color: var(--soft);
-  font-size: 11.5px;
-}
-.lr-state.s-Doing {
-  color: #8d86f0;
-}
-.lr-state.s-Done {
-  color: #4fb582;
-}
-.lr-who {
-  color: var(--soft);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.lr-form {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: var(--row);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  animation: lr-rise 0.3s var(--ease-enter);
-}
-@keyframes lr-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-.lr-field {
-  padding: 6px 10px;
-  border: 1px solid var(--rule);
-  border-radius: 7px;
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-.lr-field.grow {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-.lr-add {
-  padding: 6px 12px;
-  border-radius: 7px;
-  background: var(--ink);
-  color: var(--page);
-  font-size: 12.5px;
-  font-weight: 500;
-}
-.lr-pointer {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #08090a;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 8px #0000008c;
-  pointer-events: none;
-}
-/* Through the picker, then onto Add. */
-.lr-form .lr-pointer {
-  bottom: 12px;
-  right: 24px;
-  animation: lr-pick 4.5s var(--ease-standard) both;
-}
-@keyframes lr-pick {
-  0%,
-  30% {
-    opacity: 0;
-    transform: translate(-90px, 40px);
-  }
-  45%,
-  60% {
-    opacity: 1;
-    transform: translate(-90px, 0);
-  }
-  80%,
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-.lr-sort .lr-pointer {
-  bottom: -6px;
-  right: 6px;
-  animation: lr-rise 0.5s var(--ease-enter) both;
-}
-.lr-say {
-  position: absolute;
-  inset: auto 0 62px;
-  margin-inline: auto;
-  width: fit-content;
-  max-width: 80%;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: #000000c7;
-  color: #fff;
-  font-size: 14.5px;
-  text-align: center;
-  animation: lr-rise 0.3s var(--ease-enter);
-}
-.lr-play {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  border: 0;
-  border-radius: 50%;
-  background: #101114;
-  color: #fff;
-  box-shadow: 0 12px 40px #00000040;
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-.lr-play:hover {
-  transform: scale(1.06);
-}
-.lr-controls {
-  position: absolute;
-  inset: auto 10px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 12px;
-}
-.lr-control,
-.lr-time {
-  display: inline-flex;
-  align-items: center;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 10px;
-  background: #16181ce0;
-  color: inherit;
-  white-space: nowrap;
-}
-.lr-control {
-  cursor: pointer;
-}
-.lr-track {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 30px;
-  padding-inline: 10px;
-  border-radius: 10px;
-  background: #16181ce0;
-}
-.lr-track button {
-  flex: 1 1 0;
-  height: 16px;
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-.lr-track span {
-  display: block;
-  position: relative;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--amber);
-  transform-origin: left;
-  transition: transform 0.1s linear;
-}
-.lr-track button {
-  background: linear-gradient(#ffffff40, #ffffff40) center / 100% 4px no-repeat;
-}
-.lr-talk {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-width: 0;
-  min-height: 0;
-  background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  /* Its height comes from the film beside it, never from the words. */
-  contain: size;
-}
-.lr-talk .pp-talk-thread {
-  min-height: 0;
-  padding: 18px 16px;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
-.lr-talk .pp-say,
-.lr-talk .pp-bubble {
-  font-size: 14px;
-}
-.lr-talk .pp-asking {
-  margin: 0 10px 10px;
-}
-.lr-foot {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 40px;
-  padding: 0 4px 2px;
-  color: var(--secondary);
-  font-size: 13px;
-}
-.lr-files {
+.lp-files {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-right: auto;
+  color: var(--secondary);
+  font-size: 13px;
   white-space: nowrap;
 }
-.lr-files .add {
+.lp-files .add {
   color: var(--green);
   font-weight: 500;
 }
-.lr-files .del {
+.lp-files .del {
   color: var(--red);
   font-weight: 500;
 }
-/* In a row it waits for the hover; here it is the point. */
-.lr-foot .tix-go {
-  opacity: 1;
-}
+
 @media (max-width: 960px) {
-  .lr-meet {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .lr-talk {
-    contain: none;
-    height: 300px;
-  }
   .lp-part-head {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -8361,7 +7958,7 @@ body:has(.sb-dialog[open]) {
   }
   .nt.lp-modal {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 420px 360px;
+    grid-template-rows: 300px 320px;
     width: 100%;
     height: auto;
   }
@@ -8397,29 +7994,6 @@ body:has(.sb-dialog[open]) {
   .lp-part {
     gap: 40px;
     padding-block: 64px;
-  }
-  .lr-film {
-    aspect-ratio: auto;
-    height: 420px;
-  }
-  .lr-say {
-    max-width: 92%;
-    bottom: 56px;
-    font-size: 13px;
-  }
-  .lr-app {
-    padding: 16px 12px;
-    gap: 10px;
-  }
-  .lr-task {
-    grid-template-columns: minmax(0, 1fr) 42px;
-    padding: 8px 10px;
-  }
-  .lr-who {
-    display: none;
-  }
-  .lr-form .lr-field:nth-child(2) {
-    display: none;
   }
   /* The only button on the page: it stays, the links give way. */
   .header-actions .header-nav {

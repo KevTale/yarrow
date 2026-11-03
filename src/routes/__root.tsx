@@ -27,9 +27,9 @@ import {
 } from "@/functions/viewer.functions";
 import { siteJsonLd } from "@/core/company";
 
-const TITLE = "Yarrow · Every ticket comes back with a demo";
+const TITLE = "Yarrow · The best ticket harness for your team";
 const DESCRIPTION =
-  "Write your tickets with an agent. Others build and review them. You watch the result work, ask anything and merge.";
+  "Our agents write your tickets and build them, then walk you through the result. There is no better way to review a ticket.";
 
 export const Route = createRootRoute({
   loader: async () => {
@@ -68,7 +68,7 @@ export const Route = createRootRoute({
       { property: "og:image:height", content: "630" },
       {
         property: "og:image:alt",
-        content: "Yarrow: Every ticket comes back with a demo",
+        content: "Yarrow: The best ticket harness for your team",
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: TITLE },

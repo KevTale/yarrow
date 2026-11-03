@@ -1,4 +1,4 @@
-# Tally
+# Acme
 
 A small team task list: sign in, see the team's tasks and their comments, add one, change your settings, get your open tasks by email every Monday.
 
@@ -14,7 +14,7 @@ npm run db:seed           # demo team, tasks, comments and the demo user
 npm start                 # http://localhost:3000
 ```
 
-Sign in as `demo@tally.dev` with the password `demo1234`.
+Sign in as `demo@acme.dev` with the password `demo1234`.
 
 `npm run db:seed -- --many` adds a big team's backlog (3,000 tasks).
 

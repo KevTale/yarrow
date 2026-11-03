@@ -65,7 +65,8 @@ export function TicketPanel({
 
 /**
  * The ticket as written in its tracker, read live and again whenever the
- * tracker says it changed; why the agents stopped, or their work live.
+ * tracker says it changed; beside it why the agents stopped, or their work
+ * live, from the moment it is In progress.
  */
 function TicketBrief({
   projectId,
@@ -93,11 +94,11 @@ function TicketBrief({
   }, [projectId, row.key, row.updatedAt]);
 
   const working = workText(row.status, row.models) !== null;
+  const going = working || row.status === "queued";
   const stopped = row.status === "abstained";
   const text = detail ? ticketText(detail.body, row.title) : "";
-  const story = working && row.runId;
   return (
-    <div className={stopped || story ? "pp-grid" : undefined}>
+    <div className={stopped || going ? "pp-grid" : undefined}>
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
         {stopped && <StopReason reason={row.reason} summary={row.summary} />}
         {detail === undefined ? (
@@ -122,9 +123,13 @@ function TicketBrief({
           <Answer projectId={projectId} row={row} onAnswered={onChanged} />
         </aside>
       )}
-      {story && (
+      {going && (
         <aside className="pp-aside">
-          <RunStory runId={row.runId!} />
+          {working && row.runId ? (
+            <RunStory runId={row.runId} />
+          ) : (
+            <p className="muted">Waiting</p>
+          )}
         </aside>
       )}
     </div>

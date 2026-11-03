@@ -22,7 +22,7 @@ export function dueLabel(due, today = new Date()) {
 /** The weekly digest of one person's open tasks, as HTML and plain text. */
 export function digestEmail({ user, tasks, today = new Date() }) {
   const open = tasks.filter((task) => task.status !== "done");
-  const subject = `Your week in Tally: ${open.length} open task${open.length === 1 ? "" : "s"}`;
+  const subject = `Your week in Acme: ${open.length} open task${open.length === 1 ? "" : "s"}`;
   const items = open
     .map(
       (task) => `<tr>
@@ -35,7 +35,7 @@ export function digestEmail({ user, tasks, today = new Date() }) {
   const html = `<!doctype html>
 <html><body style="margin:0;background:#f5f6f8;font:15px/1.5 system-ui,sans-serif;color:#1d2129">
   <div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e3e6eb;border-radius:10px;padding:28px">
-    <p style="margin:0 0 4px;font-weight:700;color:#4b3fd8">Tally</p>
+    <p style="margin:0 0 4px;font-weight:700;color:#4b3fd8">Acme</p>
     <h1 style="margin:0 0 16px;font-size:20px">Hi ${escape(user.name.split(" ")[0])}, here is your week</h1>
     ${
       open.length
