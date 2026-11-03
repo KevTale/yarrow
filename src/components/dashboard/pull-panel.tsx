@@ -46,13 +46,14 @@ import {
 } from "@/functions/builder.functions";
 import { stageFn } from "@/functions/stage.functions";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
-import { LiveCall, useLiveStage } from "@/components/live-stage";
+import { LiveCall, TakeControl, useLiveStage } from "@/components/live-stage";
 import {
   clockTime,
   loadPresentation,
   Presentation,
   type FilmCall,
   type FilmControl,
+  type FilmMoment,
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
@@ -282,6 +283,7 @@ export function PullPanel({
   );
   const play = useRef<FilmControl | null>(null);
   const phone = useRef<(() => void) | null>(null);
+  const pause = useRef<(() => FilmMoment) | null>(null);
   const stage = useLiveStage({
     projectId,
     rowKey,
@@ -337,6 +339,10 @@ export function PullPanel({
   );
   // Up: what is written in the conversation acts on it.
   const onStage = stage.phase === "ready";
+  // The app in the member's hands: it takes the place of what shows.
+  const controlled = stage.control === "on";
+  const canTake = wide && panel.preview;
+  const take = () => stage.takeControl(pause.current?.() ?? null);
   // On a call over the film, once the stage is where it was paused.
   const onCall = Boolean(presentation && stage.reached && stage.talk !== "off");
   // The film from a moment: the call ends.
@@ -399,7 +405,7 @@ export function PullPanel({
     lead?.kind === "measure" || lead?.kind === "output" ? lead : null;
   const proven = (
     <>
-      {(presentation || image) && (
+      {(presentation || image || controlled) && (
         <>
           {cinema && <div style={{ height: slot }} />}
           <dialog
@@ -423,18 +429,23 @@ export function PullPanel({
                 </div>
               )}
               {/* Up, its screen already drawn behind the film. */}
-              {presentation && onStage && (
+              {((presentation && onStage) || controlled) && (
                 <LiveCall
                   stage={stage}
-                  shown={onCall}
+                  shown={onCall || controlled}
                   cinema={cinema}
                   onCinema={flipCinema}
                   onFilm={() => play.current?.(null)}
+                  onGiveBack={() => {
+                    // Nothing else shows here: the full screen goes with it.
+                    if (!presentation && !image) setCinema(false);
+                    stage.giveBack();
+                  }}
                 />
               )}
               {/* Kept behind the stage, paused where the call began. */}
               {presentation && (
-                <div className="pp-take" hidden={onCall}>
+                <div className="pp-take" hidden={onCall || controlled}>
                   <Presentation
                     artifact={presentation}
                     cinema={cinema}
@@ -442,27 +453,46 @@ export function PullPanel({
                     seekRef={seek}
                     playRef={play}
                     phoneRef={phone}
+                    pauseRef={pause}
                     call={call}
+                    tool={
+                      canTake && (
+                        <TakeControl
+                          stage={stage}
+                          className="pv-glass-pill pv-take"
+                          onTake={take}
+                        />
+                      )
+                    }
                   />
                 </div>
               )}
-              {image && (
+              {image && !controlled && (
                 <Slider
                   proof={image}
                   tools={
-                    !cinema && (
-                      <span className="pv-glass-pill pv-tools">
-                        <button
-                          type="button"
-                          className="pv-icon"
-                          onClick={flipCinema}
-                          aria-label="Full screen"
-                          data-tip="Full screen"
-                        >
-                          <RectangleHorizontal size={18} aria-hidden="true" />
-                        </button>
-                      </span>
-                    )
+                    <>
+                      {canTake && (
+                        <TakeControl
+                          stage={stage}
+                          className="pv-glass-pill pv-take"
+                          onTake={take}
+                        />
+                      )}
+                      {!cinema && (
+                        <span className="pv-glass-pill pv-tools">
+                          <button
+                            type="button"
+                            className="pv-icon"
+                            onClick={flipCinema}
+                            aria-label="Full screen"
+                            data-tip="Full screen"
+                          >
+                            <RectangleHorizontal size={18} aria-hidden="true" />
+                          </button>
+                        </span>
+                      )}
+                    </>
                   }
                 />
               )}
@@ -471,7 +501,7 @@ export function PullPanel({
           </dialog>
         </>
       )}
-      {block && <ProofBlock proof={block} />}
+      {block && !controlled && <ProofBlock proof={block} />}
     </>
   );
   return (
@@ -503,6 +533,9 @@ export function PullPanel({
                   size={size}
                   url={pullRequest.url}
                 />
+              )}
+              {canTake && !presentation && !image && !controlled && (
+                <TakeControl stage={stage} className="pp-act" onTake={take} />
               )}
               <span className="pp-foot-away">
                 {lead && (

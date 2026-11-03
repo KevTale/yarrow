@@ -305,6 +305,8 @@ export class Stage extends DurableObject<StageEnv> {
     const response = await this.#container.getTcpPort(PRESENTER).fetch(
       new Request(`http://stage/${cue.action}`, {
         method: "POST",
+        // A page in the stage's browser could reach the presenter, not send this.
+        headers: { "x-yarrow-stage": "1" },
         body: JSON.stringify(cue),
       }),
     );

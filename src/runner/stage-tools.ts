@@ -180,6 +180,8 @@ export async function runStageTool(
 /** Where the presentation stands, said to the agent with the member's turn. */
 export function stageNote(state: StageState | null): string {
   if (!state) return "[The stage does not answer right now.]";
+  if (state.control)
+    return "[The member has taken control of the app and is using it themselves. Look at the screen to see what they do; you cannot act on it until they give it back.]";
   if (state.film !== null && state.film !== undefined)
     return `[The video is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the video had it there.]`;
   if (state.over)

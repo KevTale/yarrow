@@ -1399,6 +1399,7 @@ const flags = (text) => text.trim().split(/\s+/);
  * presses a real key for each character the page sends, and one added on a
  * spare key (its -add_keysyms) types nothing in Chromium: so every accented
  * letter sits on AltGr and Shift+AltGr of a real key, the us layout otherwise.
+ * A Mac's Command is Control here: its Command+C copies, as at home.
  * Failing leaves the plain keyboard, ASCII only.
  */
 function accentKeyboard(display) {
@@ -1440,7 +1441,7 @@ function accentKeyboard(display) {
       'xkb_types {include "complete"};xkb_compat {include "complete"};' +
       'xkb_symbols {include "pc+us+inet(evdev)+level3(ralt_switch)"\n' +
       symbols.join("\n") +
-      '\n};xkb_geometry {include "pc(pc105)"};};\n',
+      '\nmodifier_map Control {<LWIN>,<RWIN>};\n};xkb_geometry {include "pc(pc105)"};};\n',
   );
   const loaded = spawnSync("xkbcomp", ["-w0", file, display], {
     stdio: "ignore",
@@ -1649,6 +1650,8 @@ function openboxConfig() {
     "<margins><top>0</top><bottom>0</bottom><left>" +
     DOCK_WIDTH +
     "</left><right>0</right></margins>" +
+    // One key no keyboard has: with none, openbox binds its own (Alt+Tab).
+    '<keyboard><keybind key="W-F24"><action name="Focus"/></keybind></keyboard>' +
     "<mouse><dragThreshold>4</dragThreshold><doubleClickTime>300</doubleClickTime>" +
     press("Client") +
     '<context name="Titlebar"><mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind><mousebind button="Left" action="Drag"><action name="Move"/></mousebind></context>' +
@@ -1994,6 +1997,34 @@ class Desktop {
     }
   }
 
+  /**
+   * The app's browser alone on the screen, for the member who takes
+   * control: over the dock, the terminal gone, the dock's icons dead. Or
+   * the desktop as it was.
+   */
+  alone(on) {
+    const { browser, terminal } = this.ids;
+    this.locked = on;
+    this.x("xdotool", [on ? "windowunmap" : "windowmap", String(terminal)]);
+    if (!browser) return;
+    this.place(browser, on ? { x: 0, y: 0, ...SCREEN } : WINDOWS.browser);
+    this.raise(browser);
+    this.front = "browser";
+  }
+
+  /** Tells the running x11vnc, each heard before the next. */
+  tell(...commands) {
+    for (const command of commands) {
+      const told = spawnSync(
+        "x11vnc",
+        ["-display", this.env.DISPLAY, "-sync", "-R", command],
+        { env: this.env, encoding: "utf8", timeout: 5000 },
+      );
+      if (!/ack=1/.test(told.stdout + told.stderr))
+        throw new Error("the screen did not take " + command);
+    }
+  }
+
   key(keys) {
     this.x("xdotool", ["key", "--clearmodifiers", keys]);
   }
@@ -2064,7 +2095,7 @@ class Desktop {
       const url = new URL(request.url, "http://localhost");
       if (url.pathname === "/raise") {
         const app = url.searchParams.get("app");
-        if (this.ids[app]) {
+        if (this.ids[app] && !this.locked) {
           this.raise(this.ids[app]);
           this.front = app;
         }
@@ -3230,11 +3261,15 @@ class Stopped extends Error {}
  * page asks: the voice plays there, the gestures here, spread over it.
  */
 class Presenter {
-  constructor(desktop, plan, signIn = null) {
+  constructor(desktop, plan, signIn = null, reopen = null) {
     this.desktop = desktop;
     this.plan = plan;
     /** How the seeded user signs in: the recipe's form, or none. */
     this.signIn = signIn;
+    /** The app alone on the recipe's page, in a new window. */
+    this.reopen = reopen;
+    /** A member's mouse and keyboard are on the app: the agent looks only. */
+    this.controlled = false;
     /** The opening is on screen, nothing played since: it stays. */
     this.untouched = false;
     /** The chapter playing: its index, null between chapters. */
@@ -3437,7 +3472,42 @@ class Presenter {
       shown: [...this.shown].sort((a, b) => a - b),
       cut: this.cut,
       film: this.film,
+      control: this.controlled,
     };
+  }
+
+  /**
+   * A member's mouse and keyboard on the app, until they give it back or
+   * their page stops asking (CONTROL_MS). Its browser is alone on the
+   * screen before the screen takes any input, and the agent acts again
+   * after (serve). The app's window, closed, opens again.
+   */
+  async control(on) {
+    const { desktop } = this;
+    clearTimeout(this.lease);
+    if (on) {
+      this.lease = setTimeout(
+        () =>
+          this.control(false).catch((error) =>
+            log("control not ended: " + String(error?.message).split("\n")[0]),
+          ),
+        CONTROL_MS,
+      );
+      if (this.playing !== null) await this.stop();
+      const open = Object.values(desktop.tabs?.pages ?? {}).some(
+        (page) => !page.isClosed(),
+      );
+      if (!open) await this.reopen();
+      if (!open || !this.controlled) desktop.alone(true);
+    }
+    if (on === this.controlled) return [];
+    if (on) desktop.tell("noviewonly", "cursorshape");
+    else {
+      desktop.tell("viewonly", "nocursorshape");
+      desktop.alone(false);
+    }
+    this.controlled = on;
+    return [];
   }
 
   /**
@@ -3817,6 +3887,18 @@ class Presenter {
 
 /** Where the page's requests reach the presenter, through the brain's Stage. */
 const PRESENTER_PORT = 7070;
+/** A member's control ends this long after their page last asked for it. */
+const CONTROL_MS = 45000;
+/** What moves the screen, refused while a member has control of it. */
+const ACTS = new Set([
+  "/set",
+  "/chapter",
+  "/reach",
+  "/act",
+  "/window",
+  "/run",
+  "/sign-in",
+]);
 
 /**
  * The page's cues, one at a time, in order: a chapter never starts over
@@ -3838,8 +3920,14 @@ function serve(presenter) {
     "/sign-in": "hands",
     // The agent's hands wait for the stage to be where the film was paused.
     "/reach": "hands",
+    "/control": "hands",
   };
   const answer = async (url, asked) => {
+    if (presenter.controlled && ACTS.has(url))
+      return {
+        ok: false,
+        problems: ["The member has control of the app: look, do not act."],
+      };
     try {
       switch (url) {
         case "/set":
@@ -3861,6 +3949,11 @@ function serve(presenter) {
               Number(asked.index) || 0,
               Math.min(1, Math.max(0, Number(asked.part) || 0)),
             ),
+          };
+        case "/control":
+          return {
+            ok: true,
+            problems: await presenter.control(asked.on === true),
           };
         case "/stop":
           return {
@@ -3900,6 +3993,11 @@ function serve(presenter) {
     }
   };
   const server = http.createServer((request, response) => {
+    // The brain's Stage says so; a page in the stage's browser cannot.
+    if (!request.headers["x-yarrow-stage"]) {
+      response.writeHead(403).end();
+      return;
+    }
     let body = "";
     request.on("data", (chunk) => (body += chunk));
     request.on("end", () => {
@@ -3934,9 +4032,34 @@ function serve(presenter) {
 }
 
 /**
+ * What the stage's browser refuses, a member's to use once they take
+ * control: the machine's files, its own pages, its developer tools. It reads
+ * this as it starts.
+ */
+function lockBrowser() {
+  const dir = "/etc/opt/chrome_for_testing/policies/managed";
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "yarrow.json"),
+    JSON.stringify({
+      URLBlocklist: [
+        "file://*",
+        "chrome://*",
+        "view-source:*",
+        "javascript://*",
+        "devtools://*",
+        "chrome-devtools://*",
+      ],
+      DeveloperToolsAvailability: 2,
+    }),
+  );
+}
+
+/**
  * `--stage`: the same desktop as the films, the app in its browser and
- * signed in, its screen served over VNC (the pointer drawn into it) and as
- * a WebSocket (websockify) until the container stops. Nothing is filmed.
+ * signed in, its screen served over VNC (the pointer drawn into it, watched
+ * only until a member takes control) and as a WebSocket (websockify) until
+ * the container stops. Nothing is filmed.
  * The stage file gives the app ({ url, path, signIn: { path, fields,
  * submit } | null }), `ready`, written once the screen can be watched,
  * `session`, written with the browser's session once it signed in, and
@@ -3950,6 +4073,7 @@ async function stage(spec) {
   process.on("exit", () => desktop.close());
   for (const signal of ["SIGTERM", "SIGINT"])
     process.on(signal, () => process.exit(0));
+  lockBrowser();
   await desktop.start(playwright, { film: false });
   let storage;
   if (spec.signIn) {
@@ -3981,7 +4105,6 @@ async function stage(spec) {
   for (const chapter of plan.chapters)
     if (chapter.document)
       desktop.documents.set(chapter.path, chapter.document.html);
-  const presenter = new Presenter(desktop, plan, spec.signIn ?? null);
   // The app alone, on the recipe's page.
   const plain = () =>
     desktop.openWindow(
@@ -3990,6 +4113,7 @@ async function stage(spec) {
       "after",
       join(plan.apps.after.url, spec.path),
     );
+  const presenter = new Presenter(desktop, plan, spec.signIn ?? null, plain);
   if (script)
     await presenter.set().catch((error) => {
       log("no opening: " + String(error?.message).split("\n")[0]);
@@ -4002,7 +4126,7 @@ async function stage(spec) {
     ...["-display", desktop.env.DISPLAY, "-rfbport", String(VNC_PORT)],
     // No cursor shapes: the pointer the agent moves is drawn into the screen.
     ...flags(
-      "-forever -shared -nopw -quiet -noxrecord -nocursorshape -nocursorpos",
+      "-viewonly -forever -shared -nopw -quiet -noxrecord -nocursorshape -nocursorpos",
     ),
   ]);
   if (!(await until(() => listening(VNC_PORT), 15000)))

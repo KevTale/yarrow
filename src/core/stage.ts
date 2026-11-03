@@ -114,7 +114,8 @@ export const CALL_GREETING = "Yes? Any question?";
  * What the page asks the presenter: the opening, a chapter over its voice,
  * to hold it while the member talks and go on after, or to end it there
  * (the agent leads the rest, src/runner/talk.ts). Or, the film paused for
- * a call, the stage where it was: chapter `index`, `part` of it (0 to 1).
+ * a call, the stage where it was: chapter `index`, `part` of it (0 to 1). Or
+ * the member's mouse and keyboard on the app, asked again while they have it.
  */
 export type StageCue =
   | { action: "set" }
@@ -123,7 +124,8 @@ export type StageCue =
   // `restore`: what the talk changed in the app put back first.
   | { action: "resume"; restore?: boolean }
   | { action: "stop" }
-  | { action: "reach"; index: number; part: number };
+  | { action: "reach"; index: number; part: number }
+  | { action: "control"; on: boolean };
 
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
@@ -174,6 +176,8 @@ export interface StageState {
   cut?: number | null;
   /** The chapter the film was paused in for the call, the stage there. */
   film?: number | null;
+  /** A member has control of the app: the agent looks, and does not act. */
+  control?: boolean;
 }
 
 /** A recipe step that leaves something running: a database, a server. */

@@ -1,5 +1,6 @@
 import type { Language } from "@elevenlabs/client";
-import { Play, RectangleHorizontal } from "lucide-react";
+import { MousePointer2, Play, RectangleHorizontal } from "lucide-react";
+import type RFB from "@novnc/novnc";
 import {
   useCallback,
   useEffect,
@@ -47,6 +48,12 @@ interface Line {
 /** The call's pass, fetched before the click, used while this fresh. */
 const PASS_MS = 4 * 60_000;
 
+/** Asked again this often while the member has control; past a few, it ends. */
+const CONTROL_MS = 15_000;
+/** X's numbers for the keys of Ctrl+V. */
+const X_CONTROL = 0xffe3;
+const X_V = 0x76;
+
 /** Words compared as said, whatever their case and spacing. */
 const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -89,8 +96,9 @@ export type LiveStage = ReturnType<typeof useLiveStage>;
  * presentation played live on it, the voice here, the gestures there: their
  * first words end it there. Or they write to it in the pull request's
  * conversation beside it. The thread keeps what was said as what was
- * written. The call and the voice end with the stage, and with the page or
- * the panel.
+ * written. Or they take control of the app themselves, the agent only
+ * watching until they give it back. The call and the voice end with the
+ * stage, and with the page or the panel.
  */
 /** The brain the address asks for, to try each by voice (dev). */
 function brainAsked(): { model?: string; screen?: boolean } {
@@ -148,9 +156,11 @@ export function useLiveStage({
   const [voicing, setVoicing] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [screen, setScreen] = useState<HTMLDivElement | null>(null);
-  /** The member's mouse and keyboard reach the app. */
-  const [control, setControl] = useState(false);
-  const viewer = useRef<{ viewOnly: boolean; focus(): void } | null>(null);
+  /** The member's mouse and keyboard on the app: asked for, or there. */
+  const [control, setControl] = useState<"off" | "asking" | "on">("off");
+  /** The film's moment they took control from. */
+  const controlFrom = useRef<{ index: number; part: number } | null>(null);
+  const [viewer, setViewer] = useState<RFB | null>(null);
   const voice = useRef<HTMLAudioElement | null>(null);
   /** The voice played as a call's, so the microphone does not hear it. */
   const routed = useRef<Promise<() => void> | null>(null);
@@ -287,7 +297,7 @@ export function useLiveStage({
   // The screen, once up: VNC over the page's WebSocket, watched only.
   useEffect(() => {
     if (phase !== "ready" || !screen) return;
-    let rfb: { disconnect(): void } | null = null;
+    let rfb: RFB | null = null;
     let gone = false;
     void import("@novnc/novnc").then(({ default: RFB }) => {
       if (gone) return;
@@ -304,23 +314,104 @@ export function useLiveStage({
         if (!gone) void call("status");
       });
       rfb = client;
-      viewer.current = client;
+      setViewer(client);
     });
     return () => {
       gone = true;
-      viewer.current = null;
-      setControl(false);
+      setViewer(null);
+      setControl("off");
       rfb?.disconnect();
     };
   }, [phase, screen, projectId, rowKey, call]);
 
-  const flipControl = () => {
-    const client = viewer.current;
-    if (!client) return;
-    client.viewOnly = !client.viewOnly;
-    if (!client.viewOnly) client.focus();
-    setControl(!client.viewOnly);
+  /**
+   * The member takes control of the app, from the film's moment `at` when
+   * there is one: the stage comes up if it is not, and goes where the film
+   * was paused, before its screen takes their hands.
+   */
+  const takeControl = (at: { index: number; part: number } | null = null) => {
+    if (control !== "off") return;
+    if (showing.current) stop();
+    controlFrom.current = at;
+    setControl("asking");
+    if (phase === "ready" || phase === "booting") return;
+    setStatus(null);
+    void call("open");
   };
+
+  /** The screen is only watched again: the film, unless a call goes on. */
+  const giveBack = () => {
+    setControl("off");
+    if (talk === "off") setReached(false);
+  };
+
+  const replayable = Boolean(status?.live);
+  useEffect(() => {
+    if (control !== "asking") return;
+    if (phase === "failed") {
+      setControl("off");
+      return;
+    }
+    if (phase !== "ready") return;
+    let gone = false;
+    void (async () => {
+      const at = controlFrom.current;
+      if (at && replayable) {
+        const there = await cue({ action: "reach", ...at });
+        if (gone) return;
+        if (there.ok) setReached(true);
+      }
+      const given = await cue({ action: "control", on: true });
+      if (gone) return;
+      if (!given.ok) setProblems((now) => [...now, ...given.problems]);
+      setControl(given.ok ? "on" : "off");
+    })();
+    return () => {
+      gone = true;
+    };
+  }, [control, phase, replayable, cue]);
+
+  // Theirs: the screen takes their hands and their clipboard, asked again
+  // while the page is here.
+  useEffect(() => {
+    if (control !== "on" || !viewer || !screen) return;
+    viewer.viewOnly = false;
+    viewer.focus();
+    const lease = setInterval(
+      () => void cue({ action: "control", on: true }),
+      CONTROL_MS,
+    );
+    const pasteThere = () => {
+      viewer.sendKey(X_CONTROL, "ControlLeft", true);
+      viewer.sendKey(X_V, "KeyV");
+      viewer.sendKey(X_CONTROL, "ControlLeft", false);
+    };
+    // What they copied goes first: Ctrl+V there pastes it.
+    const paste = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "v" || event.altKey) return;
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void navigator.clipboard
+        .readText()
+        .then((text) => viewer.clipboardPasteFrom(text))
+        .catch(() => {})
+        .finally(pasteThere);
+    };
+    const copied = (event: Event) =>
+      void navigator.clipboard
+        .writeText((event as CustomEvent<{ text: string }>).detail.text)
+        .catch(() => {});
+    screen.addEventListener("keydown", paste, { capture: true });
+    viewer.addEventListener("clipboard", copied);
+    return () => {
+      clearInterval(lease);
+      screen.removeEventListener("keydown", paste, { capture: true });
+      viewer.removeEventListener("clipboard", copied);
+      viewer.viewOnly = true;
+      void cue({ action: "control", on: false });
+    };
+  }, [control, viewer, screen, cue]);
 
   const unhear = () => {
     clearInterval(voiced.current?.quiet);
@@ -725,7 +816,9 @@ export function useLiveStage({
    */
   const callFrom = async (at: { index: number; part: number } | null) => {
     const talking = startTalk(CALL_GREETING);
-    if (at && up.current) {
+    // In the member's hands, the stage stays as they have it.
+    if (control !== "off") setReached(true);
+    else if (at && up.current) {
       const result = await cue({ action: "reach", ...at });
       if (result.problems.length)
         setProblems((now) => [...now, ...result.problems]);
@@ -927,7 +1020,8 @@ export function useLiveStage({
     talk,
     talkSince,
     control,
-    flipControl,
+    takeControl,
+    giveBack,
     reached,
     hearing,
     problems,
@@ -1001,10 +1095,40 @@ export function LiveCaption({
   );
 }
 
+/** Takes control of the app; it says so while the stage comes up. */
+export function TakeControl({
+  stage,
+  className,
+  onTake,
+}: {
+  stage: LiveStage;
+  className: string;
+  onTake: () => void;
+}) {
+  const asking = stage.control !== "off";
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={asking}
+      onClick={onTake}
+    >
+      <MousePointer2 size={15} aria-hidden="true" />
+      {asking
+        ? "Starting"
+        : stage.phase === "failed"
+          ? "Try again"
+          : "Take control"}
+    </button>
+  );
+}
+
 /**
- * The stage in the film's place while the member is on a call from it:
- * the app live, where the film was paused. Play plays the film on there,
- * the call ending; hanging up leaves the film paused.
+ * The stage in the film's place while the member is on a call from it, or
+ * has control of the app: the app live, where the film was paused. Play
+ * plays the film on there, the call ending; hanging up leaves the film
+ * paused. In their hands nothing lies over the app: what they need is under
+ * it.
  */
 export function LiveCall({
   stage,
@@ -1012,6 +1136,7 @@ export function LiveCall({
   cinema,
   onCinema,
   onFilm,
+  onGiveBack,
 }: {
   stage: LiveStage;
   /** Off a call: behind the film, its screen drawn, ready to take its place. */
@@ -1020,8 +1145,22 @@ export function LiveCall({
   onCinema: () => void;
   /** The film on, where it was paused. */
   onFilm: () => void;
+  onGiveBack: () => void;
 }) {
   const { setScreen } = stage;
+  const controlled = stage.control === "on";
+  const fullScreen = (
+    <button
+      type="button"
+      className="pv-icon"
+      onClick={onCinema}
+      aria-pressed={cinema}
+      aria-label={cinema ? "Exit full screen" : "Full screen"}
+      data-tip={cinema ? "Exit full screen" : "Full screen"}
+    >
+      <RectangleHorizontal size={18} aria-hidden="true" />
+    </button>
+  );
   return (
     <div className={shown ? "pv" : "pv pv-behind"} aria-hidden={!shown}>
       <div className="pv-screen">
@@ -1031,44 +1170,48 @@ export function LiveCall({
             style={{ "--ratio": 1440 / 900 } as CSSProperties}
           >
             <div className="pv-glass">
-              <div className="pv-live" ref={setScreen} />
+              <div
+                className="pv-live"
+                ref={setScreen}
+                data-control={controlled || undefined}
+              />
             </div>
           </div>
-          <div className="pv-overlay">
-            <p className="pv-caption" />
-            <div className="pv-controls">
-              <div className="pv-bar">
-                <button
-                  type="button"
-                  className="pv-icon pv-glass-pill pv-play"
-                  onClick={() => {
-                    stage.endTalk();
-                    onFilm();
-                  }}
-                  aria-label="Play"
-                  data-tip="Play"
-                >
-                  <Play size={18} aria-hidden="true" />
-                </button>
-                <span className="pv-glass-pill pv-clock">
-                  <span className="pv-live-tag">Live</span>
-                </span>
-                <span className="pv-glass-pill pv-tools">
+          {!controlled && (
+            <div className="pv-overlay">
+              <p className="pv-caption" />
+              <div className="pv-controls">
+                <div className="pv-bar">
                   <button
                     type="button"
-                    className="pv-icon"
-                    onClick={onCinema}
-                    aria-pressed={cinema}
-                    aria-label={cinema ? "Exit full screen" : "Full screen"}
-                    data-tip={cinema ? "Exit full screen" : "Full screen"}
+                    className="pv-icon pv-glass-pill pv-play"
+                    onClick={() => {
+                      stage.endTalk();
+                      onFilm();
+                    }}
+                    aria-label="Play"
+                    data-tip="Play"
                   >
-                    <RectangleHorizontal size={18} aria-hidden="true" />
+                    <Play size={18} aria-hidden="true" />
                   </button>
-                </span>
+                  <span className="pv-glass-pill pv-clock">
+                    <span className="pv-live-tag">Live</span>
+                  </span>
+                  <span className="pv-glass-pill pv-tools">{fullScreen}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
+        {controlled && (
+          <div className="pv-under">
+            <span className="pv-live-tag">Live</span>
+            <button type="button" className="pv-give" onClick={onGiveBack}>
+              Give back
+            </button>
+            {fullScreen}
+          </div>
+        )}
       </div>
     </div>
   );

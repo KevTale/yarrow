@@ -66,7 +66,7 @@ export const stageFn = createServerFn({ method: "POST" })
 
 /**
  * The presentation played live on it: the opening, then each chapter;
- * held while the member talks, and on again.
+ * held while the member talks, and on again. Or the app in their hands.
  */
 export const stageCueFn = createServerFn({ method: "POST" })
   .validator(
@@ -90,6 +90,7 @@ export const stageCueFn = createServerFn({ method: "POST" })
           index: z.number().int().min(0).max(11),
           part: z.number().min(0).max(1),
         }),
+        z.object({ action: z.literal("control"), on: z.boolean() }),
       ]),
     }),
   )

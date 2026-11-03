@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -39,6 +40,12 @@ export interface FilmCall {
 
 /** The film played on by the page: from a chapter's start, or where it was. */
 export type FilmControl = (chapter: number | null) => void;
+
+/** A moment of the film: chapter `index`, `part` of it seen (0 to 1). */
+export interface FilmMoment {
+  index: number;
+  part: number;
+}
 
 /** Timelines never change under their key: one fetch per page. */
 const timelines = new Map<string, Promise<Timeline | null>>();
@@ -149,7 +156,9 @@ export function Presentation({
   seekRef,
   playRef,
   phoneRef,
+  pauseRef,
   call,
+  tool,
 }: {
   artifact: StoredArtifact;
   /** Filling the window beside the conversation: the page offers it. */
@@ -161,8 +170,12 @@ export function Presentation({
   playRef?: RefObject<FilmControl | null>;
   /** Set to call (or hang up) from where it is: the conversation's. */
   phoneRef?: RefObject<(() => void) | null>;
+  /** Set to pause it and read where it is: taking control from there. */
+  pauseRef?: RefObject<(() => FilmMoment) | null>;
   /** The agent can be called from it. */
   call?: FilmCall;
+  /** In its bar, before its own tools. */
+  tool?: ReactNode;
 }) {
   const [timeline, setTimeline] = useState<Timeline | null | undefined>();
   useEffect(() => {
@@ -184,7 +197,9 @@ export function Presentation({
       seekRef={seekRef}
       playRef={playRef}
       phoneRef={phoneRef}
+      pauseRef={pauseRef}
       call={call}
+      tool={tool}
     />
   );
 }
@@ -198,7 +213,9 @@ function Player({
   seekRef,
   playRef,
   phoneRef,
+  pauseRef,
   call,
+  tool,
 }: {
   timeline: Timeline | undefined;
   poster: string | null;
@@ -207,7 +224,9 @@ function Player({
   seekRef?: RefObject<((ms: number) => void) | null>;
   playRef?: RefObject<FilmControl | null>;
   phoneRef?: RefObject<(() => void) | null>;
+  pauseRef?: RefObject<(() => FilmMoment) | null>;
   call?: FilmCall;
+  tool?: ReactNode;
 }) {
   const screen = useRef<HTMLDivElement>(null);
   const me = useRef<object>({});
@@ -460,6 +479,14 @@ function Player({
     setStarted(true);
     setPlaying((on) => !on);
   };
+  // Paused where it is, and where that is.
+  const pause = (): FilmMoment => {
+    wake();
+    setPlaying(false);
+    return finished
+      ? { index: Math.max(0, chapters.length - 1), part: 1 }
+      : { index, part: started ? Math.min(1, elapsed / (length || 1)) : 0 };
+  };
   // The film paused where it is, the agent called there.
   const phone = () => {
     if (!call) return;
@@ -467,14 +494,8 @@ function Player({
       call.onHangUp();
       return;
     }
-    wake();
     allowSound();
-    setPlaying(false);
-    call.onCall(
-      finished
-        ? { index: Math.max(0, chapters.length - 1), part: 1 }
-        : { index, part: started ? Math.min(1, elapsed / (length || 1)) : 0 },
-    );
+    call.onCall(pause());
   };
   function jump(to: number, offset = 0, play = true) {
     wake();
@@ -546,6 +567,7 @@ function Player({
         }
       };
     if (phoneRef) phoneRef.current = phone;
+    if (pauseRef) pauseRef.current = pause;
   });
   const idle = playing && !awake;
   // Before it starts, the window the poster was taken in, as it ended.
@@ -709,6 +731,7 @@ function Player({
                       <span className="pv-now">{chapter.title}</span>
                     )}
                   </span>
+                  {tool}
                   <span className="pv-glass-pill pv-tools">
                     <button
                       type="button"

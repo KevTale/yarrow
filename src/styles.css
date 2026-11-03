@@ -8381,6 +8381,50 @@ body:has(.sb-dialog[open]) {
   opacity: 0.5;
   cursor: default;
 }
+.pv-take {
+  gap: 7px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 0;
+  color: #fff;
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pv-take:hover {
+  background: rgba(0, 0, 0, 0.56);
+}
+.pv-take:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.pv-take + .pv-tools {
+  margin-left: 0;
+}
+/* In the member's hands, under the app: nothing lies over it. */
+.pv-under {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 8px 0 14px;
+  border-top: 1px solid var(--line);
+}
+.pv-give {
+  height: 30px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f1013;
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
+  cursor: pointer;
+}
 .pp-take {
   display: contents;
 }
@@ -9985,8 +10029,10 @@ button.pp-idea:focus-visible .pp-idea-go {
   background: var(--surface);
   overflow: hidden;
 }
-/* The member's own pointer: it answers at once, whatever the line. */
-.stage-screen[data-control] canvas {
+/* Watched, the pointer is the one on the screen; in the member's hands,
+   theirs takes the shape the app gives it. */
+.stage-screen:not([data-control]) canvas,
+.pv-live:not([data-control]) canvas {
   cursor: default !important;
 }
 .stage-events {

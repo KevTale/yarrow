@@ -19,6 +19,7 @@ import {
   stageSignIn,
   STALE_LOCKS,
 } from "../../src/core/stage";
+import { stageNote } from "../../src/runner/stage-tools";
 
 const bash = promisify(execFile);
 
@@ -34,6 +35,14 @@ const BENCH = [
 ];
 
 describe("the stage", () => {
+  it("tells the agent it cannot act while the member has control", () => {
+    const state = { chapter: null, held: false, chapters: 2, film: 1 };
+    expect(stageNote(state)).toContain("The video is paused in chapter 2");
+    expect(stageNote({ ...state, control: true })).toContain(
+      "The member has taken control",
+    );
+  });
+
   it("restarts only what keeps running, after the stale locks", () => {
     expect(restartSteps(BENCH)).toEqual([STALE_LOCKS, BENCH[2], BENCH[6]]);
     expect(
