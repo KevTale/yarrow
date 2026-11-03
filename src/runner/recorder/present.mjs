@@ -3501,7 +3501,16 @@ class Presenter {
         (page) => !page.isClosed(),
       );
       if (!open) await this.reopen();
-      if (!open || !this.controlled) desktop.alone(true);
+      if (!open || !this.controlled) {
+        // The pull request's app, whatever the film showed: the old one is
+        // a tab away.
+        const app = desktop.tabs.pages.after;
+        if (app && !app.isClosed()) {
+          desktop.tabs.active = "after";
+          await app.bringToFront();
+        }
+        desktop.alone(true);
+      }
     }
     if (on === this.controlled) return [];
     if (on) desktop.tell("noviewonly", "cursorshape");
