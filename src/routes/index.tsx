@@ -40,14 +40,16 @@ function Landing() {
           review them.
         </p>
       </section>
-      <div className="container">
-        <DashboardShot
-          cta={
-            <a className="lp-cta" href="/connect/github?start">
-              Get started
-            </a>
-          }
-        />
+      <div className="lp-stage">
+        <div className="container">
+          <DashboardShot
+            cta={
+              <a className="lp-cta" href="/connect/github?start">
+                Get started
+              </a>
+            }
+          />
+        </div>
       </div>
       <section className="container lp-sources" aria-label="Works with">
         <ul>

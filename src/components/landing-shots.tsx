@@ -291,7 +291,7 @@ function TicketRow({
 export function DashboardShot({ cta }: { cta: ReactNode }) {
   const [merged, setMerged] = useState(false);
   return (
-    <div className="lp-dash">
+    <div className="lp-dash glass">
       <div className="lp-dash-head">
         <b>Acme</b>
         <span className="lp-dash-search">

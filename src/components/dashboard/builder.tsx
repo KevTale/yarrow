@@ -549,149 +549,156 @@ export function BuilderView({
     <DraftTicket.Provider value={tickets}>
       <div className="bd">
         {jiraCard}
-        <div className="tix-head">
-          {project && (
-            <LogoPicker
-              name={project.name}
-              value={project.logoUrl}
-              removable={project.uploadedLogo}
-              onChange={(logo) => void changeLogo(logo)}
-              size="small"
+        <div className="glass">
+          <div className="tix-head">
+            {project && (
+              <LogoPicker
+                name={project.name}
+                value={project.logoUrl}
+                removable={project.uploadedLogo}
+                onChange={(logo) => void changeLogo(logo)}
+                size="small"
+              />
+            )}
+            <ProjectSwitcher
+              projects={meta.projects}
+              current={shownProject}
+              toReview={reviewCounts}
+              onProject={choose}
             />
-          )}
-          <ProjectSwitcher
-            projects={meta.projects}
-            current={shownProject}
-            toReview={reviewCounts}
-            onProject={choose}
-          />
-          {shownProject && (
-            <Link
-              to="/projects/$projectId"
-              params={{ projectId: shownProject.id }}
-              className="bd-cog"
-              aria-label="Settings"
-              data-tip="Settings"
-            >
-              <Settings size={16} />
-            </Link>
-          )}
-          {project?.linked && (
-            <SearchField
-              fieldClassName="bd-search"
-              label="Search tickets"
-              hideLabel
-              placeholder="Search tickets"
-              value={query}
-              onValueChange={setQuery}
-            />
+            {shownProject && (
+              <Link
+                to="/projects/$projectId"
+                params={{ projectId: shownProject.id }}
+                className="bd-cog"
+                aria-label="Settings"
+                data-tip="Settings"
+              >
+                <Settings size={16} />
+              </Link>
+            )}
+            {project?.linked && (
+              <SearchField
+                fieldClassName="bd-search"
+                label="Search tickets"
+                hideLabel
+                placeholder="Search tickets"
+                value={query}
+                onValueChange={setQuery}
+              />
+            )}
+          </div>
+          {loading ? (
+            <BuilderSkeleton />
+          ) : (
+            project && (
+              <>
+                {waiting && (
+                  <p className="bd-wait" role="status">
+                    Connecting <span className="mono">{waiting}</span>…
+                  </p>
+                )}
+                {!project.linked ? (
+                  <div className="bd-empty">
+                    <p className="muted">
+                      GitHub is not connected to this repository
+                    </p>
+                    <a className="go" href="/connect/github">
+                      <Github size={16} /> Connect GitHub
+                    </a>
+                  </div>
+                ) : (
+                  <>
+                    {live?.issues === null && (
+                      <p className="bd-note">
+                        GitHub did not answer: only the tickets already in
+                        Yarrow are listed.
+                      </p>
+                    )}
+                    {error && (
+                      <p className="feedback feedback-error" role="alert">
+                        {error}
+                      </p>
+                    )}
+                    <div
+                      className="tix-list"
+                      ref={list}
+                      style={refColumn(matches)}
+                    >
+                      {stages.map((stage) => {
+                        const shown = matches.filter(
+                          (row) => ticketStage(row) === stage.key,
+                        );
+                        // Stopped only when a ticket is there; searching shows
+                        // only the groups with a match.
+                        if (
+                          (stage.key === "stopped" || q) &&
+                          shown.length === 0
+                        )
+                          return null;
+                        return (
+                          <TicketGroup
+                            key={stage.key}
+                            stage={stage.key}
+                            label={stage.label}
+                            count={shown.length}
+                            folded={!q && folded.includes(stage.key)}
+                            onFold={() => fold(stage.key)}
+                            onAdd={
+                              stage.add
+                                ? () =>
+                                    setComposing({
+                                      start: stage.add === "start",
+                                    })
+                                : undefined
+                            }
+                          >
+                            {(stage.key === "done" && !q && !older
+                              ? shown.filter(
+                                  (row) =>
+                                    Date.parse(row.updatedAt) >
+                                    Date.now() - RECENT_MS,
+                                )
+                              : shown
+                            ).map((row) => {
+                              const id = `${project.id}:${row.key}`;
+                              return (
+                                <TicketLine
+                                  key={row.key}
+                                  row={row}
+                                  projectId={project.id}
+                                  open={opened === id}
+                                  onToggle={() => toggle(id)}
+                                  fresh={fresh === row.key}
+                                  onFreshEnd={() => setFresh(null)}
+                                  act={act}
+                                  onChanged={() => void pull()}
+                                />
+                              );
+                            })}
+                            {stage.key === "done" && !q && (
+                              <OlderToggle
+                                count={
+                                  shown.filter(
+                                    (row) =>
+                                      Date.parse(row.updatedAt) <=
+                                      Date.now() - RECENT_MS,
+                                  ).length
+                                }
+                                shown={older}
+                                onToggle={() => setOlder((value) => !value)}
+                              />
+                            )}
+                          </TicketGroup>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            )
           )}
         </div>
-        {loading ? (
-          <BuilderSkeleton />
-        ) : (
-          project && (
-            <>
-              {waiting && (
-                <p className="bd-wait" role="status">
-                  Connecting <span className="mono">{waiting}</span>…
-                </p>
-              )}
-              {!project.linked ? (
-                <div className="bd-empty">
-                  <p className="muted">
-                    GitHub is not connected to this repository
-                  </p>
-                  <a className="go" href="/connect/github">
-                    <Github size={16} /> Connect GitHub
-                  </a>
-                </div>
-              ) : (
-                <>
-                  {live?.issues === null && (
-                    <p className="bd-note">
-                      GitHub did not answer: only the tickets already in Yarrow
-                      are listed.
-                    </p>
-                  )}
-                  {error && (
-                    <p className="feedback feedback-error" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <div
-                    className="tix-list"
-                    ref={list}
-                    style={refColumn(matches)}
-                  >
-                    {stages.map((stage) => {
-                      const shown = matches.filter(
-                        (row) => ticketStage(row) === stage.key,
-                      );
-                      // Stopped only when a ticket is there; searching shows
-                      // only the groups with a match.
-                      if ((stage.key === "stopped" || q) && shown.length === 0)
-                        return null;
-                      return (
-                        <TicketGroup
-                          key={stage.key}
-                          stage={stage.key}
-                          label={stage.label}
-                          count={shown.length}
-                          folded={!q && folded.includes(stage.key)}
-                          onFold={() => fold(stage.key)}
-                          onAdd={
-                            stage.add
-                              ? () =>
-                                  setComposing({ start: stage.add === "start" })
-                              : undefined
-                          }
-                        >
-                          {(stage.key === "done" && !q && !older
-                            ? shown.filter(
-                                (row) =>
-                                  Date.parse(row.updatedAt) >
-                                  Date.now() - RECENT_MS,
-                              )
-                            : shown
-                          ).map((row) => {
-                            const id = `${project.id}:${row.key}`;
-                            return (
-                              <TicketLine
-                                key={row.key}
-                                row={row}
-                                projectId={project.id}
-                                open={opened === id}
-                                onToggle={() => toggle(id)}
-                                fresh={fresh === row.key}
-                                onFreshEnd={() => setFresh(null)}
-                                act={act}
-                                onChanged={() => void pull()}
-                              />
-                            );
-                          })}
-                          {stage.key === "done" && !q && (
-                            <OlderToggle
-                              count={
-                                shown.filter(
-                                  (row) =>
-                                    Date.parse(row.updatedAt) <=
-                                    Date.now() - RECENT_MS,
-                                ).length
-                              }
-                              shown={older}
-                              onToggle={() => setOlder((value) => !value)}
-                            />
-                          )}
-                        </TicketGroup>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </>
-          )
-        )}
         {composing && composeIn && (
           <NewTicket
             projectId={composeIn.id}

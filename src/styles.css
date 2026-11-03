@@ -2915,6 +2915,68 @@ tbody tr:hover {
   display: grid;
   gap: 40px;
 }
+/* A window on the dark, lit from its corner, a grain in its surface: Linear's
+   measured frame. A list inside is a pane of it. */
+.glass {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  background: #101112;
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 1px solid #ffffff14;
+  border-radius: inherit;
+  mask-image: radial-gradient(
+    200px 200px at 8% 0%,
+    #000 0%,
+    #0009 30%,
+    #0003 50%,
+    #0000 70%
+  );
+  pointer-events: none;
+}
+/* Under the content: a film stays as it was filmed. */
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E")
+    0 0 / 256px;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.glass > .tix-head,
+.glass > .lp-dash-head {
+  padding: 8px 12px;
+}
+.glass > .bd-wait,
+.glass > .bd-note,
+.glass > .feedback {
+  margin: 0;
+  padding-inline: 12px;
+}
+.glass .tix-list {
+  padding: 8px;
+  background: #ffffff03;
+  border: 1px solid #ffffff0d;
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px #00000033;
+}
+.glass .tix-ghead {
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+}
 .bd-label {
   font:
     500 11px var(--font-geist-mono),
@@ -3544,10 +3606,6 @@ tbody tr:hover {
    left for actions on the row. */
 .tix-item {
   border-radius: 12px;
-  transition: background 0.15s;
-}
-.tix-item.open {
-  background: #ffffff09;
 }
 .tix-row {
   position: relative;
@@ -7813,21 +7871,37 @@ body:has(.sb-dialog[open]) {
   padding-block: 40px 0;
 }
 
+/* The extract set down on a lit floor: Linear's measured gradients, the light
+   rising under the window from below. */
+.lp-stage {
+  position: relative;
+  margin-inline: 5px;
+  padding-bottom: 112px;
+  border-radius: 6px;
+  background:
+    radial-gradient(52.53% 57.5% at 50% 100%, #08090a00 0%, #08090a80 100%),
+    linear-gradient(#08090a calc(100% - 640px), #9ea3ac 100%);
+}
+/* Its shadow on the floor, wider than the window. */
+.lp-stage::before {
+  content: "";
+  position: absolute;
+  inset: auto 3% 84px;
+  height: 56px;
+  background: radial-gradient(closest-side, #000000b3, #0000);
+  pointer-events: none;
+}
 /* A project's tickets on the landing: the dashboard's rows in a window. */
 .lp-dash {
-  display: grid;
-  gap: 18px;
-  padding: 20px 20px 8px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: 0 30px 80px #00000080;
+  box-shadow:
+    0 0 0 1px #00000066,
+    0 24px 48px -8px #000000cc,
+    0 8px 16px #00000080;
 }
 .lp-dash-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-inline: 6px;
   color: var(--muted);
 }
 .lp-dash-head b {
@@ -8001,8 +8075,18 @@ body:has(.sb-dialog[open]) {
   .header-site {
     display: none;
   }
-  .lp-dash {
-    padding: 14px 8px 6px;
+  .lp-stage {
+    margin-inline: 0;
+    padding-bottom: 56px;
+    border-radius: 0;
+  }
+  .lp-stage::before {
+    inset: auto 0 36px;
+    height: 40px;
+  }
+  .glass,
+  .glass .tix-list {
+    padding: 4px;
   }
   .lp-dash-search {
     display: none;
