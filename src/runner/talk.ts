@@ -1,12 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { addUsage, type ChatUsage } from "../core/chat";
-import {
-  beatMark,
-  VOICE_PUSH,
-  withoutBeats,
-  type StageState,
-} from "../core/stage";
+import { beatMark, withoutBeats, type StageState } from "../core/stage";
 import type { ChatContext } from "../db/chat";
 import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
 import { gestureWords } from "./gestures";
@@ -73,7 +68,7 @@ ${
 How you talk:
 - Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One or two short sentences, as a colleague on a call, more only when they ask for it. In the language they speak.
 - What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.
-- Before reading the code or the tickets, a few words of your own on what you are looking for ("Je regarde comment le compteur est calculé."), then the tool: never a generic "one moment", and nothing of the kind before a plain answer.${
+- Before reading the code or the tickets, one short sentence of your own, with no comma, on what you are looking for ("Je regarde comment le compteur est calculé."), then the tool: never a generic "one moment", and nothing of the kind before a plain answer.${
   onStage
     ? `
 - Talk as someone sharing their screen: what the app shows and why it matters, your gestures on the words that go with them (below). Not every click ("I click on To do", "I type in the field", "done"): they see them.
@@ -94,7 +89,7 @@ The stage:
 <act do="fill" target="e14" text="Pain"/><act do="click" target="e15"/>Je l'ajoute, <act do="circle" target="text=Pain"/>et la voilà, en haut de la liste.
 - That is how you act whenever the screen tells you what will happen. What only appears after a gesture of yours: by its text (text=Pain), never a ref.
 - Typing and clicks take a second or two: give them enough words, so what follows still lands on its word.
-- A gesture waits by itself for its target: no tool between your words and the next gesture, no wait.
+- A turn's words and gestures come in one go, every gesture it takes, and then you stop. A gesture waits by itself for its target, up to 8 s: once you have spoken, no act_on_screen, no wait, no look, or your voice stops in the middle of a word.
 - When you cannot tell what will happen (another page, a result you must read first), call act_on_screen with no word before it, then say what it shows, with tags for what you then point at.
 - A turn starting with [stage] is no one speaking: a gesture of yours failed. Put it right and say so in a few words.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.
@@ -466,7 +461,6 @@ export async function talkTurn(input: {
         if (!wrote) return;
         wrote = false;
         speak(untilTool(words));
-        say(VOICE_PUSH);
       },
     });
     steps.push({

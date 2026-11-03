@@ -125,14 +125,8 @@ export function beatOf(char: string): number | null {
   const code = char.charCodeAt(0);
   return code >= FIRST_BEAT && code <= LAST_BEAT ? code - FIRST_BEAT : null;
 }
-/**
- * Never voiced either: the voice holds its last words until more text comes,
- * so a tool after them would cut it mid-word. Measured on dev: it holds 15 to
- * 18 characters, and each of these delays it by about 30 ms.
- */
-export const VOICE_PUSH = "\ue100".repeat(24);
 export const withoutBeats = (text: string) =>
-  text.replace(/[\ue000-\ue1ff]/g, "");
+  text.replace(/[\ue000-\ue0ff]/g, "");
 
 /**
  * What the page tells the agent, as a turn of its own, when a gesture of its

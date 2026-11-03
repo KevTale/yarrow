@@ -917,7 +917,12 @@ export function useLiveStage({
     if (!whole || !speech.current.over(now)) return;
     const heard =
       plain(speech.current.text()).length + 2 >= plain(whole.text).length;
-    if (heard || now - speech.current.last > VOICE_LOST_MS) voiceDone();
+    if (heard) voiceDone();
+    else if (now - speech.current.last > VOICE_LOST_MS) {
+      voiceDone();
+      // Its line is in the thread: what still comes of its voice stays out.
+      voiceCut.current = true;
+    }
   };
   const runWords = () => {
     wordsNow.current ??= setInterval(showWords, WORDS_MS);
