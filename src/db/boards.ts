@@ -1,4 +1,15 @@
-import { and, desc, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { Database } from "./client";
 import type { RunSponsor } from "../core/attribution";
 import {
@@ -164,6 +175,7 @@ export async function recordSponsorClick(
 const listed = and(
   inArray(projects.visibility, ["public", "listed"]),
   isNull(projects.suspendedAt),
+  isNotNull(projects.importedAt),
 );
 
 /**
@@ -276,7 +288,9 @@ export async function mergedTotals(db: Database, now = new Date()) {
 export async function pullRequestCostCents(db: Database, now = new Date()) {
   const since = new Date(now.getTime() - 90 * 86_400_000);
   const [spent] = await db
-    .select({ cents: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int` })
+    .select({
+      cents: sql<number>`coalesce(sum(${runModels.costCents}), 0)::int`,
+    })
     .from(runModels)
     .where(gte(runModels.createdAt, since));
   const [opened] = await db
@@ -292,11 +306,7 @@ export async function pullRequestCostCents(db: Database, now = new Date()) {
 }
 
 export type LiveStatus =
-  | "writing"
-  | "reviewing"
-  | "delivering"
-  | "pull_request"
-  | "merged";
+  "writing" | "reviewing" | "delivering" | "pull_request" | "merged";
 
 export interface LiveRow {
   key: string;
@@ -518,4 +528,3 @@ async function liveFeed(
   );
   return [...live, ...shipped].slice(0, limit);
 }
-

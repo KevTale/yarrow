@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { repoName } from "../../core/forms";
 import { accountIdsForGithubLogin } from "../../db/accounts";
 import type { Database } from "../../db/client";
@@ -61,7 +61,12 @@ async function projectForRepository(
   const [project] = await db
     .select()
     .from(projects)
-    .where(eq(projects.githubRepositoryId, String(repository.id)));
+    .where(
+      and(
+        eq(projects.githubRepositoryId, String(repository.id)),
+        isNotNull(projects.importedAt),
+      ),
+    );
   return project ?? null;
 }
 

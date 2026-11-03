@@ -56,6 +56,7 @@ async function project(
     name,
     visibility,
     repository: `test/${name}`,
+    importedAt: now,
   });
   return id;
 }

@@ -33,10 +33,13 @@ function Landing() {
     <main id="main" className="landing">
       <section className="lp-hero container">
         <h1>
-          Where tickets become <br />
-          working software
+          The best ticket harness <br />
+          in the world
         </h1>
-        <p>Write them with an agent, see the result work and merge.</p>
+        <p>
+          Our agents write your tickets, implement them and show you the result
+          working.
+        </p>
       </section>
       <div className="container">
         <DashboardShot />
@@ -56,7 +59,7 @@ function Landing() {
             <TrackerIcon tracker="trello" size={20} /> Trello
           </li>
         </ul>
-        <p className="mono">Your tickets stay where they are</p>
+        <p className="mono">Import your tickets from your favorite tool</p>
       </section>
       <p className="container lp-statement">
         <b>Coding is solved.</b> Writing the right ticket and reviewing what

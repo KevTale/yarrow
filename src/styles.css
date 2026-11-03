@@ -5629,7 +5629,9 @@ a[data-loading]:not(.go)::after {
 /* Jira projects: uiarc's multi select. */
 .jp {
   --control-height-md: 36px;
-  min-width: 0;
+  /* Its chips are measured apart: alone it would shrink to nothing. */
+  flex: 1 1 240px;
+  min-width: 200px;
   max-width: 420px;
 }
 .st-card-body strong {
@@ -7820,8 +7822,6 @@ body:has(.sb-dialog[open]) {
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: 0 30px 80px #00000080;
-  pointer-events: none;
-  user-select: none;
 }
 .lp-dash-head {
   display: flex;
@@ -7846,89 +7846,46 @@ body:has(.sb-dialog[open]) {
   border-radius: 999px;
   font-size: 13px;
 }
-.lp-dash .tix-open {
-  cursor: default;
-}
 
 /* A ticket ready to send, and the work it starts beside it. */
+/* The dialog over the board, as Linear shows a thread over its board: a
+   hairline above, the board fading out at its edges. */
 .lp-compose {
+  position: relative;
+  min-height: 680px;
+  padding-top: 40px;
+  border-top: 1px solid var(--line);
+}
+.nt.lp-modal {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  width: min(800px, 68%);
+  height: 580px;
+  margin: 0;
 }
-.lp-draft {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 24px;
-  border-right: 1px solid var(--line);
-  font-size: 14.5px;
-  line-height: 1.5;
+.lp-modal .pp-talk-thread {
+  padding: 22px 18px;
 }
-.lp-said.me {
-  align-self: flex-end;
-  max-width: 85%;
-  padding: 7px 12px;
-  border-radius: 12px;
-  background: var(--hover);
-}
-.lp-fields {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 16px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  transition: border-color 0.15s;
-}
-.lp-fields:focus-within {
-  border-color: var(--border-strong);
-}
-.lp-fields input,
-.lp-fields textarea {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  resize: none;
-  background: none;
-  color: var(--reading);
-  font: inherit;
-  font-size: 14.5px;
-  line-height: 1.55;
-}
-.lp-fields input {
-  color: var(--text);
-  font-size: 17px;
-  font-weight: 500;
-}
-.lp-fields button {
-  justify-self: end;
-  padding: 7px 14px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--amber);
-  color: #141714;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.lp-fields button:disabled {
-  opacity: 0.4;
-  cursor: default;
+.lp-modal .pp-say,
+.lp-modal .pp-bubble {
+  font-size: 14px;
 }
 .lp-flow {
+  position: absolute;
+  inset: 104px 0 0 58%;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
-  padding: 20px;
-  background: var(--bg);
+  padding: 20px 0 40px 15%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  mask-image:
+    linear-gradient(to right, #000 78%, transparent),
+    linear-gradient(to bottom, #000 72%, transparent);
+  mask-composite: intersect;
 }
 .lp-flow .tix-gtoggle {
   cursor: default;
@@ -7953,14 +7910,14 @@ body:has(.sb-dialog[open]) {
 .lp-working {
   display: grid;
   gap: 12px;
-  margin: 2px 0 12px;
+  margin: 2px 24px 12px 0;
   padding: 14px;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 12px;
   animation: lr-rise 0.3s var(--ease-enter);
 }
-.lp-working ol {
+.lp-steps {
   display: grid;
   gap: 8px;
   margin: 0;
@@ -7969,12 +7926,12 @@ body:has(.sb-dialog[open]) {
   color: #5b6068;
   font-size: 13.5px;
 }
-.lp-working li {
+.lp-steps li {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.lp-working li i {
+.lp-steps li i {
   display: grid;
   place-items: center;
   flex: none;
@@ -7983,16 +7940,16 @@ body:has(.sb-dialog[open]) {
   border: 1px solid var(--line);
   border-radius: 50%;
 }
-.lp-working li.now {
+.lp-steps li.now {
   color: var(--text);
 }
-.lp-working li.now i {
+.lp-steps li.now i {
   border-color: var(--amber);
 }
-.lp-working li.done {
+.lp-steps li.done {
   color: var(--muted);
 }
-.lp-working li.done i {
+.lp-steps li.done i {
   border-color: transparent;
   background: var(--green);
   color: #0b0c0e;
@@ -8013,27 +7970,11 @@ body:has(.sb-dialog[open]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: 0 30px 80px #00000080;
 }
-.lr-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 8px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.lr-row b {
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
+.tix-card:has(.lr) {
+  padding: 12px 0 8px;
 }
 .lr-state-merged {
-  margin-left: auto;
   color: var(--green);
   font-size: 13px;
 }
@@ -8046,9 +7987,8 @@ body:has(.sb-dialog[open]) {
   position: relative;
   aspect-ratio: 16 / 10;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: var(--bg);
+  background: #fff;
 }
 .lr-app {
   --page: #0b0c0e;
@@ -8069,7 +8009,7 @@ body:has(.sb-dialog[open]) {
     color 0.3s;
 }
 .lr-app.light {
-  --page: #f6f6f4;
+  --page: #fff;
   --row: #fff;
   --rule: #e6e6e2;
   --ink: #1f2126;
@@ -8288,9 +8228,9 @@ body:has(.sb-dialog[open]) {
   height: 64px;
   border: 0;
   border-radius: 50%;
-  background: #f7f8f8;
-  color: #08090a;
-  box-shadow: 0 12px 40px #00000099;
+  background: #101114;
+  color: #fff;
+  box-shadow: 0 12px 40px #00000040;
   cursor: pointer;
   transition: transform 0.15s;
 }
@@ -8323,7 +8263,12 @@ body:has(.sb-dialog[open]) {
 .lr-track {
   flex: 1;
   display: flex;
+  align-items: center;
   gap: 3px;
+  height: 30px;
+  padding-inline: 10px;
+  border-radius: 10px;
+  background: #16181ce0;
 }
 .lr-track button {
   flex: 1 1 0;
@@ -8347,103 +8292,27 @@ body:has(.sb-dialog[open]) {
 }
 .lr-talk {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
-  padding: 14px;
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   /* Its height comes from the film beside it, never from the words. */
   contain: size;
 }
-.lr-thread {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.lr-talk .pp-talk-thread {
   min-height: 0;
-  overflow-y: auto;
-  font-size: 14.5px;
-  line-height: 1.5;
+  padding: 18px 16px;
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
-.lr-thread > :first-child {
-  margin-top: auto;
-}
-.lr-me {
-  align-self: flex-end;
-  justify-self: end;
-  max-width: 85%;
-  padding: 7px 12px;
-  border-radius: 12px;
-  background: var(--hover);
-}
-.lr-thinking {
-  color: var(--muted);
-}
-.lr-asks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.lr-asks button {
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: none;
-  color: var(--secondary);
-  font-size: 12.5px;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
-}
-.lr-asks button:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-}
-.lr-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 7px 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  transition: border-color 0.15s;
-}
-.lr-box:focus-within {
-  border-color: var(--border-strong);
-}
-.lr-box input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--text);
+.lr-talk .pp-say,
+.lr-talk .pp-bubble {
   font-size: 14px;
 }
-.lr-box input::placeholder {
-  color: var(--muted);
-}
-.lr-box button {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.lr-box button:disabled {
-  background: var(--hover);
-  color: var(--muted);
-  cursor: default;
+.lr-talk .pp-asking {
+  margin: 0 10px 10px;
 }
 .lr-foot {
   display: flex;
@@ -8481,13 +8350,30 @@ body:has(.sb-dialog[open]) {
     contain: none;
     height: 300px;
   }
-  .lp-part-head,
-  .lp-compose {
+  .lp-part-head {
     grid-template-columns: minmax(0, 1fr);
   }
-  .lp-draft {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+  .lp-compose {
+    display: grid;
+    gap: 16px;
+    min-height: 0;
+    padding-top: 24px;
+  }
+  .nt.lp-modal {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 420px 360px;
+    width: 100%;
+    height: auto;
+  }
+  .lp-modal .nt-talk {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .lp-flow {
+    position: static;
+    order: 1;
+    padding: 16px;
+    mask-image: none;
   }
 }
 @media (max-width: 640px) {
@@ -8545,9 +8431,6 @@ body:has(.sb-dialog[open]) {
   .lp-dash-search {
     display: none;
   }
-  .lp-fields textarea {
-    min-height: 200px;
-  }
   .lp-dash .tix-meta {
     display: none;
   }
@@ -8593,6 +8476,11 @@ body:has(.sb-dialog[open]) {
 .start h1 {
   font-size: clamp(34px, 5vw, 44px);
   letter-spacing: -0.02em;
+}
+.start-repos {
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 .start-waiting {
   display: flex;

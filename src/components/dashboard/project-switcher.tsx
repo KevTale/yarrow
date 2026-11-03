@@ -134,7 +134,7 @@ export function ProjectSwitcher({
               );
             })}
             <span className="ps-sep" role="separator" />
-            <a className="ps-item" role="menuitem" href="/connect/github">
+            <a className="ps-item" role="menuitem" href="/start">
               <Plus size={15} aria-hidden="true" />
               Add a project
             </a>

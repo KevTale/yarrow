@@ -1,20 +1,28 @@
 import {
   ArrowUp,
-  FileText,
   GitMerge,
-  GitPullRequest,
   Pause,
   Play,
   RotateCcw,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SlideGo } from "@/components/dashboard/slide-go";
+import {
+  FilesChanged,
+  TicketGroup,
+  TicketRow,
+  toReview,
+} from "@/components/landing-shots";
 import { useFlip } from "@/components/live";
 import type { DraftLine } from "@/core/new-ticket";
 import {
   changeLook,
   LOOK,
   readTags,
+  TRY_FILM,
+  TRY_FILM_LENGTH,
   TRY_FIRST_WORDS,
   TRY_TURNS,
   TRY_WORDS,
@@ -76,17 +84,9 @@ const added: Task = {
   priority: "urgent",
 };
 
-const film: { moment: Moment; at: number; say: string }[] = [
-  { moment: "list", at: 0, say: "Nothing in this list says what comes first." },
-  {
-    moment: "form",
-    at: 5,
-    say: "A new task now asks for a priority. Normal, unless you pick another.",
-  },
-  { moment: "added", at: 11, say: "It lands in the list with its tag." },
-  { moment: "sorted", at: 15, say: "Sorted, the urgent work comes first." },
-];
-const LENGTH = 20;
+const film = TRY_FILM;
+const LENGTH = TRY_FILM_LENGTH;
+const FIRST_ASK = "Can urgent be blue instead of red?";
 const rank: Record<Priority, number> = { urgent: 0, high: 1, normal: 2 };
 const momentAt = (time: number) =>
   film.filter((step) => step.at <= time).at(-1) ?? film[0]!;
@@ -94,7 +94,7 @@ const clock = (time: number) =>
   `0:${String(Math.floor(time)).padStart(2, "0")}`;
 
 /** The demo's small app, as it stands at a moment of the film. */
-function TallyApp({ moment, look }: { moment: Moment; look: Look }) {
+function AcmeApp({ moment, look }: { moment: Moment; look: Look }) {
   const rows = useMemo(() => {
     const all =
       moment === "added" || moment === "sorted" ? [...tasks, added] : tasks;
@@ -169,10 +169,11 @@ function TallyApp({ moment, look }: { moment: Moment; look: Look }) {
 }
 
 /**
- * A ticket to review, the size of the real one: a drawn demo with its
- * controls, a real agent beside it that answers fast and moves the drawing
- * (`/try-agent`, tags in its words), and a slide that merges. Nothing else
- * is real: no repository behind it.
+ * The tickets to review, the first one open at the size of the real one: a
+ * drawn demo on white with its voice and controls, a real agent beside it
+ * that answers fast and moves the drawing (`/try-agent`, tags in its words),
+ * a question ready in its box, and a slide that merges. Nothing else is real:
+ * no repository behind it.
  */
 export function LandingRoom({ cta }: { cta: React.ReactNode }) {
   const [time, setTime] = useState(LENGTH);
@@ -185,20 +186,30 @@ export function LandingRoom({ cta }: { cta: React.ReactNode }) {
     { author: "agent", body: TRY_FIRST_WORDS },
   ]);
   const [words, setWords] = useState<string | null>(null);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(FIRST_ASK);
   const [enough, setEnough] = useState(false);
+  const [muted, setMuted] = useState(false);
   const thread = useRef<HTMLDivElement>(null);
+  const voice = useRef<HTMLAudioElement>(null);
   const now = useRef(LENGTH);
   const step = momentAt(time);
 
   useEffect(() => {
-    if (!playing) return;
+    const audio = voice.current;
+    if (!playing || !audio) return;
+    audio.currentTime = now.current;
+    void audio.play().catch(() => {});
     const timer = setInterval(() => {
-      now.current = Math.min(LENGTH, now.current + 0.1);
+      // The voice keeps the time; blocked, the clock does.
+      const heard = audio.paused ? now.current + 0.1 : audio.currentTime;
+      now.current = Math.min(LENGTH, heard);
       setTime(now.current);
       if (now.current >= LENGTH) setPlaying(false);
     }, 100);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      audio.pause();
+    };
   }, [playing]);
 
   useEffect(() => {
@@ -279,18 +290,18 @@ export function LandingRoom({ cta }: { cta: React.ReactNode }) {
     }
   }
 
-  const asked = said.length > 1;
-  return (
-    <section className="lr" aria-label="A sample ticket to review">
-      <div className="lr-row">
-        <GitPullRequest size={14} aria-hidden="true" />
-        <span className="mono">#137</span>
-        <b>Tasks need a priority</b>
-        {merged && <span className="lr-state-merged">Merged</span>}
-      </div>
+  const [first, ...others] = toReview;
+  const room = (
+    <section className="lr" aria-label="Tasks need a priority">
       <div className="lr-meet">
         <div className="lr-film">
-          <TallyApp moment={step.moment} look={look} />
+          <AcmeApp moment={step.moment} look={look} />
+          <audio
+            ref={voice}
+            src="/demo-priority.mp3"
+            preload="none"
+            muted={muted}
+          />
           {played && time < LENGTH && (
             <p className="lr-say" key={step.moment}>
               {step.say}
@@ -343,70 +354,85 @@ export function LandingRoom({ cta }: { cta: React.ReactNode }) {
                 );
               })}
             </div>
-          </div>
-        </div>
-        <div className="lr-talk">
-          <div className="lr-thread" ref={thread}>
-            {said.map((line, i) => (
-              <p
-                key={i}
-                className={line.author === "builder" ? "lr-me" : undefined}
-              >
-                {line.body}
-              </p>
-            ))}
-            {words !== null && (
-              <p className={words ? undefined : "lr-thinking"}>
-                {words || "Thinking"}
-              </p>
-            )}
-            {enough && (
-              <p>That is plenty for a sample. Try me on your own tickets.</p>
-            )}
-          </div>
-          {!asked && (
-            <div className="lr-asks">
-              {[
-                "Make urgent blue",
-                "Hide what is done",
-                "Why no tag on normal?",
-              ].map((ask) => (
-                <button type="button" key={ask} onClick={() => void send(ask)}>
-                  {ask}
-                </button>
-              ))}
-            </div>
-          )}
-          <form
-            className="lr-box"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send(text);
-            }}
-          >
-            <input
-              aria-label="Ask about this ticket"
-              placeholder="Ask anything, or ask for a change…"
-              value={text}
-              maxLength={TRY_WORDS}
-              onChange={(event) => setText(event.target.value)}
-            />
             <button
-              type="submit"
-              aria-label="Send"
-              disabled={!text.trim() || words !== null}
+              type="button"
+              className="lr-control"
+              aria-label={muted ? "Unmute" : "Mute"}
+              onClick={() => setMuted(!muted)}
             >
-              <ArrowUp size={15} />
+              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
             </button>
-          </form>
+          </div>
         </div>
+        <aside className="lr-talk" aria-label="Conversation">
+          <div className="pp-talk-thread" ref={thread}>
+            <ol className="pp-chat">
+              {said.map((line, i) =>
+                line.author === "builder" ? (
+                  <li className="pp-me" key={i}>
+                    <p className="pp-bubble">{line.body}</p>
+                  </li>
+                ) : (
+                  <li className="pp-it" key={i}>
+                    <p className="pp-say">{line.body}</p>
+                  </li>
+                ),
+              )}
+              {words !== null && (
+                <li className="pp-it">
+                  <p className={words ? "pp-say" : "pp-say muted"}>
+                    {words || "Thinking"}
+                  </p>
+                </li>
+              )}
+              {enough && (
+                <li className="pp-it">
+                  <p className="pp-say">
+                    That is plenty for a sample. Try me on your own tickets.
+                  </p>
+                </li>
+              )}
+            </ol>
+          </div>
+          <div className="pp-asking">
+            <form
+              className="pp-input"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void send(text);
+              }}
+            >
+              <textarea
+                aria-label="Ask about this ticket"
+                placeholder="Ask anything, or ask for a change…"
+                rows={1}
+                value={text}
+                maxLength={TRY_WORDS}
+                onChange={(event) => setText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey) return;
+                  event.preventDefault();
+                  void send(text);
+                }}
+              />
+              <button
+                type="submit"
+                className="pp-go"
+                aria-label="Send"
+                aria-disabled={!text.trim() || words !== null}
+              >
+                <ArrowUp size={17} strokeWidth={2.2} />
+              </button>
+            </form>
+          </div>
+        </aside>
       </div>
       <div className="lr-foot">
-        <span className="lr-files">
-          <FileText size={14} aria-hidden="true" /> 6 files changed{" "}
-          <b className="add">+{44 + changes * 3}</b>{" "}
-          <b className="del">−{6 + changes}</b>
-        </span>
+        <FilesChanged
+          count={first!.files!.count}
+          add={first!.files!.add + changes * 3}
+          del={first!.files!.del + changes}
+        />
         {merged ? (
           cta
         ) : (
@@ -420,5 +446,23 @@ export function LandingRoom({ cta }: { cta: React.ReactNode }) {
         )}
       </div>
     </section>
+  );
+  return (
+    <div className="lp-dash lp-review">
+      <div className="tix-list">
+        <TicketGroup
+          stage="review"
+          label="To review"
+          count={toReview.length - (merged ? 1 : 0)}
+        >
+          <TicketRow ticket={first!} opened merged={merged}>
+            {room}
+          </TicketRow>
+          {others.map((ticket) => (
+            <TicketRow ticket={ticket} key={ticket.number} />
+          ))}
+        </TicketGroup>
+      </div>
+    </div>
   );
 }

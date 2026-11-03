@@ -5,6 +5,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { ArrowRight, ExternalLink, Github } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
@@ -15,7 +16,7 @@ import {
   type ProjectSetup,
 } from "@/components/project-connections";
 import { NotConfigured } from "@/components/ui";
-import { getStartFn } from "@/functions/owner.functions";
+import { getStartFn, importProjectFn } from "@/functions/owner.functions";
 
 export const Route = createFileRoute("/start")({
   validateSearch: z.object({
@@ -53,9 +54,10 @@ function StartPage() {
 }
 
 /**
- * From connecting GitHub to the first ticket, one step at a time: the code,
- * where the tickets are, and how a board's tickets move when there is one.
- * The step is in the address: a tracker's consent comes back to it.
+ * From connecting GitHub to the first ticket, one step at a time: the
+ * repository to import, where the tickets are, and how a board's tickets move
+ * when there is one. The step is in the address: a tracker's consent comes
+ * back to it.
  */
 function Setup({ data }: { data: Loaded }) {
   const search = Route.useSearch();
@@ -83,7 +85,7 @@ function Setup({ data }: { data: Loaded }) {
   return (
     <main id="main" className="container start">
       <ol className="start-steps" aria-label="Steps">
-        <StepLink name="code" label="Code" step={step} project={setup} />
+        <StepLink name="code" label="Repository" step={step} project={setup} />
         <StepLink name="tickets" label="Tickets" step={step} project={setup} />
         {boards > 0 && (
           <StepLink name="board" label="Board" step={step} project={setup} />
@@ -95,7 +97,7 @@ function Setup({ data }: { data: Loaded }) {
         </p>
       )}
       {step === "code" || !setup ? (
-        <Code data={data} waiting={waiting} />
+        <Repository data={data} waiting={waiting} />
       ) : step === "tickets" ? (
         <Tickets setup={setup} />
       ) : (
@@ -133,26 +135,43 @@ function StepLink({
   );
 }
 
-function Code({ data, waiting }: { data: Loaded; waiting: boolean }) {
+function Repository({ data, waiting }: { data: Loaded; waiting: boolean }) {
   const navigate = Route.useNavigate();
+  const importProject = useServerFn(importProjectFn);
+  const [pending, setPending] = useState(false);
   const { repositories, setup } = data;
+  const chosen = repositories.find((item) => item.id === setup?.project.id);
+
+  async function next(projectId: string) {
+    setPending(true);
+    try {
+      await importProject({ data: { projectId } });
+      await navigate({ search: { project: projectId, step: "tickets" } });
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <>
-      <h1>Your code</h1>
+      <h1>Import your repository</h1>
       {repositories.length > 1 ? (
-        <RadioCards
-          aria-label="Repository"
-          layout="list"
-          name="repository"
-          value={setup?.project.id ?? ""}
-          onValueChange={(project) =>
-            void navigate({ search: { project }, replace: true })
-          }
-          options={repositories.map((item) => ({
-            value: item.id,
-            label: item.repository,
-          }))}
-        />
+        <div className="start-repos">
+          <RadioCards
+            aria-label="Repository"
+            layout="list"
+            name="repository"
+            value={setup?.project.id ?? ""}
+            onValueChange={(project) =>
+              void navigate({ search: { project }, replace: true })
+            }
+            options={repositories.map((item) => ({
+              value: item.id,
+              label: item.repository,
+              meta: item.imported ? "Imported" : undefined,
+            }))}
+          />
+        </div>
       ) : setup ? (
         <div className="st-cards">
           <div className="st-card">
@@ -185,16 +204,21 @@ function Code({ data, waiting }: { data: Loaded; waiting: boolean }) {
           <a className="start-add" href={data.githubInstallUrl}>
             Add a repository <ExternalLink size={13} />
           </a>
-          <Link
+          <button
+            type="button"
             className="go"
-            to="/start"
-            search={{ project: setup.project.id, step: "tickets" }}
+            aria-disabled={pending}
+            onClick={() => void next(setup.project.id)}
           >
-            Continue
+            {chosen?.imported ? "Continue" : "Import"}
             <i>
-              <ArrowRight size={14} strokeWidth={2.2} />
+              {pending ? (
+                <Spinner />
+              ) : (
+                <ArrowRight size={14} strokeWidth={2.2} />
+              )}
             </i>
-          </Link>
+          </button>
         </div>
       )}
     </>
@@ -205,7 +229,7 @@ function Tickets({ setup }: { setup: ProjectSetup }) {
   const { project, trackersAvailable } = setup;
   return (
     <>
-      <h1>Your tickets</h1>
+      <h1>Import your tickets</h1>
       <div className="st-cards">
         <div className="st-card">
           <span className="st-icon" aria-hidden="true">

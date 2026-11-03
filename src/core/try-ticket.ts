@@ -21,6 +21,34 @@ export const lookSchema = z.object({
 });
 export type Look = z.infer<typeof lookSchema>;
 
+/**
+ * The demo, its moments as the voice reaches them. `at` and the length are
+ * measured by `scripts/landing-voice.mts`, which reads these words.
+ */
+export const TRY_FILM: { moment: Moment; at: number; say: string }[] = [
+  {
+    moment: "list",
+    at: 0,
+    say: "Here's the list before the change. Nothing tells you what comes first.",
+  },
+  {
+    moment: "form",
+    at: 5.2,
+    say: "Now a new task asks for a priority. Normal, unless you pick another one.",
+  },
+  {
+    moment: "added",
+    at: 11.7,
+    say: "I'll add this one as urgent, and it lands in the list with its tag.",
+  },
+  {
+    moment: "sorted",
+    at: 16.8,
+    say: "Sort by priority, and the urgent work comes first.",
+  },
+];
+export const TRY_FILM_LENGTH = 20.6;
+
 /** How the app looks once the ticket is done, before anyone asks for more. */
 export const LOOK: Look = {
   urgentColor: "#ee7b6e",
@@ -30,7 +58,7 @@ export const LOOK: Look = {
   sort: "priority",
   hideDone: false,
   shape: "pill",
-  theme: "dark",
+  theme: "light",
 };
 
 /** A visitor's words, the turns of a visit, and of a day for everyone. */
@@ -112,7 +140,7 @@ export function tryInstructions(moment: Moment, look: Look): string {
 
 What Yarrow is: builders write tickets with an agent that knows their code and their other tickets. Agents build and review each ticket in the cloud and it comes back with a demo of the result, beside this conversation. The builder asks anything, asks for a change, then merges. It connects to GitHub, Jira, Linear and Trello. Free for builders: sponsors fund the compute, their card ships in the pull requests they fund.
 
-The sample ticket, on a small task app called Tally:
+The sample ticket, on a small task app called Acme:
 #137 Tasks need a priority. People could not tell what mattered first in a long list.
 
 The change, 6 files, +44 −6:

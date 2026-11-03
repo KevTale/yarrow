@@ -190,6 +190,13 @@
       "when": 1793539747913,
       "tag": "0026_try_days",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793544065176,
+      "tag": "0027_imported_projects",
+      "breakpoints": true
     }
   ]
 }

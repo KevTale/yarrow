@@ -164,6 +164,7 @@ export type ConnectedProject = {
   repository: string;
   visibility: "public" | "listed" | "hidden";
   linked: boolean;
+  imported: boolean;
   accountId: string;
 };
 
@@ -180,14 +181,16 @@ export async function projectsForUser(
       visibility: projects.visibility,
       accountId: projects.accountId,
       installationId: projects.githubInstallationId,
+      importedAt: projects.importedAt,
     })
     .from(projects)
     .innerJoin(accountMembers, eq(accountMembers.accountId, projects.accountId))
     .where(eq(accountMembers.userId, userId))
     .orderBy(desc(projects.createdAt));
-  return rows.map(({ installationId, ...row }) => ({
+  return rows.map(({ installationId, importedAt, ...row }) => ({
     ...row,
     linked: installationId !== null,
+    imported: importedAt !== null,
   }));
 }
 
@@ -204,7 +207,9 @@ export async function requestTicket(
 ): Promise<string | null> {
   const project = (await projectsForUser(db, userId)).find(
     (row) =>
-      row.linked && row.repository.toLowerCase() === repository.toLowerCase(),
+      row.linked &&
+      row.imported &&
+      row.repository.toLowerCase() === repository.toLowerCase(),
   );
   if (!project) return null;
   await requestGithubTask(db, {

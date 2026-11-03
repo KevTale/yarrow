@@ -1,6 +1,7 @@
 import {
   createFileRoute,
   getRouteApi,
+  redirect,
   useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -46,6 +47,8 @@ export const Route = createFileRoute("/dashboard")({
       getBuilderFn({ data: { projectId, issues: true } }),
       getSponsorDashboardFn(),
     ]);
+    if (builder.status === "ok" && !builder.project && builder.importable)
+      throw redirect({ to: "/start" });
     return { connect, builder, sponsor };
   },
   // Switching tabs or coming back soon after does not reload everything;

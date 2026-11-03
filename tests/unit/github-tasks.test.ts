@@ -8,6 +8,8 @@ import {
   requestGithubTask,
   requestTicket,
 } from "../../src/db/github-tasks";
+import { importProject } from "../../src/db/projects";
+import { ownerDashboard } from "../../src/db/queries";
 import * as schema from "../../src/db/schema";
 import { runGithubTasks } from "../../src/server/github/tasks";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -62,6 +64,14 @@ function fakeGitHub(options: { labelExists?: boolean; fail?: boolean } = {}) {
   return { fetcher, calls };
 }
 
+/** What the setup does with the repository it was given. */
+async function installed(repositories: Repository[]) {
+  await handleGitHubEvent(db, "installation", install("marie", repositories));
+  const projects = await projectsForUser(db, marie.userId);
+  for (const project of projects)
+    await importProject(db, project.id, marie.userId);
+}
+
 afterAll(() => t.pg.close());
 beforeEach(async () => {
   await t.reset();
@@ -93,7 +103,8 @@ describe("projects from a GitHub install", () => {
       { name: "halyard", visibility: "public", linked: true },
       { name: "vault", visibility: "listed", linked: true },
     ]);
-    expect(await pendingGithubTasks(db)).toHaveLength(2);
+    // Nothing touches a repository before it is imported.
+    expect(await pendingGithubTasks(db)).toHaveLength(0);
     // Installing again (or adding the same repo) creates nothing new.
     await handleGitHubEvent(db, "installation_repositories", {
       action: "added",
@@ -102,6 +113,33 @@ describe("projects from a GitHub install", () => {
       repositories_added: [halyard],
     });
     expect(await projectsForUser(db, marie.userId)).toHaveLength(2);
+  });
+
+  it("shows and sets up only the repository imported, however many came", async () => {
+    await ensureAccount(db, marie);
+    await handleGitHubEvent(
+      db,
+      "installation",
+      install("marie", [halyard, vault]),
+    );
+    const projects = await projectsForUser(db, marie.userId);
+    expect(projects.map((project) => project.imported)).toEqual([false, false]);
+    expect((await ownerDashboard(db, marie.userId)).projects).toEqual([]);
+
+    const chosen = projects.find((project) => project.name === "vault")!;
+    await importProject(db, chosen.id, marie.userId);
+    await importProject(db, chosen.id, marie.userId);
+    const shown = (await ownerDashboard(db, marie.userId)).projects;
+    expect(shown.map((project) => project.name)).toEqual(["vault"]);
+    expect(await pendingGithubTasks(db)).toHaveLength(1);
+
+    // A ticket on a repository left out is not a ticket of Yarrow's.
+    const left = (await projectsForUser(db, marie.userId)).find(
+      (project) => !project.imported,
+    )!;
+    expect(
+      await requestTicket(db, marie.userId, left.repository, 5),
+    ).toBeNull();
   });
 
   it("never takes a repository listed by another account", async () => {
@@ -119,7 +157,7 @@ describe("projects from a GitHub install", () => {
 
   it("queues a pasted ticket only on the viewer's connected repository", async () => {
     await ensureAccount(db, marie);
-    await handleGitHubEvent(db, "installation", install("marie", [halyard]));
+    await installed([halyard]);
     expect(
       await requestTicket(db, crypto.randomUUID(), "marie/halyard", 5),
     ).toBeNull();
@@ -138,7 +176,7 @@ describe("projects from a GitHub install", () => {
 describe("GitHub tasks in the brain", () => {
   it("fills the project from the repo, creates the label, labels the ticket", async () => {
     await ensureAccount(db, marie);
-    await handleGitHubEvent(db, "installation", install("marie", [halyard]));
+    await installed([halyard]);
     await requestTicket(db, marie.userId, "marie/halyard", 5);
     const github = fakeGitHub({ labelExists: true });
 
@@ -183,7 +221,7 @@ describe("GitHub tasks in the brain", () => {
 
   it("retries a failing task, then leaves it with its error", async () => {
     await ensureAccount(db, marie);
-    await handleGitHubEvent(db, "installation", install("marie", [halyard]));
+    await installed([halyard]);
     const github = fakeGitHub({ fail: true });
     for (let i = 0; i < MAX_GITHUB_TASK_ATTEMPTS + 1; i++)
       await runGithubTasks(db, credentials, github.fetcher);

@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { repoName, type ProjectForm, type RunConfig } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -43,7 +43,7 @@ export async function createProject(
   return db.transaction(async (tx) => {
     const [project] = await tx
       .insert(projects)
-      .values({ accountId, ...projectValues(form) })
+      .values({ accountId, importedAt: new Date(), ...projectValues(form) })
       .returning({ id: projects.id });
     await recordEvent(tx, {
       type: "project.created",
@@ -152,8 +152,8 @@ export async function linkGithubRepositories(
 /**
  * One project per newly installed repository, owned by the installer's
  * account (decided 2026-10-06: nothing typed that the repo already says).
- * Repositories already listed anywhere are skipped. The brain then reads
- * the repo details and creates the label (setup_project task).
+ * Repositories already listed anywhere are skipped. None shows until it is
+ * imported: an install on every repository is not a choice of all of them.
  */
 export async function createProjectsFromInstallation(
   db: Database,
@@ -185,9 +185,6 @@ export async function createProjectsFromInstallation(
         .onConflictDoNothing()
         .returning({ id: projects.id });
       if (!project) return null;
-      await tx
-        .insert(githubTasks)
-        .values({ projectId: project.id, kind: "setup_project" });
       await recordEvent(tx, {
         type: "project.created",
         accountId,
@@ -199,6 +196,28 @@ export async function createProjectsFromInstallation(
     if (id) created.push(id);
   }
   return created;
+}
+
+/**
+ * The repository chosen in the setup: it shows from now on, and the brain
+ * reads its details and creates the label (setup_project task). Choosing it
+ * again changes nothing.
+ */
+export async function importProject(
+  db: Database,
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [project] = await tx
+      .update(projects)
+      .set({ importedAt: new Date() })
+      .where(and(eq(projects.id, projectId), isNull(projects.importedAt)))
+      .returning({ id: projects.id });
+    if (!project) return;
+    await tx.insert(githubTasks).values({ projectId, kind: "setup_project" });
+    await recordEvent(tx, { type: "project.imported", projectId, userId });
+  });
 }
 
 export async function unlinkGithubRepositories(
@@ -296,7 +315,10 @@ export async function setProjectVisibility(
   userId: string,
   visibility: "public" | "listed" | "hidden",
 ): Promise<void> {
-  await db.update(projects).set({ visibility }).where(eq(projects.id, projectId));
+  await db
+    .update(projects)
+    .set({ visibility })
+    .where(eq(projects.id, projectId));
   await recordEvent(db, {
     type: "project.updated",
     projectId,

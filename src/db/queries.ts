@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   ne,
   notExists,
@@ -33,7 +34,10 @@ import {
   workUnits,
 } from "./schema";
 
-const visible = inArray(projects.visibility, ["public", "listed"]);
+const visible = and(
+  inArray(projects.visibility, ["public", "listed"]),
+  isNotNull(projects.importedAt),
+);
 
 /** Sponsors who funded a run, oldest money first. `null` name is anonymous. */
 export async function runSponsors(
@@ -88,7 +92,7 @@ export async function homeStats(db: Database) {
   const [projectCount] = await db
     .select({ value: count() })
     .from(projects)
-    .where(isNull(projects.suspendedAt));
+    .where(and(isNull(projects.suspendedAt), isNotNull(projects.importedAt)));
   return {
     consumedCents: consumed?.cents ?? 0,
     sponsors: consumed?.sponsors ?? 0,
@@ -115,7 +119,11 @@ export async function selectableProjects(db: Database) {
     .select({ value: count() })
     .from(projects)
     .where(
-      and(eq(projects.visibility, "hidden"), isNull(projects.suspendedAt)),
+      and(
+        eq(projects.visibility, "hidden"),
+        isNull(projects.suspendedAt),
+        isNotNull(projects.importedAt),
+      ),
     );
   return { projects: rows, hiddenCount: hidden?.value ?? 0 };
 }
@@ -400,6 +408,7 @@ export async function ownerDashboard(db: Database, userId: string) {
     )
     .leftJoin(workUnits, eq(workUnits.projectId, projects.id))
     .leftJoin(pullRequests, eq(pullRequests.workUnitId, workUnits.id))
+    .where(isNotNull(projects.importedAt))
     .groupBy(projects.id)
     .orderBy(asc(projects.createdAt));
   return { projects: owned };

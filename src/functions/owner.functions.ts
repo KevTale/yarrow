@@ -11,6 +11,7 @@ import type { Database } from "@/db/client";
 import {
   createProject,
   deleteSecretReference,
+  importProject,
   recordSecretReference,
   saveRunConfig,
   setProjectVisibility,
@@ -115,18 +116,29 @@ export const getStartFn = createServerFn({ method: "GET" })
       );
       const chosen =
         repositories.find((project) => project.id === data.projectId) ??
+        repositories.find((project) => !project.imported) ??
         repositories[0];
       return {
         status: "ok" as const,
-        repositories: repositories.map(({ id, repository }) => ({
-          id,
-          repository,
-        })),
+        repositories: repositories
+          .map(({ id, repository, imported }) => ({ id, repository, imported }))
+          .sort((a, b) => a.repository.localeCompare(b.repository)),
         githubInstallUrl: githubInstallUrl(),
         setup: chosen
           ? await projectSetup(db, chosen.id, chosen.accountId)
           : null,
       };
+    });
+  });
+
+/** The repository chosen in the setup: the only ones that show. */
+export const importProjectFn = createServerFn({ method: "POST" })
+  .validator(projectId)
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    await withDb(async (db) => {
+      await requireProjectMember(db, viewer.userId, data.projectId);
+      await importProject(db, data.projectId, viewer.userId);
     });
   });
 

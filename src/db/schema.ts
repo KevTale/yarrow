@@ -125,6 +125,9 @@ export const projects = pgTable(
     defaultBranch: text("default_branch").default("main").notNull(),
     authorizationLabel: text("authorization_label").default("yarrow").notNull(),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    // Chosen in the setup. An install brings every repository GitHub lets
+    // the App see: until then one shows nowhere and nothing runs on it.
+    importedAt: timestamp("imported_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [

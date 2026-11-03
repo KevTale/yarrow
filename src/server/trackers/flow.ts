@@ -448,7 +448,7 @@ export async function settleJira(
   }
   const connections = await connectionsForUser(db, userId, "jira");
   const projects = (await projectsForUser(db, userId)).filter(
-    (project) => project.linked,
+    (project) => project.linked && project.imported,
   );
   const connectionFor = (accountId: string) =>
     connections.filter(

@@ -13,7 +13,7 @@ import { projectLogo } from "@/core/logos";
 import { TERMS_VERSION } from "@/core/terms";
 import type { OpenIssue, ReviewRow, TicketRow } from "@/core/tickets";
 import { requireProjectMember } from "@/db/accounts";
-import { requestGithubTask } from "@/db/github-tasks";
+import { projectsForUser, requestGithubTask } from "@/db/github-tasks";
 import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
 import { projects as projectsTable, workUnits } from "@/db/schema";
@@ -73,6 +73,10 @@ export const getBuilderFn = createServerFn({ method: "GET" })
           issues: null as OpenIssue[] | null,
           review: [] as ReviewRow[],
           jiraReady: jiraReady(),
+          // Repositories came with the install, none imported yet.
+          importable: (await projectsForUser(db, viewer.userId)).some(
+            (project) => project.linked,
+          ),
         };
       const project = await requireProjectMember(db, viewer.userId, chosen.id);
       const boards = await boardsForProject(db, project.id);
@@ -100,6 +104,7 @@ export const getBuilderFn = createServerFn({ method: "GET" })
         issues: data.issues ? await openTickets(db, project) : null,
         review,
         jiraReady: jiraReady(),
+        importable: false,
       };
     });
   });
