@@ -2,6 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ArrowUp, Mic, MicOff } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
+import { micLine, onLine } from "@/components/call-voice";
 import { Markdown } from "@/components/markdown";
 import type { DraftLine, DraftText } from "@/core/new-ticket";
 import { withoutBeats } from "@/core/stage";
@@ -76,6 +77,7 @@ export function TicketTalk({
   const [call, setCall] = useState<"off" | "starting" | "on">("off");
   const [error, setError] = useState("");
   const session = useRef<Session | null>(null);
+  const wire = useRef<ReturnType<typeof micLine> | null>(null);
   const calls = useRef(0);
   const quiet = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** The form the draft has: what the page and the agent last agreed on. */
@@ -91,7 +93,8 @@ export function TicketTalk({
     const area = box.current;
     if (!area) return;
     area.style.height = "auto";
-    area.style.height = `${area.scrollHeight}px`;
+    // Empty, as the dialog opens, it has no height to measure yet.
+    if (text) area.style.height = `${area.scrollHeight}px`;
   }, [text]);
   useLayoutEffect(() => {
     const column = said.current;
@@ -103,6 +106,8 @@ export function TicketTalk({
     clearTimeout(quiet.current);
     void session.current?.endSession();
     session.current = null;
+    wire.current?.close();
+    wire.current = null;
     setHearing("");
     setCall("off");
   };
@@ -215,39 +220,49 @@ export function TicketTalk({
     synced.current = form;
     try {
       const language = (navigator.language || "en").slice(0, 2).toLowerCase();
+      const line = (wire.current = micLine());
+      // Asked at once: the call opens on the line, silent until they answer.
+      void line
+        .plug()
+        .catch(
+          () =>
+            calls.current === opened && setError("The microphone is blocked."),
+        );
       const [given, eleven] = await Promise.all([
         startCall({ data: { projectId, draftId, language, ...form } }),
         import("@elevenlabs/client"),
       ]);
       if (!given.ok) throw new Error(given.reason);
-      const live = await eleven.Conversation.startSession({
-        conversationToken: given.conversationToken,
-        connectionType: "webrtc",
-        overrides: { agent: { language: language as "en" } },
-        customLlmExtraBody: { yarrow: given.grant },
-        onModeChange: stir,
-        onIncomingEvent: (event: {
-          type?: string;
-          tentative_user_transcription_event?: { user_transcript?: string };
-        }) => {
-          if (event.type !== "tentative_user_transcript") return;
-          stir();
-          setHearing(
-            event.tentative_user_transcription_event?.user_transcript?.trim() ??
-              "",
-          );
-        },
-        onMessage: ({ source, message }) => {
-          stir();
-          if (source === "user") setHearing("");
-          const line = withoutBeats(message).trim();
-          if (line) heard(source === "user" ? "builder" : "agent", line);
-        },
-        onDisconnect: () => {
-          if (calls.current === opened) hangUp();
-        },
-        onError: (message) => console.warn("ticket call", message),
-      });
+      const live = await onLine(line.stream, () =>
+        eleven.Conversation.startSession({
+          conversationToken: given.conversationToken,
+          connectionType: "webrtc",
+          overrides: { agent: { language: language as "en" } },
+          customLlmExtraBody: { yarrow: given.grant },
+          onModeChange: stir,
+          onIncomingEvent: (event: {
+            type?: string;
+            tentative_user_transcription_event?: { user_transcript?: string };
+          }) => {
+            if (event.type !== "tentative_user_transcript") return;
+            stir();
+            setHearing(
+              event.tentative_user_transcription_event?.user_transcript?.trim() ??
+                "",
+            );
+          },
+          onMessage: ({ source, message }) => {
+            stir();
+            if (source === "user") setHearing("");
+            const line = withoutBeats(message).trim();
+            if (line) heard(source === "user" ? "builder" : "agent", line);
+          },
+          onDisconnect: () => {
+            if (calls.current === opened) hangUp();
+          },
+          onError: (message) => console.warn("ticket call", message),
+        }),
+      );
       // Closed while it was starting.
       if (calls.current !== opened) {
         void live.endSession();

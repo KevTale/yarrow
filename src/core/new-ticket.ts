@@ -19,13 +19,25 @@ export interface DraftLine {
   body: string;
 }
 
-/** Where a new ticket goes: "github", or a linked Jira project's key. */
-export const DESTINATION = /^(github|[A-Z][A-Z0-9_]{0,9})$/;
+/** Where a new ticket goes: "github", or a linked board's key. */
+export const DESTINATION = /^(github|[A-Za-z0-9_]{1,10})$/;
 
 export const openedFromYarrow = (body: string, login: string) => {
   const text = body.trim();
   return `${text}${text ? "\n\n" : ""}_Opened from Yarrow by **${login}**_`;
 };
+
+/**
+ * Who wrote a ticket: the person the line above names, else its tracker's
+ * author. An app (Yarrow's own) is no one's name.
+ */
+export function ticketAuthor(
+  author: string | null | undefined,
+  body: string,
+): string | null {
+  const named = /_Opened from Yarrow by \*\*([^*\n]+)\*\*_\s*$/.exec(body)?.[1];
+  return named ?? (author && !author.endsWith("[bot]") ? author : null);
+}
 
 /**
  * A ticket's text as Yarrow shows it: without the line saying who wrote it

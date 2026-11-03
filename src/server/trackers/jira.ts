@@ -297,6 +297,7 @@ export function jiraAdapter(fetcher: Fetch = fetch): TrackerAdapter {
             "status",
             "updated",
             "created",
+            "reporter",
           ],
         }),
       }),

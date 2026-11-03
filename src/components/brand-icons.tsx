@@ -32,7 +32,19 @@ export function LinearIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-/** A ticket source's mark: Jira's or Linear's (GitHub's is Lucide's). */
+/** Trello's mark, the board and its two lists. */
+function TrelloIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#1c7ed6"
+        d="M21 0H3a3 3 0 0 0-3 3v18a3 3 0 0 0 3 3h18a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3M10.44 18.18c0 .8-.65 1.45-1.45 1.45H4.87c-.8 0-1.45-.65-1.45-1.45V4.86c0-.8.65-1.45 1.45-1.45H9c.8 0 1.45.65 1.45 1.45zm10.14-6c0 .8-.65 1.45-1.45 1.45h-4.12c-.8 0-1.45-.65-1.45-1.45V4.86c0-.8.65-1.45 1.45-1.45h4.12c.8 0 1.45.65 1.45 1.45z"
+      />
+    </svg>
+  );
+}
+
+/** A ticket source's mark: Jira's, Linear's or Trello's (GitHub's is Lucide's). */
 export function TrackerIcon({
   tracker,
   size = 14,
@@ -40,6 +52,7 @@ export function TrackerIcon({
   tracker: string;
   size?: number;
 }) {
+  if (tracker === "trello") return <TrelloIcon size={size} />;
   return tracker === "linear" ? (
     <LinearIcon size={size} />
   ) : (

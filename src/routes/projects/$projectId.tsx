@@ -155,6 +155,9 @@ function Connections({ data }: { data: Loaded }) {
         {data.trackersAvailable.linear && (
           <TrackerConnection data={data} tracker="linear" />
         )}
+        {data.trackersAvailable.trello && (
+          <TrackerConnection data={data} tracker="trello" />
+        )}
       </div>
     </section>
   );
@@ -174,19 +177,25 @@ const trackerCopy = {
     owner: "Linear",
     manage: "https://linear.app/settings",
   },
+  trello: {
+    name: "Trello",
+    boards: "Tickets from Trello boards",
+    owner: "Trello",
+    manage: "https://trello.com/my/account",
+  },
 };
 
 /**
- * Jira or Linear: Connect opens the tracker's consent; once connected, the
- * Jira projects or Linear teams whose tickets this repository takes are
- * chosen here and saved at once.
+ * Jira, Linear or Trello: Connect opens the tracker's consent; once
+ * connected, the Jira projects, Linear teams or Trello boards whose tickets
+ * this repository takes are chosen here and saved at once.
  */
 function TrackerConnection({
   data,
   tracker,
 }: {
   data: Loaded;
-  tracker: "jira" | "linear";
+  tracker: "jira" | "linear" | "trello";
 }) {
   const router = useRouter();
   const listProjects = useServerFn(listTrackerBoardsFn);

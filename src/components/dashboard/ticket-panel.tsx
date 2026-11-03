@@ -95,8 +95,9 @@ function TicketBrief({
   const working = workText(row.status, row.models) !== null;
   const stopped = row.status === "abstained";
   const text = detail ? ticketText(detail.body, row.title) : "";
+  const story = working && row.runId;
   return (
-    <div className="pp-grid">
+    <div className={stopped || story ? "pp-grid" : undefined}>
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
         {stopped && <StopReason reason={row.reason} summary={row.summary} />}
         {detail === undefined ? (
@@ -110,9 +111,8 @@ function TicketBrief({
           // Stopped, the reason says enough: no "No description" under it.
           !stopped && <p className="tp-empty">No description</p>
         )}
-        {working && row.runId && <RunStory runId={row.runId} />}
       </section>
-      {stopped ? (
+      {stopped && (
         // Answered as a pull request is talked about: the box at the foot of
         // the right column.
         <aside className="pp-talk tp-talk" aria-label="Answer">
@@ -121,13 +121,10 @@ function TicketBrief({
           </p>
           <Answer projectId={projectId} row={row} onAnswered={onChanged} />
         </aside>
-      ) : (
+      )}
+      {story && (
         <aside className="pp-aside">
-          {/* An app (Yarrow's own, opening a ticket written here) says
-              nothing: the ticket names who wrote it. */}
-          {detail?.author && !detail.author.endsWith("[bot]") && (
-            <p className="tp-by">by {detail.author}</p>
-          )}
+          <RunStory runId={row.runId!} />
         </aside>
       )}
     </div>

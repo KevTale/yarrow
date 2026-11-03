@@ -302,6 +302,7 @@ describe("Jira for builders", async () => {
         url: "https://acme.atlassian.net/browse/APP-1",
         createdAt: "2026-10-06T14:00:00.000Z",
         updatedAt: "2026-10-08T09:00:00.000Z",
+        author: null,
       },
       expect.objectContaining({ key: "APP-2", title: "Dark mode" }),
     ]);

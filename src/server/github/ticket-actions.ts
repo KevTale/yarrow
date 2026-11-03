@@ -117,7 +117,7 @@ export async function closeTicket(
   input: {
     projectId: string;
     key: string;
-    source: "github" | "jira" | "linear";
+    source: "github" | "jira" | "linear" | "trello";
   },
   fetcher?: Fetch,
 ): Promise<ActionResult> {

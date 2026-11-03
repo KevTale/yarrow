@@ -77,7 +77,7 @@ export interface AppEnv {
     closeTicket(input: {
       projectId: string;
       key: string;
-      source: "github" | "jira" | "linear";
+      source: "github" | "jira" | "linear" | "trello";
     }): Promise<ActionResult>;
     closePullRequest(input: { workUnitId: string }): Promise<ActionResult>;
     /** A pull request's stage, its app live (workers/stage.ts). */

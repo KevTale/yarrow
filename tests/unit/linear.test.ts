@@ -391,6 +391,7 @@ describe("Linear for builders", async () => {
         url: "https://linear.app/acme/issue/ENG-1",
         createdAt: "2026-10-20T09:00:00.000Z",
         updatedAt: "2026-10-21T09:00:00.000Z",
+        author: "Ada",
       },
       expect.objectContaining({ key: "ENG-2", title: "Dark mode" }),
     ]);
@@ -405,7 +406,7 @@ describe("Linear for builders", async () => {
     });
     expect(
       await trackerTicketDetail(db, ctx, projectId, "ENG-1"),
-    ).toMatchObject({ body: "Steps to reproduce", author: "Ada" });
+    ).toMatchObject({ body: "Steps to reproduce" });
     // Yarrow starts: the ticket goes to the first "in progress" status.
     expect(await moveTrackerTicket(db, ctx, unit!.id, "started")).toBe(
       "ENG-1 moved",

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { openedFromYarrow, ticketText } from "../../src/core/new-ticket";
+import {
+  openedFromYarrow,
+  ticketAuthor,
+  ticketText,
+} from "../../src/core/new-ticket";
 import {
   assistedByTrailer,
   pullRequestFooter,
@@ -704,5 +708,17 @@ describe("a ticket's text in its row", () => {
     expect(ticketText("Written in GitHub.", "Fix it")).toBe(
       "Written in GitHub.",
     );
+  });
+
+  it("names who wrote it, never an app", () => {
+    expect(
+      ticketAuthor("yarrow-dev[bot]", openedFromYarrow("Go", "marie")),
+    ).toBe("marie");
+    expect(ticketAuthor("Jean Dupont", openedFromYarrow("Go", "marie"))).toBe(
+      "marie",
+    );
+    expect(ticketAuthor("Jean Dupont", "Written in Jira.")).toBe("Jean Dupont");
+    expect(ticketAuthor("yarrow-dev[bot]", "No line.")).toBeNull();
+    expect(ticketAuthor(undefined, "")).toBeNull();
   });
 });

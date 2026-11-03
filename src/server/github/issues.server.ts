@@ -1,3 +1,4 @@
+import { ticketAuthor } from "../../core/new-ticket";
 import { ticketIdentity, type OpenIssue } from "../../core/tickets";
 import { appEnv } from "../env.server";
 import { GitHubClient, installationToken, type TokenPermissions } from "./app";
@@ -79,6 +80,8 @@ export async function openIssues(project: {
         html_url: string;
         created_at: string;
         updated_at: string;
+        body: string | null;
+        user: { login: string } | null;
         pull_request?: unknown;
       }[]
     >(
@@ -93,6 +96,7 @@ export async function openIssues(project: {
         url: item.html_url,
         createdAt: new Date(item.created_at).toISOString(),
         updatedAt: new Date(item.updated_at).toISOString(),
+        author: ticketAuthor(item.user?.login, item.body ?? ""),
       }));
   } catch (error) {
     forgetReadToken(
@@ -105,11 +109,10 @@ export async function openIssues(project: {
   }
 }
 
-/** One issue as its opened row shows it: what it asks, when, by whom. */
+/** One issue as its opened row shows it: what it asks, and when. */
 export interface IssueDetail {
   body: string;
   createdAt: string | null;
-  author: string | null;
   labels: string[];
   url: string;
 }
@@ -142,13 +145,11 @@ export async function readIssue(
       body: string | null;
       created_at: string;
       html_url: string;
-      user: { login: string } | null;
       labels: ({ name?: string } | string)[];
     }>("GET", `/repos/${project.repository}/issues/${number}`);
     return {
       body: issue.body ?? "",
       createdAt: new Date(issue.created_at).toISOString(),
-      author: issue.user?.login ?? null,
       labels: issue.labels
         .map((label) => (typeof label === "string" ? label : label.name))
         .filter((name): name is string => Boolean(name)),

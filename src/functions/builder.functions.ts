@@ -38,6 +38,7 @@ import { boardsForProject } from "@/db/trackers";
 import { madeSpottedTicket, pullNumber, pullPanel } from "@/db/pull-panel";
 import { liveChecks, livePull, pullFiles } from "@/server/github/pulls.server";
 import { kickBrain } from "@/server/brain.server";
+import type { TrackerName } from "@/server/trackers/types";
 
 /**
  * The builder side of the dashboard: the viewer's projects, one project's
@@ -91,6 +92,7 @@ export const getBuilderFn = createServerFn({ method: "GET" })
           boards: boards.map(({ board, connection }) => ({
             tracker: connection.tracker,
             key: board.externalBoardId,
+            name: board.name,
             site: connection.name,
           })),
         },
@@ -205,7 +207,6 @@ export const getTicketFn = createServerFn({ method: "GET" })
     return {
       body: stored.body,
       createdAt: stored.createdAt.toISOString(),
-      author: null,
       labels: [] as string[],
       url: stored.url,
     };
@@ -359,7 +360,7 @@ export const closeTicketFn = createServerFn({ method: "POST" })
     );
     const brain = appEnv().BRAIN;
     if (!brain) return unavailable;
-    let source: "github" | "jira" | "linear" = "github";
+    let source: "github" | TrackerName = "github";
     if (!githubKey(data.key))
       try {
         source = await withDb((db) =>

@@ -1,3 +1,4 @@
+import { ticketAuthor } from "../../core/new-ticket";
 import { boardOfKey } from "../../core/ticket-link";
 import { bareTitle, ticketIdentity, type OpenIssue } from "../../core/tickets";
 import { requireProjectMember } from "../../db/accounts";
@@ -23,19 +24,20 @@ import {
 } from "../../core/tracker-moves";
 import { trackerApi as api, type TrackerContext } from "./context";
 import { ensureJiraWebhook } from "./jira-webhooks";
+import type { TrackerName } from "./types";
 
 export type { TrackerContext } from "./context";
 
 /**
  * Trackers for builders: the open tickets of a linked board, the label put
  * on or taken off from the dashboard, and the link between a board and the
- * repository that holds its code. Jira and Linear name a ticket by its
- * board's key ("APP-42" in the Jira project APP, "ENG-42" in the Linear
- * team ENG), which is how a ticket finds its board.
+ * repository that holds its code. Each names a ticket by its board's key
+ * ("APP-42" in the Jira project APP, "ENG-42" in the Linear team ENG,
+ * "AbCd1234-42" on a Trello board), which is how a ticket finds its board.
  */
 
 type Board = Awaited<ReturnType<typeof boardsForProject>>[number];
-const keyedTrackers = ["jira", "linear"];
+const keyedTrackers = ["jira", "linear", "trello"];
 
 /** The linked board holding a keyed ticket, if any. */
 const boardOf = (boards: Board[], key: string) =>
@@ -73,6 +75,7 @@ export async function openTrackerTickets(
           createdAt:
             ticket.createdAt ?? ticket.updatedAt ?? new Date(0).toISOString(),
           updatedAt: ticket.updatedAt ?? new Date(0).toISOString(),
+          author: ticketAuthor(ticket.author, ticket.body),
         });
     } catch (error) {
       // One unreachable board leaves the others (and GitHub's issues) shown.
@@ -94,7 +97,6 @@ export async function trackerTicketDetail(
 ): Promise<{
   body: string;
   createdAt: string | null;
-  author: string | null;
   labels: string[];
   url: string;
 } | null> {
@@ -111,7 +113,6 @@ export async function trackerTicketDetail(
       ? {
           body: ticket.body,
           createdAt: ticket.createdAt ?? null,
-          author: ticket.author ?? null,
           labels: ticket.labels,
           url: ticket.url,
         }
@@ -155,10 +156,10 @@ export async function closeTrackerTicket(
   ctx: TrackerContext,
   projectId: string,
   key: string,
-): Promise<"jira" | "linear"> {
+): Promise<TrackerName> {
   const entry = await trackerEntry(db, projectId, key);
   const tracker = await api(db, ctx, entry.connection);
-  const name = tracker.name as "jira" | "linear";
+  const name = tracker.name;
   const { statuses, moveTo } = tracker.adapter;
   if (!statuses || !moveTo) throw new Error(`${key} cannot be closed here`);
   const done = (
@@ -390,11 +391,7 @@ export async function listTrackerBoards(
   const reachable =
     connection &&
     (
-      await connectionsForUser(
-        db,
-        userId,
-        connection.tracker as "jira" | "linear",
-      )
+      await connectionsForUser(db, userId, connection.tracker as TrackerName)
     ).some((row) => row.id === connectionId);
   if (!connection || !reachable) throw new Error("Connection not found");
   try {

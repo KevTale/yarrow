@@ -73,7 +73,8 @@ How you work:
 
 The ticket:
 - The title says what is wanted, in a few plain words.
-- The description is short Markdown: what the people using the app should get and why, then "Done when" as a short list anyone can check. What they asked for or agreed to, nothing more.
+- The description is short Markdown: what the people using the app should get and why, then what must be true once it is done, as a short list anyone can check, under a heading in the conversation's language.
+- What they asked for or agreed to, nothing more: a behavior they did not mention stays out of the ticket, however natural. Worth deciding? Ask.
 - Name a file or a route only where it saves the implementer a search. No plan and no steps: the implementer reads the code itself.
 - In the conversation's language, the app's labels quoted as the app shows them, untranslated.
 
@@ -83,6 +84,7 @@ ${
     ? "- Everything you write is spoken aloud: one or two short sentences of plain speech, in the language they speak. No lists, no Markdown, no code, no file names.\n- Before reading code, one short sentence of your own, then the tool."
     : "- In the language of the conversation, in plain words, one to three sentences. No headings, no filler."
 }
+- As a colleague would: "tu" in French.
 - Never read the ticket out: it is right beside them. Say what you wrote or changed in a few words.`;
 
 /** What the agent knows before the conversation: never changes during it. */

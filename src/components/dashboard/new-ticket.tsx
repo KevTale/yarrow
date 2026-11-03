@@ -8,7 +8,7 @@ import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
 import { TicketTalk } from "./ticket-talk";
 
-type Board = { tracker: string; key: string; site: string };
+type Board = { tracker: string; key: string; name: string; site: string };
 
 /**
  * A ticket written for the builder, to read, change and send; from a pull
@@ -60,8 +60,8 @@ const remember = (projectId: string, destination: string) => {
 };
 
 const trackedBoards = (boards: Board[]) =>
-  boards.filter(
-    (board) => board.tracker === "jira" || board.tracker === "linear",
+  boards.filter((board) =>
+    ["jira", "linear", "trello"].includes(board.tracker),
   );
 
 /** Where a project's tickets go: the last chosen, else its tracker, else GitHub. */
@@ -263,7 +263,8 @@ export function NewTicket({
                 },
                 ...tracked.map((board) => ({
                   value: board.key,
-                  label: board.key,
+                  // Trello's key is a link's end: its board goes by its name.
+                  label: board.tracker === "trello" ? board.name : board.key,
                   icon: <TrackerIcon tracker={board.tracker} size={14} />,
                   meta: board.site,
                 })),

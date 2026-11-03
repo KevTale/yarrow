@@ -71,7 +71,7 @@ interface TicketIdentity {
   /** Unique in a project: "42" for a GitHub issue, "APP-42" for Jira. */
   key: string;
   source: TicketSourceId;
-  /** How people name it: "#42", "APP-42". */
+  /** How people name it: "#42", "APP-42", a Trello card's "#42". */
   ref: string;
   /** For the order: the issue number, or the number in the key. */
   number: number;
@@ -80,6 +80,8 @@ interface TicketIdentity {
   /** When the ticket was written: the tracker's date, else Yarrow's first sight. */
   createdAt: string;
   updatedAt: string;
+  /** Who wrote it, as the open tickets read live say. */
+  author?: string | null;
 }
 
 /** A sponsor whose money went into a ticket's runs. Null name: anonymous. */
@@ -123,16 +125,25 @@ export type ReviewRow = TicketRow & {
 /** An open ticket, read live from GitHub or Jira (never stored). */
 export type OpenIssue = TicketIdentity;
 
-/** "42" on GitHub, "APP-42" in Jira: the row's key, ref and number. */
+/**
+ * "42" on GitHub, "APP-42" in Jira, "AbCd1234-42" on Trello, which shows "#42":
+ * the row's key, ref and number.
+ */
 export function ticketIdentity(
   source: TicketSourceId,
   externalId: string,
 ): Pick<TicketIdentity, "key" | "source" | "ref" | "number"> {
+  const number = Number(/\d+$/.exec(externalId)?.[0] ?? 0);
   return {
     key: externalId,
     source,
-    ref: source === "github" ? `#${externalId}` : externalId,
-    number: Number(/\d+$/.exec(externalId)?.[0] ?? 0),
+    ref:
+      source === "github"
+        ? `#${externalId}`
+        : source === "trello"
+          ? `#${number}`
+          : externalId,
+    number,
   };
 }
 
@@ -195,6 +206,7 @@ export function mergeTickets(
       row.title = issue.title;
       row.url ||= issue.url;
       row.createdAt = issue.createdAt;
+      row.author = issue.author;
       if (issue.updatedAt > row.updatedAt) row.updatedAt = issue.updatedAt;
       continue;
     }

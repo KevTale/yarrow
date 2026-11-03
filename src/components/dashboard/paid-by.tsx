@@ -32,6 +32,7 @@ export function SponsorLink({
  * Who paid, on the ticket's line: "Paid by", the first sponsor and "+N".
  * Hovering or focusing the whole cell shows every sponsor in full, each
  * linked to its website, then each model's time and cost and the total.
+ * Until money went into it, who wrote it.
  */
 export function SponsorCell({
   row,
@@ -63,7 +64,17 @@ export function SponsorCell({
   );
 
   const first = row.paidBy[0];
-  if (!first) return <span className="tix-sponsor" />;
+  if (!first)
+    return (
+      <span className="tix-sponsor">
+        {row.author && (
+          <>
+            <span className="tix-paid">Created by</span>
+            <span>{row.author}</span>
+          </>
+        )}
+      </span>
+    );
   const names = row.paidBy.map(
     (sponsor) => sponsor.name ?? "Anonymous sponsor",
   );
