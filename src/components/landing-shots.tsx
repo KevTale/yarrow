@@ -284,7 +284,10 @@ function TicketRow({
   );
 }
 
-/** A project's tickets, on the dashboard's own styles: they open. */
+/**
+ * A project's tickets, on the dashboard's own styles: they open, and the one
+ * to review stands open, the first thing the page shows.
+ */
 export function DashboardShot({ cta }: { cta: ReactNode }) {
   const [merged, setMerged] = useState(false);
   return (
@@ -297,7 +300,7 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
       </div>
       <div className="tix-list">
         <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
-          <TicketRow ticket={priority} merged={merged}>
+          <TicketRow ticket={priority} merged={merged} opened>
             <SampleRoom
               cta={cta}
               merged={merged}
@@ -321,26 +324,6 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
               <TicketShipped ticket={ticket} />
             </TicketRow>
           ))}
-        </TicketGroup>
-      </div>
-    </div>
-  );
-}
-
-/** The same ticket, already open: the review is the page's last word. */
-export function ReviewShot({ cta }: { cta: ReactNode }) {
-  const [merged, setMerged] = useState(false);
-  return (
-    <div className="lp-dash lp-review">
-      <div className="tix-list">
-        <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
-          <TicketRow ticket={priority} merged={merged} opened>
-            <SampleRoom
-              cta={cta}
-              merged={merged}
-              onMerged={() => setMerged(true)}
-            />
-          </TicketRow>
         </TicketGroup>
       </div>
     </div>

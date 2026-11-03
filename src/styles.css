@@ -7719,7 +7719,8 @@ body:has(.sb-dialog[open]) {
 .lp-hero {
   display: grid;
   gap: 24px;
-  padding-block: 96px 64px;
+  /* The demo's Play stays above the fold of a laptop. */
+  padding-block: 72px 40px;
 }
 .lp-hero p {
   color: var(--muted);

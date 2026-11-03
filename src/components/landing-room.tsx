@@ -36,9 +36,6 @@ interface Line extends DraftLine {
   change?: string | null;
 }
 
-/** The rooms of the page: one voice at a time. */
-let sounding: (() => void) | null = null;
-
 /**
  * The room of a ticket to review, as a real one: the real player on a real
  * run's film and the real chat, a question ready in its box. Its agent answers
@@ -61,7 +58,6 @@ export function SampleRoom({
   const [files, setFiles] = useState<PullFile[] | null>(null);
   const [cinema, setCinema] = useState(false);
   const [slot, setSlot] = useState(0);
-  const room = useRef<HTMLDivElement>(null);
   const theater = useRef<HTMLDialogElement>(null);
   const tray = useRef<HTMLElement>(null);
   const thread = useRef<HTMLDivElement>(null);
@@ -76,21 +72,6 @@ export function SampleRoom({
       .catch(() => {});
     return () => {
       live = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const here = room.current;
-    const hush = () => void pause.current?.();
-    const onPlay = () => {
-      if (sounding !== hush) sounding?.();
-      sounding = hush;
-    };
-    // Media events do not bubble: caught on their way down.
-    here?.addEventListener("play", onPlay, true);
-    return () => {
-      here?.removeEventListener("play", onPlay, true);
-      if (sounding === hush) sounding = null;
     };
   }, []);
 
@@ -161,7 +142,7 @@ export function SampleRoom({
   }
 
   return (
-    <div className="pp pp-roomy" ref={room}>
+    <div className="pp pp-roomy">
       {cinema && <div style={{ height: slot }} />}
       <dialog
         ref={theater}

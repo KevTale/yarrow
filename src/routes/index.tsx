@@ -3,11 +3,7 @@ import { Github } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
-import {
-  DashboardShot,
-  ReviewShot,
-  TicketShot,
-} from "@/components/landing-shots";
+import { DashboardShot, TicketShot } from "@/components/landing-shots";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
@@ -24,12 +20,6 @@ export const Route = createFileRoute("/")({
   },
   component: Landing,
 });
-
-const getStarted = (
-  <a className="lp-cta" href="/connect/github?start">
-    Get started
-  </a>
-);
 
 function Landing() {
   const navigate = useNavigate();
@@ -51,7 +41,13 @@ function Landing() {
         </p>
       </section>
       <div className="container">
-        <DashboardShot cta={getStarted} />
+        <DashboardShot
+          cta={
+            <a className="lp-cta" href="/connect/github?start">
+              Get started
+            </a>
+          }
+        />
       </div>
       <section className="container lp-sources" aria-label="Works with">
         <ul>
@@ -88,22 +84,6 @@ function Landing() {
         </div>
         <div className="container">
           <TicketShot />
-        </div>
-      </section>
-      <section className="lp-part" id="review">
-        <div className="container lp-part-head">
-          <h2>
-            See a live demo
-            <br />
-            before you merge
-          </h2>
-          <p>
-            Every ticket comes back with a demo. Ask anything, ask for a change
-            and merge when it looks right.
-          </p>
-        </div>
-        <div className="container">
-          <ReviewShot cta={getStarted} />
         </div>
       </section>
     </main>
