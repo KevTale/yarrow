@@ -33,16 +33,17 @@ export const LOOK: Look = {
   theme: "dark",
 };
 
-/** A visitor's words, and how many turns a visit gets. */
+/** A visitor's words, the turns of a visit, and of a day for everyone. */
 export const TRY_WORDS = 300;
 export const TRY_TURNS = 12;
+export const TRY_TURNS_A_DAY = 5000;
 
 export const tryTurnSchema = z.object({
   said: z
     .array(
       z.object({
         author: z.enum(["builder", "agent"]),
-        body: z.string().trim().min(1).max(1500),
+        body: z.string().trim().min(1).max(600),
       }),
     )
     .min(1)

@@ -1,13 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createFileRoute } from "@tanstack/react-router";
-import { tryInstructions, tryTurnSchema } from "@/core/try-ticket";
+import {
+  tryInstructions,
+  TRY_TURNS_A_DAY,
+  tryTurnSchema,
+} from "@/core/try-ticket";
+import { countTryTurn } from "@/db/try-days";
+import { withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { talkStep } from "@/runner/talk-models";
 
 /**
  * The agent of the sample ticket on the landing, for anyone: nothing to read
- * or write but the words, on Yarrow's own key, held to a few turns a minute
- * per visitor and a ceiling for everyone. Its words stream as plain text.
+ * or write but the words, on Yarrow's own key. Cloudflare's limits slow a
+ * script down, late and roughly; the day's ceiling is what bounds the bill.
+ * Its words stream as plain text.
  */
 export const Route = createFileRoute("/try-agent")({
   server: {
@@ -26,10 +33,15 @@ export const Route = createFileRoute("/try-agent")({
           env.TRY_LIMIT?.limit({ key: visitor }),
           env.TRY_CEILING?.limit({ key: "all" }),
         ]);
-        if (mine?.success === false || all?.success === false)
+        if (
+          mine?.success === false ||
+          all?.success === false ||
+          (await withDb(countTryTurn)) > TRY_TURNS_A_DAY
+        )
           return new Response("Enough", { status: 429 });
 
-        const { said, moment, look } = turn.data;
+        const { moment, look } = turn.data;
+        const said = turn.data.said.slice(-10);
         // A conversation starts with the visitor, not the agent's first words.
         const first = said.findIndex((line) => line.author === "builder");
         const started = Date.now();

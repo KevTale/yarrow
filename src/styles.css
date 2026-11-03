@@ -7830,8 +7830,7 @@ body:has(.sb-dialog[open]) {
   padding-inline: 0;
 }
 .lp-live .tk-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .lp-end {
@@ -8434,7 +8433,8 @@ body:has(.sb-dialog[open]) {
     height: 300px;
   }
   .lp-part-head,
-  .ls-draft {
+  .ls-draft,
+  .lp-live .tk-list {
     grid-template-columns: minmax(0, 1fr);
   }
   .ls-form {

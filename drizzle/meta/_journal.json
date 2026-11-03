@@ -183,6 +183,13 @@
       "when": 1793532579083,
       "tag": "0025_ticket_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793539747913,
+      "tag": "0026_try_days",
+      "breakpoints": true
     }
   ]
 }

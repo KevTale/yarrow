@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { changeLook, LOOK, readTags, tryTurnSchema } from "@/core/try-ticket";
+import { tryDays } from "@/db/schema";
+import { countTryTurn } from "@/db/try-days";
+import { createTestDatabase } from "./helpers/pglite";
 
 describe("the sample agent's tags", () => {
   it("takes them out of the words, in order", () => {
@@ -86,5 +89,15 @@ describe("a turn on the sample ticket", () => {
         said: [{ author: "agent", body: "Hello" }],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("the day's ceiling", () => {
+  it("counts every turn of the day in one row", async () => {
+    const { db, raw, pg } = await createTestDatabase();
+    expect(await countTryTurn(db)).toBe(1);
+    expect(await countTryTurn(db)).toBe(2);
+    expect(await raw.select().from(tryDays)).toHaveLength(1);
+    await pg.close();
   });
 });

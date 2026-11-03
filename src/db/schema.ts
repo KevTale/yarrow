@@ -6,6 +6,7 @@ import {
   text,
   integer,
   timestamp,
+  date,
   boolean,
   jsonb,
   check,
@@ -789,6 +790,15 @@ export const ticketDrafts = pgTable(
   },
   (t) => [index("ticket_drafts_user").on(t.userId, t.updatedAt)],
 ).enableRLS();
+
+/**
+ * The landing's sample agent, turns per UTC day: the firm ceiling on what
+ * anyone can spend of Yarrow's key there. Nobody's address in it.
+ */
+export const tryDays = pgTable("try_days", {
+  day: date("day").primaryKey(),
+  turns: integer("turns").default(0).notNull(),
+}).enableRLS();
 
 /**
  * What the agents noticed outside their ticket, made a ticket from the pull
