@@ -104,8 +104,10 @@ export type TrySampleName = "priority" | "archive";
 /** A real run: what it was asked and what came of it. */
 interface TrySample {
   ticket: string;
-  /** What the run said it changed: the chat's first words. */
+  /** What the run said it changed. */
   changed: string;
+  /** What the run left the owner to know: the chat's first words. */
+  notes: string[];
   files: string;
   /** The question ready in the box, on a choice the film itself flags. */
   ask: string;
@@ -119,6 +121,10 @@ export const TRY_SAMPLES: Record<TrySampleName, TrySample> = {
       "Tasks need a priority. Everything in the task list looks equally important. Add a priority to tasks: Low, Normal or Urgent, chosen when a task is created, Normal by default. The list shows a badge on each task that is not Normal, red for Urgent, and urgent tasks come first.",
     changed:
       "The new-task form has a priority picker (Low, Normal, Urgent) that starts on Normal, and existing tasks become Normal. The list shows a grey Low badge or a red Urgent badge, and urgent tasks sit at the top. They stay there even once they're done, because the ticket says urgent comes first.",
+    notes: [
+      "An urgent task stays at the top even after it's marked Done. Say if you'd rather finished tasks drop down",
+      "Run the new database migration when you deploy. Existing tasks become Normal",
+    ],
     files:
       "db/migrations/004_task_priority.sql, public/style.css, src/db.js, src/server.js, src/views.js, test/views.test.js",
     ask: "Can urgent tasks drop down once they're done?",
@@ -146,6 +152,10 @@ export const TRY_SAMPLES: Record<TrySampleName, TrySample> = {
       "Archive old tasks. The task list keeps every finished task forever and they crowd out what people are working on. Add an Archive button on done tasks: an archived task leaves the list. A Show archived link under the list shows them, each with a Restore button.",
     changed:
       "Each done task now has an Archive button that takes it off the list. A Show archived link below the list opens an Archived section with a Restore button on each task. Only done tasks can be archived, and archiving applies to the whole team.",
+    notes: [
+      "A database update has to run when this ships, or the task list won't load",
+      "The tasks API still returns archived tasks, so tools using it see the full list",
+    ],
     files:
       "db/migrations/004_archive.sql, public/style.css, src/db.js, src/server.js, src/views.js, test/views.test.js",
     ask: "Can I archive a task that isn't done yet?",
@@ -181,7 +191,7 @@ const ACME =
   "Acme is a small team task app: tasks with a title, a status (to do, doing or done), an assignee and a due date, a settings page, a weekly email.";
 
 function reviewInstructions(name: TrySampleName, chapter: number): string {
-  const { ticket, changed, files, film: chapters } = TRY_SAMPLES[name];
+  const { ticket, changed, notes, files, film: chapters } = TRY_SAMPLES[name];
   const film = chapters
     .map(
       (part, i) =>
@@ -198,6 +208,7 @@ The ticket: ${ticket}
 
 What changed: ${changed}
 The files: ${files}. The tests pass.
+What you wrote in the conversation before they asked anything: ${notes.join(". ")}.
 
 The demo beside you is a recording of the real app, made and narrated by the agent who built the change:
 ${film}

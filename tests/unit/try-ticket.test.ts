@@ -80,6 +80,7 @@ describe("a turn of the sample agent", () => {
       chapter: 3,
     });
     expect(told).toContain("Restoring (on the screen now)");
+    expect(told).toContain("The tasks API still returns archived tasks");
     expect(told).not.toContain("Urgent");
   });
 

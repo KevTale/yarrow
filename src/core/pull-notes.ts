@@ -39,8 +39,8 @@ export function criterionMarkdown(item: Criterion): string {
 /**
  * What the agent tells the owner beside the pull request, each in everyday
  * words: what is still wrong, what must be done, what could not be checked.
- * None means all is well, and the agent says so (decided 2026-10-30): the
- * summary no longer carries any of it.
+ * None means all is well, and the agent says nothing (decided 2026-10-30):
+ * the summary no longer carries any of it.
  */
 export function agentNotes(input: {
   blocking: { body: string }[];

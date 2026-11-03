@@ -59,7 +59,7 @@ export function SampleRoom({
   merged: boolean;
   onMerged: () => void;
 }) {
-  const { ask, changed } = TRY_SAMPLES[sample];
+  const { ask, notes } = TRY_SAMPLES[sample];
   const [film] = useState(() => filmOf(sample));
   const [said, setSaid] = useState<Line[]>([]);
   const [words, setWords] = useState<string | null>(null);
@@ -201,15 +201,20 @@ export function SampleRoom({
                 liveNow: false,
                 hands: false,
                 end: (
-                  <button
-                    type="button"
-                    className="pp-act"
-                    onClick={() =>
-                      tray.current?.querySelector("textarea")?.focus()
-                    }
-                  >
-                    Ask for a change
-                  </button>
+                  <>
+                    {notes.map((note) => (
+                      <p key={note}>{note}</p>
+                    ))}
+                    <button
+                      type="button"
+                      className="pp-act"
+                      onClick={() =>
+                        tray.current?.querySelector("textarea")?.focus()
+                      }
+                    >
+                      Ask for a change
+                    </button>
+                  </>
                 ),
               }}
             />
@@ -219,7 +224,11 @@ export function SampleRoom({
               <ol className="pp-chat">
                 <li className="pp-it">
                   {lead && <p className="pp-say">{lead}</p>}
-                  <ChatWords body={changed} onSeek={null} />
+                  {notes.map((note) => (
+                    <p className="pp-say" key={note}>
+                      {note}
+                    </p>
+                  ))}
                 </li>
                 {said.map((line, i) =>
                   line.author === "builder" ? (

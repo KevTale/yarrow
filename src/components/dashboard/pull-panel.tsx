@@ -476,7 +476,7 @@ export function PullPanel({
   );
 
   if (presentation) {
-    const word = agentWord(panel);
+    const notes = notesOf(panel);
     return (
       <div className="pp pp-roomy">
         {cinema && <div style={{ height: slot }} />}
@@ -514,9 +514,9 @@ export function PullPanel({
                   liveNow,
                   hands: stage.control === "on",
                   end:
-                    open || word?.notes.length ? (
+                    open || notes.length ? (
                       <>
-                        {word?.notes.map((line) => (
+                        {notes.map((line) => (
                           <p key={line}>
                             <Rich text={line} />
                           </p>
@@ -558,7 +558,6 @@ export function PullPanel({
                     projectId={projectId}
                     rowKey={rowKey}
                     open={open}
-                    summed
                     onSeek={toFilm}
                     onMade={() => {
                       void refresh();
@@ -853,34 +852,29 @@ function Changed({
   );
 }
 
-/** What the agent tells the owner first: what changed, what they must know. */
-function agentWord(panel: Panel) {
+/** What the agent tells the owner first: what they must know. */
+function notesOf(panel: Panel) {
   const { implementation, review } = panel;
-  if (!implementation) return null;
-  return {
-    changed: review?.changed ?? implementation.summary,
-    notes: agentNotes({
-      blocking: review?.blocking ?? [],
-      criteria: implementation.criteria,
-      risks: implementation.risks,
-      notVerified: implementation.notVerified,
-      checked: panel.checks?.state === "passed",
-    }),
-  };
+  if (!implementation) return [];
+  return agentNotes({
+    blocking: review?.blocking ?? [],
+    criteria: implementation.criteria,
+    risks: implementation.risks,
+    notVerified: implementation.notVerified,
+    checked: panel.checks?.state === "passed",
+  });
 }
 
 /**
  * What the agent says before any question: what must be done, what could not
- * be checked, led beside a demo by what changed. With nothing to say, it says
- * nothing.
+ * be checked. With nothing to say, it says nothing.
  */
-function Notes({ panel, summed }: { panel: Panel; summed?: boolean }) {
-  const word = agentWord(panel);
-  if (!word || (word.notes.length === 0 && !summed)) return null;
+function Notes({ panel }: { panel: Panel }) {
+  const notes = notesOf(panel);
+  if (notes.length === 0) return null;
   return (
     <li className="pp-it">
-      {summed && <Markdown source={word.changed} className="pp-say" />}
-      {word.notes.map((line) => (
+      {notes.map((line) => (
         <p key={line} className="pp-say">
           <Rich text={line} />
         </p>
@@ -1196,7 +1190,6 @@ function Thread({
   projectId,
   rowKey,
   open,
-  summed,
   onSeek,
   onMade,
 }: {
@@ -1205,8 +1198,6 @@ function Thread({
   rowKey: string;
   /** The pull request can still change. */
   open: boolean;
-  /** Beside a demo: the notes lead with what changed. */
-  summed?: boolean;
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
@@ -1226,7 +1217,7 @@ function Thread({
   }, [latest, said]);
   return (
     <ol className="pp-chat" ref={list}>
-      <Notes panel={panel} summed={summed} />
+      <Notes panel={panel} />
       {shown.map((line) =>
         line.kind === "correction" ? (
           <Fragment key={line.correction.id}>
