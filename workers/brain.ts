@@ -5,6 +5,7 @@ import {
   type WorkflowStep,
 } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { NonRetryableError } from "cloudflare:workflows";
 import {
   runRequestSchema,
@@ -45,6 +46,13 @@ import {
   saveAnswer,
 } from "../src/db/chat";
 import { connectDatabase, type Database } from "../src/db/client";
+import {
+  draftProject,
+  draftTurnsToday,
+  openDraft,
+  saveDraftTurn,
+  type DraftRef,
+} from "../src/db/ticket-drafts";
 import {
   computeSummary,
   createDailyFunding,
@@ -93,9 +101,11 @@ import {
   answerQuestion,
   chatContextText,
   hasVideo,
+  listTickets,
   type ChatAnswer,
   spottedLines,
 } from "../src/runner/chat";
+import { ticketTurn } from "../src/runner/ticket-agent";
 import { restoreStage } from "../src/runner/stage-restore";
 import {
   completion,
@@ -113,15 +123,18 @@ import {
   talkRequestSchema,
   talkTurn,
   type TalkContext,
+  type TalkRequest,
 } from "../src/runner/talk";
 import { isTalkModel } from "../src/runner/talk-models";
 import {
   conversationToken,
   transcriptionToken,
+  readDraftGrant,
   readTalkGrant,
   sameKey,
   signTalkGrant,
   talkKey,
+  type DraftGrant,
 } from "../src/runner/voice/agent";
 import { AgentsClient, defaultReviewerRates } from "../src/runner/openai";
 import {
@@ -151,10 +164,12 @@ import {
   type StageStatus,
 } from "../src/core/stage";
 import {
+  addUsage,
   CHAT_DAILY_QUESTIONS,
   chatCostCents,
   spokenAnswer,
 } from "../src/core/chat";
+import { BODY_MAX, TITLE_MAX, type DraftText } from "../src/core/new-ticket";
 import { stageContext } from "../src/db/stage";
 import { installationToken } from "../src/server/github/app";
 import { RECORDER_SOURCE } from "../src/runner/recorder/source";
@@ -1429,14 +1444,45 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     };
   }
 
+  /** A call with the agent that writes a ticket: no stage, no pull request. */
+  async ticketCall(input: {
+    draftId: string;
+    projectId: string;
+    userId: string;
+    language: string;
+  }): Promise<
+    | { ok: true; conversationToken: string; grant: string }
+    | { ok: false; reason: string }
+  > {
+    const { env } = this;
+    if (
+      !env.ELEVENLABS_API_KEY ||
+      !env.ELEVENLABS_AGENT_ID ||
+      !env.VOICE_SECRET ||
+      !env.ANTHROPIC_API_KEY
+    )
+      return { ok: false, reason: "No live call on this environment." };
+    const asked = await withDb(env, (db) => turnsToday(db, input.userId));
+    if (asked >= CHAT_DAILY_QUESTIONS)
+      return { ok: false, reason: "That's all the questions for today." };
+    const [token, grant] = await Promise.all([
+      conversationToken(env.ELEVENLABS_API_KEY, env.ELEVENLABS_AGENT_ID),
+      signTalkGrant(env.VOICE_SECRET, input),
+    ]);
+    return { ok: true, conversationToken: token, grant };
+  }
+
   /**
    * The stage's screen: the page's WebSocket, forwarded by the web Worker.
-   * And the live call's turns: ElevenLabs asking for the agent's words.
+   * The live call's turns: ElevenLabs asking for the agent's words. And a
+   * written turn of the agent that writes a ticket.
    */
   async fetch(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname.startsWith("/voice/llm"))
       return talkRoute(this.env, this.ctx, request);
+    if (pathname === "/ticket-agent")
+      return ticketWritten(this.env, this.ctx, request);
     const match = /^\/stage\/([0-9a-f-]{36})$/.exec(pathname);
     if (!match || !this.env.STAGE)
       return new Response("Not found\n", { status: 404 });
@@ -1503,6 +1549,8 @@ async function talkRoute(
   );
   if (!parsed.success) return new Response("Bad request\n", { status: 400 });
   const pass = talkGrantOf(parsed.data);
+  const drafting = pass ? await readDraftGrant(secret, pass) : null;
+  if (drafting) return ticketTalk(env, ctx, request, parsed.data, drafting);
   const grant = pass ? await readTalkGrant(secret, pass) : null;
   if (!grant) return refused();
   const stage = STAGE.getByName(grant.workUnitId);
@@ -1704,6 +1752,226 @@ async function talkRoute(
     }
   })();
   ctx.waitUntil(turn);
+  return new Response(readable, { headers });
+}
+
+/** Questions and ticket turns one person took today, Yarrow paying for both. */
+const turnsToday = async (db: Database, userId: string) =>
+  (await askedToday(db, userId)) + (await draftTurnsToday(db, userId));
+
+/**
+ * One turn of the agent that writes a ticket, written or said: the form as
+ * the page sent it (a call's is in the draft already), the thread from the
+ * draft, so that a conversation goes on from one to the other.
+ */
+async function ticketAgentTurn(
+  env: BrainEnv,
+  input: {
+    draft: DraftRef;
+    said: string;
+    form?: DraftText;
+    voice: boolean;
+    started: number;
+  },
+  out: {
+    say: (text: string) => void;
+    /** The form changed, in the draft already. */
+    onWrite?: (text: DraftText) => void;
+    /** ElevenLabs asks again: this turn no longer counts. */
+    dropped?: () => boolean;
+  },
+): Promise<void> {
+  const { ANTHROPIC_API_KEY: apiKey } = env;
+  const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
+  if (!apiKey) throw new Error("no Anthropic key");
+  const { draft } = input;
+  const { row, project, asked } = await withDb(env, async (db) => ({
+    row: await openDraft(db, draft, input.form),
+    project: await draftProject(db, draft.projectId),
+    asked: await turnsToday(db, draft.userId),
+  }));
+  if (!row || !project) throw new Error("no such draft");
+  if (asked >= CHAT_DAILY_QUESTIONS) {
+    out.say("That's all the questions for today.");
+    return;
+  }
+  const sources = {
+    reader:
+      appId && privateKey
+        ? lazyRepoReader(() => repoReader({ appId, privateKey }, project))
+        : null,
+    tickets: () => withDb(env, (db) => ticketsForChat(db, project.id)),
+    ticket: (key: string) =>
+      withDb(env, (db) => ticketForChat(db, project.id, key)),
+  };
+  const answer = await ticketTurn({
+    client: new Anthropic({ apiKey }),
+    meta: env.META_API_KEY,
+    model: isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL,
+    project,
+    tickets: await listTickets(sources),
+    form: row,
+    history: row.thread,
+    said: input.said,
+    voice: input.voice,
+    sources,
+    started: input.started,
+    say: out.say,
+    onWrite: async (text) => {
+      if (out.dropped?.()) throw new Error("turn dropped");
+      await withDb(env, (db) => openDraft(db, draft, text));
+      out.onWrite?.(text);
+    },
+  });
+  if (out.dropped?.()) return;
+  await withDb(env, (db) =>
+    saveDraftTurn(db, draft, {
+      said: input.said,
+      words: answer.words,
+      usage: row.usage ? addUsage(row.usage, answer.usage) : answer.usage,
+    }),
+  );
+  console.log("ticket-agent", {
+    draftId: draft.id,
+    voice: input.voice,
+    firstWordMs: answer.firstWordMs,
+    ms: Date.now() - input.started,
+    steps: answer.steps.map((step) => `${step.what} ${step.ms}`).join(", "),
+    cents: Number(chatCostCents(answer.usage).toFixed(3)),
+  });
+}
+
+const ticketWrittenSchema = z.object({
+  draftId: z.uuid(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
+  text: z.string().min(1).max(4000),
+  title: z.string().max(TITLE_MAX),
+  body: z.string().max(BODY_MAX),
+});
+
+/**
+ * A written turn: one JSON event a line, the page following as it comes.
+ * The web Worker checked the member: only it reaches this entrypoint.
+ */
+async function ticketWritten(
+  env: BrainEnv,
+  ctx: ExecutionContext,
+  request: Request,
+): Promise<Response> {
+  const parsed = ticketWrittenSchema.safeParse(
+    await request.json().catch(() => null),
+  );
+  if (!parsed.success) return new Response("Bad request\n", { status: 400 });
+  const { draftId, projectId, userId, text, title, body } = parsed.data;
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+  const send = (event: object) =>
+    writer.write(encoder.encode(`${JSON.stringify(event)}\n`)).catch(() => {});
+  ctx.waitUntil(
+    ticketAgentTurn(
+      env,
+      {
+        draft: { id: draftId, projectId, userId },
+        said: text,
+        form: { title, body },
+        voice: false,
+        started: Date.now(),
+      },
+      {
+        say: (words) => void send({ words }),
+        onWrite: (ticket) => void send({ ticket }),
+      },
+    )
+      .catch(async (error) => {
+        console.warn("ticket-agent", describe(error));
+        await send({ failed: true });
+      })
+      .finally(() => writer.close().catch(() => {})),
+  );
+  return new Response(readable, {
+    headers: {
+      "content-type": "application/x-ndjson",
+      "cache-control": "no-cache, no-transform",
+    },
+  });
+}
+
+/** A turn of a call that writes a ticket, as ElevenLabs asks for it. */
+function ticketTalk(
+  env: BrainEnv,
+  ctx: ExecutionContext,
+  request: Request,
+  data: TalkRequest,
+  grant: DraftGrant,
+): Response {
+  const started = Date.now();
+  const id = crypto.randomUUID().slice(0, 12);
+  const headers = {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+  };
+  if (!memberSpoke(data)) return new Response(completion.end(id), { headers });
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+  // ElevenLabs drops a turn's stream when the member speaks on, and asks
+  // again: the dropped turn is not kept.
+  let dropped = false;
+  const drop = () => {
+    dropped = true;
+  };
+  const write = (text: string) =>
+    writer.write(encoder.encode(text)).catch(drop);
+  writer.closed.catch(drop);
+  request.signal.addEventListener("abort", drop);
+  const said = memberWords(talkMessages(data.messages));
+  let last = Date.now();
+  let fillers = 0;
+  const say = (text: string) => {
+    last = Date.now();
+    void write(completion.words(id, text));
+  };
+  // While it reads the code in silence, a few words keep the call.
+  const silence = setInterval(() => {
+    if (Date.now() - last >= TALK_SILENCE_MS)
+      say(talkFiller(grant.language, fillers++));
+  }, 500);
+  ctx.waitUntil(
+    (async () => {
+      try {
+        await ticketAgentTurn(
+          env,
+          {
+            draft: {
+              id: grant.draftId,
+              projectId: grant.projectId,
+              userId: grant.userId,
+            },
+            said,
+            voice: true,
+            started,
+          },
+          { say, dropped: () => dropped },
+        );
+        await write(completion.end(id));
+      } catch (error) {
+        console.warn("ticket-agent", describe(error));
+        await write(
+          completion.words(
+            id,
+            grant.language.startsWith("fr")
+              ? "Désolé, je n'ai pas pu répondre. Tu peux répéter ?"
+              : "Sorry, I couldn't answer that. Could you say it again?",
+          ) + completion.end(id),
+        );
+      } finally {
+        clearInterval(silence);
+        await writer.close().catch(() => {});
+      }
+    })(),
+  );
   return new Response(readable, { headers });
 }
 

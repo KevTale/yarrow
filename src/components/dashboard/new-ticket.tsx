@@ -1,11 +1,12 @@
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, Github, Play, X } from "lucide-react";
-import { createContext, useEffect, useRef, useState } from "react";
+import { createContext, useLayoutEffect, useRef, useState } from "react";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { TrackerIcon } from "@/components/brand-icons";
 import { Spinner } from "@/components/navigation-feedback";
 import { BODY_MAX, TITLE_MAX } from "@/core/new-ticket";
 import { createTicketFn } from "@/functions/builder.functions";
+import { TicketTalk } from "./ticket-talk";
 
 type Board = { tracker: string; key: string; site: string };
 
@@ -78,8 +79,10 @@ export function ticketDestination(projectId: string, boards: Board[]): string {
  * a ticket in one of the project's linked Jira projects. Start sends it to
  * the agents at once; Create leaves it in To do. Opened from In progress's
  * "+", Start is the main action (⌘↵ or Ctrl ↵); from To do's, Create is.
- * Several drafts at once are listed on its left, as the files changed are:
- * each made leaves the list, the dialog closing with the last.
+ * The agent sits beside the form and writes it with the member, who can as
+ * well write it alone. Several drafts at once are listed on its left, as
+ * the files changed are, without the agent: each made leaves the list, the
+ * dialog closing with the last.
  */
 export function NewTicket({
   projectId,
@@ -123,13 +126,16 @@ export function NewTicket({
     );
   const [pending, setPending] = useState<"start" | "create" | null>(null);
   const [error, setError] = useState("");
+  // Once they talked, only the close button leaves the conversation.
+  const [talked, setTalked] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
-  useEffect(() => {
+  const written = Boolean(drafts);
+  useLayoutEffect(() => {
     // The browser's modal dialog: focus kept inside, Escape closes it.
     dialog.current?.showModal();
-    titleField.current?.focus();
-  }, []);
+    if (written) titleField.current?.focus();
+  }, [written]);
 
   async function submit(started: boolean) {
     if (!title.trim() || pending) return;
@@ -204,15 +210,15 @@ export function NewTicket({
   return (
     <dialog
       ref={dialog}
-      className={many ? "nt nt-many" : "nt"}
+      className={many ? "nt nt-many" : "nt nt-agent"}
       aria-label="New ticket"
       onCancel={(event) => {
         event.preventDefault();
-        if (!pending) onClose();
+        if (!pending && !talked) onClose();
       }}
       // A click on the dim around the card closes it.
       onClick={(event) => {
-        if (event.target === dialog.current && !pending) onClose();
+        if (event.target === dialog.current && !pending && !talked) onClose();
       }}
       onKeyDown={keys}
     >
@@ -306,6 +312,15 @@ export function NewTicket({
           {start ? [createButton, startButton] : [startButton, createButton]}
         </div>
       </form>
+      {!many && (
+        <TicketTalk
+          projectId={projectId}
+          form={draft}
+          focused={!written}
+          onBegun={() => setTalked(true)}
+          onWrite={edit}
+        />
+      )}
     </dialog>
   );
 }

@@ -7,6 +7,18 @@
 export const TITLE_MAX = 250;
 export const BODY_MAX = 20_000;
 
+/** A ticket's form, as it stands in the new ticket dialog. */
+export interface DraftText {
+  title: string;
+  body: string;
+}
+
+/** One line of the conversation that writes a ticket with the agent. */
+export interface DraftLine {
+  author: "builder" | "agent";
+  body: string;
+}
+
 /** Where a new ticket goes: "github", or a linked Jira project's key. */
 export const DESTINATION = /^(github|[A-Z][A-Z0-9_]{0,9})$/;
 

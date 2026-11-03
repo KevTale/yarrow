@@ -33,6 +33,7 @@ import { Route as PrCardRunIdRouteImport } from './routes/pr-card/$runId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as RunsRunIdRouteImport } from './routes/runs/$runId'
+import { Route as TicketAgentProjectIdRouteImport } from './routes/ticket-agent/$projectId'
 import { Route as ApiWebhooksGithubRouteImport } from './routes/api/webhooks/github'
 import { Route as ApiWebhooksJiraRouteImport } from './routes/api/webhooks/jira'
 import { Route as ApiWebhooksLinearRouteImport } from './routes/api/webhooks/linear'
@@ -165,6 +166,11 @@ const RunsRunIdRoute = RunsRunIdRouteImport.update({
   path: '/runs/$runId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TicketAgentProjectIdRoute = TicketAgentProjectIdRouteImport.update({
+  id: '/ticket-agent/$projectId',
+  path: '/ticket-agent/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksGithubRoute = ApiWebhooksGithubRouteImport.update({
   id: '/api/webhooks/github',
   path: '/api/webhooks/github',
@@ -242,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/ticket-agent/$projectId': typeof TicketAgentProjectIdRoute
   '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
@@ -278,6 +285,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/ticket-agent/$projectId': typeof TicketAgentProjectIdRoute
   '/account': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
@@ -315,6 +323,7 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/runs/$runId': typeof RunsRunIdRoute
+  '/ticket-agent/$projectId': typeof TicketAgentProjectIdRoute
   '/account/': typeof AccountIndexRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
   '/api/webhooks/jira': typeof ApiWebhooksJiraRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/ticket-agent/$projectId'
     | '/account/'
     | '/api/webhooks/github'
     | '/api/webhooks/jira'
@@ -389,6 +399,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/ticket-agent/$projectId'
     | '/account'
     | '/api/webhooks/github'
     | '/api/webhooks/jira'
@@ -425,6 +436,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/runs/$runId'
+    | '/ticket-agent/$projectId'
     | '/account/'
     | '/api/webhooks/github'
     | '/api/webhooks/jira'
@@ -462,6 +474,7 @@ export interface RootRouteChildren {
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
+  TicketAgentProjectIdRoute: typeof TicketAgentProjectIdRoute
   AccountIndexRoute: typeof AccountIndexRoute
   ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
   ApiWebhooksJiraRoute: typeof ApiWebhooksJiraRoute
@@ -645,6 +658,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RunsRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ticket-agent/$projectId': {
+      id: '/ticket-agent/$projectId'
+      path: '/ticket-agent/$projectId'
+      fullPath: '/ticket-agent/$projectId'
+      preLoaderRoute: typeof TicketAgentProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/github': {
       id: '/api/webhooks/github'
       path: '/api/webhooks/github'
@@ -742,6 +762,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   RunsRunIdRoute: RunsRunIdRoute,
+  TicketAgentProjectIdRoute: TicketAgentProjectIdRoute,
   AccountIndexRoute: AccountIndexRoute,
   ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,
   ApiWebhooksJiraRoute: ApiWebhooksJiraRoute,
@@ -757,3 +778,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

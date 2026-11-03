@@ -4403,6 +4403,33 @@ tbody tr:hover {
 .nt-foot .pp-error {
   margin-right: auto;
 }
+/* The agent beside the form, the two as tall as a ticket needs. */
+.nt.nt-agent {
+  width: min(1060px, calc(100vw - 32px));
+  height: min(640px, 80dvh);
+}
+.nt.nt-agent[open] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+}
+.nt-agent .nt-card {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0;
+}
+.nt-agent .nt-body {
+  min-height: 0;
+  height: 100%;
+  resize: none;
+}
+.nt-talk {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+}
+.nt-talk > .pp-asking {
+  margin: 0 14px 14px;
+}
 /* Several suggested at once: their list on the left, as the files changed. */
 .nt.nt-many {
   width: min(920px, calc(100vw - 32px));
@@ -4422,6 +4449,19 @@ tbody tr:hover {
   -webkit-line-clamp: 2;
 }
 @media (max-width: 760px) {
+  /* On a phone the conversation goes under the form. */
+  .nt.nt-agent {
+    height: calc(100dvh - 32px);
+    margin: 16px auto;
+  }
+  .nt.nt-agent[open] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .nt-talk {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
   /* On a phone a ticket keeps its line, as on a wide screen, and a group's
      rows scroll sideways together, as wide as the longest (a title shows up
      to 300px); the opened ticket and Done's foot stay in view, the screen's

@@ -399,6 +399,28 @@ const usageOf = (response: Anthropic.Beta.BetaMessage): ChatUsage => ({
   cacheWrite: response.usage.cache_creation_input_tokens ?? 0,
 });
 
+/** The project's tickets, one a line: Yarrow's, and its open issues. */
+export async function listTickets(sources: ChatSources): Promise<string> {
+  const known = await sources.tickets();
+  const keys = new Set(known.map((ticket) => `${ticket.source}:${ticket.key}`));
+  const open = sources.reader
+    ? await sources.reader.openIssues().catch(() => [])
+    : [];
+  const lines = [
+    ...known.map(
+      (ticket) =>
+        `${ticket.source} ${ticket.key} · ${ticket.title} · ${ticket.status}${ticket.pullRequest ? ` · pull request #${ticket.pullRequest.number} ${ticket.pullRequest.state}` : ""}`,
+    ),
+    ...open
+      .filter((issue) => !keys.has(`github:${issue.number}`))
+      .map(
+        (issue) =>
+          `github ${issue.number} · ${issue.title} · open on GitHub, not given to Yarrow`,
+      ),
+  ];
+  return lines.length ? lines.join("\n") : "No tickets.";
+}
+
 /** One tool call, run: its text for the model, and a change when proposed. */
 export async function runChatTool(
   call: Anthropic.Beta.BetaToolUseBlock,
@@ -459,26 +481,8 @@ export async function runChatTool(
       const paths = await reader.searchCode(input.query);
       return { text: paths.length ? paths.join("\n") : "Nothing matches." };
     }
-    case "list_tickets": {
-      const known = await sources.tickets();
-      const keys = new Set(
-        known.map((ticket) => `${ticket.source}:${ticket.key}`),
-      );
-      const open = reader ? await reader.openIssues().catch(() => []) : [];
-      const lines = [
-        ...known.map(
-          (ticket) =>
-            `${ticket.source} ${ticket.key} · ${ticket.title} · ${ticket.status}${ticket.pullRequest ? ` · pull request #${ticket.pullRequest.number} ${ticket.pullRequest.state}` : ""}`,
-        ),
-        ...open
-          .filter((issue) => !keys.has(`github:${issue.number}`))
-          .map(
-            (issue) =>
-              `github ${issue.number} · ${issue.title} · open on GitHub, not given to Yarrow`,
-          ),
-      ];
-      return { text: lines.length ? lines.join("\n") : "No tickets." };
-    }
+    case "list_tickets":
+      return { text: await listTickets(sources) };
     case "read_ticket": {
       const input = parsed.data as z.infer<typeof inputs.read_ticket>;
       const key = input.key.replace(/^#/, "");

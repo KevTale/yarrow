@@ -117,9 +117,20 @@ export interface AppEnv {
         }
       | { ok: false; reason: string }
     >;
+    /** A call with the agent that writes a ticket (src/runner/ticket-agent.ts). */
+    ticketCall(input: {
+      draftId: string;
+      projectId: string;
+      userId: string;
+      language: string;
+    }): Promise<
+      | { ok: true; conversationToken: string; grant: string }
+      | { ok: false; reason: string }
+    >;
     /**
-     * The stage's screen: a WebSocket to /stage/<workUnitId>. And the live
-     * call's turns, ElevenLabs' requests to /voice/llm.
+     * The stage's screen: a WebSocket to /stage/<workUnitId>. The live call's
+     * turns, ElevenLabs' requests to /voice/llm. And a written turn of the
+     * agent that writes a ticket, /ticket-agent.
      */
     fetch(request: Request): Promise<Response>;
   };

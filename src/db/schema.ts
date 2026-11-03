@@ -15,6 +15,7 @@ import {
   customType,
 } from "drizzle-orm/pg-core";
 import type { ChatTicket, ChatUsage } from "../core/chat";
+import type { DraftLine } from "../core/new-ticket";
 import type { AppRecipe, ResultDetails } from "../core/contracts";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { TicketMoves } from "../core/tracker-moves";
@@ -761,6 +762,32 @@ export const chatMessages = pgTable(
     index("chat_messages_unit").on(t.workUnitId, t.createdAt),
     index("chat_messages_user").on(t.userId, t.createdAt),
   ],
+).enableRLS();
+
+/**
+ * A ticket being written with the agent: the form as it stands and what was
+ * said, written or aloud, under the id the page gave it. Yarrow pays for
+ * the turns: no ledger entry, the tokens kept to know what it costs.
+ */
+export const ticketDrafts = pgTable(
+  "ticket_drafts",
+  {
+    id: uuid("id").primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    userId: uuid("user_id").notNull(), // Supabase auth user ID.
+    title: text("title").default("").notNull(),
+    body: text("body").default("").notNull(),
+    thread: jsonb("thread").$type<DraftLine[]>().default([]).notNull(),
+    turns: integer("turns").default(0).notNull(),
+    usage: jsonb("usage").$type<ChatUsage | null>(),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index("ticket_drafts_user").on(t.userId, t.updatedAt)],
 ).enableRLS();
 
 /**

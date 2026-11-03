@@ -176,14 +176,23 @@ export interface TalkGrant {
   expires: number;
 }
 
+/** The pass of a call that writes a ticket: no pull request yet. */
+export interface DraftGrant {
+  draftId: string;
+  projectId: string;
+  userId: string;
+  language: string;
+  expires: number;
+}
+
 /**
  * The call's pass: a member of the project may talk about this pull
- * request until it expires. The page hands it to ElevenLabs, which sends
- * it with every turn (custom_llm_extra_body).
+ * request, or the ticket they are writing, until it expires. The page hands
+ * it to ElevenLabs, which sends it with every turn (custom_llm_extra_body).
  */
 export async function signTalkGrant(
   secret: string,
-  grant: Omit<TalkGrant, "expires">,
+  grant: Omit<TalkGrant, "expires"> | Omit<DraftGrant, "expires">,
   now = Date.now(),
 ): Promise<string> {
   const body = base64url(
@@ -192,11 +201,11 @@ export async function signTalkGrant(
   return `${body}.${base64url(await hmac(secret, `grant ${body}`))}`;
 }
 
-export async function readTalkGrant(
+/** What a pass says, once its signature is checked. */
+async function readPass(
   secret: string,
   grant: string,
-  now = Date.now(),
-): Promise<TalkGrant | null> {
+): Promise<Record<string, unknown> | null> {
   const [body, signature] = grant.split(".");
   if (!body || !signature) return null;
   const expected = base64url(await hmac(secret, `grant ${body}`));
@@ -206,25 +215,56 @@ export async function readTalkGrant(
     same |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
   if (same !== 0) return null;
   try {
-    const read = JSON.parse(new TextDecoder().decode(unbase64url(body)));
-    if (
-      typeof read.workUnitId !== "string" ||
-      typeof read.userId !== "string" ||
-      typeof read.expires !== "number" ||
-      read.expires < now
-    )
-      return null;
-    return {
-      workUnitId: read.workUnitId,
-      userId: read.userId,
-      language: typeof read.language === "string" ? read.language : "en",
-      // Passes made before it were all over the stage.
-      stage: read.stage !== false,
-      expires: read.expires,
-    };
+    return JSON.parse(new TextDecoder().decode(unbase64url(body)));
   } catch {
     return null;
   }
+}
+
+export async function readDraftGrant(
+  secret: string,
+  grant: string,
+  now = Date.now(),
+): Promise<DraftGrant | null> {
+  const read = await readPass(secret, grant);
+  if (
+    typeof read?.draftId !== "string" ||
+    typeof read.projectId !== "string" ||
+    typeof read.userId !== "string" ||
+    typeof read.expires !== "number" ||
+    read.expires < now
+  )
+    return null;
+  return {
+    draftId: read.draftId,
+    projectId: read.projectId,
+    userId: read.userId,
+    language: typeof read.language === "string" ? read.language : "en",
+    expires: read.expires,
+  };
+}
+
+export async function readTalkGrant(
+  secret: string,
+  grant: string,
+  now = Date.now(),
+): Promise<TalkGrant | null> {
+  const read = await readPass(secret, grant);
+  if (
+    typeof read?.workUnitId !== "string" ||
+    typeof read.userId !== "string" ||
+    typeof read.expires !== "number" ||
+    read.expires < now
+  )
+    return null;
+  return {
+    workUnitId: read.workUnitId,
+    userId: read.userId,
+    language: typeof read.language === "string" ? read.language : "en",
+    // Passes made before it were all over the stage.
+    stage: read.stage !== false,
+    expires: read.expires,
+  };
 }
 
 /** A key's bearer header, compared without telling how much of it matched. */
