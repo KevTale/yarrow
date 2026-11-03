@@ -127,9 +127,10 @@ export function beatOf(char: string): number | null {
 }
 /**
  * Never voiced either: the voice holds its last words until more text comes,
- * so a tool after them would cut it mid-word. Measured on dev: 34 are held.
+ * so a tool after them would cut it mid-word, and waits up to 2 s on a short
+ * sentence. Measured on dev: 34 are held, it starts at about 120.
  */
-export const VOICE_PUSH = "\ue100".repeat(48);
+export const VOICE_PUSH = "\ue100".repeat(160);
 export const withoutBeats = (text: string) =>
   text.replace(/[\ue000-\ue1ff]/g, "");
 
