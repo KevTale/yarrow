@@ -7826,9 +7826,6 @@ body:has(.sb-dialog[open]) {
   align-items: start;
   gap: 24px 48px;
 }
-.lp-part-head > * {
-  animation: lp-rise 0.4s var(--ease-enter);
-}
 .lp-part-head h2 {
   font-size: clamp(32px, 3.6vw, 44px);
   font-weight: 500;

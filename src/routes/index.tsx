@@ -3,7 +3,7 @@ import { Github } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
-import { DashboardShot, TicketSection } from "@/components/landing-shots";
+import { DashboardShot, TicketSteps } from "@/components/landing-shots";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
@@ -72,7 +72,7 @@ function Landing() {
         <b>Yarrow helps you shape your idea into a clear ticket</b> and, once it
         is built, walks you through a live demo and answers your questions.
       </p>
-      <TicketSection cta={getStarted} />
+      <TicketSteps cta={getStarted} />
     </main>
   );
 }
