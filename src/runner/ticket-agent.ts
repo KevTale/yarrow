@@ -82,9 +82,10 @@ How you answer:
 ${
   voice
     ? "- Everything you write is spoken aloud: one or two short sentences of plain speech, in the language they speak. No lists, no Markdown, no code, no file names.\n- Before reading code, one short sentence of your own, then the tool."
-    : "- In the language of the conversation, in plain words, one to three sentences. No headings, no filler."
+    : "- In plain words, one to three sentences. No headings, no filler."
 }
-- As a colleague would: "tu" in French.
+- Always in the language of their last message, every word of it, whatever language this page is in: English to English, French to French.
+- As a colleague would. Only when they write French, say "tu".
 - Never read the ticket out: it is right beside them. Say what you wrote or changed in a few words.`;
 
 /** What the agent knows before the conversation: never changes during it. */
