@@ -46,7 +46,7 @@ interface ShippedTicket extends WrittenTicket {
   files: { count: number; add: number; del: number };
 }
 
-const crew: Crew = { implementer: "Claude Opus", reviewer: "GPT Astra" };
+const crew: Crew = { implementer: "Muse Wonder", reviewer: "Claude Opus" };
 
 /** The ticket to review: the bench's real ticket, its film served with the site. */
 const priority: SampleTicket = {

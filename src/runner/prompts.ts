@@ -393,6 +393,13 @@ for f in bundle["files"]:
 subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
 PY`;
 
+/** Claude's sessions take no setup commands: its review's first step. */
+export const stageFirst = (mounted: string) =>
+  `Before anything else, stage the proposed change by running this, as it is:
+
+cp ${mounted} /workspace/proposed.json
+${STAGE_PROPOSED}`;
+
 /** One line per item, at most three: the rules hold even when a model forgets them. */
 const fewLines = z
   .array(z.string())

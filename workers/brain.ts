@@ -20,6 +20,7 @@ import {
 } from "../src/core/failures";
 import {
   defaultPipelineRoles,
+  reviewerFor,
   defaultReviewerEffort,
   INITIAL_RESERVATION_CENTS,
 } from "../src/core/pipeline";
@@ -95,7 +96,7 @@ import {
   trackerSecretsFromEnv,
 } from "../src/server/trackers/index";
 import { ensureJiraWebhooks } from "../src/server/trackers/jira-webhooks";
-import { ManagedAgentsClient } from "../src/runner/anthropic";
+import { isClaudeSession, ManagedAgentsClient } from "../src/runner/anthropic";
 import { isMuseSession, MUSE_EFFORT, MUSE_MODEL } from "../src/runner/muse";
 import {
   answerQuestion,
@@ -125,7 +126,11 @@ import {
   type TalkContext,
   type TalkRequest,
 } from "../src/runner/talk";
-import { isTalkModel } from "../src/runner/talk-models";
+import {
+  isTalkModel,
+  TALK_MODELS,
+  type TalkModelName,
+} from "../src/runner/talk-models";
 import {
   conversationToken,
   transcriptionToken,
@@ -300,6 +305,16 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
     museModel: env.META_MODEL ?? MUSE_MODEL,
     museEffort: env.META_EFFORT ?? MUSE_EFFORT,
   });
+}
+
+/** Who talks for Yarrow: chat, call, new ticket. Muse only with Meta's key. */
+function talkModelOf(env: BrainEnv): TalkModelName {
+  const model = isTalkModel(env.TALK_MODEL)
+    ? env.TALK_MODEL
+    : DEFAULT_TALK_MODEL;
+  return TALK_MODELS[model].provider === "meta" && !env.META_API_KEY
+    ? DEFAULT_TALK_MODEL
+    : model;
 }
 
 type SessionState = "working" | "done" | "failed";
@@ -542,7 +557,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
               snapshot,
               earlier,
             );
-            await clearPause(db, "openai");
+            await clearPause(db, isClaudeSession(id) ? "anthropic" : "openai");
             return id;
           }),
         );
@@ -600,7 +615,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
       };
       const stored: StoredReview = {
         ...finalReview,
-        reviewer: defaultPipelineRoles.reviewer,
+        reviewer: reviewerFor(run.implementer),
         rounds,
       };
 
@@ -858,8 +873,13 @@ async function answerChat(
             .catch(() => null)
         : null,
     ]);
+    const model = talkModelOf(env);
     return answerQuestion({
       client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
+      muse:
+        TALK_MODELS[model].provider === "meta"
+          ? { model, key: env.META_API_KEY! }
+          : null,
       context,
       presentation,
       sources: {
@@ -1560,10 +1580,7 @@ async function talkRoute(
     : undefined;
   // On dev, the page may ask for another brain, to try each by voice.
   const asked = trying ? talkBrainOf(parsed.data) : {};
-  const model =
-    bench?.model ??
-    asked.model ??
-    (isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL);
+  const model = bench?.model ?? asked.model ?? talkModelOf(env);
   const screenFirst =
     bench?.screen ?? asked.screen ?? env.TALK_SCREEN !== "off";
   const id = crypto.randomUUID().slice(0, 12);
@@ -1807,7 +1824,7 @@ async function ticketAgentTurn(
   const answer = await ticketTurn({
     client: new Anthropic({ apiKey }),
     meta: env.META_API_KEY,
-    model: isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL,
+    model: talkModelOf(env),
     project,
     tickets: await listTickets(sources),
     form: row,

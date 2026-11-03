@@ -5,7 +5,7 @@ Sponsors fund AI compute; builders get their tagged tickets turned into draft PR
 ## Stack
 
 - **Web (`src/`):** TanStack Start (file routes in `src/routes/`, server functions in `src/functions/`) on Cloudflare Workers via `@cloudflare/vite-plugin`. `src/routeTree.gen.ts` is generated: never edit it.
-- **Brain (`workers/brain.ts`):** cron dispatcher + one durable Workflow per run. Claude Managed Agents implements, the OpenAI Agents API reviews (`src/runner/`).
+- **Brain (`workers/brain.ts`):** cron dispatcher + one durable Workflow per run. Muse Wonder implements in our own containers and Claude Managed Agents reviews; a project with secrets stays on Claude, reviewed through the OpenAI Agents API (`src/runner/`).
 - **Admin (`workers/admin.ts`):** admin.yarrow.run behind Cloudflare Access, no secret: it reads and writes through the brain's `Admin` entrypoint.
 - **Data:** Supabase Postgres through Drizzle (`src/db/`), server-side only. Every table has RLS with no policy. Amounts are integer USD cents.
 - **Shared rules:** `src/core/` (pricing, packs, queue, contracts) has no I/O and runs in both Workers.

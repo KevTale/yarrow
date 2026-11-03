@@ -28,10 +28,10 @@ export function WelcomeView({ data }: { data: SponsorData }) {
               <span className="mono">#12</span> Fix the login redirect
             </div>
             <div className="wf-step">
-              <span className="wf-dot writing" /> Claude Opus 5.5 writes
+              <span className="wf-dot writing" /> Muse Wonder writes
             </div>
             <div className="wf-step">
-              <span className="wf-dot reviewing" /> GPT Astra reviews
+              <span className="wf-dot reviewing" /> Claude Opus 5.5 reviews
             </div>
             <div className="wf-pr">
               <span className="wf-dot done" /> Pull request #13

@@ -54,6 +54,8 @@ export async function talkStep(input: {
   /** The last one: words only, no more tools. */
   last: boolean;
   maxTokens?: number;
+  /** How hard Muse thinks: a turn on the call as fast as it can go. */
+  effort?: "minimal" | "low";
   onText: (delta: string) => void;
   /** The words stop for something else: a tool (its name), or thinking. */
   onBreak?: (next: string) => void;
@@ -238,8 +240,8 @@ async function museStep(
         },
       })),
       tool_choice: last ? "none" : "auto",
-      reasoning_effort: "minimal",
-      max_completion_tokens: 4000,
+      reasoning_effort: input.effort ?? "minimal",
+      max_completion_tokens: input.maxTokens ?? 4000,
       stream: true,
       stream_options: { include_usage: true },
     }),

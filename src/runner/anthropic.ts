@@ -9,6 +9,9 @@ const BETA = "managed-agents-2026-04-01";
 
 export type Fetch = typeof fetch;
 
+/** A session of Claude's: the other providers' ids look nothing like it. */
+export const isClaudeSession = (id: string) => id.startsWith("sesn_");
+
 export interface ManagedSession {
   id: string;
   status: "idle" | "running" | "rescheduling" | "terminated";
@@ -159,6 +162,37 @@ export class ManagedAgentsClient {
       system: input.system,
       tools: [{ type: "agent_toolset_20260401" }],
     });
+  }
+
+  /**
+   * The agent of this name with this prompt: made the first time, changed
+   * when the prompt does, in whichever workspace the key belongs to.
+   */
+  async ensureAgent(input: {
+    name: string;
+    model: string;
+    effort?: string;
+    system: string;
+  }): Promise<string> {
+    const { data } = await this.call<{
+      data: {
+        id: string;
+        name: string;
+        system: string | null;
+        version: number;
+        archived_at?: string | null;
+      }[];
+    }>("GET", "/agents?limit=100");
+    const agent = data.find(
+      (one) => one.name === input.name && !one.archived_at,
+    );
+    if (!agent) return (await this.createAgent(input)).id;
+    if (agent.system !== input.system)
+      await this.call("POST", `/agents/${agent.id}`, {
+        version: agent.version,
+        system: input.system,
+      });
+    return agent.id;
   }
 
   createEnvironment(input: {
@@ -330,6 +364,20 @@ export class ManagedAgentsClient {
       `/sessions/${sessionId}/events?${query}`,
     );
     return result.data[0]?.error?.message ?? null;
+  }
+
+  /** The agent's last words in the session. */
+  async finalText(sessionId: string): Promise<string | null> {
+    const query = new URLSearchParams({ limit: "1", order: "desc" });
+    query.append("types[]", "agent.message");
+    const result: { data: SessionEvent[] } = await this.call(
+      "GET",
+      `/sessions/${sessionId}/events?${query}`,
+    );
+    const text = (result.data[0]?.content ?? [])
+      .map((part) => (part.type === "text" ? (part.text ?? "") : ""))
+      .join("");
+    return text || null;
   }
 
   async listFiles(sessionId: string): Promise<SessionFile[]> {

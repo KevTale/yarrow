@@ -46,7 +46,7 @@ function Privacy() {
       <p>
         Cloudflare (hosting), Supabase (database and sign-in, servers in
         Ireland), Stripe (payments), GitHub (repositories), Resend (sign-in
-        emails), and Anthropic and OpenAI (the AI models, through their
+        emails), and Anthropic, Meta and OpenAI (the AI models, through their
         commercial APIs). Some are based in the United States; transfers rely on
         the EU-US Data Privacy Framework or the European Commission’s standard
         contractual clauses. We do not sell your data.

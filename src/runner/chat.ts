@@ -22,6 +22,12 @@ import {
   stageNote,
   type StageHands,
 } from "./stage-tools";
+import {
+  TALK_MODELS,
+  talkStep,
+  type TalkModelName,
+  type TalkStep,
+} from "./talk-models";
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type Tool = Anthropic.Beta.BetaTool;
@@ -544,6 +550,8 @@ export interface ChatToolResult {
  */
 export async function answerQuestion(input: {
   client: Anthropic;
+  /** Muse answers when it is given, else Claude. */
+  muse?: { model: TalkModelName; key: string; fetch?: typeof fetch } | null;
   context: ChatContext;
   sources: ChatSources;
   presentation: Presentation | null;
@@ -555,7 +563,7 @@ export async function answerQuestion(input: {
     show?: () => Promise<void>;
   } | null;
 }): Promise<ChatAnswer> {
-  const { client, context, sources, stage } = input;
+  const { client, muse, context, sources, stage } = input;
   const diff =
     sources.reader && context.pullRequest
       ? await sources.reader
@@ -586,18 +594,22 @@ export async function answerQuestion(input: {
   const question = messages.at(-1);
   if (stage && question?.role === "user")
     question.content = `${question.content as string}\n\n${stageNote(stage.state)}`;
-  let usage: ChatUsage = {
-    model: CHAT_MODEL,
-    input: 0,
-    output: 0,
-    cacheRead: 0,
-    cacheWrite: 0,
-  };
-  let change: string | null = null;
-  let ticket: ChatTicket | null = null;
-  let shown = false;
-  for (let step = 0; ; step++) {
-    const last = step >= CHAT_MAX_STEPS;
+  /** One answer of the model, with its calls to the tools. */
+  const ask = async (
+    last: boolean,
+  ): Promise<TalkStep & { refused?: boolean }> => {
+    if (muse)
+      return talkStep({
+        model: muse.model,
+        clients: { anthropic: client, meta: muse.key, fetch: muse.fetch },
+        system,
+        tools,
+        messages,
+        last,
+        maxTokens: 16000,
+        effort: CHAT_EFFORT,
+        onText: () => undefined,
+      });
     const response = await client.beta.messages.create({
       model: CHAT_MODEL,
       max_tokens: 16000,
@@ -610,25 +622,46 @@ export async function answerQuestion(input: {
       cache_control: { type: "ephemeral" },
       messages,
     });
-    usage = addUsage(usage, usageOf(response));
     const calls = response.content.filter(
       (block): block is Anthropic.Beta.BetaToolUseBlock =>
         block.type === "tool_use",
     );
-    if (response.stop_reason !== "tool_use" || calls.length === 0) {
-      const text = response.content
+    return {
+      content: response.content,
+      calls,
+      toolUse: response.stop_reason === "tool_use" && calls.length > 0,
+      refused: response.stop_reason === "refusal",
+      usage: usageOf(response),
+    };
+  };
+  let usage: ChatUsage = {
+    model: muse ? TALK_MODELS[muse.model].id : CHAT_MODEL,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  };
+  let change: string | null = null;
+  let ticket: ChatTicket | null = null;
+  let shown = false;
+  for (let step = 0; ; step++) {
+    const turn = await ask(step >= CHAT_MAX_STEPS);
+    usage = addUsage(usage, turn.usage);
+    const { calls } = turn;
+    if (!turn.toolUse) {
+      const text = turn.content
         .filter(
-          (block): block is Anthropic.Beta.BetaTextBlock =>
+          (block): block is Anthropic.Beta.BetaTextBlockParam =>
             block.type === "text",
         )
         .map((block) => block.text)
         .join("")
         .trim();
-      if (response.stop_reason === "refusal" && !text)
+      if (turn.refused && !text)
         return { body: "I can't help with that one.", change, ticket, usage };
       return { body: text, change, ticket, usage };
     }
-    messages.push({ role: "assistant", content: response.content });
+    messages.push({ role: "assistant", content: turn.content });
     const run = async (call: Anthropic.Beta.BetaToolUseBlock) => {
       if (stage && isStageTool(call.name) && call.name !== "look_at_screen") {
         if (!shown) await stage.show?.();

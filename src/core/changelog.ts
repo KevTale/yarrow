@@ -19,6 +19,18 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: "2026-11-02",
+    title: "Meta's models at work",
+    improved: [
+      builders(
+        "Muse Wonder writes your tickets and Claude Opus reviews what it wrote. A project with secrets stays on Claude Opus, reviewed by GPT Astra.",
+      ),
+      builders(
+        "Muse Spark answers in the chat, on a call and when you write a new ticket.",
+      ),
+    ],
+  },
+  {
     date: "2026-10-25",
     title: "A change under way",
     improved: [

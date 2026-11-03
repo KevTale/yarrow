@@ -1,7 +1,8 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   // The brain: dispatches queued tickets, runs each run as a durable
-  // Workflow (Claude or Meta implements, OpenAI reviews), syncs trackers.
+  // Workflow (Meta implements and Claude reviews, or Claude and OpenAI when
+  // the project has secrets), syncs trackers.
   // Top level: `pnpm brain:dev` on this machine. `env.dev` and
   // `env.production` are deployed by .github/workflows/deploy.yml.
   "name": "yarrow-brain-local",
@@ -64,15 +65,16 @@
         "ADMIN_URL": "https://admin-dev.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
-        // Who implements new runs is the IMPLEMENTER secret, not a variable
-        // here, so a deploy keeps it: "meta" (Muse Code + Muse Wonder in the
+        // Who implements new runs: "meta" (Muse Code + Muse Wonder in the
         // MUSE containers below, META_API_KEY secret) or "claude", the
-        // default. Switched with pnpm implementer <claude|meta>.
+        // default. Claude also takes over without the key.
+        "IMPLEMENTER": "meta",
         "META_MODEL": "muse-wonder-1.0",
         "META_EFFORT": "high",
-        // The live call: who answers (src/runner/talk-models.ts), and the
-        // bench's turns may choose (pnpm bench:talk).
-        "TALK_MODEL": "sonnet",
+        // Who talks: the chat, the live call and the new ticket's agent
+        // (src/runner/talk-models.ts). The bench's turns may choose
+        // (pnpm bench:talk).
+        "TALK_MODEL": "spark",
         "TALK_BENCH": "on",
         // Pull requests' previews: <work unit id>-dev.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": "-dev.yarrow.page",
@@ -136,18 +138,31 @@
         "ADMIN_URL": "https://admin.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
+        // As on dev; without the META_API_KEY secret, Claude does it all.
+        "IMPLEMENTER": "meta",
+        "META_MODEL": "muse-wonder-1.0",
+        "META_EFFORT": "high",
+        "TALK_MODEL": "spark",
         // Pull requests' previews: <work unit id>.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": ".yarrow.page",
       },
       "r2_buckets": [
         { "binding": "EVIDENCE", "bucket_name": "yarrow-evidence" },
       ],
-      // One container per pull request's stage (workers/stage.ts), for the
-      // live call; Meta implements on dev only.
+      // One container per Meta run (workers/muse.ts), and one per pull
+      // request's stage (workers/stage.ts), for the live call: the same image.
       "durable_objects": {
-        "bindings": [{ "name": "STAGE", "class_name": "Stage" }],
+        "bindings": [
+          { "name": "MUSE", "class_name": "MuseSandbox" },
+          { "name": "STAGE", "class_name": "Stage" },
+        ],
       },
       "containers": [
+        {
+          "class_name": "MuseSandbox",
+          "scheduling_policy": "durable_object",
+          "images": { "muse": { "dockerfile": "./muse/Dockerfile" } },
+        },
         {
           "class_name": "Stage",
           "scheduling_policy": "durable_object",
@@ -155,6 +170,7 @@
         },
       ],
       "exports": {
+        "MuseSandbox": { "type": "durable-object", "storage": "sqlite" },
         "Stage": { "type": "durable-object", "storage": "sqlite" },
       },
     },

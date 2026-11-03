@@ -1,6 +1,11 @@
 import { pullRequestFooter } from "../core/attribution";
 import { PROD_APP_SLUG } from "../core/corrections";
-import { type PipelineRoles, type RunModelUsage } from "../core/pipeline";
+import {
+  META_REVIEWER,
+  reviewerFor,
+  type PipelineRoles,
+  type RunModelUsage,
+} from "../core/pipeline";
 import { previewHref } from "../core/preview";
 import {
   proofImages,
@@ -57,10 +62,12 @@ import { agentRuns } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { MoveEvent } from "../core/tracker-moves";
 import {
+  isClaudeSession,
   listCostCents,
   SANDBOX_HOSTS,
   SANDBOX_PACKAGES,
   type ManagedAgentsClient,
+  type ManagedSession,
 } from "./anthropic";
 import {
   usageCostCents,
@@ -91,6 +98,7 @@ import {
   REVIEWER_INSTRUCTIONS,
   reviewTask,
   STAGE_PROPOSED,
+  stageFirst,
   toFileChanges,
   type ImplementationResult,
 } from "./prompts";
@@ -117,6 +125,28 @@ const setupChecked = new Set<string>();
 
 /** The recorder, uploaded once per isolate and mounted in every session. */
 let recorderFile: Promise<string> | null = null;
+
+/** The agent that reviews Meta's changes, looked up once per isolate. */
+let reviewAgent: Promise<string> | null = null;
+
+/** Where the change to review reaches Claude's session. */
+const PROPOSED_MOUNT = "/yarrow/proposed.json";
+const PROPOSED_PATH = "/mnt/session/uploads/yarrow/proposed.json";
+
+/** A Claude session's tokens, as the run's models record them. */
+function claudeTokens(session: ManagedSession) {
+  const usage = session.usage ?? {};
+  if (usage.input_tokens === undefined) return null;
+  const created =
+    (usage.cache_creation?.ephemeral_1h_input_tokens ?? 0) +
+    (usage.cache_creation?.ephemeral_5m_input_tokens ?? 0);
+  const cached = usage.cache_read_input_tokens ?? 0;
+  return {
+    input: usage.input_tokens + cached + created,
+    cached,
+    output: usage.output_tokens ?? 0,
+  };
+}
 
 /** Where evidence files (screenshots, video) are stored. R2 in production. */
 export interface EvidenceStore {
@@ -384,15 +414,13 @@ export class RunPipeline {
       this.deps.implementer === "meta" &&
       Boolean(this.deps.muse) &&
       context.secrets.length === 0;
-    // The run was reserved under the default implementer: it names Meta's
-    // model now, before the container starts, so the table never shows
-    // Claude at work on a Meta run.
+    // The run was reserved under the default roles: it names Meta's model
+    // and its reviewer now, before the container starts, so the table never
+    // shows Claude at work on a Meta run.
     if (meta)
       await this.deps.db
         .update(agentRuns)
-        .set({
-          implementer: this.rolesFor({ implementer: "meta" }).implementer,
-        })
+        .set(this.rolesFor({ implementer: "meta" }))
         .where(eq(agentRuns.id, runId));
     return {
       runId,
@@ -453,8 +481,8 @@ export class RunPipeline {
   private rolesFor(run: Pick<PreparedRun, "implementer">): PipelineRoles {
     if (run.implementer !== "meta") return this.deps.roles;
     return {
-      ...this.deps.roles,
       implementer: `${this.deps.museModel ?? MUSE_MODEL}:${this.deps.museEffort ?? MUSE_EFFORT}`,
+      reviewer: reviewerFor("meta"),
     };
   }
 
@@ -567,6 +595,12 @@ export class RunPipeline {
     if (runId) await this.syncActivity(runId);
     if (isMuseSession(sessionId))
       return (await this.muse().state(sessionId)).state;
+    return this.claudeState(sessionId);
+  }
+
+  private async claudeState(
+    sessionId: string,
+  ): Promise<"working" | "done" | "failed"> {
     const session = await this.deps.anthropic.getSession(sessionId);
     if (session.status === "terminated") return "failed";
     return session.status === "idle" ? "done" : "working";
@@ -665,29 +699,32 @@ export class RunPipeline {
     earlier?: Review,
   ): Promise<string> {
     const files = await this.changes(implementerSessionId);
-    const bundle = {
+    const bundle = JSON.stringify({
       files: files.map((file) => ({
         path: file.path,
         content: file.content,
         mode: file.mode,
       })),
-    };
+    });
+    const task = reviewTask({
+      ticket: run.ticket,
+      implementerSummary: snapshot.summary,
+      criteria: snapshot.criteria,
+      verification: snapshot.verification,
+      notVerified: snapshot.not_verified,
+      risks: snapshot.risks,
+      earlier,
+      pullRequestSummary:
+        run.kind === "correction" ? snapshot.pr_summary : null,
+    });
+    if (run.implementer === "meta")
+      return this.startClaudeReview(run, task, bundle);
     const { owner, repo } = splitRepository(run.repository);
     const session = await this.deps.openai.createSession({
       model: this.deps.reviewerModel,
       effort: this.deps.reviewerEffort,
       instructions: REVIEWER_INSTRUCTIONS,
-      task: reviewTask({
-        ticket: run.ticket,
-        implementerSummary: snapshot.summary,
-        criteria: snapshot.criteria,
-        verification: snapshot.verification,
-        notVerified: snapshot.not_verified,
-        risks: snapshot.risks,
-        earlier,
-        pullRequestSummary:
-          run.kind === "correction" ? snapshot.pr_summary : null,
-      }),
+      task,
       repository: {
         owner,
         repo,
@@ -697,11 +734,7 @@ export class RunPipeline {
       files: [
         {
           path: "/workspace/proposed.json",
-          data: btoa(
-            String.fromCharCode(
-              ...new TextEncoder().encode(JSON.stringify(bundle)),
-            ),
-          ),
+          data: btoa(String.fromCharCode(...new TextEncoder().encode(bundle))),
         },
       ],
       setupCommands: [STAGE_PROPOSED],
@@ -709,16 +742,58 @@ export class RunPipeline {
     return session.id;
   }
 
+  /** Meta's change, read by Claude in a session of its own. */
+  private async startClaudeReview(
+    run: PreparedRun,
+    task: string,
+    bundle: string,
+  ): Promise<string> {
+    const [model, effort] = META_REVIEWER.split(":");
+    reviewAgent ??= this.deps.anthropic
+      .ensureAgent({
+        name: "Yarrow reviewer",
+        model: model!,
+        effort,
+        system: REVIEWER_INSTRUCTIONS,
+      })
+      .catch((error: Error) => {
+        reviewAgent = null;
+        throw error;
+      });
+    const proposed = await this.deps.anthropic.uploadFile(
+      "proposed.json",
+      new TextEncoder().encode(bundle),
+      "application/json",
+    );
+    const session = await this.deps.anthropic.createSession({
+      agentId: await reviewAgent,
+      environmentId: this.deps.defaultEnvironmentId,
+      title: `review: ${run.ticket.title}`,
+      repository: {
+        url: `https://github.com/${run.repository}`,
+        token: await this.token(run, "read"),
+        branch: run.checkoutBranch,
+      },
+      files: [{ fileId: proposed.id, mountPath: PROPOSED_MOUNT }],
+      message: `${stageFirst(PROPOSED_PATH)}\n\n${task}`,
+    });
+    return session.id;
+  }
+
   async reviewerState(
     sessionId: string,
   ): Promise<"working" | "done" | "failed"> {
+    if (isClaudeSession(sessionId)) return this.claudeState(sessionId);
     const session = await this.deps.openai.getSession(sessionId);
     if (session.status === "failed") return "failed";
     return session.status === "idle" ? "done" : "working";
   }
 
   async readReview(sessionId: string): Promise<Review> {
-    return parseReview(await this.deps.openai.finalText(sessionId));
+    const text = isClaudeSession(sessionId)
+      ? await this.deps.anthropic.finalText(sessionId)
+      : await this.deps.openai.finalText(sessionId);
+    return parseReview(text);
   }
 
   async readClarity(sessionId: string) {
@@ -741,9 +816,9 @@ export class RunPipeline {
   }
 
   /**
-   * What each model did: Anthropic reports the implementer's model, effort,
-   * tokens, compute time and exact cost; OpenAI reports the reviewer's tokens,
-   * so its cost is tokens × list price and its time is measured by the brain.
+   * What each model did: Anthropic reports a session's model, effort, tokens,
+   * compute time and exact cost; OpenAI reports the reviewer's tokens, so its
+   * cost is tokens × list price and its time is measured by the brain.
    */
   async usage(
     implementerSessionId: string | null,
@@ -756,14 +831,10 @@ export class RunPipeline {
       const session =
         await this.deps.anthropic.getSession(implementerSessionId);
       const usage = session.usage ?? {};
-      const created =
-        (usage.cache_creation?.ephemeral_1h_input_tokens ?? 0) +
-        (usage.cache_creation?.ephemeral_5m_input_tokens ?? 0);
-      const cached = usage.cache_read_input_tokens ?? 0;
+      const tokens = claudeTokens(session);
       const effort = session.agent?.model?.effort;
       const [defaultModel, defaultEffort] =
         this.deps.roles.implementer.split(":");
-      const tokens = usage.input_tokens !== undefined;
       models.push({
         role: "implementer",
         model: session.agent?.model?.id ?? defaultModel!,
@@ -777,11 +848,9 @@ export class RunPipeline {
             ? null
             : Math.round(usage.active_seconds),
         secondsExact: usage.active_seconds !== undefined,
-        inputTokens: tokens
-          ? (usage.input_tokens ?? 0) + cached + created
-          : null,
-        cachedInputTokens: tokens ? cached : null,
-        outputTokens: tokens ? (usage.output_tokens ?? 0) : null,
+        inputTokens: tokens?.input ?? null,
+        cachedInputTokens: tokens?.cached ?? null,
+        outputTokens: tokens?.output ?? null,
         costCents: listCostCents(session),
         costExact: true,
       });
@@ -790,30 +859,43 @@ export class RunPipeline {
       let costCents = 0;
       let seconds: number | null = 0;
       const totals = { input: 0, cached: 0, output: 0 };
+      // One row for the role: on a Meta run, Claude's review and, when the
+      // ticket was unclear, OpenAI's second opinion together.
+      let claude = 0;
       for (const reviewer of reviewers) {
-        const usages = await this.deps.openai.usage(reviewer.id);
-        costCents += usageCostCents(usages, this.deps.reviewerRates);
-        const tokens = usageTokens(usages);
-        totals.input += tokens.input;
-        totals.cached += tokens.cached;
-        totals.output += tokens.output;
-        seconds =
-          seconds === null || reviewer.seconds === null
-            ? null
-            : seconds + reviewer.seconds;
+        let spent = reviewer.seconds;
+        let tokens: typeof totals | null;
+        if (isClaudeSession(reviewer.id)) {
+          const session = await this.deps.anthropic.getSession(reviewer.id);
+          claude += 1;
+          costCents += listCostCents(session);
+          tokens = claudeTokens(session);
+          const active = session.usage?.active_seconds;
+          if (active !== undefined) spent = Math.round(active);
+        } else {
+          const usages = await this.deps.openai.usage(reviewer.id);
+          costCents += usageCostCents(usages, this.deps.reviewerRates);
+          tokens = usageTokens(usages);
+        }
+        totals.input += tokens?.input ?? 0;
+        totals.cached += tokens?.cached ?? 0;
+        totals.output += tokens?.output ?? 0;
+        seconds = seconds === null || spent === null ? null : seconds + spent;
       }
+      const [claudeModel, claudeEffort] = META_REVIEWER.split(":");
+      const exact = claude === reviewers.length;
       models.push({
         role: "reviewer",
-        model: this.deps.reviewerModel,
-        effort: this.deps.reviewerEffort ?? null,
+        model: claude ? claudeModel! : this.deps.reviewerModel,
+        effort: claude ? claudeEffort! : (this.deps.reviewerEffort ?? null),
         sessions: reviewers.length,
         seconds,
-        secondsExact: false,
+        secondsExact: exact,
         inputTokens: totals.input,
         cachedInputTokens: totals.cached,
         outputTokens: totals.output,
         costCents,
-        costExact: false,
+        costExact: exact,
       });
     }
     return {

@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { defaultPipelineRoles } from "../../src/core/pipeline";
+import { defaultPipelineRoles, reviewerFor } from "../../src/core/pipeline";
 import { ensureAccount } from "../../src/db/accounts";
 import {
   createPendingContribution,
@@ -198,6 +198,25 @@ function fakeProviders() {
     if (url.endsWith("/v1/environments/env_1")) return json({ id: "env_1" });
     if (url === "https://api.anthropic.com/v1/files" && init.method === "POST")
       return json({ id: "file_recorder" });
+    if (url.endsWith("/v1/agents?limit=100")) return json({ data: [] });
+    if (url === "https://api.anthropic.com/v1/agents")
+      return json({ id: "agent_review", version: 1 });
+    if (url.includes("/v1/sessions/sesn_1/events"))
+      return json({
+        data: [
+          {
+            id: "evt_1",
+            type: "agent.message",
+            processed_at: null,
+            content: [
+              {
+                type: "text",
+                text: '{"changed":"Exports stay empty.","comments":[]}',
+              },
+            ],
+          },
+        ],
+      });
     if (url === "https://api.anthropic.com/v1/sessions")
       return json({ id: "sesn_1", status: "running" });
     if (url.endsWith("/v1/sessions/sesn_1"))
@@ -779,6 +798,7 @@ describe("run pipeline", async () => {
     // Named before the container starts: the table never says Claude.
     const [prepared] = await raw.select().from(schema.agentRuns);
     expect(prepared!.implementer).toBe("muse-wonder-1.0:high");
+    expect(prepared!.reviewer).toBe("claude-opus-5-5:high");
     // No Claude environment is touched.
     expect(calls.some((call) => call.url.includes("/v1/environments"))).toBe(
       false,
@@ -820,29 +840,68 @@ describe("run pipeline", async () => {
       "the implementer (Meta)",
     );
 
+    // Claude reviews it, from a session of its own, and OpenAI not at all.
     const reviewerId = await runner.startReview(run, sessionId, snapshot);
+    expect(reviewerId).toBe("sesn_1");
+    expect(calls.some((call) => call.url.includes("api.openai.com"))).toBe(
+      false,
+    );
+    const agent = calls.find((call) => call.url.endsWith("/v1/agents"))!;
+    expect(agent.body).toMatchObject({
+      name: "Yarrow reviewer",
+      model: { id: "claude-opus-5-5", effort: "high" },
+    });
+    expect((agent.body as { system: string }).system).toMatch(
+      /^You are the code reviewer of Yarrow/,
+    );
+    const session = calls.find((call) => call.url.endsWith("/v1/sessions"))!
+      .body as {
+      agent: string;
+      resources: { type: string; mount_path: string }[];
+      initial_events: { content: { text: string }[] }[];
+    };
+    expect(session.agent).toBe("agent_review");
+    expect(session.resources).toContainEqual(
+      expect.objectContaining({
+        type: "file",
+        mount_path: "/yarrow/proposed.json",
+      }),
+    );
+    const message = session.initial_events[0]!.content[0]!.text;
+    expect(message).toMatch(/^Before anything else, stage the proposed change/);
+    expect(message).toContain(
+      "cp /mnt/session/uploads/yarrow/proposed.json /workspace/proposed.json",
+    );
+    expect(message).toContain("Review the staged change");
+    expect(await runner.reviewerState(reviewerId)).toBe("done");
     const review = await runner.readReview(reviewerId);
+    expect(review.summary).toBe("Exports stay empty.");
     const presentation = await runner.presentation(run, sessionId);
     expect(presentation).toMatchObject({ kind: "presentation" });
     await runner.deliver(
       run,
       sessionId,
       snapshot,
-      { ...review, reviewer: defaultPipelineRoles.reviewer, rounds: 1 },
+      { ...review, reviewer: reviewerFor(run.implementer), rounds: 1 },
       presentation,
     );
     const pull = calls.find((call) => call.url.endsWith("/pulls"))!;
     expect((pull.body as { body: string }).body).toContain(
-      "Implemented by Muse Wonder · Reviewed by GPT Astra",
+      "Implemented by Muse Wonder · Reviewed by Claude Opus 5.5",
     );
     const commit = calls.find((call) => call.url.endsWith("/git/commits"))!;
     expect((commit.body as { message: string }).message).toContain(
-      "Assisted-by: Muse Wonder, GPT Astra (Yarrow)",
+      "Assisted-by: Muse Wonder, Claude Opus 5.5 (Yarrow)",
     );
 
     // Wonder: 200k fresh × $4 + 800k cached × $0.20 + 10k out × $20 = 116¢,
     // and the container's 10 minutes, 4¢.
-    const usage = await runner.usage(sessionId, []);
+    // Claude's review as its session reports it (187¢), with OpenAI's second
+    // opinion (163¢) in the role's one row.
+    const usage = await runner.usage(sessionId, [
+      { id: "rev_1", seconds: 30 },
+      { id: reviewerId, seconds: 90 },
+    ]);
     expect(usage.models).toEqual([
       {
         role: "implementer",
@@ -855,6 +914,19 @@ describe("run pipeline", async () => {
         cachedInputTokens: 800_000,
         outputTokens: 10_000,
         costCents: 120,
+        costExact: false,
+      },
+      {
+        role: "reviewer",
+        model: "claude-opus-5-5",
+        effort: "high",
+        sessions: 2,
+        seconds: 102,
+        secondsExact: false,
+        inputTokens: 243_000,
+        cachedInputTokens: 140_000,
+        outputTokens: 15_000,
+        costCents: 350,
         costExact: false,
       },
     ]);

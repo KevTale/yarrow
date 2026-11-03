@@ -18,10 +18,10 @@ function Terms() {
       <h2>1. The service</h2>
       <p>
         Builders connect repositories and choose tickets. For each ticket, AI
-        models from Anthropic and OpenAI, used through their commercial APIs,
-        write and review a draft pull request, or explain why they abstained.
-        Sponsors pay for that compute, and their public name appears on the
-        leaderboard and on the pull requests they fund.
+        models from Anthropic, Meta and OpenAI, used through their commercial
+        APIs, write and review a draft pull request, or explain why they
+        abstained. Sponsors pay for that compute, and their public name appears
+        on the leaderboard and on the pull requests they fund.
       </p>
 
       <h2>2. Accounts</h2>

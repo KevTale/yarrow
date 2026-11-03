@@ -30,6 +30,13 @@ export const defaultPipelineRoles: PipelineRoles = {
   reviewer: "openai-astra",
 };
 
+/** Who reviews Muse Wonder's changes, in a Claude session of its own. */
+export const META_REVIEWER = "claude-opus-5-5:high";
+
+/** Who reviews a run: never the lab that wrote it. */
+export const reviewerFor = (implementer?: "claude" | "meta") =>
+  implementer === "meta" ? META_REVIEWER : defaultPipelineRoles.reviewer;
+
 /** Initial reservation per run. An estimate, not a cap: runs top up as they spend. */
 export const INITIAL_RESERVATION_CENTS = 300;
 
@@ -39,6 +46,7 @@ const displayNames: Record<string, string> = {
   "openai-astra": "GPT Astra",
   "gpt-6-astra": "GPT Astra",
   "muse-wonder-1.0": "Muse Wonder",
+  "muse-spark-1.3": "Muse Spark",
 };
 
 /** Factual attribution ("Implemented by Claude Opus 5.5"), never product branding. */
