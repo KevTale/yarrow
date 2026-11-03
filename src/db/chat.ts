@@ -4,6 +4,7 @@ import {
   count,
   eq,
   gte,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -12,6 +13,7 @@ import {
 import {
   CHAT_DAILY_QUESTIONS,
   chatDayStart,
+  type ChatTicket,
   type ChatUsage,
 } from "../core/chat";
 import type { Database } from "./client";
@@ -27,6 +29,9 @@ export interface PanelMessage {
   /** A change the agent proposes; once made, the correction it queued. */
   change: string | null;
   correctionRequestId: string | null;
+  /** A ticket the agent proposes; once created, its key. */
+  ticket: ChatTicket | null;
+  ticketKey: string | null;
   createdAt: string;
 }
 
@@ -144,6 +149,7 @@ export async function saveSpokenTurn(
     said: string | null;
     words: string;
     change: string | null;
+    ticket: ChatTicket | null;
     usage: ChatUsage | null;
   },
   at = new Date(),
@@ -166,6 +172,7 @@ export async function saveSpokenTurn(
       userId: input.userId,
       body: input.words,
       change: input.change,
+      ticket: input.ticket,
       usage: input.usage,
       createdAt: new Date(at.getTime() + 1),
     },
@@ -176,7 +183,12 @@ export async function saveSpokenTurn(
 export async function saveAnswer(
   db: Database,
   answerId: string,
-  answer: { body: string; change: string | null; usage: ChatUsage | null },
+  answer: {
+    body: string;
+    change: string | null;
+    ticket: ChatTicket | null;
+    usage: ChatUsage | null;
+  },
 ): Promise<void> {
   await db
     .update(chatMessages)
@@ -216,6 +228,8 @@ export async function threadMessages(
     status: row.status,
     change: row.change,
     correctionRequestId: row.correctionRequestId,
+    ticket: row.ticket,
+    ticketKey: row.ticketKey,
     createdAt: new Date(row.createdAt).toISOString(),
   }));
 }
@@ -271,6 +285,48 @@ export async function linkChange(
         eq(chatMessages.id, input.messageId),
         eq(chatMessages.workUnitId, input.workUnitId),
         isNull(chatMessages.correctionRequestId),
+      ),
+    );
+}
+
+/** The ticket an answer's card already created: one card, one ticket. */
+export async function proposedTicketKey(
+  db: Database,
+  input: { projectId: string; messageId: string },
+): Promise<string | null> {
+  const [row] = await db
+    .select({ key: chatMessages.ticketKey })
+    .from(chatMessages)
+    .innerJoin(workUnits, eq(workUnits.id, chatMessages.workUnitId))
+    .where(
+      and(
+        eq(chatMessages.id, input.messageId),
+        eq(workUnits.projectId, input.projectId),
+      ),
+    );
+  return row?.key ?? null;
+}
+
+/** A proposed ticket created from its card: the card links to it. */
+export async function linkTicket(
+  db: Database,
+  input: { projectId: string; messageId: string; ticketKey: string },
+): Promise<void> {
+  await db
+    .update(chatMessages)
+    .set({ ticketKey: input.ticketKey })
+    .where(
+      and(
+        eq(chatMessages.id, input.messageId),
+        isNotNull(chatMessages.ticket),
+        isNull(chatMessages.ticketKey),
+        inArray(
+          chatMessages.workUnitId,
+          db
+            .select({ id: workUnits.id })
+            .from(workUnits)
+            .where(eq(workUnits.projectId, input.projectId)),
+        ),
       ),
     );
 }

@@ -94,6 +94,7 @@ import {
   chatContextText,
   hasVideo,
   type ChatAnswer,
+  spottedLines,
 } from "../src/runner/chat";
 import { restoreStage } from "../src/runner/stage-restore";
 import {
@@ -1475,6 +1476,7 @@ async function talkContext(
     video: hasVideo(context.panel),
     project: context.project,
     pullRequest: pull,
+    spotted: spottedLines(context.panel),
   };
 }
 
@@ -1627,7 +1629,7 @@ async function talkRoute(
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
       const body = [answer.words, answer.written].filter(Boolean).join("\n\n");
-      if (!bench && !dropped && (body || answer.change))
+      if (!bench && !dropped && (body || answer.change || answer.ticket))
         await withDb(env, (db) =>
           saveSpokenTurn(
             db,
@@ -1637,6 +1639,7 @@ async function talkRoute(
               said: said.startsWith(SLIP) ? null : said,
               words: body,
               change: answer.change,
+              ticket: answer.ticket,
               usage: answer.usage,
             },
             new Date(started),
@@ -1658,6 +1661,7 @@ async function talkRoute(
             cents: chatCostCents(answer.usage),
             words: answer.words,
             change: answer.change,
+            ticket: answer.ticket,
             resume: answer.resume,
             screen: after?.screen?.slice(0, 6000) ?? null,
           })}\n\n`,

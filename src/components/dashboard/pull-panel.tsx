@@ -13,6 +13,7 @@ import {
   MicOff,
   Play,
   RectangleHorizontal,
+  Ticket,
   X,
 } from "lucide-react";
 import {
@@ -25,7 +26,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { answerToRead, chatParts } from "@/core/chat";
+import { answerToRead, chatParts, type ChatTicket } from "@/core/chat";
 import { previewHref } from "@/core/preview";
 import { groupFiles } from "@/core/changed-files";
 import { money } from "@/core/packs";
@@ -349,7 +350,7 @@ export function PullPanel({
     if (
       answer &&
       answer.status !== "failed" &&
-      !answerToRead(answer.body, answer.change) &&
+      !answerToRead(answer.body, answer.change ?? answer.ticket) &&
       saved(VOICE_KEY)
     )
       sayAnswer({ projectId, key: rowKey, messageId: answer.id });
@@ -908,11 +909,11 @@ function Ideas({
   /** A suggestion was made a ticket: the panel reads it gone. */
   onMade: () => void;
 }) {
-  const draft = useContext(DraftTicket);
+  const tickets = useContext(DraftTicket);
   // Gone at once, before the panel is read again.
   const [made, setMade] = useState<string[]>([]);
   const { implementation, pullRequest } = panel;
-  if (!draft || !implementation) return null;
+  if (!tickets || !implementation) return null;
   const lines = implementation.spotted.filter((line) => !made.includes(line));
   if (lines.length === 0) return null;
   return (
@@ -920,14 +921,15 @@ function Ideas({
       type="button"
       className="pp-act"
       onClick={() =>
-        draft(
+        tickets.open(
           projectId,
           lines.map((line) => ({
             ...spottedTicket(line, implementation.by, pullRequest?.url ?? null),
             from: { key: rowKey, note: line },
           })),
           ({ from }) => {
-            if (from) setMade((shown) => [...shown, from.note]);
+            const note = from?.note;
+            if (note) setMade((shown) => [...shown, note]);
             onMade();
           },
         )
@@ -1029,6 +1031,8 @@ const local = (
   status: author === "agent" ? "pending" : "done",
   change: null,
   correctionRequestId: null,
+  ticket: null,
+  ticketKey: null,
   createdAt: new Date(at).toISOString(),
 });
 
@@ -1340,6 +1344,16 @@ function Answer({
             onMade={onMade}
           />
         ))}
+      {message.ticket && (
+        <TicketCard
+          ticket={message.ticket}
+          messageId={message.id}
+          ticketKey={message.ticketKey}
+          projectId={projectId}
+          rowKey={rowKey}
+          onMade={onMade}
+        />
+      )}
     </>
   );
 }
@@ -1456,6 +1470,106 @@ function Proposal({
               {error}
             </span>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A ticket the agent proposes, once asked: one click creates it where the
+ * project's tickets go, not started. Edit opens the new ticket dialog on it,
+ * to reword it, send it elsewhere or start it. Created, it links to the
+ * ticket; left alone, it stays here.
+ */
+function TicketCard({
+  ticket,
+  messageId,
+  ticketKey,
+  projectId,
+  rowKey,
+  onMade,
+}: {
+  ticket: ChatTicket;
+  messageId: string;
+  ticketKey: string | null;
+  projectId: string;
+  rowKey: string;
+  onMade: () => void;
+}) {
+  const tickets = useContext(DraftTicket);
+  const [pending, setPending] = useState(false);
+  const [made, setMade] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const draft = {
+    title: ticket.title,
+    body: ticket.body,
+    from: { key: rowKey, note: ticket.note, messageId },
+  };
+
+  async function submit() {
+    if (pending || !tickets) return;
+    setError("");
+    setPending(true);
+    try {
+      const result = await tickets.create(projectId, draft);
+      if (result.ok) {
+        setMade(result.key);
+        onMade();
+      } else setError(result.error);
+    } catch {
+      setError("That did not go through. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const key = made ?? ticketKey;
+  if (key)
+    return (
+      <button
+        type="button"
+        className="pp-act pp-ticket-made"
+        disabled={!tickets}
+        onClick={() => tickets?.show(projectId, key)}
+      >
+        <Ticket size={15} aria-hidden="true" />
+        <span>{ticket.title}</span>
+        <small>{/^\d+$/.test(key) ? `#${key}` : key}</small>
+      </button>
+    );
+  return (
+    <div className="pp-proposal">
+      <div className="pp-proposal-head">
+        <Ticket size={15} aria-hidden="true" />
+        Ticket
+      </div>
+      <p className="pp-proposal-title">{ticket.title}</p>
+      <p>
+        <Rich text={ticket.body} />
+      </p>
+      {tickets && (
+        <div className="pp-proposal-foot">
+          {error && (
+            <span className="pp-error" role="alert">
+              {error}
+            </span>
+          )}
+          <button
+            type="button"
+            className="pp-act"
+            onClick={() => tickets.open(projectId, [draft], () => onMade())}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="pp-send"
+            aria-disabled={pending}
+            onClick={() => void submit()}
+          >
+            Create ticket {pending && <Spinner />}
+          </button>
         </div>
       )}
     </div>

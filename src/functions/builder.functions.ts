@@ -17,7 +17,7 @@ import { requestGithubTask } from "@/db/github-tasks";
 import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
 import { projects as projectsTable, workUnits } from "@/db/schema";
-import { threadMessages } from "@/db/chat";
+import { linkTicket, proposedTicketKey, threadMessages } from "@/db/chat";
 import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
@@ -484,11 +484,13 @@ export const createTicketFn = createServerFn({ method: "POST" })
       title: z.string().trim().min(1).max(TITLE_MAX),
       body: z.string().max(BODY_MAX),
       queue: z.boolean(),
-      // Drafted from a pull request's suggestion: it leaves that list.
+      // Drafted from a pull request: a suggestion leaves that list, a card
+      // in its conversation links to the ticket.
       from: z
         .object({
           key: z.string().max(40),
-          note: z.string().min(1).max(BODY_MAX),
+          note: z.string().min(1).max(BODY_MAX).optional(),
+          messageId: z.uuid().optional(),
         })
         .optional(),
     }),
@@ -498,16 +500,16 @@ export const createTicketFn = createServerFn({ method: "POST" })
       data,
     }): Promise<{ ok: true; key: string } | { ok: false; error: string }> => {
       const made = async (ticketKey: string) => {
-        const from = data.from;
+        const { projectId, from } = data;
         if (!from) return;
+        const { key, note, messageId } = from;
         // The ticket is made either way: a suggestion left listed is the lesser harm.
-        await withDb((db) =>
-          madeSpottedTicket(db, {
-            projectId: data.projectId,
-            ...from,
-            ticketKey,
-          }),
-        ).catch(() => {});
+        await withDb(async (db) => {
+          if (note)
+            await madeSpottedTicket(db, { projectId, key, note, ticketKey });
+          if (messageId)
+            await linkTicket(db, { projectId, messageId, ticketKey });
+        }).catch(() => {});
       };
       const viewer = await requireViewer();
       const body = openedFromYarrow(
@@ -517,6 +519,13 @@ export const createTicketFn = createServerFn({ method: "POST" })
       const project = await withDb((db) =>
         requireProjectMember(db, viewer.userId, data.projectId),
       );
+      const messageId = data.from?.messageId;
+      if (messageId) {
+        const key = await withDb((db) =>
+          proposedTicketKey(db, { projectId: project.id, messageId }),
+        );
+        if (key) return { ok: true, key };
+      }
       if (data.destination === "github") {
         const brain = appEnv().BRAIN;
         if (!brain) return unavailable;

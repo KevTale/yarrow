@@ -11,28 +11,32 @@ type Board = { tracker: string; key: string; site: string };
 
 /**
  * A ticket written for the builder, to read, change and send; from a pull
- * request's suggestion (its row's key and the note as written), which
- * leaves that list once the ticket is made.
+ * request (its row's key): a suggestion (the note as written), which leaves
+ * that list once the ticket is made, or a card in its conversation, which
+ * then links to it.
  */
 export type TicketDraft = {
   title: string;
   body: string;
-  from?: { key: string; note: string };
+  from?: { key: string; note?: string; messageId?: string };
 };
 
-/**
- * Opens the new ticket dialog in a project, filled in (what the agents
- * noticed outside their ticket), and says when each is made. Only the
- * builder's dashboard provides it.
- */
-export const DraftTicket = createContext<
-  | ((
-      projectId: string,
-      drafts: TicketDraft[],
-      onMade?: (draft: TicketDraft) => void,
-    ) => void)
-  | null
->(null);
+/** Tickets from a pull request. Only the builder's dashboard provides it. */
+export const DraftTicket = createContext<{
+  /** The new ticket dialog in a project, filled in; says when each is made. */
+  open: (
+    projectId: string,
+    drafts: TicketDraft[],
+    onMade?: (draft: TicketDraft) => void,
+  ) => void;
+  /** Made as it stands, where the project's tickets go, not started. */
+  create: (
+    projectId: string,
+    draft: TicketDraft,
+  ) => Promise<{ ok: true; key: string } | { ok: false; error: string }>;
+  /** Opens a ticket's row in the list. */
+  show: (projectId: string, key: string) => void;
+} | null>(null);
 
 /** The dialog only opens on a click, so the browser is there to ask. */
 const shortcut = () =>
@@ -53,6 +57,21 @@ const remember = (projectId: string, destination: string) => {
     // Private window: the default comes back next time.
   }
 };
+
+const trackedBoards = (boards: Board[]) =>
+  boards.filter(
+    (board) => board.tracker === "jira" || board.tracker === "linear",
+  );
+
+/** Where a project's tickets go: the last chosen, else its tracker, else GitHub. */
+export function ticketDestination(projectId: string, boards: Board[]): string {
+  const tracked = trackedBoards(boards);
+  const last = remembered(projectId);
+  return last &&
+    (last === "github" || tracked.some((board) => board.key === last))
+    ? last
+    : (tracked[0]?.key ?? "github");
+}
 
 /**
  * A ticket written in Yarrow, in a dialog over the list: a GitHub issue, or
@@ -88,17 +107,11 @@ export function NewTicket({
   onClose: () => void;
 }) {
   const create = useServerFn(createTicketFn);
-  const tracked = boards.filter(
-    (board) => board.tracker === "jira" || board.tracker === "linear",
+  const tracked = trackedBoards(boards);
+  // A team that links Jira or Linear files its tickets there.
+  const [destination, setDestination] = useState(() =>
+    ticketDestination(projectId, boards),
   );
-  const destinations = ["github", ...tracked.map((board) => board.key)];
-  const [destination, setDestination] = useState(() => {
-    const last = remembered(projectId);
-    // A team that links Jira or Linear files its tickets there.
-    return last && destinations.includes(last)
-      ? last
-      : (tracked[0]?.key ?? "github");
-  });
   const many = (drafts?.length ?? 0) > 1;
   const [left, setLeft] = useState(drafts ?? [{ title: "", body: "" }]);
   const [at, setAt] = useState(0);

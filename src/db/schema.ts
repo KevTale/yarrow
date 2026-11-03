@@ -14,7 +14,7 @@ import {
   primaryKey,
   customType,
 } from "drizzle-orm/pg-core";
-import type { ChatUsage } from "../core/chat";
+import type { ChatTicket, ChatUsage } from "../core/chat";
 import type { AppRecipe, ResultDetails } from "../core/contracts";
 import type { StoredArtifact, StoredReview } from "../core/review";
 import type { TicketMoves } from "../core/tracker-moves";
@@ -750,6 +750,10 @@ export const chatMessages = pgTable(
     correctionRequestId: uuid("correction_request_id").references(
       () => correctionRequests.id,
     ),
+    // A ticket the agent proposes, created only from its card.
+    ticket: jsonb("ticket").$type<ChatTicket | null>(),
+    // Once created: its key.
+    ticketKey: text("ticket_key"),
     usage: jsonb("usage").$type<ChatUsage | null>(),
     createdAt: createdAt(),
   },

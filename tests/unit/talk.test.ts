@@ -134,6 +134,7 @@ function claude(
 const context: TalkContext = {
   text: "Pull request #4 of marie/halyard: a status filter above the list.",
   video: true,
+  spotted: [],
   project: {
     id: "p",
     name: "Halyard",
@@ -648,6 +649,61 @@ describe("the live call's turn", () => {
       say: () => {},
     });
     expect(merged.change).toBeNull();
+  });
+
+  it("proposes a ticket as a card, tied to the suggestion it comes from", async () => {
+    const proposing = (suggestion?: number) =>
+      claude((body) =>
+        (body.messages as unknown[]).length === 1
+          ? {
+              stop_reason: "tool_use",
+              content: [
+                {
+                  type: "tool_use",
+                  id: "t1",
+                  name: "propose_ticket",
+                  input: {
+                    title: "Keep the filter",
+                    body: "Adding a task leaves the filter as it is.",
+                    suggestion,
+                  },
+                },
+              ],
+            }
+          : {
+              stop_reason: "end_turn",
+              content: [{ type: "text", text: "It's in the conversation." }],
+            },
+      );
+    const asked = (client: Anthropic, spotted: string[]) =>
+      talkTurn({
+        client,
+        context: { ...context, spotted },
+        messages: [{ role: "user", content: "Make a ticket for that." }],
+        state: held,
+        sources,
+        stage: null,
+        say: () => {},
+      });
+    const spotted = ["Adding a task resets the filter — src/app.js"];
+
+    const plain = await asked(proposing().client, spotted);
+    expect(plain.ticket).toEqual({
+      title: "Keep the filter",
+      body: "Adding a task leaves the filter as it is.",
+    });
+    expect(plain.words).toBe("It's in the conversation.");
+
+    const from = await asked(proposing(1).client, spotted);
+    expect(from.ticket?.note).toBe(spotted[0]);
+
+    // No such suggestion: no card, and the agent is told.
+    const { client, requests } = proposing(2);
+    expect((await asked(client, spotted)).ticket).toBeNull();
+    const second = requests[1]!.body.messages as {
+      content: { type: string; is_error?: boolean }[];
+    }[];
+    expect(second.at(-1)!.content[0]!.is_error).toBe(true);
   });
 
   it("tells the agent what failed on the stage, and what it sees", async () => {

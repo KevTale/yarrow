@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { addUsage, type ChatUsage } from "../core/chat";
+import { addUsage, type ChatTicket, type ChatUsage } from "../core/chat";
 import {
   beatMark,
   VOICE_PUSH,
@@ -8,7 +8,13 @@ import {
   type StageState,
 } from "../core/stage";
 import type { ChatContext } from "../db/chat";
-import { CHAT_TOOLS, runChatTool, type ChatSources } from "./chat";
+import {
+  CHAT_TOOLS,
+  runChatTool,
+  TICKET_RULES,
+  type ChatSources,
+  type ChatToolResult,
+} from "./chat";
 import { gestureWords } from "./gestures";
 import {
   isStageTool,
@@ -51,6 +57,8 @@ export interface TalkContext {
   video: boolean;
   project: ChatContext["project"];
   pullRequest: ChatContext["pullRequest"];
+  /** The suggested tickets, as numbered in `text`. */
+  spotted: string[];
 }
 
 /**
@@ -112,7 +120,9 @@ ${
 }The conversation:
 - Beside ${onStage ? "the stage" : video ? "the demo" : "what the page shows"}, the pull request's conversation: what was written and said before this call is below, and each turn of this call joins it.
 - You never change code yourself. When they ask for a change to this pull request, or say yes to one you suggested, call propose_change: it shows as a card in the conversation, and they make it with one click. Then say in one sentence that it is there, without reading it out.
-- The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.`;
+- The card says what will change for the people using the app, in plain words, never code or file names; the app's labels quoted as it shows them, untranslated. Do not propose a change they did not ask for.
+
+${TICKET_RULES}`;
 
 /** What only the eye can follow, written where the member reads the call. */
 const WRITE: Anthropic.Beta.BetaTool = {
@@ -344,6 +354,8 @@ export interface TalkAnswer {
   written: string;
   /** The change it proposed: a card in the thread, made only from there. */
   change: string | null;
+  /** The ticket it proposed: a card too, created only from there. */
+  ticket: ChatTicket | null;
   /** The film plays on (a tool of the page): from a chapter, or where it was. */
   resume: { chapter: number | null } | null;
   usage: ChatUsage;
@@ -381,6 +393,7 @@ export async function talkTurn(input: {
   let words = "";
   const written: string[] = [];
   let change: string | null = null;
+  let ticket: ChatTicket | null = null;
   const speak = (text: string) => {
     if (!text) return;
     if (firstWordMs === null) firstWordMs = Date.now() - started;
@@ -419,6 +432,7 @@ export async function talkTurn(input: {
       words: words.trim(),
       written: written.join("\n\n"),
       change,
+      ticket,
       resume,
       usage,
       firstWordMs,
@@ -501,7 +515,7 @@ export async function talkTurn(input: {
           ? (call.input as { text?: unknown } | null)?.text
           : null;
       if (typeof down === "string" && down.trim()) written.push(down.trim());
-      const result: { text: string; error?: boolean; change?: string } = await (
+      const result: ChatToolResult = await (
         call.name === WRITE.name
           ? Promise.resolve({ text: "It shows in the conversation." })
           : isStageTool(call.name)
@@ -514,6 +528,7 @@ export async function talkTurn(input: {
         error: true,
       }));
       if (result.change) change = result.change;
+      if (result.ticket) ticket = result.ticket;
       steps.push({ what: stageStepName(call), ms: Date.now() - ran });
       results.push({
         type: "tool_result",

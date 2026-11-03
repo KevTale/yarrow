@@ -1506,6 +1506,8 @@ export function useLiveStage({
         status: "done",
         change: null,
         correctionRequestId: null,
+        ticket: null,
+        ticketKey: null,
         createdAt: new Date(line.at).toISOString(),
       })),
       ...(writing || thinking
@@ -1517,6 +1519,8 @@ export function useLiveStage({
               status: writing ? "done" : "pending",
               change: null,
               correctionRequestId: null,
+              ticket: null,
+              ticketKey: null,
               createdAt: "9999-12-31T23:59:59.998Z",
             } satisfies ThreadMessage,
           ]
@@ -1530,6 +1534,8 @@ export function useLiveStage({
               status: "pending",
               change: null,
               correctionRequestId: null,
+              ticket: null,
+              ticketKey: null,
               createdAt: "9999-12-31T23:59:59.999Z",
             } satisfies ThreadMessage,
           ]

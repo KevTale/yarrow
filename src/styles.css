@@ -9596,6 +9596,24 @@ html:has(.pp-stage:modal) {
   margin-left: 0;
   padding: 7px 13px;
 }
+.pp-proposal .pp-proposal-title {
+  margin-bottom: -6px;
+  font-weight: 500;
+}
+.pp-proposal-foot .pp-act {
+  height: 32px;
+}
+/* Created: the card comes down to a way to the ticket. */
+.pp-ticket-made {
+  justify-self: start;
+}
+.pp-ticket-made span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-ticket-made:disabled {
+  cursor: default;
+}
 /* The question box: one line, growing with what is typed. */
 .pp-asking {
   display: grid;

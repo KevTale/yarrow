@@ -169,6 +169,13 @@
       "when": 1793223542609,
       "tag": "0023_tracker_status_before",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793528043030,
+      "tag": "0024_chat_tickets",
+      "breakpoints": true
     }
   ]
 }

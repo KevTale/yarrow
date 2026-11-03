@@ -19,7 +19,9 @@ import {
   askQuestion,
   chatContext,
   failAnswer,
+  linkTicket,
   openProposal,
+  proposedTicketKey,
   pullContext,
   saveAnswer,
   saveSpokenTurn,
@@ -164,6 +166,7 @@ describe("questions and answers", () => {
     await saveAnswer(db, asked.answerId, {
       body: "Above the list.",
       change: null,
+      ticket: null,
       usage: null,
     });
     expect(await answerBody(db, input)).toBe("Above the list.");
@@ -246,6 +249,7 @@ describe("questions and answers", () => {
     await saveAnswer(db, second.answerId, {
       body: "Above the list.",
       change: null,
+      ticket: null,
       usage: null,
     });
     const third = await askQuestion(
@@ -281,6 +285,7 @@ describe("questions and answers", () => {
     await saveAnswer(db, first.answerId, {
       body: "Too late",
       change: null,
+      ticket: null,
       usage: null,
     });
     const [lost] = await raw
@@ -300,6 +305,7 @@ describe("questions and answers", () => {
         said: "Click Done.",
         words: "Only the done tasks are left.",
         change: null,
+        ticket: null,
       },
       at,
     );
@@ -310,13 +316,20 @@ describe("questions and answers", () => {
         said: "Put it on the title's line.",
         words: "It's in the conversation.",
         change: "The filter sits on the title's line.",
+        ticket: null,
       },
       new Date(at.getTime() + 30_000),
     );
     // A gesture put right: a turn of the agent's, no member said it.
     await saveSpokenTurn(
       db,
-      { ...turn, said: null, words: "It's there now.", change: null },
+      {
+        ...turn,
+        said: null,
+        words: "It's there now.",
+        change: null,
+        ticket: null,
+      },
       new Date(at.getTime() + 40_000),
     );
     const thread = await threadMessages(db, workUnitId);
@@ -360,6 +373,7 @@ describe("questions and answers", () => {
     await saveAnswer(db, asked.answerId, {
       body: "Proposed.",
       change: "Move the filters onto the title's line.",
+      ticket: null,
       usage: null,
     });
     const posted: string[] = [];
@@ -392,6 +406,43 @@ describe("questions and answers", () => {
       "Move the filters onto the title's line.",
     );
     expect(answer!.correctionRequestId).toBe(panel!.corrections[0]!.id);
+  });
+
+  it("links a proposed ticket once, inside its own project", async () => {
+    const asked = await askQuestion(db, {
+      workUnitId,
+      userId: marie.userId,
+      text: "Make a ticket for that",
+    });
+    if (!asked.ok) throw new Error("not asked");
+    const ticket = { title: "Sort by date", body: "Newest first." };
+    await saveAnswer(db, asked.answerId, {
+      body: "It's there.",
+      change: null,
+      ticket,
+      usage: null,
+    });
+    const card = async () =>
+      (await threadMessages(db, workUnitId)).find(
+        (message) => message.id === asked.answerId,
+      )!;
+    expect(await card()).toMatchObject({ ticket, ticketKey: null });
+
+    const input = {
+      projectId: (await projectId())!,
+      messageId: asked.answerId,
+    };
+    expect(await proposedTicketKey(db, input)).toBeNull();
+    // Another project's member reaches nothing here.
+    const elsewhere = { ...input, projectId: crypto.randomUUID() };
+    await linkTicket(db, { ...elsewhere, ticketKey: "9" });
+    expect(await proposedTicketKey(db, input)).toBeNull();
+
+    await linkTicket(db, { ...input, ticketKey: "12" });
+    await linkTicket(db, { ...input, ticketKey: "13" });
+    expect(await proposedTicketKey(db, input)).toBe("12");
+    expect(await proposedTicketKey(db, elsewhere)).toBeNull();
+    expect((await card()).ticketKey).toBe("12");
   });
 });
 
@@ -553,6 +604,25 @@ describe("what the agent knows the page shows", () => {
     expect(text).toContain("a button that opens the app, and the demo below.");
     expect(text).not.toContain("no demo");
   });
+
+  it("numbers the suggested tickets, and names their button", () => {
+    const text = shown({
+      implementation: {
+        by: "Claude",
+        summary: "Adds a filter.",
+        criteria: [],
+        verification: [],
+        notVerified: [],
+        risks: [],
+        spotted: ["Adding a task resets the filter", "The README link moved"],
+      } as never,
+    });
+    expect(text).toContain("a button that lists the suggested tickets");
+    expect(text).toContain(
+      "1. Adding a task resets the filter\n2. The README link moved",
+    );
+    expect(shown({})).not.toContain("suggested tickets");
+  });
 });
 
 describe("the agent that answers", () => {
@@ -581,6 +651,7 @@ describe("the agent that answers", () => {
               name: "propose_change",
               input: {
                 change: "The filters sit on the title's line, to the right.",
+                ticket: null,
               },
             },
           ],

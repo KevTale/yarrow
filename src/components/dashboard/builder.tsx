@@ -32,6 +32,7 @@ import {
   type TicketStage as Stage,
 } from "@/core/tickets";
 import {
+  createTicketFn,
   getBuilderFn,
   queueTicketsFn,
   retryTicketFn,
@@ -44,7 +45,12 @@ import { longDate, useDateTime } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/flow";
 import { JiraCard } from "./jira-card";
-import { DraftTicket, NewTicket, type TicketDraft } from "./new-ticket";
+import {
+  DraftTicket,
+  NewTicket,
+  ticketDestination,
+  type TicketDraft,
+} from "./new-ticket";
 import { ProjectSwitcher } from "./project-switcher";
 import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
@@ -150,6 +156,7 @@ export function BuilderView({
   const queue = useServerFn(queueTicketsFn);
   const unqueue = useServerFn(unqueueTicketsFn);
   const retry = useServerFn(retryTicketFn);
+  const createTicket = useServerFn(createTicketFn);
   const saveLogo = useServerFn(setProjectLogoFn);
   const [store, setStore] = useState<Record<string, BuilderData>>(() => ({
     ...Object.fromEntries(cache),
@@ -500,18 +507,45 @@ export function BuilderView({
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
     : project;
-  const draftTicket = (
-    id: string,
-    drafts: TicketDraft[],
-    onMade?: (draft: TicketDraft) => void,
-  ) => {
-    setComposing({ start: false, projectId: id, drafts, onMade });
-    // Not read yet: the dialog opens once it is.
-    if (!store[id]) void pull(id);
+  const tickets = {
+    open: (
+      id: string,
+      drafts: TicketDraft[],
+      onMade?: (draft: TicketDraft) => void,
+    ) => {
+      setComposing({ start: false, projectId: id, drafts, onMade });
+      // Not read yet: the dialog opens once it is.
+      if (!store[id]) void pull(id);
+    },
+    create: async (id: string, draft: TicketDraft) => {
+      const result = await createTicket({
+        data: {
+          projectId: id,
+          destination: ticketDestination(id, store[id]?.project?.boards ?? []),
+          title: draft.title,
+          body: draft.body,
+          queue: false,
+          from: draft.from,
+        },
+      });
+      if (result.ok) {
+        setFresh(result.key);
+        issuesRead.delete(id);
+        void pull(id);
+      }
+      return result;
+    },
+    show: (id: string, key: string) => {
+      setQuery("");
+      const row = rows.find((one) => one.key === key);
+      unfold(row ? ticketStage(row) : "todo");
+      setFresh(key);
+      setOpened(`${id}:${key}`);
+    },
   };
 
   return (
-    <DraftTicket.Provider value={draftTicket}>
+    <DraftTicket.Provider value={tickets}>
       <div className="bd">
         {jiraCard}
         <div className="tix-head">

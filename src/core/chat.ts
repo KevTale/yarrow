@@ -31,12 +31,20 @@ export function spokenAnswer(body: string): string {
 }
 
 /** An answer that is read, not heard: what it shows only the eye can follow. */
-export function answerToRead(body: string, change: string | null): boolean {
+export function answerToRead(body: string, card: unknown): boolean {
   return (
-    Boolean(change) ||
+    Boolean(card) ||
     body.length > SPOKEN_CHARS ||
     /```|^\s*(?:[-*]|\d+\.)\s/m.test(body)
   );
+}
+
+/** A ticket the agent proposes in the conversation, created only from its card. */
+export interface ChatTicket {
+  title: string;
+  body: string;
+  /** The suggested ticket it comes from, which then leaves that list. */
+  note?: string;
 }
 
 /** What one answer used, as the provider counts it. */

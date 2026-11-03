@@ -6,8 +6,10 @@ import {
   CHAT_MAX_STEPS,
   CHAT_MODEL,
   clockLabel,
+  type ChatTicket,
   type ChatUsage,
 } from "../core/chat";
+import { TITLE_MAX } from "../core/new-ticket";
 import { chapterMs, type Presentation } from "../core/presentation";
 import { leadProof } from "../core/proofs";
 import type { StageState } from "../core/stage";
@@ -50,8 +52,16 @@ export interface ChatAnswer {
   body: string;
   /** The change it proposes, made only from its card. */
   change: string | null;
+  /** The ticket it proposes, created only from its card. */
+  ticket: ChatTicket | null;
   usage: ChatUsage;
 }
+
+/** Tickets, written or on a call. */
+export const TICKET_RULES = `Tickets:
+- You never create a ticket yourself. When they ask for one, or say yes to one you suggested or to one of the suggested tickets, call propose_ticket. They see it as a card and create it with one click: then say in one short sentence that it is there, without repeating it.
+- A ticket is for what the project should do beyond this pull request; what belongs in this pull request is a change.
+- Do not propose a ticket they did not ask for: suggest it in words and let them ask. If you know of a ticket that already asks for it, tell them instead.`;
 
 const instructions = (
   video: boolean,
@@ -73,7 +83,9 @@ Changes:
 - You never change code yourself. When the member asks for a change to this pull request, or says yes to one you suggested, call propose_change. The member sees it as a card and updates the pull request with one click; your text is then one short sentence at most, without repeating the card.
 - The card says what will change for the people using the app, in plain words: what they will see or be able to do. No code, file, function, class or style names: the member is not always a developer, and the implementer reads the code itself. What the app shows is quoted as it shows it, never translated: its labels and messages, in the app's own language.
 - Do not propose a change they did not ask for: suggest it in words and let them ask.
-- A closed or merged pull request can no longer change: say so.`;
+- A closed or merged pull request can no longer change: say so.
+
+${TICKET_RULES}`;
 
 /** When the member writes beside the stage, the app running live. */
 const ON_STAGE = `The stage:
@@ -163,6 +175,33 @@ export const CHAT_TOOLS: Tool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "propose_ticket",
+    description:
+      "Propose a new ticket for the project. The member sees it as a card and decides: nothing is created until they do, and it is not started. One per answer.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description:
+            "What is wanted, in a few plain words, in the conversation's language.",
+        },
+        body: {
+          type: "string",
+          description:
+            "What the people using the app would get and why, two lines at most, in plain words, in the conversation's language: what the member asked for or agreed to, nothing more. No code, file, function, class or CSS names. The app's labels and messages quoted as the app shows them, untranslated.",
+        },
+        suggestion: {
+          type: "integer",
+          minimum: 1,
+          description: "The number of the suggested ticket it comes from.",
+        },
+      },
+      required: ["title", "body"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 const READ_LINES = 400;
@@ -179,6 +218,11 @@ const inputs = {
   list_tickets: z.object({}),
   read_ticket: z.object({ key: z.string().min(1) }),
   propose_change: z.object({ change: z.string().min(1).max(4000) }),
+  propose_ticket: z.object({
+    title: z.string().trim().min(1).max(TITLE_MAX),
+    body: z.string().trim().min(1).max(4000),
+    suggestion: z.number().int().min(1).optional(),
+  }),
 };
 
 const clip = (text: string, max: number) =>
@@ -229,9 +273,13 @@ function shownBesideNoVideo(panel: ChatContext["panel"]): string {
   }
 }
 
+/** What the agents noticed outside this ticket, still to be made tickets. */
+export const spottedLines = (panel: ChatContext["panel"]) =>
+  panel?.implementation?.spotted ?? [];
+
 /** What the member has in front of them: the agent talks about this alone. */
 function pageShows(panel: ChatContext["panel"]): string {
-  const page = `On the page, beside the conversation: the ticket, the summary, the files changed${panel?.preview ? ", a button that opens the app" : ""}`;
+  const page = `On the page, beside the conversation: the ticket, the summary, the files changed${panel?.preview ? ", a button that opens the app" : ""}${spottedLines(panel).length ? ", a button that lists the suggested tickets" : ""}`;
   return hasVideo(panel)
     ? `${page}, and the demo below.`
     : `${page}, and ${shownBesideNoVideo(panel)}. There is no demo on this ticket.`;
@@ -255,6 +303,13 @@ export function chatContextText(
       `Pull request #${pullRequest.number}, ${pullRequest.state}, branch ${pullRequest.branch}: ${pullRequest.url}`,
     );
   else parts.push("No pull request is open for this ticket.");
+  const spotted = spottedLines(panel);
+  if (spotted.length)
+    parts.push(
+      `Suggested tickets, noticed while working on this ticket and left alone:\n${spotted
+        .map((line, i) => `${i + 1}. ${line}`)
+        .join("\n")}`,
+    );
   const done = panel?.implementation;
   if (done) {
     if (done.ask) parts.push(`What the ticket asks:\n${done.ask}`);
@@ -343,9 +398,11 @@ const usageOf = (response: Anthropic.Beta.BetaMessage): ChatUsage => ({
 /** One tool call, run: its text for the model, and a change when proposed. */
 export async function runChatTool(
   call: Anthropic.Beta.BetaToolUseBlock,
-  context: Pick<ChatContext, "project" | "pullRequest">,
+  context: Pick<ChatContext, "project" | "pullRequest"> & {
+    spotted: string[];
+  },
   sources: ChatSources,
-): Promise<{ text: string; error?: boolean; change?: string }> {
+): Promise<ChatToolResult> {
   const schema = inputs[call.name as keyof typeof inputs];
   const parsed = schema?.safeParse(call.input);
   if (!schema || !parsed?.success)
@@ -447,9 +504,33 @@ export async function runChatTool(
         change: input.change.trim(),
       };
     }
+    case "propose_ticket": {
+      const input = parsed.data as z.infer<typeof inputs.propose_ticket>;
+      const note =
+        input.suggestion === undefined
+          ? undefined
+          : context.spotted[input.suggestion - 1];
+      if (input.suggestion !== undefined && !note)
+        return {
+          text: `No suggested ticket ${input.suggestion}.`,
+          error: true,
+        };
+      return {
+        text: "Shown to the member as a card. Do not repeat it: one short sentence at most.",
+        ticket: { title: input.title, body: input.body, note },
+      };
+    }
     default:
       return { text: `No tool ${call.name}.`, error: true };
   }
+}
+
+/** A tool's answer, and the card it adds to the conversation. */
+export interface ChatToolResult {
+  text: string;
+  error?: boolean;
+  change?: string;
+  ticket?: ChatTicket;
 }
 
 /**
@@ -508,6 +589,7 @@ export async function answerQuestion(input: {
     cacheWrite: 0,
   };
   let change: string | null = null;
+  let ticket: ChatTicket | null = null;
   let shown = false;
   for (let step = 0; ; step++) {
     const last = step >= CHAT_MAX_STEPS;
@@ -538,8 +620,8 @@ export async function answerQuestion(input: {
         .join("")
         .trim();
       if (response.stop_reason === "refusal" && !text)
-        return { body: "I can't help with that one.", change, usage };
-      return { body: text, change, usage };
+        return { body: "I can't help with that one.", change, ticket, usage };
+      return { body: text, change, ticket, usage };
     }
     messages.push({ role: "assistant", content: response.content });
     const run = async (call: Anthropic.Beta.BetaToolUseBlock) => {
@@ -547,15 +629,20 @@ export async function answerQuestion(input: {
         if (!shown) await stage.show?.();
         shown = true;
       }
-      const result: { text: string; error?: boolean; change?: string } = await (
+      const result: ChatToolResult = await (
         stage && isStageTool(call.name)
           ? runStageTool(call, stage.hands)
-          : runChatTool(call, context, sources)
+          : runChatTool(
+              call,
+              { ...context, spotted: spottedLines(context.panel) },
+              sources,
+            )
       ).catch((error: Error) => ({
         text: `That failed: ${error.message.slice(0, 200)}`,
         error: true,
       }));
       if (result.change) change = result.change;
+      if (result.ticket) ticket = result.ticket;
       return {
         type: "tool_result" as const,
         tool_use_id: call.id,
