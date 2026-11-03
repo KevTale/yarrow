@@ -154,6 +154,21 @@ export function TicketTalk({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [call, form, draftId, projectId]);
 
+  const heard = (author: DraftLine["author"], body: string) =>
+    setThread((all) => {
+      const last = all.at(-1);
+      if (author === "builder" || last?.author !== "agent")
+        return [...all, { author, body }];
+      // A turn comes in pieces, or whole again.
+      return [
+        ...all.slice(0, -1),
+        {
+          author,
+          body: body.includes(last.body) ? body : `${last.body} ${body}`,
+        },
+      ];
+    });
+
   async function send() {
     const asked = text.trim();
     if (!asked || words !== null || call === "starting") return;
@@ -161,6 +176,9 @@ export function TicketTalk({
     setText("");
     if (session.current) {
       session.current.sendUserMessage(asked);
+      // ElevenLabs gives back only what it heard.
+      heard("builder", asked);
+      stir();
       return;
     }
     onBegun();
@@ -196,21 +214,6 @@ export function TicketTalk({
       setWords(null);
     }
   }
-
-  const heard = (author: DraftLine["author"], body: string) =>
-    setThread((all) => {
-      const last = all.at(-1);
-      if (author === "builder" || last?.author !== "agent")
-        return [...all, { author, body }];
-      // A turn comes in pieces, or whole again.
-      return [
-        ...all.slice(0, -1),
-        {
-          author,
-          body: body.includes(last.body) ? body : `${last.body} ${body}`,
-        },
-      ];
-    });
 
   async function dial() {
     const opened = ++calls.current;
