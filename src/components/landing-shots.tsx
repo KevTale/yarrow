@@ -4,7 +4,6 @@ import {
   FileText,
   Github,
   Play,
-  Search,
 } from "lucide-react";
 import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
@@ -291,41 +290,33 @@ function TicketRow({
 export function DashboardShot({ cta }: { cta: ReactNode }) {
   const [merged, setMerged] = useState(false);
   return (
-    <div className="lp-dash glass">
-      <div className="lp-dash-head">
-        <b>Acme</b>
-        <span className="lp-dash-search">
-          <Search size={13} aria-hidden="true" /> Search tickets
-        </span>
-      </div>
-      <div className="tix-list">
-        <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
-          <TicketRow ticket={priority} merged={merged} opened>
-            <SampleRoom
-              cta={cta}
-              merged={merged}
-              onMerged={() => setMerged(true)}
-            />
+    <div className="tix-list glass lp-dash">
+      <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
+        <TicketRow ticket={priority} merged={merged} opened>
+          <SampleRoom
+            cta={cta}
+            merged={merged}
+            onMerged={() => setMerged(true)}
+          />
+        </TicketRow>
+      </TicketGroup>
+      <TicketGroup stage="progress" label="In progress" count={1}>
+        <TicketRow ticket={filtering}>
+          <TicketAtWork ticket={filtering} />
+        </TicketRow>
+      </TicketGroup>
+      <TicketGroup stage="stopped" label="Stopped" count={0} />
+      <TicketGroup
+        stage="done"
+        label="Done"
+        count={shipped.length + (merged ? 1 : 0)}
+      >
+        {shipped.map((ticket) => (
+          <TicketRow ticket={ticket} key={ticket.number}>
+            <TicketShipped ticket={ticket} />
           </TicketRow>
-        </TicketGroup>
-        <TicketGroup stage="progress" label="In progress" count={1}>
-          <TicketRow ticket={filtering}>
-            <TicketAtWork ticket={filtering} />
-          </TicketRow>
-        </TicketGroup>
-        <TicketGroup stage="stopped" label="Stopped" count={0} />
-        <TicketGroup
-          stage="done"
-          label="Done"
-          count={shipped.length + (merged ? 1 : 0)}
-        >
-          {shipped.map((ticket) => (
-            <TicketRow ticket={ticket} key={ticket.number}>
-              <TicketShipped ticket={ticket} />
-            </TicketRow>
-          ))}
-        </TicketGroup>
-      </div>
+        ))}
+      </TicketGroup>
     </div>
   );
 }
