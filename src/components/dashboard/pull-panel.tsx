@@ -995,16 +995,23 @@ export function Conversation({
   /** The agent can be called from here. */
   call?: ConversationCall;
 }) {
-  // What it says as it opens sets the panel's column (--talk-opened in the
-  // styles); what comes after scrolls inside, so the row never moves.
+  // The agent's notes set the panel's column (--talk-opened in the styles);
+  // what is said after them scrolls inside, so a long conversation neither
+  // moves the row nor opens it taller.
   const column = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const aside = column.current;
-    if (!aside) return;
-    const height = [...aside.children].reduce(
-      (sum, part) => sum + part.scrollHeight,
-      0,
-    );
+    const thread = aside?.firstElementChild;
+    if (!aside || !thread) return;
+    const said = aside.querySelector(".pp-me");
+    const notes = said
+      ? said.getBoundingClientRect().top -
+        thread.getBoundingClientRect().top +
+        thread.scrollTop
+      : thread.scrollHeight;
+    const height = [...aside.children]
+      .slice(1)
+      .reduce((sum, part) => sum + part.scrollHeight, notes);
     aside.style.setProperty("--talk-opened", `${height}px`);
   }, []);
   const { live, pullRequest } = panel;

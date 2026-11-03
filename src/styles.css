@@ -8957,11 +8957,12 @@ html:has(.pp-stage:modal) {
   margin: 0 18px 18px;
 }
 /* In the panel, the same column beside the film and the review, as tall as
-   they are, held in view while the page scrolls past them. What the agent
-   says as the row opens shows whole (--talk-opened, measured then), the row
-   growing for it up to what leaves it whole in the window: 194px are the
-   header's room and the row's own line and margins. What comes after scrolls
-   inside: the conversation never moves the row. A light line beside it. */
+   they are, held in view while the page scrolls past them. The agent's notes
+   show whole (--talk-opened, measured as the row opens), the row growing for
+   them up to what leaves it whole in the window: 194px are the header's room
+   and the row's own line and margins. What is said after them scrolls inside:
+   the conversation never moves the row, nor opens it taller. A light line
+   beside it. */
 .pp-grid > .pp-talk {
   --talk-room: max(380px, calc(100dvh - 194px));
   position: sticky;
