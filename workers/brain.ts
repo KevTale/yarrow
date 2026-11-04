@@ -1591,6 +1591,12 @@ async function talkRoute(
   const bench = trying
     ? talkBenchSchema.safeParse(parsed.data.yarrow_bench).data
     : undefined;
+  if (bench?.open) {
+    const spec = await stageSpec(env, grant.workUnitId);
+    return Response.json(
+      typeof spec === "string" ? { error: spec } : await stage.open(spec),
+    );
+  }
   // On dev, the page may ask for another brain, to try each by voice.
   const asked = trying ? talkBrainOf(parsed.data) : {};
   const model = bench?.model ?? asked.model ?? talkModelOf(env);
@@ -1669,6 +1675,9 @@ async function talkRoute(
         return;
       }
       const said = memberWords(messages);
+      const turnNumber = await stage.nextTurn();
+      const replaced = async () =>
+        dropped || (await stage.lastTurn()) !== turnNumber;
       const { GITHUB_APP_ID: appId, GITHUB_APP_PRIVATE_KEY: privateKey } = env;
       const projectId = context.project.id;
       const answer = await talkTurn({
@@ -1695,7 +1704,7 @@ async function talkRoute(
           ? async (hand) => {
               // The call may have opened before the stage was up.
               await stageUp(stage);
-              if (dropped) throw new Error("turn dropped");
+              if (await replaced()) throw new Error("turn dropped");
               return stage.present(hand);
             }
           : null,
@@ -1707,7 +1716,11 @@ async function talkRoute(
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
       const body = [answer.words, answer.written].filter(Boolean).join("\n\n");
-      if (!bench && !dropped && (body || answer.change || answer.ticket))
+      const keeps =
+        !bench &&
+        (body || answer.change || answer.ticket) &&
+        !(await replaced());
+      if (keeps)
         await withDb(env, (db) =>
           saveSpokenTurn(
             db,
@@ -1808,7 +1821,7 @@ async function ticketAgentTurn(
     /** The form changed, in the draft already. */
     onWrite?: (text: DraftText) => void;
     /** ElevenLabs asks again: this turn no longer counts. */
-    dropped?: () => boolean;
+    dropped?: () => Promise<boolean>;
   },
 ): Promise<void> {
   const { ANTHROPIC_API_KEY: apiKey } = env;
@@ -1848,12 +1861,12 @@ async function ticketAgentTurn(
     started: input.started,
     say: out.say,
     onWrite: async (text) => {
-      if (out.dropped?.()) throw new Error("turn dropped");
+      if (await out.dropped?.()) throw new Error("turn dropped");
       await withDb(env, (db) => openDraft(db, draft, text));
       out.onWrite?.(text);
     },
   });
-  if (out.dropped?.()) return;
+  if (await out.dropped?.()) return;
   await withDb(env, (db) =>
     saveDraftTurn(db, draft, {
       said: input.said,
@@ -1947,7 +1960,8 @@ function ticketTalk(
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
   // ElevenLabs drops a turn's stream when the member speaks on, and asks
-  // again: the dropped turn is not kept.
+  // again: the dropped turn is not kept. Nor one it asked again without
+  // hanging up (`nextTurn`), counted on a stage that never boots.
   let dropped = false;
   const drop = () => {
     dropped = true;
@@ -1956,6 +1970,10 @@ function ticketTalk(
     writer.write(encoder.encode(text)).catch(drop);
   writer.closed.catch(drop);
   request.signal.addEventListener("abort", drop);
+  const turns = env.STAGE?.getByName(`draft-${grant.draftId}`);
+  const turnNumber = turns?.nextTurn();
+  const replaced = async () =>
+    dropped || (await turns?.lastTurn()) !== (await turnNumber);
   const said = memberWords(talkMessages(data.messages));
   let last = Date.now();
   let fillers = 0;
@@ -1983,7 +2001,7 @@ function ticketTalk(
             voice: true,
             started,
           },
-          { say, dropped: () => dropped },
+          { say, dropped: replaced },
         );
         await write(completion.end(id));
       } catch (error) {

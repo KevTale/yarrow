@@ -3,10 +3,11 @@
  * stage on Yarrow dev, answered by each model the call can use
  * (src/runner/talk-models.ts), timed and checked.
  *
- *   pnpm bench:talk [variant…] [--runs 3] [--questions plain,code]
+ *   pnpm bench:talk [variant…] [--runs 3] [--questions plain,code] [--call <work unit>]
+ *   pnpm bench:talk open [--call <work unit>]
  *   pnpm bench:talk list
  *
- * The stage must be up (Start on its page). Each turn reaches the brain as
+ * The stage must be up (open brings it up). Each turn reaches the brain as
  * ElevenLabs sends one, signed with dev's VOICE_SECRET (workers/.dev.vars,
  * put by pnpm voice:agent), and stays out of the pull request's thread.
  * Real models answer: a few cents a turn. Reports land in bench/reports/.
@@ -125,6 +126,26 @@ const QUESTIONS: {
       address(turn.screen).includes("status=todo") &&
       turn.steps.some((step) => step.what.includes("reload")),
   },
+  // For a pull request the editor shows: none of them on the default run's.
+  {
+    name: "editor",
+    say: "Tu peux me montrer le code que tu as changé ?",
+    right: (turn) =>
+      /the code editor/.test(turn.screen ?? "") &&
+      /It shows \S+/.test(turn.screen ?? "") &&
+      !/It shows that list/.test(turn.screen ?? ""),
+  },
+  {
+    name: "list",
+    say: "Montre-moi la liste de tout ce qui a changé.",
+    right: (turn) => /It shows that list/.test(turn.screen ?? ""),
+  },
+  {
+    name: "tests",
+    say: "Lance les tests dans le terminal, je veux les voir passer.",
+    right: (turn) =>
+      turn.steps.some((step) => step.what.includes("run_in_terminal")),
+  },
 ];
 
 function voiceSecret(): string {
@@ -199,7 +220,7 @@ for (let at = 0; at < args.length; at++)
   if (args[at]!.startsWith("--")) options.set(args[at]!, args[++at] ?? "");
   else named.push(args[at]!);
 const runs = Number(options.get("--runs") ?? 3);
-const unknown = named.filter((name) => !(name in VARIANTS));
+const unknown = named.filter((name) => !(name in VARIANTS) && name !== "open");
 if (unknown.length) throw new Error(`unknown variant: ${unknown.join(", ")}`);
 const variants = named.length ? named : Object.keys(VARIANTS);
 const asking = options.get("--questions")?.split(",");
@@ -209,7 +230,42 @@ const questions = asking
 
 const secret = voiceSecret();
 const key = await talkKey(secret);
-const grant = await signTalkGrant(secret, CALL);
+const grant = await signTalkGrant(secret, {
+  ...CALL,
+  workUnitId: options.get("--call") ?? CALL.workUnitId,
+});
+
+if (named[0] === "open") {
+  for (let tries = 0; tries < 180; tries++) {
+    const response = await fetch(LLM_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${key}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: "open" }],
+        elevenlabs_extra_body: { yarrow: grant },
+        yarrow_bench: { ...VARIANTS.spark!, open: true },
+      }),
+    });
+    const status = (await response.json()) as {
+      phase?: string;
+      error?: string | null;
+      live?: boolean;
+      events?: { ms: number; label: string }[];
+    };
+    const last = status.events?.at(-1);
+    console.log(
+      `${status.phase} live ${status.live}${last ? `, ${last.label} at ${seconds(last.ms)}` : ""}${status.error ? `\n${status.error}` : ""}`,
+    );
+    if (status.phase !== "booting")
+      process.exit(status.phase === "ready" ? 0 : 1);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  process.exit(1);
+}
+
 const results: {
   variant: string;
   run: number;

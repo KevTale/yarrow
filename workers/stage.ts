@@ -295,6 +295,21 @@ export class Stage extends DurableObject<StageEnv> {
     return this.#kv.get<TalkContext>("talk") ?? null;
   }
 
+  /**
+   * A turn of the call begins: its number. ElevenLabs asks a turn again as
+   * the member speaks on, not always hanging up on the first (seen
+   * 2026-11-02, 450 ms apart, both answered): only the last one asked counts.
+   */
+  nextTurn(): number {
+    const turn = this.lastTurn() + 1;
+    this.#kv.put("turn", turn);
+    return turn;
+  }
+
+  lastTurn(): number {
+    return this.#kv.get<number>("turn") ?? 0;
+  }
+
   /** The page's cue to the presenter, or the agent's move; answered once done. */
   async present(cue: StageCue | StageHand): Promise<StageCueResult> {
     if (
