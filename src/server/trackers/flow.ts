@@ -7,6 +7,7 @@ import { projectsForUser } from "../../db/github-tasks";
 import {
   addBoard,
   boardsForProject,
+  boardsOfConnection,
   connectionsForUser,
   getConnection,
   jiraBoardFor,
@@ -16,6 +17,7 @@ import { upsertTicket } from "../../db/workunits";
 import { and, eq, isNotNull, or } from "drizzle-orm";
 import { recordEvent } from "../../db/events";
 import {
+  accountMembers,
   agentRuns,
   correctionRequests,
   projects,
@@ -447,6 +449,81 @@ export async function removeProject(
   for (const connectionId of jira)
     await ensureJiraWebhook(db, ctx, connectionId);
   return "removed";
+}
+
+/**
+ * Disconnects a tracker account from Yarrow: its boards leave their projects,
+ * Jira's webhook goes, and the connection with its tokens is deleted. Refused
+ * while one of its tickets is at work.
+ */
+export async function disconnectTracker(
+  db: Database,
+  ctx: TrackerContext,
+  userId: string,
+  connectionId: string,
+): Promise<"disconnected" | "busy"> {
+  const [connection] = await db
+    .select({
+      id: trackerConnections.id,
+      accountId: trackerConnections.accountId,
+      tracker: trackerConnections.tracker,
+    })
+    .from(trackerConnections)
+    .innerJoin(
+      accountMembers,
+      and(
+        eq(accountMembers.accountId, trackerConnections.accountId),
+        eq(accountMembers.userId, userId),
+      ),
+    )
+    .where(eq(trackerConnections.id, connectionId));
+  if (!connection) throw new Error("Connection not found");
+  const [busy] = await db
+    .select({ id: workUnits.id })
+    .from(workUnits)
+    .innerJoin(trackerBoards, eq(trackerBoards.id, workUnits.boardId))
+    .leftJoin(
+      agentRuns,
+      and(
+        eq(agentRuns.workUnitId, workUnits.id),
+        eq(agentRuns.status, "running"),
+      ),
+    )
+    .leftJoin(
+      correctionRequests,
+      and(
+        eq(correctionRequests.workUnitId, workUnits.id),
+        eq(correctionRequests.status, "queued"),
+      ),
+    )
+    .where(
+      and(
+        eq(trackerBoards.connectionId, connection.id),
+        or(
+          eq(workUnits.status, "running"),
+          isNotNull(agentRuns.id),
+          isNotNull(correctionRequests.id),
+        ),
+      ),
+    )
+    .limit(1);
+  if (busy) return "busy";
+  for (const { board, project } of await boardsOfConnection(db, connection.id))
+    await removeBoard(db, project.id, board.id);
+  // With no board left, the webhook is removed (best effort: Jira may
+  // already have refused the token).
+  if (connection.tracker === "jira")
+    await ensureJiraWebhook(db, ctx, connection.id);
+  await db
+    .delete(trackerConnections)
+    .where(eq(trackerConnections.id, connection.id));
+  await recordEvent(db, {
+    type: "tracker.disconnected",
+    accountId: connection.accountId,
+    userId,
+    payload: { tracker: connection.tracker },
+  });
+  return "disconnected";
 }
 
 /** The tracker refused the token: the person removed Yarrow's access. */

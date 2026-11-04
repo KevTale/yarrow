@@ -23,6 +23,7 @@ import {
 import {
   closeTrackerTicket,
   createTrackerTicket,
+  disconnectTracker,
   TrackerAccessError,
   trackerBoardSettings,
   listTrackerBoards,
@@ -710,6 +711,50 @@ describe("Jira for builders", async () => {
     await expect(
       removeProject(db, ctx, crypto.randomUUID(), projectId),
     ).rejects.toThrow();
+  });
+
+  it("disconnects a Jira site: its boards leave, the connection with its tokens goes", async () => {
+    const { projectId, ctx, connect } = await setup();
+    const connectionId = await connect();
+    await setTrackerBoards(db, ctx, marie.userId, {
+      projectId,
+      connectionId,
+      keys: ["APP"],
+    });
+    const [board] = await raw.select().from(schema.trackerBoards);
+    const [ticket] = await raw
+      .insert(schema.workUnits)
+      .values({
+        projectId,
+        source: "jira",
+        boardId: board!.id,
+        externalId: "APP-2",
+        title: "Dark mode",
+        url: "https://acme.atlassian.net/browse/APP-2",
+        authorized: true,
+        status: "running",
+      })
+      .returning({ id: schema.workUnits.id });
+    await expect(
+      disconnectTracker(db, ctx, crypto.randomUUID(), connectionId),
+    ).rejects.toThrow();
+    expect(await disconnectTracker(db, ctx, marie.userId, connectionId)).toBe(
+      "busy",
+    );
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "delivered" })
+      .where(eq(schema.workUnits.id, ticket!.id));
+    expect(await disconnectTracker(db, ctx, marie.userId, connectionId)).toBe(
+      "disconnected",
+    );
+    expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
+    expect(await raw.select().from(schema.trackerConnections)).toEqual([]);
+    const [shipped] = await raw
+      .select({ boardId: schema.workUnits.boardId })
+      .from(schema.workUnits)
+      .where(eq(schema.workUnits.id, ticket!.id));
+    expect(shipped!.boardId).toBeNull();
   });
 
   it("writes Markdown in Jira's document format", () => {

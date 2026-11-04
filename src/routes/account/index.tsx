@@ -1,16 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText, Github, Mail, Trash2 } from "lucide-react";
+import { ExternalLink, FileText, Github, Mail, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 import { money } from "@/core/packs";
 import {
   deleteAccountFn,
+  disconnectTrackerFn,
   getAccountFn,
   invoiceUrlFn,
   requestEmailChangeFn,
 } from "@/functions/account.functions";
 import { BackArrow } from "@/components/back-arrow";
+import { TrackerIcon } from "@/components/brand-icons";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { Spinner } from "@/components/navigation-feedback";
 
@@ -50,6 +52,7 @@ function AccountPage() {
         </p>
       )}
       <SignIn data={data} />
+      <Connections data={data} />
       {data.payments.length > 0 && <Payments data={data} />}
       {data.canDelete && <DeleteAccount />}
     </main>
@@ -162,6 +165,126 @@ function SignIn({ data }: { data: Account }) {
         )}
       </div>
     </section>
+  );
+}
+
+const TRACKERS: Record<string, string> = {
+  jira: "Jira",
+  linear: "Linear",
+  trello: "Trello",
+};
+
+function Connections({ data }: { data: Account }) {
+  if (!data.githubLogin && data.connections.length === 0) return null;
+  return (
+    <section className="st-section">
+      <h2>Connections</h2>
+      <div className="st-cards">
+        {data.githubLogin && (
+          <div className="st-card">
+            <span className="st-icon" aria-hidden="true">
+              <Github size={18} />
+            </span>
+            <span className="st-card-body">
+              <strong>GitHub App</strong>
+              <span className="muted">Repositories</span>
+            </span>
+            <a
+              className="bd-btn bd-btn-line"
+              href="https://github.com/settings/installations"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Manage
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          </div>
+        )}
+        {data.connections.map((connection) => (
+          <Connection key={connection.id} connection={connection} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Connection({
+  connection,
+}: {
+  connection: Account["connections"][number];
+}) {
+  const disconnect = useServerFn(disconnectTrackerFn);
+  const router = useRouter();
+  const [asking, setAsking] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setError("");
+    setPending(true);
+    try {
+      const { result } = await disconnect({
+        data: { connectionId: connection.id },
+      });
+      if (result === "busy") {
+        setError("A ticket from it is at work.");
+        setPending(false);
+        return;
+      }
+      await router.invalidate();
+    } catch {
+      setError("It could not be disconnected. Try again in a moment.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="st-card-wrap">
+      <div className="st-card">
+        <span className="st-icon" aria-hidden="true">
+          <TrackerIcon tracker={connection.tracker} size={18} />
+        </span>
+        <span className="st-card-body">
+          <strong>{TRACKERS[connection.tracker] ?? connection.tracker}</strong>
+          <span className="mono muted">{connection.name}</span>
+        </span>
+        {asking ? (
+          <>
+            <button
+              type="button"
+              className="bd-btn bd-btn-ghost"
+              onClick={() => {
+                setAsking(false);
+                setError("");
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="bd-btn ac-delete"
+              disabled={pending}
+              onClick={() => void confirm()}
+            >
+              {pending ? <Spinner /> : "Disconnect"}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="bd-btn bd-btn-line"
+            onClick={() => setAsking(true)}
+          >
+            Disconnect
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="st-remove-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

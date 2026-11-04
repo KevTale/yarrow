@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { deleteAccount } from "@/db/accounts";
-import { contributions } from "@/db/schema";
+import { accountMembers, contributions, trackerConnections } from "@/db/schema";
 import {
   getViewer,
   supabaseServer,
@@ -16,6 +16,7 @@ import {
 } from "@/server/email.server";
 import { emailChangeToken } from "@/server/email-change";
 import { appEnv, NotConfiguredError } from "@/server/env.server";
+import { disconnectTracker, trackerContext } from "@/server/jira.server";
 import { invoiceUrl, paymentsConfigured } from "@/server/stripe/stripe.server";
 
 async function requirePerson() {
@@ -50,8 +51,29 @@ export const getAccountFn = createServerFn({ method: "GET" }).handler(
             .orderBy(desc(contributions.createdAt)),
         )
       : [];
+    // The tracker accounts every project of the person's accounts reuses.
+    const connections = databaseConfigured()
+      ? await withDb((db) =>
+          db
+            .select({
+              id: trackerConnections.id,
+              tracker: trackerConnections.tracker,
+              name: trackerConnections.name,
+            })
+            .from(trackerConnections)
+            .innerJoin(
+              accountMembers,
+              and(
+                eq(accountMembers.accountId, trackerConnections.accountId),
+                eq(accountMembers.userId, viewer.userId),
+              ),
+            )
+            .orderBy(trackerConnections.createdAt),
+        )
+      : [];
     return {
       status: "ok" as const,
+      connections,
       email: viewer.email,
       githubLogin: viewer.githubLogin,
       canChangeEmail:
@@ -107,6 +129,17 @@ export const invoiceUrlFn = createServerFn({ method: "POST" })
     const url = await invoiceUrl(payment.checkoutId);
     if (!url) throw new Error("Stripe has no invoice for this payment yet.");
     return { url };
+  });
+
+/** Disconnects a tracker account (see disconnectTracker). */
+export const disconnectTrackerFn = createServerFn({ method: "POST" })
+  .validator(z.object({ connectionId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const viewer = await requirePerson();
+    const result = await withDb((db) =>
+      disconnectTracker(db, trackerContext(), viewer.userId, data.connectionId),
+    );
+    return { result };
   });
 
 /** Deletes the person (see deleteAccount), then their sign-in. */

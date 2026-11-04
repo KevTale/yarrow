@@ -15,6 +15,7 @@ export type EventType =
   | "project.github_linked"
   | "project.suspended"
   | "tracker.connected"
+  | "tracker.disconnected"
   | "sponsor.filters_updated"
   | "sponsor.clicked"
   | "sponsor.guest_claimed"

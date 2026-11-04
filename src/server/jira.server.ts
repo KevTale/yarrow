@@ -6,6 +6,7 @@ export {
   answerTrackerTicket,
   closeTrackerTicket,
   createTrackerTicket,
+  disconnectTracker,
   labelTrackerTickets,
   linkTrackerBoard,
   openTrackerTickets,
