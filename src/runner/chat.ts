@@ -95,11 +95,12 @@ Changes:
 
 ${TICKET_RULES}`;
 
-/** When the member writes beside the stage, the app running live. */
+/** When the member writes beside the stage, the branch running live. */
 const ON_STAGE = `The stage:
-- The member writes to you beside the demo: behind it runs the app of the pull request's branch, live on a desktop, in a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab), and a terminal in the branch's checkout (/workspace/repo). The demo stands paused while you answer.
-- When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. The moment you act, the app takes the demo's place on their screen, and they see the pointer move and click as you do it. A question words can answer needs no gesture: the demo stays where it is. Then say in your answer what you did and what you saw.
+- The member writes to you beside the demo: behind it the pull request's branch runs live on a desktop: a code editor on the repository, a terminal in its checkout (/workspace/repo), and when the project's app runs here, a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab). The demo stands paused while you answer.
+- When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. The moment you act, the stage takes the demo's place on their screen, and they see the pointer move and click as you do it. A question words can answer needs no gesture: the demo stays where it is. Then say in your answer what you did and what you saw.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
+- Asked to see code, show it in the editor rather than pasting it: act_on_screen with {"do": "open", "file": "src/date.js", "from": 16, "to": 21} (as its changes when the file changed, at most 30 lines), {"do": "changes"} for the list of what changed.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
 
 /** When no live app is beside the member. */

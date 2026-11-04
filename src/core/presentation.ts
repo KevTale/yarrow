@@ -59,6 +59,9 @@ export const liveActionSchema = z.object({
     "goto",
     "reload",
     "wait",
+    // In the code editor: a file, and the list of what changed.
+    "open",
+    "changes",
   ]),
   target: z.string().max(500).optional(),
   /** Instead of a target: an expression the page answers with a point of it. */
@@ -70,6 +73,9 @@ export const liveActionSchema = z.object({
   path: z.string().max(500).optional(),
   y: z.number().optional(),
   ms: z.number().optional(),
+  file: z.string().max(500).optional(),
+  from: z.number().optional(),
+  to: z.number().optional(),
 });
 export type LiveAction = z.infer<typeof liveActionSchema>;
 
@@ -103,8 +109,11 @@ export const presentationChapterSchema = z.object({
   title: z.string().min(1).max(80),
   /** None before 2026-10-31: the demo then has its chapters alone. */
   part: z.enum(DEMO_PARTS).nullable().default(null),
-  /** A document is a Markdown file of the repository, as a reader sees it. */
-  tab: z.enum(["app", "document", "ticket", "terminal"]),
+  /**
+   * A document is a Markdown file of the repository, as a reader sees it;
+   * code, the repository in a code editor. A ticket: none since 2026-11-02.
+   */
+  tab: z.enum(["app", "code", "document", "ticket", "terminal"]),
   /** What the address bar shows: the page, the ticket, the command. */
   url: z.string().max(500).nullable(),
   /** The page's title, for the app's tab. */
@@ -224,7 +233,8 @@ export function urlAt(chapter: PresentationChapter, ms: number): string | null {
 
 /**
  * The chapter the poster was taken in, as the recorder picks it: the app
- * or the document after the change, else its proof run, else the first chapter.
+ * or the document after the change, else the code, else its proof run, else
+ * the first chapter.
  */
 export function posterChapter(timeline: Presentation): PresentationChapter {
   const { chapters } = timeline;
@@ -233,6 +243,9 @@ export function posterChapter(timeline: Presentation): PresentationChapter {
       (chapter) =>
         (chapter.tab === "app" || chapter.tab === "document") &&
         !chapter.before,
+    ) ??
+    chapters.find(
+      (chapter) => chapter.tab === "code" && chapter.part !== "context",
     ) ??
     chapters.find((chapter) => chapter.tab === "terminal" && !chapter.before) ??
     chapters[0]!

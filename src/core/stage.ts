@@ -1,9 +1,11 @@
 /**
- * A pull request's stage: its app running live on Yarrow's desktop, in a
- * container of ours, its screen in the page (workers/stage.ts). The first
- * boot runs the project's recipe from a fresh checkout and keeps a snapshot
- * of the machine's files; the next ones start from it and only bring the
- * services and the app back. No I/O here.
+ * A pull request's stage: its app running live on Yarrow's desktop and its
+ * repository in a code editor, in a container of ours, its screen in the
+ * page (workers/stage.ts). The first boot runs the project's recipe from a
+ * fresh checkout and keeps a snapshot of the machine's files; the next ones
+ * start from it and only bring the services and the app back. A project
+ * Yarrow never ran has no recipe: its stage is the repository alone. No I/O
+ * here.
  */
 
 import type { LiveAction, LiveChapter, Presentation } from "./presentation";
@@ -27,11 +29,11 @@ export interface StageSpec {
   steps: string[];
   /** What brings the app back on a machine where the steps already ran. */
   restart: string[];
-  /** Where the app answers (origin), and the page opened first. */
-  url: string;
+  /** Where the app answers (origin), and the page opened first; null: no app. */
+  url: string | null;
   path: string;
   signIn: StageSignIn | null;
-  /** The branch the pull request goes into: the app as it was comes from it. */
+  /** The branch the pull request goes into: what changed is told from it. */
   base: string;
   /** The app as it was, beside it, when the recipe tells how. */
   before: { steps: string[]; restart: string[]; url: string } | null;
@@ -49,34 +51,40 @@ export interface StageSpec {
 export interface StagePlan {
   apps: { after: string | null; before: string | null };
   chapters: (
-    | (LiveChapter & { title: string; tab: "app" | "document" | "terminal" })
+    | (LiveChapter & {
+        title: string;
+        tab: "app" | "code" | "document" | "terminal";
+      })
     | { title: string; tab: null }
   )[];
 }
 
 /**
  * The presentation as far as the stage can play it live: the chapters on
- * the desktop, the app as it was only when it runs there; a ticket, a phone,
- * a given output leave the stage as it was. None when no chapter can be
- * (films before 2026-10-28 kept no live steps).
+ * the desktop, the app as it was only when it runs there, the app only when
+ * the stage has one (`app`); a ticket, a phone, a given output leave the stage
+ * as it was. None when no chapter can be (films before 2026-10-28 kept no live
+ * steps).
  */
 export function stagePlan(
   timeline: Presentation | null,
   before: boolean,
+  app = true,
 ): StagePlan | null {
   if (!timeline) return null;
   const chapters: StagePlan["chapters"] = timeline.chapters.map(
     ({ live, tab, title }) =>
       !live ||
       tab === "ticket" ||
-      (tab === "app" && live.app === "before" && !before)
+      (tab === "app" && live.app === "before" && !before) ||
+      (!app && (tab === "app" || tab === "document"))
         ? { title, tab: null }
         : { ...live, title, tab },
   );
   if (chapters.every((chapter) => chapter.tab === null)) return null;
   return {
     apps: {
-      after: timeline.apps?.after ?? null,
+      after: app ? (timeline.apps?.after ?? null) : null,
       before: before ? (timeline.apps?.before ?? null) : null,
     },
     chapters,
@@ -162,6 +170,9 @@ export type StageCue =
   | { action: "control"; on: boolean }
   | { action: "state" };
 
+/** A window the agent can bring in front. */
+export type StageWindow = "after" | "before" | "terminal" | "code";
+
 /**
  * What the agent the member talks to does there (src/runner/talk.ts):
  * reads where the presentation stands and the screen, acts on it.
@@ -175,7 +186,7 @@ export type StageHand =
   // Written in its words: kept until the page says their word comes.
   | { action: "gesture"; n: number; actions: LiveAction[] }
   | { action: "beat"; n: number | null }
-  | { action: "window"; window: "after" | "before" | "terminal" }
+  | { action: "window"; window: StageWindow }
   | { action: "run"; command: string; cwd?: string }
   // While held: each window the talk changed (src/runner/stage-restore.ts).
   | { action: "changes" }
@@ -291,7 +302,8 @@ export function stageScript(input: {
   /** The checkout, where the steps start. */
   dir: string;
   steps: string[];
-  url: string;
+  /** Where the app answers; null: none to wait for. */
+  url: string | null;
   /** Cloned into `dir` first: a fresh boot. */
   clone?: { repository: string; branch: string };
   /**
@@ -321,10 +333,13 @@ export function stageScript(input: {
   });
   lines.push(
     `answers() { for i in $(seq 1 240); do curl -s -o /dev/null --max-time 2 "$1" && return 0; sleep 0.5; done; return 1; }`,
-    `mark "waiting for the app"`,
-    `answers ${quote(input.url)} || { mark "failed: the app never answered"; exit 1; }`,
-    `mark "app up"`,
   );
+  if (input.url)
+    lines.push(
+      `mark "waiting for the app"`,
+      `answers ${quote(input.url)} || { mark "failed: the app never answered"; exit 1; }`,
+      `mark "app up"`,
+    );
   const before = input.before;
   if (before) {
     const repo = quote(input.dir);

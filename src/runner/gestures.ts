@@ -13,6 +13,8 @@ const ATTRIBUTE = /(\w+)=(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
 /** Past this, what looked like a tag is not one. */
 const TAG_MAX = 800;
 
+const NUMBERS = new Set(["y", "ms", "from", "to"]);
+
 /** What act_on_screen takes, nothing the page would evaluate. */
 const gestureSchema = liveActionSchema.omit({ at: true, times: true });
 
@@ -21,7 +23,7 @@ export function parseGesture(tag: string): LiveAction | null {
   const fields: Record<string, unknown> = {};
   for (const [, name, double, single] of tag.matchAll(ATTRIBUTE)) {
     const value = (double ?? single ?? "").replace(/\\(.)/g, "$1");
-    fields[name!] = name === "y" || name === "ms" ? Number(value) : value;
+    fields[name!] = NUMBERS.has(name!) ? Number(value) : value;
   }
   const parsed = gestureSchema.safeParse(fields);
   return parsed.success ? parsed.data : null;

@@ -1349,6 +1349,8 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
       return { error: "No preview on this environment." };
     const spec = await stageSpec(this.env, input.workUnitId);
     if (typeof spec === "string") return { error: spec };
+    if (!spec.url)
+      return { error: "Yarrow has not run this project's app yet." };
     const stage = this.env.STAGE.getByName(input.workUnitId);
     await stage.open(spec);
     const code = await stage.enter();
@@ -2005,7 +2007,8 @@ function ticketTalk(
 
 /**
  * What a pull request's stage boots from: its branch, the recipe (and the
- * app as it was), its presentation to play live. A sentence when it has none.
+ * app as it was) when Yarrow ran its app, its presentation to play live. A
+ * sentence when it has none.
  */
 async function stageSpec(
   env: BrainEnv,
@@ -2016,7 +2019,6 @@ async function stageSpec(
   const context = await withDb(env, (db) => stageContext(db, workUnitId));
   if (!context) return "This ticket has no pull request.";
   const { recipe } = context;
-  if (!recipe) return "Yarrow has not run this project's app yet.";
   if (!context.githubInstallationId || !context.githubRepositoryId)
     return "The GitHub App is not installed on this repository.";
   const [{ token }, timeline] = await Promise.all([
@@ -2037,18 +2039,18 @@ async function stageSpec(
     repository: context.repository,
     branch: context.branch,
     token,
-    steps: recipe.steps,
-    restart: restartSteps(recipe.steps),
-    ...stageAddress(recipe.url),
-    signIn: stageSignIn(recipe.signIn),
+    steps: recipe?.steps ?? [],
+    restart: restartSteps(recipe?.steps ?? []),
+    ...(recipe ? stageAddress(recipe.url) : { url: null, path: "/" }),
+    signIn: stageSignIn(recipe?.signIn ?? null),
     base: context.base,
-    before: recipe.before
+    before: recipe?.before
       ? {
           ...recipe.before,
           restart: restartSteps(recipe.before.steps, { locks: false }),
         }
       : null,
-    script: stagePlan(timeline, Boolean(recipe.before)),
+    script: stagePlan(timeline, Boolean(recipe?.before), Boolean(recipe)),
     recorder: RECORDER_SOURCE,
   };
 }

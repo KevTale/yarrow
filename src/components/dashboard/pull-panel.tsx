@@ -294,7 +294,6 @@ export function PullPanel({
     start: Boolean(
       wide &&
       panel?.pullRequest?.state === "open" &&
-      panel.preview &&
       panel.screens.some((screen) => screen.kind === "presentation"),
     ),
     messages: panel?.messages.length ?? 0,

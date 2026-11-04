@@ -228,7 +228,7 @@ export class Stage extends DurableObject<StageEnv> {
       output: BOOT_OUTPUT,
       dir: REPO,
       steps: saved.warm ? spec.restart : spec.steps,
-      url: `${spec.url}${spec.path}`,
+      url: spec.url && `${spec.url}${spec.path}`,
       clone: saved.warm
         ? undefined
         : { repository: spec.repository, branch: spec.branch },
@@ -425,7 +425,7 @@ export class Stage extends DurableObject<StageEnv> {
       });
     }
     const { session } = splitCookie(request.headers.get("cookie"));
-    if (!session || !visits.sessions[session] || !spec)
+    if (!session || !visits.sessions[session] || !spec?.url)
       return page("signed-out", 403);
 
     const saved = this.#kv.get<Saved>("saved");
@@ -567,6 +567,7 @@ export class Stage extends DurableObject<StageEnv> {
           url: spec.url,
           path: spec.path,
           signIn: spec.signIn,
+          base: spec.base,
           script: spec.script,
           ready: READY,
           session: SESSION,
@@ -597,7 +598,9 @@ export class Stage extends DurableObject<StageEnv> {
           step: "ready",
           ...(spec.signIn && {
             signedIn: Boolean(
-              session && previewSession(session, spec.url, spec.url),
+              session &&
+              spec.url &&
+              previewSession(session, spec.url, spec.url),
             ),
           }),
         });

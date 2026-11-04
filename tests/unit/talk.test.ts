@@ -417,7 +417,7 @@ describe("the live call's turn", () => {
     const tools = body.tools.map((tool) => tool.name);
     expect(tools).toContain("resume_presentation");
     expect(tools).not.toContain("look_at_screen");
-    expect(body.system[0]!.text).toContain("No live app is on this call");
+    expect(body.system[0]!.text).toContain("No live stage is on this call");
     expect(body.system[0]!.text).not.toContain("The stage:");
     expect(body.messages[0]!.content).toBe("What does the filter do?");
   });
@@ -453,7 +453,7 @@ describe("the live call's turn", () => {
     expect(requests).toHaveLength(1);
     const first = (requests[0]!.body.messages as { content: string }[])[0]!;
     expect(first.content).toContain(
-      "The demo is paused in chapter 2 of 3; the stage shows the app as the demo had it there.",
+      "The demo is paused in chapter 2 of 3; the stage shows it as the demo had it there.",
     );
     const tools = (requests[0]!.body.tools as { name: string }[]).map(
       (tool) => tool.name,

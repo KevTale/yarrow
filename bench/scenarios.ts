@@ -232,7 +232,8 @@ export const scenarios: Scenario[] = [
   {
     name: "refactor",
     app: "tally",
-    about: "Nothing anyone sees: the demo runs what still works.",
+    about:
+      "Nothing anyone sees: the demo shows the code, then what still works.",
     title: "One date formatter for the app and the digest",
     body: "src/views.js (formatDue) and src/digest.js (dueLabel) each have their own copy of the due-date wording. Keep one, in its own module, used by both, so they can't drift. No change in what people see.",
     expect: {
@@ -302,7 +303,8 @@ export const scenarios: Scenario[] = [
   {
     name: "library",
     app: "tempo",
-    about: "A library: the demo runs a short example of the new option.",
+    about:
+      "A library: the demo shows the code in the editor, then runs a short example.",
     title: "format(): a `largest` option to round to the biggest units",
     body: 'Durations like "1 hour 30 minutes 30 seconds" are too precise for our UI. Add a `largest` option to `format()`: the number of units kept, starting from the biggest, the last one rounded. `format(5_430_000, { largest: 1 })` gives "2 hours", `{ largest: 2 }` gives "1 hour 31 minutes". Document it in the README.',
     expect: {

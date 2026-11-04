@@ -40,7 +40,7 @@ export const recordedSchema = z.object({
       z.object({
         title: clipped(80),
         part: z.enum(DEMO_PARTS).nullable().default(null).catch(null),
-        tab: z.enum(["app", "document", "ticket", "terminal"]),
+        tab: z.enum(["app", "code", "document", "ticket", "terminal"]),
         url: z
           .string()
           .nullable()

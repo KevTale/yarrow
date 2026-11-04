@@ -456,8 +456,11 @@ async function filmChecks(
       what: `Voiced${timeline.voice ? ` by ${timeline.voice.provider}` : ": no"}`,
     },
     {
-      ok: chapters.some((chapter) => chapter.tab === "app" && !chapter.before),
-      what: "Shows the app as it is now",
+      ok: chapters.some(
+        (chapter) =>
+          (chapter.tab === "app" && !chapter.before) || chapter.tab === "code",
+      ),
+      what: "Shows the app as it is now, or the code",
     },
     {
       ok: chapters.at(-1)?.tab !== "ticket",

@@ -562,6 +562,18 @@ describe("the recorder", () => {
     expect(
       check({ ...now, actions: [{ ...aimed, do: "fill" }] }).stderr,
     ).toContain("an expression, for point, hover or click");
-    // Six runs of the recorder, slower while every test file runs.
-  }, 45_000);
+    // Code goes in the editor; the terminal only runs things.
+    writeFileSync(join(dir, "date.js"), "export const now = () => 1;\n");
+    const run = (command: string) => check({ tab: "terminal", command }).stderr;
+    expect(run("node -e 'console.log(1)'")).toContain("no code typed");
+    expect(run("python3 -c 'print(1)'")).toContain("no code typed");
+    expect(run("cat date.js")).toContain('a chapter of tab "code"');
+    expect(run("git diff src/date.js")).toContain('a chapter of tab "code"');
+    expect(run(`echo ${"a".repeat(120)}`)).toContain("at most 120 characters");
+    expect(run("npm test")).toBe("");
+    expect(check({ tab: "ticket" }).stderr).toContain(
+      ".tab: app, code, document or terminal",
+    );
+    // A dozen runs of the recorder, slower while every test file runs.
+  }, 90_000);
 });

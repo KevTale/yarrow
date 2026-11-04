@@ -17,7 +17,7 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "look_at_screen",
     description:
-      "What the stage shows now: the window in front (the app as it is, the app as it was, or the terminal), its address, and the page's elements with their refs, or the terminal's last lines.",
+      "What the stage shows now: the window in front (the app as it is, the app as it was, the terminal, or the code editor), its address, and the page's elements with their refs, the terminal's last lines, or what changed and the file the editor shows, with its line numbers.",
     input_schema: {
       type: "object",
       properties: {},
@@ -27,7 +27,7 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "act_on_screen",
     description:
-      "Do these on the browser window in front, one after the other, with the pointer the member sees, as a person would. Returns the screen after. Stops at the first that fails.",
+      "Do these one after the other, with the pointer the member sees, as a person would: on the browser window in front, or, for open and changes, in the code editor, which comes in front. Returns the screen after. Stops at the first that fails.",
     input_schema: {
       type: "object",
       properties: {
@@ -51,9 +51,11 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
                   "goto",
                   "reload",
                   "wait",
+                  "open",
+                  "changes",
                 ],
                 description:
-                  "point at or circle an element to show it; click; fill a field with text; select an option's value; press a key; scroll (an element into view, or the page by y pixels); goto a path of the app; reload; wait ms.",
+                  "point at or circle an element to show it; click; fill a field with text; select an option's value; press a key; scroll (an element into view, or the page by y pixels); goto a path of the app; reload; wait ms. In the code editor: open a file of the repository, as its changes when it changed, lines from to to selected and pointed at; changes, the list of what changed.",
               },
               target: {
                 type: "string",
@@ -69,6 +71,17 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
               path: { type: "string", description: "For goto, e.g. /tasks." },
               y: { type: "number", description: "For scroll without target." },
               ms: { type: "number", description: "For wait, at most 8000." },
+              file: {
+                type: "string",
+                description:
+                  "For open, from the repository's root: src/date.js.",
+              },
+              from: { type: "number", description: "For open: first line." },
+              to: {
+                type: "number",
+                description:
+                  "For open: last line, at most 30 lines after from.",
+              },
             },
             required: ["do"],
             additionalProperties: false,
@@ -82,11 +95,14 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "show_window",
     description:
-      "Bring a window in front: the app as it is on the branch (after), the app as it was before the change (before, when the stage has it), or the terminal. Returns the screen after.",
+      "Bring a window in front: the app as it is on the branch (after), the app as it was before the change (before, when the stage has it), the terminal, or the code editor (code). Returns the screen after.",
     input_schema: {
       type: "object",
       properties: {
-        window: { type: "string", enum: ["after", "before", "terminal"] },
+        window: {
+          type: "string",
+          enum: ["after", "before", "terminal", "code"],
+        },
       },
       required: ["window"],
       additionalProperties: false,
@@ -116,7 +132,9 @@ const stageInputs = {
   act_on_screen: z.object({
     actions: z.array(liveActionSchema).min(1).max(12),
   }),
-  show_window: z.object({ window: z.enum(["after", "before", "terminal"]) }),
+  show_window: z.object({
+    window: z.enum(["after", "before", "terminal", "code"]),
+  }),
   run_in_terminal: z.object({
     command: z.string().min(1).max(2000),
     cwd: z.string().max(500).optional(),
@@ -183,7 +201,7 @@ export function stageNote(state: StageState | null): string {
   if (state.control)
     return "[The member has taken control of the app and is using it themselves. Look at the screen to see what they do; you cannot act on it until they give it back.]";
   if (state.film !== null && state.film !== undefined)
-    return `[The demo is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows the app as the demo had it there.]`;
+    return `[The demo is paused in chapter ${state.film + 1} of ${state.chapters}; the stage shows it as the demo had it there.]`;
   if (state.over)
     return `[On the stage: the presentation stopped${state.cut === null || state.cut === undefined ? "" : ` in chapter ${state.cut + 1} of ${state.chapters}`} when they spoke.]`;
   if (state.chapter)

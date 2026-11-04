@@ -311,6 +311,24 @@ describe("the presentation on the stage", () => {
       stagePlan(timeline([chapter("The ask", "ticket", null)]), true),
     ).toBeNull();
     expect(stagePlan(null, true)).toBeNull();
+    // No recipe: the repository alone, the app's chapters left out.
+    const alone = stagePlan(
+      timeline([
+        chapter("Filters", "app", app("after", "/")),
+        chapter("The code", "code", {
+          ...app("after", "/"),
+          path: null,
+          actions: [{ do: "open", file: "src/date.js", from: 3, to: 9 }],
+        }),
+      ]),
+      false,
+      false,
+    );
+    expect(alone?.apps).toEqual({ after: null, before: null });
+    expect(alone?.chapters).toMatchObject([
+      { tab: null },
+      { tab: "code", actions: [{ file: "src/date.js", from: 3, to: 9 }] },
+    ]);
     // Without the app as it was, a film that never shows it still plays.
     expect(
       stagePlan(timeline([chapter("Filters", "app", app("after", "/"))]), false)

@@ -27,6 +27,9 @@ describe("the gestures in the agent's words", () => {
       do: "scroll",
       y: 300,
     });
+    expect(
+      parseGesture(`<act do="open" file="src/date.js" from="16" to="21"/>`),
+    ).toEqual({ do: "open", file: "src/date.js", from: 16, to: 21 });
     expect(parseGesture(`<act do="click" target='e2'/>`)).toEqual({
       do: "click",
       target: "e2",

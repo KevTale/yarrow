@@ -11,10 +11,11 @@
 // Writes presentation/presentation.json, one clip per chapter and a poster
 // under the session's outputs. The brain voices it after the review.
 //
-// It films a real desktop when it can (see "The desktop" below): the browser
-// and the terminal in their windows, the real pointer. Otherwise, or
-// with YARROW_DESKTOP=0, each chapter is a clip of the page alone.
+// It films a real desktop when it can (see "The desktop" below): the browser,
+// the code editor and the terminal in their windows, the real pointer.
+// Otherwise, or with YARROW_DESKTOP=0, each chapter is a clip of the page alone.
 import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
@@ -46,6 +47,12 @@ const ACTIONS = [
   "reload",
   "wait",
 ];
+// The gestures of a chapter in the editor (tab "code").
+const CODE_ACTIONS = ["changes", "open", "wait"];
+/** Lines one gesture selects: they fit on the screen. */
+const CODE_LINES = 30;
+/** A terminal's command is read as it is typed. */
+const COMMAND_MAX = 120;
 const COLORS = {
   bg: "#0c0d0f",
   surface: "#111215",
@@ -123,8 +130,8 @@ function check(plan) {
       problems.push(at + ".title: 1 to 40 characters");
     if (!chapter.say || chapter.say.length > 600)
       problems.push(at + ".say: 1 to 600 characters");
-    if (!["app", "document", "ticket", "terminal"].includes(chapter.tab))
-      problems.push(at + ".tab: app, document, ticket or terminal");
+    if (!["app", "code", "document", "terminal"].includes(chapter.tab))
+      problems.push(at + ".tab: app, code, document or terminal");
     if (!PARTS.includes(chapter.part))
       problems.push(at + ".part: context, change or proof");
     if (chapter.tab === "document") {
@@ -178,8 +185,14 @@ function check(plan) {
           );
       }
     }
-    if (chapter.tab === "terminal" && !chapter.command)
-      problems.push(at + ".command: missing");
+    if (chapter.tab === "code") problems.push(...codeProblems(chapter, at));
+    if (chapter.tab === "terminal") {
+      if (!chapter.command) problems.push(at + ".command: missing");
+      else if (typeof chapter.output !== "string") {
+        const problem = unreadable(chapter);
+        if (problem) problems.push(at + ".command: " + problem);
+      }
+    }
   }
   const parts = (plan.chapters || []).map((chapter) => chapter.part);
   if (
@@ -188,17 +201,9 @@ function check(plan) {
   )
     problems.push("chapters: context, then change, then proof, each once");
   // A change the app shows opens on the app as it was, or as it is now with
-  // the reason the plan gives: the ticket's card is for what the app cannot
-  // show.
+  // the reason the plan gives.
   const chapters = plan.chapters || [];
   if (chapters.some((chapter) => chapter.tab === "app")) {
-    for (const [i, chapter] of chapters.entries())
-      if (chapter.tab === "ticket")
-        problems.push(
-          "chapters[" +
-            i +
-            "]: no ticket chapter when the app is filmed: open on the app as it was",
-        );
     const first = chapters[0];
     const before = first?.tab === "app" && first.app === "before";
     if (!before && !String(plan.noBefore || "").trim())
@@ -207,6 +212,79 @@ function check(plan) {
       );
   }
   return problems;
+}
+
+const repository = () =>
+  fs.existsSync("/workspace/repo") ? "/workspace/repo" : process.cwd();
+
+/** What a chapter in the editor cannot show. */
+function codeProblems(chapter, at) {
+  const problems = [];
+  if (!editorServer())
+    problems.push(
+      at +
+        ': no editor on this machine: show it in a chapter of tab "terminal"',
+    );
+  for (const [j, action] of (chapter.actions || []).entries()) {
+    const where = at + ".actions[" + j + "]";
+    if (!CODE_ACTIONS.includes(action.do)) {
+      problems.push(where + ".do: one of " + CODE_ACTIONS.join(", "));
+      continue;
+    }
+    if (action.do !== "open") continue;
+    const file = path.join(repository(), String(action.file || ""));
+    if (
+      !action.file ||
+      !fs.existsSync(file) ||
+      fs.statSync(file).isDirectory()
+    ) {
+      problems.push(where + ".file: a file of the repository");
+      continue;
+    }
+    if (action.from === undefined && action.to === undefined) continue;
+    const lines = fs.readFileSync(file, "utf8").split("\n").length;
+    const { from, to = from } = action;
+    if (
+      !Number.isInteger(from) ||
+      !Number.isInteger(to) ||
+      from < 1 ||
+      to < from ||
+      to > lines
+    )
+      problems.push(where + ": from and to, lines of the file, 1 to " + lines);
+    else if (to - from >= CODE_LINES)
+      problems.push(where + ": at most " + CODE_LINES + " lines at a time");
+  }
+  return problems;
+}
+
+/** A language's one-liner: code typed in the terminal, unreadable on film. */
+const ONE_LINER =
+  /\b(?:node|nodejs|deno|bun|tsx|ts-node)\b[^|;&]*\s(?:-e|-p|-pe|--eval|--print|eval)\b|\bpython[\d.]*\b[^|;&]*\s-c\b|\b(?:ruby|perl)\b[^|;&]*\s-e\b|\bphp\b[^|;&]*\s-r\b|<</;
+/** A file printed whole: `cat date.js`. */
+const PRINTS_FILE =
+  /^\s*(?:cat|bat|less|more|nl|head|tail|sed\s+-n\s+\S+)\s+(?:-\S+\s+(?:\d+\s+)?)*([^\s|;&<>]+)\s*$/;
+
+/**
+ * Why a terminal's command is no good on film. It is read as it is typed:
+ * what its users type, or the tests. The code itself goes in the editor.
+ */
+function unreadable(chapter) {
+  const { command } = chapter;
+  if (command.length > COMMAND_MAX)
+    return "at most " + COMMAND_MAX + " characters: a viewer reads it";
+  if (ONE_LINER.test(command))
+    return "no code typed in the terminal: run what its users run, the tests, or a short script under /tmp";
+  if (/^\s*git\s+(?:diff|show|log)\b/.test(command))
+    return 'code changes show in the editor: a chapter of tab "code"';
+  const printed = PRINTS_FILE.exec(command)?.[1];
+  if (!printed) return null;
+  const cwd = chapter.cwd || repository();
+  const file = path.resolve(cwd, printed);
+  const ours =
+    fs.existsSync(file) &&
+    spawnSync("git", ["check-ignore", "-q", file], { cwd }).status !== 0;
+  return ours ? 'the code shows in the editor: a chapter of tab "code"' : null;
 }
 
 // ---------- Playwright, wherever the sandbox has it ----------
@@ -334,6 +412,45 @@ async function launch({ pw, cli }, options = {}) {
     }
   }
   throw last;
+}
+
+/**
+ * A page in a window of its own, on the desktop, as Playwright's: no tabs, no
+ * address, the same size and scale as the browser's. `name` is its window's class.
+ */
+function launchApp(desktop, { name, box, url }) {
+  return desktop.playwright.pw.chromium.launchPersistentContext(
+    desktop.appProfile(name),
+    {
+      headless: false,
+      executablePath: desktop.chrome,
+      env: desktop.env,
+      viewport: null,
+      ignoreDefaultArgs: ["--enable-automation"],
+      args: [
+        "--app=" + url,
+        "--class=" + name,
+        "--force-device-scale-factor=" + ZOOM,
+        "--window-position=" +
+          Math.round(box.x / ZOOM) +
+          "," +
+          Math.round(box.y / ZOOM),
+        "--window-size=" +
+          Math.round(box.width / ZOOM) +
+          "," +
+          Math.round(box.height / ZOOM),
+        "--force-dark-mode",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-gpu",
+        "--test-type",
+        "--hide-crash-restore-bubble",
+        "--password-store=basic",
+        "--disable-search-engine-choice-screen",
+        "--disable-features=Translate,MediaRouter",
+      ],
+    },
+  );
 }
 
 /** Recording needs Playwright's own ffmpeg: fetched once when it is missing. */
@@ -673,7 +790,7 @@ async function act(page, base, action, marks, clock) {
   await page.waitForTimeout(300);
 }
 
-// ---------- Yarrow's own pages: the ticket, the terminal ----------
+// ---------- Yarrow's own page: the terminal ----------
 
 function htmlPage(body, style) {
   return (
@@ -688,44 +805,6 @@ function htmlPage(body, style) {
     "</style></head><body>" +
     body +
     "</body></html>"
-  );
-}
-
-const GITHUB =
-  '<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>';
-
-/** The ticket as a title card: where it comes from and its title, nothing to read along. */
-function ticketPage(ticket) {
-  const sources = {
-    github: "GitHub",
-    jira: "Jira",
-    linear: "Linear",
-    trello: "Trello",
-  };
-  const key = String(ticket.source || "").toLowerCase();
-  const number = ticket.number ? String(ticket.number) : "";
-  return htmlPage(
-    '<main><p class="by">' +
-      (key === "github" ? GITHUB : "") +
-      "<span>" +
-      escape(sources[key] || ticket.source || "Ticket") +
-      "</span>" +
-      (number
-        ? "<b>" + escape(/^\d+$/.test(number) ? "#" + number : number) + "</b>"
-        : "") +
-      "</p><h1>" +
-      escape(ticket.title) +
-      "</h1></main>",
-    "body{background:#f6f4ef;color:#141518}" +
-      "main{box-sizing:border-box;height:100%;padding:0 128px 24px;display:flex;flex-direction:column;justify-content:center;gap:30px}" +
-      "main>*{opacity:0;transform:translateY(16px)}" +
-      ".go main>*{animation:in .7s cubic-bezier(.2,.7,.2,1) forwards}.go main>h1{animation-delay:.15s}" +
-      "@keyframes in{to{opacity:1;transform:none}}" +
-      ".by{margin:0;display:flex;align-items:center;gap:12px;color:#5f636b;font-size:24px;font-weight:500}" +
-      ".by b{margin-left:4px;padding:3px 12px;border-radius:9px;background:" +
-      COLORS.amber +
-      ";color:#1a1408;font-weight:600}" +
-      "h1{margin:0;max-width:1000px;font:500 66px/1.1 Jost,Geist,sans-serif;letter-spacing:-.02em;text-wrap:balance}",
   );
 }
 
@@ -1170,9 +1249,7 @@ const ANSI = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007]*\u0007/g;
 function terminalOutput(chapter) {
   if (typeof chapter.output === "string")
     return { text: chapter.output, code: 0 };
-  const cwd =
-    chapter.cwd ||
-    (fs.existsSync("/workspace/repo") ? "/workspace/repo" : process.cwd());
+  const cwd = chapter.cwd || repository();
   log("running: " + chapter.command);
   const result = spawnSync("bash", ["-lc", "(" + chapter.command + ") 2>&1"], {
     cwd,
@@ -1191,6 +1268,7 @@ function terminalOutput(chapter) {
 
 async function record(browser, plan, chapter, index, take, state) {
   const tab = chapter.tab;
+  if (tab === "code") throw new Error("the editor needs the desktop");
   const doc = tab === "document" ? documentOf(chapter) : null;
   // A document is a page of the browser, as the app's are.
   const app = doc
@@ -1228,15 +1306,14 @@ async function record(browser, plan, chapter, index, take, state) {
       .catch(() => {});
     await place(page);
   } else {
-    const html =
-      tab === "ticket"
-        ? ticketPage(plan.ticket)
-        : terminalPage(chapter.cwd ? path.basename(chapter.cwd) : "repo");
+    const html = terminalPage(
+      chapter.cwd ? path.basename(chapter.cwd) : "repo",
+    );
     await page
       .setContent(html, { waitUntil: "load", timeout: 10000 })
       .catch(() => {});
     await page.evaluate(() => document.fonts.ready).catch(() => {});
-    url = tab === "ticket" ? plan.ticket.url || null : chapter.command;
+    url = chapter.command;
   }
   const startMs = Date.now() - born;
   const clock = () => Date.now() - born - startMs;
@@ -1278,8 +1355,6 @@ async function record(browser, plan, chapter, index, take, state) {
         );
       }
     }
-  } else if (tab === "ticket") {
-    await page.evaluate(() => document.body.classList.add("go"));
   } else {
     const lines = output.text
       .replace(ANSI, "")
@@ -1353,10 +1428,10 @@ async function record(browser, plan, chapter, index, take, state) {
 //
 // A virtual screen (Xvfb) and a window manager (openbox); Yarrow's wallpaper
 // under every window (a page, in a Chromium app window); the browser, driven
-// by Playwright, and a terminal (xterm), each filling the screen, the one the
-// chapter needs in front. The pointer is the real one, moved and clicked by
-// xdotool. ffmpeg films the whole screen; each chapter is cut from that film,
-// its waits taken out.
+// by Playwright, a code editor (VS Code's open source build) and a terminal
+// (xterm), each filling the screen, the one the chapter needs in front. The
+// pointer is the real one, moved and clicked by xdotool. ffmpeg films the
+// whole screen; each chapter is cut from that film, its waits taken out.
 
 const SCREEN = { width: 1440, height: 900 };
 /** The pointer's way to what the agent shows as it talks: the voice goes on. */
@@ -1364,7 +1439,7 @@ const BRISK_GLIDE_MS = 280;
 // Each app fills the screen, its frame included, so it reads large on film:
 // no corners, no gaps.
 const FULL = { x: 0, y: 0, ...SCREEN };
-const WINDOWS = { browser: FULL, terminal: FULL };
+const WINDOWS = { browser: FULL, code: FULL, terminal: FULL };
 // The browser and its pages a quarter larger, as a zoomed screen share:
 // what the app shows reads in a player a third of the film's width. The
 // page and its window count in these units, the pointer in the screen's.
@@ -1393,6 +1468,50 @@ const DESKTOP_EXTRAS = [
   "fonts-jetbrains-mono",
   "fonts-dejavu-core",
 ];
+// The editor's server: in the image (workers/muse/Dockerfile), fetched where
+// it is not. It listens on this machine alone, behind a token.
+const EDITOR_SERVER = "/opt/openvscode-server/bin/openvscode-server";
+const EDITOR_RELEASE = "openvscode-server-v1.109.5";
+const EDITOR_PORT = 7071;
+// A changed file's row in its list of what changed.
+const CHANGED_ROW = ".scm-view .monaco-list-row:has(.file-icon)";
+// A screen to read: large text, nothing that asks or floats over the code.
+const EDITOR_SETTINGS = {
+  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.startupEditor": "none",
+  "workbench.welcomePage.walkthroughs.openOnInstall": false,
+  "workbench.tips.enabled": false,
+  "workbench.layoutControl.enabled": false,
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "window.commandCenter": false,
+  "window.title": "${activeEditorShort}${separator}${rootName}",
+  "chat.commandCenter.enabled": false,
+  "chat.disableAIFeatures": true,
+  "breadcrumbs.enabled": false,
+  "editor.fontSize": 15,
+  "editor.fontFamily": "'JetBrains Mono', monospace",
+  "editor.minimap.enabled": false,
+  "editor.stickyScroll.enabled": false,
+  "editor.scrollBeyondLastLine": false,
+  "editor.occurrencesHighlight": "off",
+  "editor.selectionHighlight": false,
+  "editor.lightbulb.enabled": "off",
+  "editor.hover.enabled": false,
+  "editor.codeLens": false,
+  "editor.inlayHints.enabled": "off",
+  "editor.cursorBlinking": "solid",
+  "diffEditor.renderSideBySide": false,
+  "scm.diffDecorations": "all",
+  "scm.showActionButton": false,
+  "scm.showHistoryGraph": false,
+  "git.openDiffOnClick": true,
+  "git.autofetch": false,
+  "security.workspace.trust.enabled": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "extensions.autoCheckUpdates": false,
+  "extensions.ignoreRecommendations": true,
+};
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // A command's flags, written as one would type them.
@@ -1502,6 +1621,30 @@ function installDesktop() {
     for (const name of packages) apt([...install, name]);
   const still = Object.keys(DESKTOP_TOOLS).filter((command) => !has(command));
   if (still.length) throw new Error("still missing: " + still.join(", "));
+}
+
+/** The editor's server, fetched once when the machine lacks it; or null. */
+function editorServer() {
+  const dir = path.join(os.tmpdir(), "yarrow-editor");
+  const own = path.join(dir, "bin", "openvscode-server");
+  for (const file of [EDITOR_SERVER, own]) if (fs.existsSync(file)) return file;
+  log("installing the editor");
+  fs.mkdirSync(dir, { recursive: true });
+  const tar =
+    "https://github.com/gitpod-io/openvscode-server/releases/download/" +
+    EDITOR_RELEASE +
+    "/" +
+    EDITOR_RELEASE +
+    "-linux-x64.tar.gz";
+  spawnSync(
+    "sh",
+    [
+      "-c",
+      "curl -fsSL " + tar + " | tar xz --strip-components=1 -C " + quote(dir),
+    ],
+    { stdio: "ignore", timeout: 120000 },
+  );
+  return fs.existsSync(own) ? own : null;
 }
 
 /** An X bitmap for openbox's title buttons, drawn with # and dots. */
@@ -1658,6 +1801,7 @@ function openboxConfig() {
     rule('title="Yarrow desktop*"', FULL, under) +
     rule('class="YarrowDesktop"', FULL, under) +
     rule('class="YarrowBrowser"', WINDOWS.browser) +
+    rule('class="YarrowCode"', WINDOWS.code, "<decor>no</decor>") +
     rule('class="YarrowTerm"', WINDOWS.terminal) +
     "</applications></openbox_config>\n"
   );
@@ -1931,11 +2075,12 @@ class Desktop {
 
   /**
    * The app's browser alone on the screen, for the member who takes
-   * control, the terminal gone. Or the desktop as it was.
+   * control, the terminal and the editor gone. Or the desktop as it was.
    */
   alone(on) {
-    const { browser, terminal } = this.ids;
-    this.x("xdotool", [on ? "windowunmap" : "windowmap", String(terminal)]);
+    const { browser, code, terminal } = this.ids;
+    for (const id of code ? [terminal, code] : [terminal])
+      this.x("xdotool", [on ? "windowunmap" : "windowmap", String(id)]);
     if (!browser) return;
     this.raise(browser);
     this.front = "browser";
@@ -1960,6 +2105,7 @@ class Desktop {
 
   async start(playwright, { film = true } = {}) {
     const born = Date.now();
+    this.playwright = playwright;
     installDesktop();
     let display = 99;
     while (fs.existsSync("/tmp/.X" + display + "-lock") && display > 80)
@@ -2062,15 +2208,8 @@ class Desktop {
       findChromium({ full: true }),
     ].find((file) => file && fs.existsSync(file));
     if (!chrome) throw new Error("no Chromium for the desktop");
-    const profile = path.join(this.dir, "desktop-profile");
-    fs.mkdirSync(path.join(profile, "Default"), { recursive: true });
-    fs.writeFileSync(
-      path.join(profile, "Default", "Preferences"),
-      JSON.stringify({
-        browser: { custom_chrome_frame: false },
-        profile: { exit_type: "Normal" },
-      }),
-    );
+    this.chrome = chrome;
+    const profile = this.appProfile("desktop-profile");
     this.known = new Set(this.windows().map((w) => w.id));
     this.spawn("desktop", chrome, [
       "--app=http://127.0.0.1:" + port + "/",
@@ -2106,9 +2245,7 @@ class Desktop {
     }
 
     // The terminal, its shell in the repository.
-    this.cwd = fs.existsSync("/workspace/repo")
-      ? "/workspace/repo"
-      : process.cwd();
+    this.cwd = repository();
     this.state = path.join(this.dir, "prompt");
     // What it shows, kept as it comes: a command run live is read back.
     this.transcript = path.join(this.dir, "terminal.log");
@@ -2156,6 +2293,84 @@ class Desktop {
         ((Date.now() - born) / 1000).toFixed(1) +
         " s",
     );
+  }
+
+  /** A Chromium profile for an app window: no frame of its own. */
+  appProfile(name) {
+    const profile = path.join(this.dir, name);
+    fs.mkdirSync(path.join(profile, "Default"), { recursive: true });
+    fs.writeFileSync(
+      path.join(profile, "Default", "Preferences"),
+      JSON.stringify({
+        browser: { custom_chrome_frame: false },
+        profile: { exit_type: "Normal" },
+      }),
+    );
+    return profile;
+  }
+
+  /**
+   * The editor on the repository, behind the window in front: its server
+   * for this machine alone, in a Chromium of its own, so the browser a
+   * member may take over has neither its token nor its session.
+   */
+  async openEditor() {
+    const born = Date.now();
+    const server = editorServer();
+    if (!server) throw new Error("no editor on this machine");
+    const data = path.join(this.dir, "editor");
+    fs.mkdirSync(path.join(data, "Machine"), { recursive: true });
+    fs.writeFileSync(
+      path.join(data, "Machine", "settings.json"),
+      JSON.stringify(EDITOR_SETTINGS),
+    );
+    const token = randomUUID();
+    this.spawn("editor", server, [
+      ...flags("--host 127.0.0.1 --port " + EDITOR_PORT),
+      ...["--connection-token", token],
+      ...["--server-data-dir", data, "--user-data-dir", data],
+      ...flags(
+        "--accept-server-license-terms --disable-telemetry --disable-update-check",
+      ),
+    ]);
+    if (!(await until(() => listening(EDITOR_PORT), 20000)))
+      throw new Error("the editor's server did not start");
+    const front = this.front;
+    const context = await launchApp(this, {
+      name: "YarrowCode",
+      box: WINDOWS.code,
+      url:
+        "http://127.0.0.1:" +
+        EDITOR_PORT +
+        "/?tkn=" +
+        token +
+        "&folder=" +
+        encodeURIComponent(this.cwd),
+    });
+    const page =
+      context.pages()[0] ??
+      (await context.waitForEvent("page", { timeout: 15000 }));
+    const id = await this.opened((w) => /yarrowcode/i.test(w.wmClass), 20000);
+    if (!id) throw new Error("the editor's window did not open");
+    this.place(id, WINDOWS.code);
+    this.ids.code = id;
+    await page.waitForSelector(".explorer-folders-view .monaco-list-row", {
+      timeout: 45000,
+    });
+    // It asks once, whatever its settings say.
+    await page
+      .getByRole("button", { name: "Yes, I trust the authors" })
+      .click({ timeout: 2500 })
+      .catch(() => {});
+    // So does its walkthrough open.
+    await page
+      .locator('.tab[aria-label^="Walkthrough"] .codicon-close')
+      .click({ timeout: 2500 })
+      .catch(() => {});
+    await sleep(800);
+    this.editor = { context, page };
+    if (front) this.raise(this.ids[front]);
+    log("editor up in " + ((Date.now() - born) / 1000).toFixed(1) + " s");
   }
 
   /** The whole screen, filmed until the end; chapters are cut from it later. */
@@ -2390,7 +2605,9 @@ class Desktop {
     const result =
       chapter.tab === "app" || chapter.tab === "document"
         ? await this.recordApp(plan, chapter, index, state)
-        : await this.recordTerminal(chapter, state);
+        : chapter.tab === "code"
+          ? await this.recordCode(chapter, index, state)
+          : await this.recordTerminal(chapter, state);
     const parts = result.take.end();
     this.jobs.push({ name, parts });
     const durationMs = parts.reduce((sum, [from, to]) => sum + to - from, 0);
@@ -2489,6 +2706,244 @@ class Desktop {
     };
   }
 
+  /** A chapter in the editor: its gestures over its words. */
+  async recordCode(chapter, index, state) {
+    if (!this.editor) throw new Error("the editor is not open");
+    const target = estimateMs(chapter.say);
+    const problems = [];
+    const marks = [];
+    const film = new Take();
+    const clock = () => film.clock();
+    const fail = (action, error) =>
+      problems.push(
+        "chapter " +
+          (index + 1) +
+          ' "' +
+          chapter.title +
+          '": ' +
+          action.do +
+          " " +
+          (action.file || "") +
+          ": " +
+          String(error?.message).split("\n")[0],
+      );
+    await this.show("code");
+    await this.actOver(
+      this.editor.page,
+      null,
+      chapter.actions,
+      target,
+      clock,
+      marks,
+      fail,
+    );
+    await sleep(Math.max(target, clock() + 1000) - clock());
+    film.pause();
+    // The poster shows the change: never the repository before it.
+    if (chapter.part !== "context" && !state.poster)
+      state.poster = this.still();
+    if (!state.first) state.first = this.still();
+    return {
+      take: film,
+      problems,
+      chapter: {
+        url: chapter.actions?.find((action) => action.file)?.file ?? null,
+        urls: [],
+        page: null,
+        before: false,
+        marks,
+      },
+    };
+  }
+
+  /** The editor's quick input: a line, or a file once its list has it, then Enter. */
+  async quick(key, text, listed = null) {
+    const { page } = this.editor;
+    await page.keyboard.press(key);
+    await page.waitForSelector(".quick-input-widget input:focus", {
+      timeout: 4000,
+    });
+    await page.keyboard.type(text, { delay: this.brisk ? 0 : 14 });
+    // The first search of the repository takes its time.
+    if (listed)
+      await page
+        .locator(".quick-input-list .monaco-list-row", { hasText: listed })
+        .first()
+        .waitFor({ state: "visible", timeout: 5000 });
+    await sleep(this.brisk ? 120 : 320);
+    await page.keyboard.press("Enter");
+    await page
+      .waitForSelector(".quick-input-widget", {
+        state: "hidden",
+        timeout: 3000,
+      })
+      .catch(() => {});
+  }
+
+  /** The list of what changed, the pointer on it. */
+  async changes(marks, clock) {
+    const { page } = this.editor;
+    await this.show("code");
+    await page.keyboard.press("Control+Shift+g");
+    this.editor.shown = null;
+    const row = page.locator(CHANGED_ROW).first();
+    await row.waitFor({ state: "visible", timeout: 5000 });
+    await this.pointAtCode(page, await row.boundingBox(), marks, clock);
+  }
+
+  /** A changed file's row in that list, clicked: its changes open. */
+  async openChanges(file, marks, clock) {
+    const { page } = this.editor;
+    await page.keyboard.press("Control+Shift+g");
+    const folder = path.dirname(file);
+    const label = path.basename(file) + (folder === "." ? "" : folder);
+    const row = page
+      .locator(CHANGED_ROW)
+      .filter({
+        hasText: new RegExp(
+          "^\\s*" + label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$",
+        ),
+      })
+      .first();
+    await row.waitFor({ state: "visible", timeout: 5000 });
+    await this.pointAtCode(page, await row.boundingBox(), marks, clock);
+    await sleep(this.brisk ? 60 : 250);
+    await this.click();
+    await page.waitForSelector(".editor-instance .monaco-diff-editor", {
+      timeout: 6000,
+    });
+  }
+
+  /**
+   * A file, as its changes when it changed: `from` to `to` selected and the
+   * pointer on them, else its first change.
+   */
+  async openCode(action, marks, clock) {
+    const { page } = this.editor;
+    await this.show("code");
+    const file = String(action.file);
+    if (!fs.existsSync(path.join(this.cwd, file)))
+      throw new Error("no such file in the repository");
+    const status = this.git(["status", "--porcelain", "--", file]).slice(0, 2);
+    const changed = /M/.test(status);
+    // A list too long to show it: the file as it is.
+    const shown =
+      changed &&
+      (await this.openChanges(file, marks, clock).then(
+        () => true,
+        () => false,
+      ));
+    if (!shown) {
+      await this.quick("Control+p", file, path.basename(file));
+      await page
+        .locator(".tab.active", { hasText: path.basename(file) })
+        .first()
+        .waitFor({ state: "visible", timeout: 6000 });
+    }
+    await page.waitForSelector(".view-lines .view-line", { timeout: 6000 });
+    await sleep(this.brisk ? 120 : 350);
+    const from = action.from ?? (shown ? this.firstChange(file) : null);
+    const to = Math.min(action.to ?? from, from + CODE_LINES - 1);
+    this.editor.shown = { file, from, to };
+    if (!from) return;
+    // From its end up: the first line stays on screen whatever its length.
+    await this.quick("Control+g", String(to));
+    await page.keyboard.press("End");
+    for (let line = to; line > from; line--)
+      await page.keyboard.press("Shift+ArrowUp");
+    await page.keyboard.press("Shift+Home");
+    await page.keyboard.press("Shift+Home");
+    const box = await until(
+      () =>
+        page.evaluate(() => {
+          const shown = [...document.querySelectorAll(".selected-text")]
+            .map((line) => line.getBoundingClientRect())
+            .filter((line) => line.width > 0);
+          if (!shown.length) return null;
+          const top = Math.min(...shown.map((line) => line.top));
+          const left = Math.min(...shown.map((line) => line.left));
+          return {
+            x: left,
+            y: top,
+            width: Math.max(...shown.map((line) => line.right)) - left,
+            height: Math.max(...shown.map((line) => line.bottom)) - top,
+          };
+        }),
+      2000,
+    );
+    if (box) await this.pointAtCode(page, box, marks, clock);
+  }
+
+  /** The pointer to the code, by the side of what it shows. */
+  async pointAtCode(page, box, marks, clock) {
+    await this.glideTo(
+      page,
+      box.x + Math.min(box.width * 0.35, 340),
+      box.y + Math.min(box.height / 2, 60),
+    );
+    marks.push({
+      atMs: clock(),
+      kind: "point",
+      box: {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      },
+    });
+  }
+
+  /** The editor as text: what changed, and the file it shows, numbered. */
+  codeAsText() {
+    const shown = this.editor?.shown;
+    const changed = this.git(["status", "--porcelain"])
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.slice(3));
+    const list =
+      "In front: the code editor, on the repository. What changed on the branch: " +
+      (changed.slice(0, 40).join(", ") || "nothing") +
+      ".";
+    if (!shown) return list + "\nIt shows that list.";
+    let text = "";
+    try {
+      text = fs.readFileSync(path.join(this.cwd, shown.file), "utf8");
+    } catch {
+      // Gone since: only its name then.
+    }
+    const numbered = text
+      .split("\n")
+      .map((line, i) => i + 1 + "  " + line)
+      .join("\n");
+    return (
+      list +
+      "\nIt shows " +
+      shown.file +
+      (shown.from
+        ? ", lines " + shown.from + " to " + shown.to + " selected"
+        : "") +
+      ":\n" +
+      (numbered.length > 12000
+        ? numbered.slice(0, 12000) + "\n[…cut]"
+        : numbered)
+    );
+  }
+
+  /** A git command in the repository: its output, "" when it fails. */
+  git(args) {
+    return (
+      spawnSync("git", args, { cwd: this.cwd, encoding: "utf8" }).stdout ?? ""
+    );
+  }
+
+  /** Where a changed file's first change starts. */
+  firstChange(file) {
+    const hunk = this.git(["diff", "-U0", "--", file]).match(
+      /^@@ -\S+ \+(\d+)/m,
+    );
+    return hunk ? Math.max(1, Number(hunk[1])) : null;
+  }
+
   /** The chapter's actions, spread over what is said, so the gestures land on the words. */
   /**
    * The chapter's gestures spread over its voice. Live, `hold` waits while
@@ -2541,7 +2996,8 @@ class Desktop {
     });
     await context.addInitScript(overlay, { real: true });
     await serveDocuments(context, this.documents);
-    const browserWindow = (w) => !/yarrowterm|yarrowdesktop/i.test(w.wmClass);
+    const browserWindow = (w) =>
+      !/yarrowterm|yarrowdesktop|yarrowcode/i.test(w.wmClass);
     const first = await context.newPage();
     const id = await this.opened(browserWindow, 15000);
     if (!id) throw new Error("the browser window did not open");
@@ -2709,6 +3165,8 @@ class Desktop {
     const kind = action.do;
     if (kind === "wait")
       return sleep(Math.min(Number(action.ms) || 1000, 8000));
+    if (kind === "changes") return this.changes(marks, clock);
+    if (kind === "open") return this.openCode(action, marks, clock);
     if (kind === "goto")
       return this.address(page, join(base, action.path), marks, clock);
     if (kind === "reload") return this.reload(page, marks, clock);
@@ -2909,9 +3367,7 @@ class Desktop {
     const before = chapter.before === true;
     const marks = [];
     const problems = [];
-    const cwd =
-      chapter.cwd ||
-      (fs.existsSync("/workspace/repo") ? "/workspace/repo" : process.cwd());
+    const cwd = chapter.cwd || repository();
     const film = new Take();
     const clock = () => film.clock();
     await this.show("terminal");
@@ -2995,6 +3451,7 @@ class Desktop {
       await Promise.race([closed, sleep(5000)]);
     }
     await this.browser?.close().catch(() => {});
+    await this.editor?.context.close().catch(() => {});
     const cutting = Date.now();
     for (const job of this.jobs) {
       const inputs = job.parts.flatMap(([from, to]) => [
@@ -3366,7 +3823,8 @@ class Presenter {
         await page.bringToFront();
         if (hold.url && !samePage(page.url(), hold.url))
           await desktop.address(page, hold.url, marks, clock);
-      } else if (hold.front === "terminal") await desktop.show("terminal");
+      } else if (hold.front === "terminal" || hold.front === "code")
+        await desktop.show(hold.front);
     } catch (error) {
       problems.push(
         "back to the presentation: " + String(error?.message).split("\n")[0],
@@ -3462,6 +3920,8 @@ class Presenter {
     this.over = true;
     this.untouched = false;
     const problems = [];
+    // What the editor last showed: only that counts.
+    let code = null;
     for (const [i, chapter] of chapters.entries()) {
       if (i < from.index) continue;
       // Gone on from here: its page is open, its first gestures done.
@@ -3475,6 +3935,11 @@ class Presenter {
       const done = (i < index ? actions : actions.slice(0, count)).slice(
         going ? from.count : 0,
       );
+      if (chapter.tab === "code") {
+        code = done.findLast((action) => action.do !== "wait") ?? code;
+        if (i < index) this.shown.add(i);
+        continue;
+      }
       if (chapter.tab === "terminal") {
         // Its command once, as the film ran it, only when it shows now.
         if (i === index && !going) {
@@ -3531,6 +3996,10 @@ class Presenter {
         ? shownIn(plan, chapters[index]).which
         : null;
     if (front) await desktop.tabs?.pages[front]?.bringToFront();
+    if (chapters[index].tab === "code" && desktop.editor) {
+      await desktop.show("code");
+      if (code) problems.push(...(await this.inEditor([code], false)).problems);
+    }
     this.cut = index;
     this.film = index;
     this.reached = { index, count };
@@ -3550,6 +4019,7 @@ class Presenter {
    */
   async look() {
     const { desktop } = this;
+    if (desktop.front === "code") return desktop.codeAsText();
     if (desktop.front === "terminal") {
       const tail = desktop.terminalSince(
         Math.max(0, desktop.terminalSize() - 6000),
@@ -3629,6 +4099,11 @@ class Presenter {
   /** The agent's gestures on the window in front, then the screen after. */
   async act(actions, read = true) {
     const { desktop, plan } = this;
+    if (
+      desktop.front === "code" ||
+      actions.some((action) => action.do === "open" || action.do === "changes")
+    )
+      return this.inEditor(actions, read);
     const problems = [];
     const which = desktop.tabs?.active;
     const page = which && desktop.tabs.pages[which];
@@ -3669,11 +4144,49 @@ class Presenter {
     return read ? { problems, screen: await this.look() } : { problems };
   }
 
-  /** A window in front: the app as it is, as it was, or the terminal. */
+  /** The agent's gestures in the editor, which comes in front for them. */
+  async inEditor(actions, read = true) {
+    const { desktop } = this;
+    if (!desktop.editor)
+      return {
+        problems: ["the editor is not open"],
+        screen: await this.look(),
+      };
+    const problems = [];
+    const marks = [];
+    const started = Date.now();
+    const clock = () => Date.now() - started;
+    this.reached = null;
+    desktop.brisk = true;
+    for (const action of actions)
+      try {
+        if (!CODE_ACTIONS.includes(action.do))
+          throw new Error("in the editor: open, changes or wait");
+        await desktop.act(desktop.editor.page, null, action, marks, clock);
+      } catch (error) {
+        problems.push(
+          action.do +
+            " " +
+            (action.file || "") +
+            ": " +
+            String(error?.message).split("\n")[0],
+        );
+        break;
+      }
+    desktop.brisk = false;
+    return read ? { problems, screen: await this.look() } : { problems };
+  }
+
+  /** A window in front: the app as it is, as it was, the terminal, the editor. */
   async show(window) {
     const { desktop } = this;
-    if (window === "terminal") {
-      await desktop.show("terminal");
+    if (window === "code" && !desktop.editor)
+      return {
+        problems: ["the editor is not open"],
+        screen: await this.look(),
+      };
+    if (window === "terminal" || window === "code") {
+      await desktop.show(window);
       return { problems: [], screen: await this.look() };
     }
     const which = window === "before" ? "before" : "after";
@@ -3732,6 +4245,12 @@ class Presenter {
     this.film = null;
     this.reached = null;
     if (this.untouched) return [];
+    if (!plan.apps.after) {
+      // The repository alone: the editor is the stage.
+      if (desktop.editor) await desktop.show("code");
+      this.untouched = true;
+      return [];
+    }
     const started = Date.now();
     const first = plan.chapters.findIndex((chapter) => chapter.tab === "app");
     const which = first < 0 ? "after" : plan.chapters[first].app || "after";
@@ -3752,6 +4271,8 @@ class Presenter {
         page.url(),
       ]),
     );
+    if (plan.chapters[0]?.tab === "code" && desktop.editor)
+      await desktop.show("code");
     await desktop.glide(SCREEN.width * 0.6, SCREEN.height * 0.55, 500);
     this.untouched = true;
     log("opening in " + ((Date.now() - started) / 1000).toFixed(1) + " s");
@@ -3777,7 +4298,9 @@ class Presenter {
         ? []
         : chapter.tab === "terminal"
           ? (await this.desktop.recordTerminal(chapter, null, voiceMs)).problems
-          : await this.app(chapter, index, voiceMs, round);
+          : chapter.tab === "code"
+            ? await this.code(chapter, index, voiceMs, round)
+            : await this.app(chapter, index, voiceMs, round);
       this.shown.add(index);
       return problems;
     } catch (error) {
@@ -3786,6 +4309,35 @@ class Presenter {
     } finally {
       this.playing = null;
     }
+  }
+
+  async code(chapter, index, voiceMs, round) {
+    const { desktop } = this;
+    if (!desktop.editor) throw new Error("the editor is not open");
+    const problems = [];
+    const started = this.now();
+    await desktop.show("code");
+    await desktop.actOver(
+      desktop.editor.page,
+      null,
+      chapter.actions,
+      voiceMs,
+      () => this.now() - started,
+      [],
+      (action, error) =>
+        problems.push(
+          "chapter " +
+            (index + 1) +
+            ": " +
+            action.do +
+            " " +
+            (action.file || "") +
+            ": " +
+            String(error?.message).split("\n")[0],
+        ),
+      () => this.going(round),
+    );
+    return problems;
   }
 
   async app(chapter, index, voiceMs, round) {
@@ -4053,7 +4605,8 @@ function lockBrowser() {
  * only until a member takes control) and as a WebSocket (websockify) until
  * the container stops. Nothing is filmed.
  * The stage file gives the app ({ url, path, signIn: { path, fields,
- * submit } | null }), `ready`, written once the screen can be watched,
+ * submit } | null }; url null: none, the repository alone in the editor),
+ * the branch it goes into (`base`), `ready`, written once the screen can be watched,
  * `session`, written with the browser's session once it signed in, and
  * the presentation to play live (`script`: { apps, chapters } | null),
  * which the presenter plays as asked on PRESENTER_PORT.
@@ -4067,6 +4620,17 @@ async function stage(spec) {
     process.on(signal, () => process.exit(0));
   lockBrowser();
   await desktop.start(playwright, { film: false });
+  // The branch's commits as changes, as the agent's on its film. Then the
+  // editor: without it the stage still has the app and the terminal.
+  const base = desktop
+    .git(["merge-base", "HEAD", "origin/" + spec.base])
+    .trim();
+  if (base) desktop.git(["reset", "-q", base]);
+  await desktop
+    .openEditor()
+    .catch((error) =>
+      log("no editor: " + String(error?.message).split("\n")[0]),
+    );
   let storage;
   if (spec.signIn) {
     storage = path.join(desktop.dir, "after-state.json");
@@ -4097,14 +4661,17 @@ async function stage(spec) {
   for (const chapter of plan.chapters)
     if (chapter.document)
       desktop.documents.set(chapter.path, chapter.document.html);
-  // The app alone, on the recipe's page.
-  const plain = () =>
-    desktop.openWindow(
-      { apps: { after: plan.apps.after }, chapters: [] },
-      0,
-      "after",
-      join(plan.apps.after.url, spec.path),
-    );
+  // The app alone, on the recipe's page; else the repository alone.
+  const plain = async () => {
+    if (plan.apps.after)
+      await desktop.openWindow(
+        { apps: { after: plan.apps.after }, chapters: [] },
+        0,
+        "after",
+        join(plan.apps.after.url, spec.path),
+      );
+    else if (desktop.editor) await desktop.show("code");
+  };
   const presenter = new Presenter(desktop, plan, spec.signIn ?? null, plain);
   if (script)
     await presenter.set().catch((error) => {
@@ -4167,6 +4734,7 @@ function shownIn(plan, chapter) {
 const onDesktop = (chapter) =>
   ((chapter.tab === "app" || chapter.tab === "document") &&
     chapter.device !== "phone") ||
+  chapter.tab === "code" ||
   (chapter.tab === "terminal" && typeof chapter.output !== "string");
 
 async function main() {
@@ -4191,6 +4759,8 @@ async function main() {
     process.on("exit", () => desktop?.close());
     try {
       await desktop.start(playwright);
+      if (plan.chapters.some((chapter) => chapter.tab === "code"))
+        await desktop.openEditor();
     } catch (error) {
       log(
         "no desktop (" +
