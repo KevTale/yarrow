@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { addUsage, type ChatTicket, type ChatUsage } from "../core/chat";
+import {
+  addUsage,
+  LANGUAGE_RULE,
+  type ChatTicket,
+  type ChatUsage,
+} from "../core/chat";
 import {
   beatMark,
   VOICE_PUSH,
@@ -80,7 +85,7 @@ ${
 
 How you talk:
 - Spoken words only: no markdown, lists, headings, code, file paths or symbols read out. One or two short sentences, as a colleague on a call, more only when they ask for it.
-- Every word in the language of their last words, the first one too, whatever language these rules, the code or the app are in.
+- ${LANGUAGE_RULE}
 - What must be read rather than heard (a list, code, file names, steps): call write_down with it, and say one sentence about it, no more.
 - Before reading the code or the tickets, once a turn, one short sentence of your own, with no comma, on what you are looking for ("Let me see how the counter is worked out."), then the tool: never a generic "one moment", and nothing of the kind before a plain answer.${
   onStage
@@ -335,7 +340,7 @@ const FILLERS: Record<string, string[]> = {
 
 /**
  * How words said before a tool end: ElevenLabs speaks a sentence once
- * what follows its end comes, a space at least; else "Regarde." waits for
+ * what follows its end comes, a space at least; else "Look." waits for
  * the answer after the tool. Words cut short get their full stop.
  */
 export function untilTool(words: string): string {

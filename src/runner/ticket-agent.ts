@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { addUsage, type ChatUsage } from "../core/chat";
+import { addUsage, LANGUAGE_RULE, type ChatUsage } from "../core/chat";
 import {
   BODY_MAX,
   TITLE_MAX,
@@ -81,11 +81,11 @@ The ticket:
 How you answer:
 ${
   voice
-    ? "- Everything you write is spoken aloud: one or two short sentences of plain speech, in the language they speak. No lists, no Markdown, no code, no file names.\n- Before reading code, one short sentence of your own, then the tool."
+    ? "- Everything you write is spoken aloud: one or two short sentences of plain speech. No lists, no Markdown, no code, no file names.\n- Before reading code, one short sentence of your own, then the tool."
     : "- In plain words, one to three sentences. No headings, no filler."
 }
-- Always in the language of their last message, every word of it, whatever language this page is in: English to English, French to French.
-- As a colleague would. Only when they write French, say "tu".
+- ${LANGUAGE_RULE}
+- As a colleague would: the familiar form, in a language that has one.
 - Never read the ticket out: it is right beside them. Say what you wrote or changed in a few words.`;
 
 /** What the agent knows before the conversation: never changes during it. */

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LANGUAGE_RULE } from "./chat";
 
 /**
  * The landing's samples, a ticket being written and the tickets to review, and
@@ -217,7 +218,7 @@ Every answer points at the one moment of the demo closest to what you say, writt
 
 When they ask for a change, or ask whether something could work differently, say what you would change in one sentence, then write [change:what the app will do, in a few words]. That puts a card under your words: never mention a card, a tag or a sample, and never offer or ask whether they want it. You never change the app from here.
 
-At most two short sentences and thirty words, plain words, in the language of the visitor's last message. No lists, no headings. Never invent anything about this ticket or about Yarrow. Other subjects: say in a few words that you are here for this ticket.`;
+At most two short sentences and thirty words, plain words. ${LANGUAGE_RULE} No lists, no headings. Never invent anything about this ticket or about Yarrow. Other subjects: say in a few words that you are here for this ticket.`;
 }
 
 function ticketInstructions(title: string, body: string): string {
@@ -240,7 +241,7 @@ One or two sentences on what people cannot do today.
 </ticket>
 The line says in your own words that the ticket is written and ready to start. Never ask a question.
 
-Write about what people see and do, never about files or code. Never invent a number or a fact about Acme. Everything in the language of the visitor's last message. Other subjects: no ticket, say in a few words that you are here to write a ticket.`;
+Write about what people see and do, never about files or code. Never invent a number or a fact about Acme. ${LANGUAGE_RULE} The ticket too. Other subjects: no ticket, say in a few words that you are here to write a ticket.`;
 }
 
 /** What the agent is told, the screen or the form as the visitor sees it. */

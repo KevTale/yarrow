@@ -43,7 +43,11 @@ PY`;
  * How result.json is written: the owner reads it in the pull request.
  * Sent with every task, so it applies without re-registering the agent.
  */
-export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". Its shape:
+/** The language of what a run delivers: the ticket is all it hears from them. */
+const OWNER_LANGUAGE =
+  "Everything the owner reads or hears is in English by default, and in the ticket's language when it is written in another one.";
+
+export const RESULT_STYLE = `How to write result.json: the owner reads it in Yarrow and in the pull request, with the diff open, in under a minute. The owner is often a product manager who does not read code, and sometimes a developer: write for the product manager first, in everyday words, and keep technical words for the pointer after " — ". ${OWNER_LANGUAGE} Its shape:
 {"status": "done" | "unclear" | "cannot_do", "ask": "...", "summary": "...", "pr_summary": "...", "questions": [], "criteria": [], "verification": [], "not_verified": [], "risks": [], "spotted": [], "proofs": []}
 - ask: Yarrow shows it under "What the ticket asks": the need, as the owner would explain it to a teammate, in one or two short sentences under 200 characters, plain prose: who wants what and why it matters to them, never how you solved it ("People working through their tasks lose the ones in progress in one long list: the ticket asks for a way to see only one status."). Leave it out for a correction: the ticket has not changed.
 - summary: what the reviewer reads first, and the commit message: never restate the ticket, the ask says it. One or two short sentences, under 250 characters, plain prose with no list, as you would tell a teammate: what you did, as what people using the app now see or can do, then a choice the ticket left open only when people using the app will notice it. Never how you checked it: no "I checked it in the app", no test counts. Name a file, route or command only when the ticket did. No file-by-file account, no command lines, no history of what you tried: the owner asks for details in Yarrow's conversation.
@@ -102,6 +106,7 @@ What the demo shows, from what the change is:
  */
 export function presentationGuide(): string {
   return `Presentation: your screen, recorded, with your words over it, like a colleague presenting their pull request on a call. Every pull request has one: never skip it because the change is small or nobody sees it, and call it the demo when you speak of it. You write a plan; the recorder plays it on a real desktop (the browser and a terminal, each filling the screen, the real pointer) and records it. Yarrow voices your words after the review, in English.
+- ${OWNER_LANGUAGE}
 - Who watches: often a product manager or a designer who reads no code and no terminal. By its end, they are sure the ticket is solved from what they saw: the flow where the people it is for go through it. A rule the flow reaches is shown in the app, brought to the moment it shows with test data or the app's own state; never change the app's code for the video. The terminal only supports a chapter that has shown the change: never node -e calling the code's functions.
 - Three parts, in this order, every chapter naming its own in "part": "context" (what the ticket asks and why it matters), "change" (what you did, in plain words, where it lives) and "proof" (it working for real). Each part has at least one chapter.
 - Chapters, in this order:
@@ -307,6 +312,8 @@ The implementer lists the ticket's acceptance criteria with how each was shown: 
 
 You write "changed": the pull request as it stands, the one text the owner reads under "What changed", in Yarrow and at the head of the pull request, right under what the ticket asks (never restate the ticket). The owner is often a product manager who does not read code. One or two short sentences, under 250 characters, plain prose with no list, in everyday words, in a neutral voice that tells the change, never "I" nor who did what: what the change does, as what people using the app now see or can do. Tell only what the change really does, from the diff: the implementer's summary is a lead, not the truth. Example: "Done tasks with a past due date now show the date plainly, without the red overdue label; open tasks past their date keep it." Say nothing of how it is known to work, nor of what is left to do: no tests, no "checked in the app", no risks. Yarrow's notes beside it tell the owner what they must do, what could not be checked and what is still wrong, from your comments and the implementer's lists; when there is none, silence means all is good. No verdict word ("Approved."), no list of criteria: the owner asks Yarrow's conversation for details. Keep comments to what matters; at most three suggestions, each body in everyday words first, then " — " and the technical detail.
 
+${OWNER_LANGUAGE}
+
 You also write "headline": the same change in one line, the ticket's title on its row in Yarrow's list. Under 70 characters, no full stop, the same everyday words, what the change is and nothing else, never the ticket's own title copied. Example: "Low, Normal or High priority on tasks, Normal by default".
 
 Answer with JSON only, no prose and no code fence:
@@ -358,7 +365,7 @@ Before or after merging: ${input.risks?.join("; ") || "(nothing)"}${earlier}
 Review the staged change and answer with the JSON format from your instructions.`;
 }
 
-export const CLARITY_INSTRUCTIONS = `You help Yarrow decide whether a software ticket is clear enough to implement. Another model flagged it as unclear and asked questions. Decide independently: a ticket is clear when a competent engineer could implement it without guessing the intended behavior.
+export const CLARITY_INSTRUCTIONS = `You help Yarrow decide whether a software ticket is clear enough to implement. Another model flagged it as unclear and asked questions. Decide independently: a ticket is clear when a competent engineer could implement it without guessing the intended behavior. ${OWNER_LANGUAGE}
 
 Answer with JSON only:
 {"clear": true | false, "reading": "if clear: the precise interpretation to implement", "questions": ["if unclear: the questions to ask the owner"]}`;

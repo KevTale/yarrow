@@ -5,6 +5,13 @@
  * their tokens are kept to know what it costs.
  */
 
+/**
+ * The language of every agent that talks. Prompts stay in English, their
+ * examples too: a model follows the language of its examples.
+ */
+export const LANGUAGE_RULE =
+  "English by default. When they write or speak another language, answer in that language instead, every word of it, from the first one.";
+
 /** Who answers, and how hard it thinks: chat is quick back and forth. */
 export const CHAT_MODEL = "claude-opus-5-5";
 export const CHAT_EFFORT = "low";

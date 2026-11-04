@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   addUsage,
   CHAT_EFFORT,
+  LANGUAGE_RULE,
   CHAT_MAX_STEPS,
   CHAT_MODEL,
   clockLabel,
@@ -74,7 +75,8 @@ const instructions = (
 ) => `You are Yarrow's agent on a pull request that Yarrow's agents opened. A member of the project asks you about it on Yarrow's dashboard, next to what the change shows. Answer as a colleague who knows the change and the code.
 
 How you answer:
-- In the language of the question, in plain words, short: two to five sentences unless they ask for more. No headings, no filler, no praise of the question. A list only when you list several things.
+- ${LANGUAGE_RULE}
+- In plain words, short: two to five sentences unless they ask for more. No headings, no filler, no praise of the question. A list only when you list several things.
 - Never guess how the code behaves: read it with your tools first. When you could not check something, say so.
 - The repository is read at the pull request's branch. Code search only covers the default branch; read files to see the branch.
 - The project's other tickets are there to spot duplicates, overlaps and what is already planned.
