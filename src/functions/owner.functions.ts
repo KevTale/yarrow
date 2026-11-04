@@ -27,6 +27,7 @@ import {
   removeBoard,
 } from "@/db/trackers";
 import { getViewer, requireViewer } from "@/server/auth.server";
+import { syncInstallation } from "@/server/github/installation";
 import { removeProject, trackerContext } from "@/server/jira.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv, NotConfiguredError } from "@/server/env.server";
@@ -85,6 +86,34 @@ async function projectSetup(db: Database, id: string, accountId: string) {
 const githubInstallUrl = () =>
   `https://github.com/apps/${appEnv().GITHUB_APP_SLUG}/installations/new`;
 
+/**
+ * The setup lists what GitHub lists for the viewer's installations, whatever
+ * webhook went missing. GitHub out of reach: the list stays as it was.
+ */
+async function syncInstallations(
+  db: Database,
+  connected: { installationId: string | null }[],
+) {
+  const env = appEnv();
+  if (!env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY) return;
+  const credentials = {
+    appId: env.GITHUB_APP_ID,
+    privateKey: env.GITHUB_APP_PRIVATE_KEY,
+  };
+  const installations = new Set(
+    connected
+      .map((project) => project.installationId)
+      .filter((id): id is string => id !== null && /^\d+$/.test(id)),
+  );
+  await Promise.all(
+    [...installations].map((id) =>
+      syncInstallation(db, credentials, id).catch((error) =>
+        console.error("sync installation", id, error),
+      ),
+    ),
+  );
+}
+
 export const getProjectFn = createServerFn({ method: "GET" })
   .validator(projectId)
   .handler(async ({ data }) => {
@@ -112,6 +141,7 @@ export const getStartFn = createServerFn({ method: "GET" })
     if (!viewer) return { status: "signed_out" as const };
     if (!databaseConfigured()) return { status: "not_configured" as const };
     return withDb(async (db) => {
+      await syncInstallations(db, await projectsForUser(db, viewer.userId));
       const repositories = (await projectsForUser(db, viewer.userId)).filter(
         (project) => project.linked,
       );

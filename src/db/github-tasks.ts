@@ -166,6 +166,7 @@ export type ConnectedProject = {
   linked: boolean;
   imported: boolean;
   accountId: string;
+  installationId: string | null;
 };
 
 /** The viewer's projects, newest first, with their GitHub link state. */
@@ -187,9 +188,9 @@ export async function projectsForUser(
     .innerJoin(accountMembers, eq(accountMembers.accountId, projects.accountId))
     .where(eq(accountMembers.userId, userId))
     .orderBy(desc(projects.createdAt));
-  return rows.map(({ installationId, importedAt, ...row }) => ({
+  return rows.map(({ importedAt, ...row }) => ({
     ...row,
-    linked: installationId !== null,
+    linked: row.installationId !== null,
     imported: importedAt !== null,
   }));
 }

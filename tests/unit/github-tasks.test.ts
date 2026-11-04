@@ -11,6 +11,7 @@ import {
 import { importProject } from "../../src/db/projects";
 import { ownerDashboard } from "../../src/db/queries";
 import * as schema from "../../src/db/schema";
+import { syncInstallation } from "../../src/server/github/installation";
 import { runGithubTasks } from "../../src/server/github/tasks";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
 import { createTestDatabase } from "./helpers/pglite";
@@ -113,6 +114,42 @@ describe("projects from a GitHub install", () => {
       repositories_added: [halyard],
     });
     expect(await projectsForUser(db, marie.userId)).toHaveLength(2);
+  });
+
+  it("unlinks the repositories GitHub no longer lists for the installation", async () => {
+    await ensureAccount(db, marie);
+    await handleGitHubEvent(
+      db,
+      "installation",
+      install("marie", [halyard, vault]),
+    );
+    const listing = (status: number, ids: number[]) =>
+      (async (url: string) =>
+        url.endsWith("/access_tokens")
+          ? new Response(
+              JSON.stringify({
+                token: "t",
+                expires_at: "2030-01-01T00:00:00Z",
+              }),
+              { status: status === 404 ? 404 : 201 },
+            )
+          : new Response(
+              JSON.stringify({ repositories: ids.map((id) => ({ id })) }),
+            )) as typeof fetch;
+    const linked = async () =>
+      (await projectsForUser(db, marie.userId))
+        .filter((project) => project.linked)
+        .map((project) => project.name);
+
+    expect(
+      await syncInstallation(db, credentials, "42", listing(200, [vault.id])),
+    ).toBe(1);
+    expect(await linked()).toEqual(["vault"]);
+    // Uninstalled without a word: GitHub no longer knows it.
+    expect(
+      await syncInstallation(db, credentials, "42", listing(404, [])),
+    ).toBe(1);
+    expect(await linked()).toEqual([]);
   });
 
   it("shows and sets up only the repository imported, however many came", async () => {

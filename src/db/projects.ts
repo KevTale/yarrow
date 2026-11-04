@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { repoName, type ProjectForm, type RunConfig } from "../core/forms";
 import type { Database } from "./client";
 import { recordEvent } from "./events";
@@ -232,6 +232,30 @@ export async function unlinkGithubRepositories(
       )
     : eq(projects.githubInstallationId, installationId);
   await db.update(projects).set({ githubInstallationId: null }).where(scope);
+}
+
+/**
+ * The installation's projects whose repository GitHub no longer lists for it
+ * get unlinked. Returns how many.
+ */
+export async function keepGithubRepositories(
+  db: Database,
+  installationId: string,
+  repositoryIds: string[],
+): Promise<number> {
+  const gone = await db
+    .update(projects)
+    .set({ githubInstallationId: null })
+    .where(
+      and(
+        eq(projects.githubInstallationId, installationId),
+        repositoryIds.length > 0
+          ? notInArray(projects.githubRepositoryId, repositoryIds)
+          : undefined,
+      ),
+    )
+    .returning({ id: projects.id });
+  return gone.length;
 }
 
 export async function saveRunConfig(
