@@ -24,6 +24,29 @@ export const answeredFromYarrow = (login: string, answer: string) =>
     .map((line) => `> ${line}`)
     .join("\n")}`;
 
+const ANSWERED = /^\*\*[^*]+\*\* answered from Yarrow:/;
+
+/**
+ * What the agents read of an issue's comments: what people wrote, and the
+ * answers given in Yarrow, which the App writes for them. Yarrow's other
+ * comments stay out.
+ */
+export function issueDiscussion(
+  comments: { user: { login: string }; body: string }[],
+): string {
+  return comments
+    .filter(
+      (comment) =>
+        !comment.user.login.endsWith("[bot]") || ANSWERED.test(comment.body),
+    )
+    .map((comment) =>
+      ANSWERED.test(comment.body)
+        ? comment.body
+        : `@${comment.user.login}: ${comment.body}`,
+    )
+    .join("\n\n");
+}
+
 /** Why a pull request was closed, when the builder closed it in Yarrow. */
 export const CLOSED_FROM_YARROW = "Closed from Yarrow";
 

@@ -47,6 +47,7 @@ import {
   updatePullRequestBody,
   splitRepository,
 } from "../server/github/delivery";
+import { issueDiscussion } from "../server/github/ticket-actions";
 import {
   accessTokenFor,
   trackerAdapter,
@@ -298,10 +299,7 @@ export class RunPipeline {
           "GET",
           `/repos/${owner}/${repo}/issues/${number}/comments?per_page=20`,
         );
-        const thread = comments
-          .filter((comment) => !comment.user.login.endsWith("[bot]"))
-          .map((comment) => `@${comment.user.login}: ${comment.body}`)
-          .join("\n\n");
+        const thread = issueDiscussion(comments);
         return {
           title: issue.title,
           body: [issue.body ?? "", thread && `Discussion:\n${thread}`]

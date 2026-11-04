@@ -11,6 +11,7 @@ import {
   CLOSED_FROM_YARROW,
   closePullRequest,
   closeTicket,
+  issueDiscussion,
   startAgain,
 } from "../../src/server/github/ticket-actions";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -81,6 +82,24 @@ const stop = () =>
     .where(eq(schema.workUnits.id, workUnitId));
 
 describe("the builder's actions on a ticket", () => {
+  it("gives the agents the answers the App wrote, not its other comments", () => {
+    expect(
+      issueDiscussion([
+        { user: { login: "marie" }, body: "Happens on Safari too." },
+        {
+          user: { login: "yarrow-run[bot]" },
+          body: "**Yarrow needs details**",
+        },
+        {
+          user: { login: "yarrow-run[bot]" },
+          body: answeredFromYarrow("Marie", "Only the CSV export."),
+        },
+      ]),
+    ).toBe(
+      `@marie: Happens on Safari too.\n\n${answeredFromYarrow("Marie", "Only the CSV export.")}`,
+    );
+  });
+
   it("answers a stopped ticket on its issue, then queues it again", async () => {
     await stop();
     const { calls, fetcher } = github();
