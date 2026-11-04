@@ -17,7 +17,9 @@ import {
 } from "../src/core/preview";
 import { isAppPath } from "../src/core/proofs";
 import {
+  RELAY_PORT,
   stageLog,
+  stageRelay,
   stageScript,
   type StageCue,
   type StageCueResult,
@@ -54,6 +56,7 @@ const BOOT_OUTPUT = `${TASK}/stage-boot.log`;
 const DESKTOP_LOG = `${TASK}/stage-desktop.log`;
 const DESKTOP_EXIT = `${TASK}/stage-desktop.exit`;
 const READY = `${TASK}/stage-ready.json`;
+const RELAY = `${TASK}/stage-relay.js`;
 /** The stage's browser's session, once it signed in: read for a visit, never kept. */
 const SESSION = `${TASK}/stage-session.json`;
 const CA = "/etc/cloudflare/certs/cloudflare-containers-ca.crt";
@@ -483,10 +486,9 @@ export class Stage extends DurableObject<StageEnv> {
         return new Response(null, { status: 302, headers });
       }
     }
-    const port = Number(new URL(spec.url).port || 80);
     let response: Response;
     try {
-      response = await this.#container.getTcpPort(port).fetch(
+      response = await this.#container.getTcpPort(RELAY_PORT).fetch(
         new Request(`${spec.url}${url.pathname}${url.search}`, {
           method: request.method,
           headers: toApp(request.headers, spec.url, preview),
@@ -571,6 +573,11 @@ export class Stage extends DurableObject<StageEnv> {
         this.#save(saved);
         return;
       }
+      const spec = this.#kv.get<StageSpec>("spec")!;
+      if (spec.url) {
+        await this.#files.writeFile(RELAY, stageRelay(spec.url));
+        await this.#background(`node ${RELAY}`);
+      }
       // Kept now, with this look's marks: what follows reads the store.
       saved.served = true;
       this.#save(saved);
@@ -582,7 +589,6 @@ export class Stage extends DurableObject<StageEnv> {
           return;
         }
       }
-      const spec = this.#kv.get<StageSpec>("spec")!;
       await this.#files.mkdir(
         RECORDER_PATH.slice(0, RECORDER_PATH.lastIndexOf("/")),
         {

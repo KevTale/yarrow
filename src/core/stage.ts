@@ -308,6 +308,27 @@ export function stageAddress(url: string): { url: string; path: string } {
   };
 }
 
+/** Where the Stage reaches the app, from outside the machine. */
+export const RELAY_PORT = 7071;
+
+/**
+ * A script that opens the app to the outside of the machine, whatever it
+ * listens on: Vite, by default, answers only on localhost in there.
+ */
+export function stageRelay(url: string, port = RELAY_PORT): string {
+  const app = Number(new URL(url).port || 80);
+  return `const net = require("node:net");
+net
+  .createServer((outside) => {
+    const app = net.connect(${app}, "localhost");
+    outside.pipe(app).pipe(outside);
+    outside.on("error", () => app.destroy());
+    app.on("error", () => outside.destroy());
+  })
+  .listen(${port});
+`;
+}
+
 const quote = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
 
 /**

@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -13,6 +13,7 @@ import type {
 import {
   restartSteps,
   servingSteps,
+  stageRelay,
   stageAddress,
   stageLog,
   stagePlan,
@@ -84,6 +85,31 @@ describe("the stage", () => {
     expect(
       stageLog(readFileSync(log, "utf8")).map((mark) => mark.label),
     ).toEqual(["step 1", "served"]);
+  });
+
+  it("opens an app that listens only on localhost to the outside", async () => {
+    const app = createServer((_, response) => response.end("the app"));
+    await new Promise<void>((resolve) => app.listen(0, "127.0.0.1", resolve));
+    const { port } = app.address() as AddressInfo;
+    const relay = spawn(process.execPath, [
+      "-e",
+      stageRelay(`http://localhost:${port}`, port + 1),
+    ]);
+    try {
+      await expect
+        .poll(
+          () =>
+            fetch(`http://127.0.0.1:${port + 1}/`)
+              .then((response) => response.text())
+              .catch(() => null),
+          { timeout: 5000 },
+        )
+        .toBe("the app");
+    } finally {
+      relay.kill();
+      app.closeAllConnections();
+      await new Promise((resolve) => app.close(resolve));
+    }
   });
 
   it("brings the app as it was back without touching the live locks", () => {
