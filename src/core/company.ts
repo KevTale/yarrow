@@ -1,23 +1,24 @@
-/** Public identity of the company that operates the site. */
+/** The company that publishes Yarrow: its founder's own company, as registered in France. */
 export const company = {
-  name: "Yarrow",
-  founded: "September 2026",
-  /** ISO year-month, for structured data. */
-  foundingDate: "2026-09",
+  name: "TOTEM",
+  form: "EURL (single-member limited liability company) with a share capital of €1,000",
+  registry: "RCS Nanterre 881 263 503",
+  vat: "FR37881263503",
+  address: "1 avenue Galois, 92340 Bourg-la-Reine, France",
+  director: "Kevin Taleb Dehkordi",
   email: "contact@yarrow.run",
 } as const;
 
 /** The same sentence on the legal pages, emails and JSON-LD. */
 export const operatorStatement =
-  "Yarrow (yarrow.run) is operated by the company Yarrow, founded in September 2026.";
+  "Yarrow (yarrow.run) is a product of TOTEM, an EURL registered in France.";
 
-/** Organization plus website, so a crawler reads who operates the site. */
+/** Organization plus website, so a crawler reads who publishes the site. */
 export function siteJsonLd(url: string) {
   const publisher = {
     "@type": "Organization",
-    name: company.name,
+    name: "Yarrow",
     legalName: company.name,
-    foundingDate: company.foundingDate,
   };
   return {
     "@context": "https://schema.org",
@@ -30,7 +31,7 @@ export function siteJsonLd(url: string) {
       },
       {
         "@type": "WebSite",
-        name: company.name,
+        name: "Yarrow",
         url,
         description: operatorStatement,
         publisher,

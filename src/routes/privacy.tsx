@@ -8,10 +8,10 @@ export const Route = createFileRoute("/privacy")({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy" updated="October 10, 2026">
+    <LegalPage title="Privacy" updated="November 5, 2026">
       <p>
-        The company {company.name}, founded in {company.founded}, operates this
-        site and is the data controller for Yarrow. Contact:{" "}
+        {company.name}, {company.address}, publishes Yarrow and is the data
+        controller. Contact:{" "}
         <a href={`mailto:${company.email}`}>{company.email}</a>.
       </p>
 
@@ -22,19 +22,28 @@ function Privacy() {
           To sign you in and run the service (contract).
         </li>
         <li>
-          <b>Sponsor profile:</b> the name, logo, description and website you
-          choose to show publicly, and the number of clicks on your website link
-          (not who clicked).
+          <b>Projects and tickets:</b> repository names, the tickets you write
+          or bring from GitHub, Jira, Linear or Trello, runs and their results,
+          and pull request links. Access to Jira, Linear and Trello is stored
+          encrypted. For projects with secrets, we keep only references to your
+          provider’s vault, never the values (contract).
         </li>
         <li>
-          <b>Payments:</b> amounts, VAT, status and Stripe references. Card
-          details stay with Stripe. Kept 10 years, as French accounting law
-          requires (legal obligation).
+          <b>Conversations:</b> what you type or say to Yarrow’s agents, while
+          writing a ticket or reviewing one, kept as text with the ticket
+          (contract).
         </li>
         <li>
-          <b>Projects:</b> repository names, the tickets you choose, run results
-          and pull request links. Your code is read during a run in an isolated
-          sandbox and is not stored by us afterwards.
+          <b>Voice:</b> during a call, your voice is sent to ElevenLabs, which
+          turns it into text and speaks the agent’s answers. We do not keep
+          recordings of your voice; ElevenLabs may keep call audio and
+          transcripts under its own retention rules (contract).
+        </li>
+        <li>
+          <b>Code and demos:</b> your code is read in isolated containers during
+          a run or a call, and we keep no copy of your repository. We keep what
+          the run produced: the demo, which can show your app and code, the
+          summary of the change and the agents’ notes (contract).
         </li>
         <li>
           <b>Security:</b> technical logs kept briefly to protect the service
@@ -44,24 +53,27 @@ function Privacy() {
 
       <h2>Who processes it</h2>
       <p>
-        Cloudflare (hosting), Supabase (database and sign-in, servers in
-        Ireland), Stripe (payments), GitHub (repositories), Resend (sign-in
-        emails), and Anthropic, Meta and OpenAI (the AI models, through their
-        commercial APIs). Some are based in the United States; transfers rely on
-        the EU-US Data Privacy Framework or the European Commission’s standard
-        contractual clauses. We do not sell your data.
+        Cloudflare (hosting, containers and demo storage), Supabase (database
+        and sign-in, servers in Ireland), GitHub (repositories and sign-in),
+        Atlassian (Jira and Trello), Linear, Resend (emails), Meta, Anthropic
+        and OpenAI (the AI models, through their commercial APIs) and ElevenLabs
+        (voice). Some are based outside the EU; transfers rely on the EU-US Data
+        Privacy Framework or the European Commission’s standard contractual
+        clauses. We do not sell your data.
       </p>
 
       <h2>Cookies</h2>
       <p>
         Only the cookies needed to keep you signed in and to finish a sign-in or
-        a GitHub connection. No analytics, no advertising.
+        a connection to GitHub, Jira, Linear or Trello. No analytics, no
+        advertising.
       </p>
 
       <h2>How long</h2>
       <p>
-        Account data is kept while your account exists. Ask us to delete it at
-        any time; payment records stay as long as the law requires.
+        Account data is kept while your account exists. Conversations and demos
+        stay with their ticket until you delete the project or your account. Ask
+        us to delete any of it at any time.
       </p>
 
       <h2>Your rights</h2>
