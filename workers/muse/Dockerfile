@@ -38,11 +38,12 @@ RUN npm install -g playwright-core@1.63.0 \
   && rm -rf /var/lib/apt/lists/*
 
 # The code editor the demo and the stage show (src/runner/recorder/present.mjs),
-# Gitpod's build of VS Code for a browser.
+# Gitpod's build of VS Code for a browser, without its language servers: it
+# only shows code, and they took a machine's processor for seconds.
 ADD https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-x64.tar.gz /tmp/editor.tar.gz
 RUN mkdir -p /opt/openvscode-server \
   && tar -xzf /tmp/editor.tar.gz -C /opt/openvscode-server --strip-components=1 \
-  && rm /tmp/editor.tar.gz
+  && rm -rf /tmp/editor.tar.gz /opt/openvscode-server/extensions/*-language-features
 
 # Meta's installer, into /usr/local/bin, with no update at run time.
 ENV MUSE_NO_AUTO_UPDATE=1 MUSE_NO_MODIFY_PATH=1 MUSE_INSTALL_DIR=/usr/local/bin

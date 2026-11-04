@@ -1642,7 +1642,14 @@ function editorServer() {
     "sh",
     [
       "-c",
-      "curl -fsSL " + tar + " | tar xz --strip-components=1 -C " + quote(dir),
+      "curl -fsSL " +
+        tar +
+        " | tar xz --strip-components=1 -C " +
+        quote(dir) +
+        // It only shows code: its language servers took seconds of processor.
+        " && rm -rf " +
+        quote(dir) +
+        "/extensions/*-language-features",
     ],
     { stdio: "ignore", timeout: 120000 },
   );

@@ -111,7 +111,7 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "run_in_terminal",
     description:
-      "Type a command in the stage's terminal and run it, as the member watches (the tests, a script). Returns its output. Stopped after two minutes.",
+      "Type a command in the stage's terminal, which comes in front by itself, and run it, as the member watches (the tests, a script). Returns its output. Stopped after two minutes.",
     input_schema: {
       type: "object",
       properties: {
