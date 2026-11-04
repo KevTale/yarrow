@@ -97,6 +97,8 @@ export function TicketTalk({
     area.style.height = "auto";
     // Empty, as the dialog opens, it has no height to measure yet.
     if (text) area.style.height = `${area.scrollHeight}px`;
+    // Past one line the box takes more room round its words.
+    area.parentElement?.toggleAttribute("data-tall", area.scrollHeight > 36);
   }, [text]);
   useLayoutEffect(() => {
     const column = said.current;

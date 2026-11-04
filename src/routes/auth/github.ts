@@ -34,9 +34,11 @@ export const Route = createFileRoute("/auth/github")({
             console.warn("github link:", error?.message);
           }
         }
+        // GitHub asks which of its accounts, as Google does: signed out of
+        // Yarrow, one may come back as another of theirs.
         const { data, error } = await auth.client.auth.signInWithOAuth({
           provider: "github",
-          options,
+          options: { ...options, queryParams: { prompt: "select_account" } },
         });
         if (error || !data.url)
           return auth.redirect(

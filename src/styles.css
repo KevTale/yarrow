@@ -9595,6 +9595,11 @@ html:has(.pp-stage:modal) {
   background: #1d1f24;
   transition: border-color 0.15s;
 }
+.pp-input[data-tall] {
+  padding-top: 8px;
+  padding-bottom: 6px;
+  border-radius: 16px;
+}
 .pp-input:focus-within {
   border-color: #f2b54480;
 }

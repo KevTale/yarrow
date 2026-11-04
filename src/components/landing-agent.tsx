@@ -50,6 +50,8 @@ export function SampleBox({
     if (!area) return;
     area.style.height = "auto";
     area.style.height = `${area.scrollHeight}px`;
+    // Past one line the box takes more room round its words.
+    area.parentElement?.toggleAttribute("data-tall", area.scrollHeight > 36);
   }, [text]);
   return (
     <div className="pp-asking">
