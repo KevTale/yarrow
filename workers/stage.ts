@@ -65,6 +65,8 @@ const PRESENTER = 7070;
 const IDLE_MS = 15 * 60_000;
 /** While booting, the machine is looked at this often. */
 const TICK_MS = 1_000;
+/** A boot still going after this long will not end: a step that never returns. */
+const BOOT_MS = 15 * 60_000;
 /** The dashboard's link signs a visit in within this long, once. */
 const CODE_MS = 2 * 60_000;
 
@@ -527,6 +529,18 @@ export class Stage extends DurableObject<StageEnv> {
   async #step(): Promise<void> {
     const saved = this.#kv.get<Saved>("saved");
     if (!saved) return;
+    if (
+      saved.step !== "ready" &&
+      saved.step !== "failed" &&
+      Date.now() - saved.asked > BOOT_MS
+    ) {
+      this.#save({
+        ...saved,
+        step: "failed",
+        error: "The stage took too long to come up.",
+      });
+      return;
+    }
     if (saved.step === "starting") return this.#boot(saved);
     if (!this.#container.running) return;
     if (saved.step === "boot") {

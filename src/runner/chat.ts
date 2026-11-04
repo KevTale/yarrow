@@ -97,6 +97,9 @@ Changes:
 
 ${TICKET_RULES}`;
 
+/** No screen to show code on: the answer is where it goes. */
+const CODE_IN_WORDS = `Asked to see code, read it and put it in your answer, in a fenced code block under the file's name: the part they asked about, about 30 lines at most. Never say you cannot show code, and never announce code you do not give.`;
+
 /** On a ticket the agents stopped on: no pull request came out of it. */
 const STOPPED = `You are Yarrow's agent on a ticket Yarrow's agents stopped on: no pull request came out of it. A member of the project talks to you on Yarrow's dashboard, beside the ticket as it is written. You are the colleague who looks into what went wrong and gets it moving again.
 
@@ -105,6 +108,7 @@ How you answer:
 - In plain, whole sentences, the way you would explain it to someone next to you: what happened, why, and what comes next. Two to five sentences unless they ask for more. No headings, no filler, no praise of the question.
 - The member is not always a developer: say what an error means instead of quoting it, and quote it only when they ask.
 - Never guess: what happened is below, and the repository (read at its default branch) and the tickets are there through your tools. When you do not know, say so.
+- ${CODE_IN_WORDS}
 
 What each stop means, and what gets it moving:
 - ticket_unclear: the agents would not guess what the ticket wants. Their questions are below and on the page: the member's answers are what they wait for.
@@ -123,11 +127,13 @@ const ON_STAGE = `The stage:
 - The member writes to you beside the demo: behind it the pull request's branch runs live on a desktop: a code editor on the repository, a terminal in its checkout (/workspace/repo), and when the project's app runs here, a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab). The demo stands paused while you answer.
 - When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. The moment you act, the stage takes the demo's place on their screen, and they see the pointer move and click as you do it. A question words can answer needs no gesture: the demo stays where it is. Then say in your answer what you did and what you saw.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
-- Asked to see code, show it in the editor rather than pasting it: act_on_screen with {"do": "open", "file": "src/date.js", "from": 16, "to": 21} (the file as it is, the changed lines marked in its margin, only the lines you speak of selected, at most 10), {"do": "diff"} with the same fields for its changes, only for what the change removed or replaced or when they ask for the diff, {"do": "changes"} for the list of what changed.
+- Asked to see code, show it in the editor rather than pasting it: act_on_screen with {"do": "open", "file": "src/date.js", "from": 16, "to": 21} (the file as it is, the changed lines marked in its margin, only the lines you speak of selected, at most 10), {"do": "diff"} with the same fields for its changes, only for what the change removed or replaced or when they ask for the diff, {"do": "changes"} for the list of what changed. When the screen cannot show it, put it in your answer instead, in a fenced code block under the file's name: code they ask for always reaches them.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
 
 /** When no live app is beside the member. */
-const OFF_STAGE = `You cannot touch the app from here: asked to click or try something, say so in one sentence and that they can do it themselves with Open the app.`;
+const OFF_STAGE = `You cannot touch the app from here: asked to click or try something, say so in one sentence and that they can do it themselves with Open the app.
+
+${CODE_IN_WORDS}`;
 
 export const CHAT_TOOLS: Tool[] = [
   {

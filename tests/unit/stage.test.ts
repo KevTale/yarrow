@@ -12,6 +12,7 @@ import type {
 } from "../../src/core/presentation";
 import {
   restartSteps,
+  servingSteps,
   stageAddress,
   stageLog,
   stagePlan,
@@ -48,6 +49,41 @@ describe("the stage", () => {
     expect(
       restartSteps(["cd web", "pnpm install", "nohup pnpm start &"]),
     ).toEqual([STALE_LOCKS, "cd web", "nohup pnpm start &"]);
+  });
+
+  it("leaves the step that serves the app running, at every boot", () => {
+    const recipe = ["npm install", "npm run dev -- --port 5173"];
+    const steps = servingSteps(recipe);
+    expect(steps).toEqual([
+      "npm install",
+      "(\nnpm run dev -- --port 5173\n) &",
+    ]);
+    expect(restartSteps(steps)).toEqual([STALE_LOCKS, steps[1]]);
+    // A comment closes the line, not the step.
+    expect(servingSteps(["npm start # the app"])).toEqual([
+      "(\nnpm start # the app\n) &",
+    ]);
+    const written = ["npm ci", "node server.js > /tmp/app.log 2>&1 &"];
+    expect(servingSteps(written)).toEqual(written);
+    expect(servingSteps([])).toEqual([]);
+  });
+
+  it("does not wait on a server that stays in the foreground", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "stage-"));
+    const log = path.join(dir, "marks.log");
+    const script = stageScript({
+      log,
+      output: path.join(dir, "out.log"),
+      dir,
+      // It would hold the boot for a minute: it ends by itself, for the test.
+      steps: servingSteps(["echo up > served; sleep 60"]),
+      url: null,
+    });
+    writeFileSync(path.join(dir, "boot.sh"), script);
+    execFileSync("bash", [path.join(dir, "boot.sh")], { timeout: 20_000 });
+    expect(
+      stageLog(readFileSync(log, "utf8")).map((mark) => mark.label),
+    ).toEqual(["step 1", "served"]);
   });
 
   it("brings the app as it was back without touching the live locks", () => {

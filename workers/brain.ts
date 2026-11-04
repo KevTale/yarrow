@@ -161,6 +161,7 @@ import {
 } from "../src/core/preview";
 import {
   restartSteps,
+  servingSteps,
   SLIP,
   stageAddress,
   stagePlan,
@@ -1608,11 +1609,16 @@ async function talkRoute(
     : undefined;
   if (bench?.open) {
     const spec = await stageSpec(env, grant.workUnitId);
-    return Response.json(
-      typeof spec === "string"
-        ? { error: spec }
-        : await stage.open(spec, bench.open === "fresh"),
-    );
+    if (typeof spec === "string") return Response.json({ error: spec });
+    const status = await stage.open(spec, bench.open === "fresh");
+    const code = status.phase === "ready" ? await stage.enter() : null;
+    return Response.json({
+      ...status,
+      preview:
+        code &&
+        env.PREVIEW_SUFFIX &&
+        `https://${previewHost(grant.workUnitId, env.PREVIEW_SUFFIX)}${ENTER_PATH}?code=${code}`,
+    });
   }
   // On dev, the page may ask for another brain, to try each by voice.
   const asked = trying ? talkBrainOf(parsed.data) : {};
@@ -1664,8 +1670,13 @@ async function talkRoute(
         started = Date.now();
       }
       const looked = Date.now();
-      // By voice alone: no live app to stop or look at.
-      const onStage = grant.stage || Boolean(bench);
+      // By voice alone: no live app to stop or look at. A stage coming from
+      // its snapshot is there in seconds; on a first boot, minutes away, a
+      // gesture would show nothing.
+      const { phase, warm } = await stage.status();
+      const onStage =
+        Boolean(bench) ||
+        (grant.stage && (phase === "ready" || (phase === "booting" && warm)));
       const [kept, state, screen] = await Promise.all([
         stage.talk(),
         // They spoke: a presentation playing live ends there.
@@ -2057,6 +2068,11 @@ async function stageSpec(
   const context = await withDb(env, (db) => stageContext(db, workUnitId));
   if (!context) return "This ticket has no pull request.";
   const { recipe } = context;
+  const steps = recipe ? servingSteps(recipe.steps) : [INSTALL_STEP];
+  const before = recipe?.before && {
+    ...recipe.before,
+    steps: servingSteps(recipe.before.steps),
+  };
   if (!context.githubInstallationId || !context.githubRepositoryId)
     return "The GitHub App is not installed on this repository.";
   const [{ token }, timeline] = await Promise.all([
@@ -2077,16 +2093,13 @@ async function stageSpec(
     repository: context.repository,
     branch: context.branch,
     token,
-    steps: recipe?.steps ?? [INSTALL_STEP],
-    restart: restartSteps(recipe?.steps ?? []),
+    steps,
+    restart: restartSteps(steps),
     ...(recipe ? stageAddress(recipe.url) : { url: null, path: "/" }),
     signIn: stageSignIn(recipe?.signIn ?? null),
     base: context.base,
-    before: recipe?.before
-      ? {
-          ...recipe.before,
-          restart: restartSteps(recipe.before.steps, { locks: false }),
-        }
+    before: before
+      ? { ...before, restart: restartSteps(before.steps, { locks: false }) }
       : null,
     script: stagePlan(timeline, Boolean(recipe?.before), Boolean(recipe)),
     recorder: RECORDER_SOURCE,

@@ -258,10 +258,11 @@ if (named[0] === "open") {
       error?: string | null;
       live?: boolean;
       events?: { ms: number; label: string }[];
+      preview?: string | null;
     };
     const last = status.events?.at(-1);
     console.log(
-      `${status.phase} live ${status.live}${last ? `, ${last.label} at ${seconds(last.ms)}` : ""}${status.error ? `\n${status.error}` : ""}`,
+      `${status.phase} live ${status.live}${last ? `, ${last.label} at ${seconds(last.ms)}` : ""}${status.error ? `\n${status.error}` : ""}${status.preview ? `\n${status.preview}` : ""}`,
     );
     if (status.phase !== "booting")
       process.exit(status.phase === "ready" ? 0 : 1);

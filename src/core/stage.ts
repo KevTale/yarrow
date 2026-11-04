@@ -238,6 +238,18 @@ const LONG_LIVED =
   /\b(pg_ctl\b.*\bstart|pg_ctlcluster\b.*\bstart|service\s+\S+\s+start|redis-server|mongod|mysqld|setsid|nohup|docker\s+compose\s+up)\b|&\s*$/;
 
 /**
+ * The steps as a stage runs them: the last one serves the app, and stays
+ * running while the boot goes on. The agents are told to leave it in the
+ * background and do not always (`npm run dev`, seen 2026-11-02): the boot then
+ * waits on it forever, and the stage never comes up.
+ */
+export function servingSteps(steps: string[]): string[] {
+  const last = steps.at(-1);
+  if (!last || /&\s*$/.test(last)) return steps;
+  return [...steps.slice(0, -1), `(\n${last}\n) &`];
+}
+
+/**
  * The steps that start what a snapshot cannot keep (processes), after the
  * locks the last boot left behind. A step that only moves (`cd`) is kept
  * for the steps after it. `locks: false` for the steps run once the first
