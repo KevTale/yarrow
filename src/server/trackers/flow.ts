@@ -13,8 +13,16 @@ import {
   removeBoard,
 } from "../../db/trackers";
 import { upsertTicket } from "../../db/workunits";
-import { eq } from "drizzle-orm";
-import { trackerBoards, trackerConnections, workUnits } from "../../db/schema";
+import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { recordEvent } from "../../db/events";
+import {
+  agentRuns,
+  correctionRequests,
+  projects,
+  trackerBoards,
+  trackerConnections,
+  workUnits,
+} from "../../db/schema";
 import {
   BACK,
   movesOf,
@@ -369,6 +377,70 @@ export async function setTrackerBoards(
   if (chosen.tracker === "jira")
     for (const connectionId of touched)
       await ensureJiraWebhook(db, ctx, connectionId);
+}
+
+/**
+ * Remove project, from its settings: the repository leaves Yarrow (off the
+ * dashboard, not imported again in the setup) and its boards are unlinked;
+ * the GitHub App, the tracker connections and the other projects stay.
+ * Refused while one of its tickets is queued or at work, or a change asked
+ * waits. Imported again, it starts afresh.
+ */
+export async function removeProject(
+  db: Database,
+  ctx: TrackerContext,
+  userId: string,
+  projectId: string,
+): Promise<"removed" | "busy"> {
+  const project = await requireProjectMember(db, userId, projectId);
+  const [busy] = await db
+    .select({ id: workUnits.id })
+    .from(workUnits)
+    .leftJoin(
+      agentRuns,
+      and(
+        eq(agentRuns.workUnitId, workUnits.id),
+        eq(agentRuns.status, "running"),
+      ),
+    )
+    .leftJoin(
+      correctionRequests,
+      and(
+        eq(correctionRequests.workUnitId, workUnits.id),
+        eq(correctionRequests.status, "queued"),
+      ),
+    )
+    .where(
+      and(
+        eq(workUnits.projectId, project.id),
+        or(
+          and(eq(workUnits.status, "queued"), eq(workUnits.authorized, true)),
+          inArray(workUnits.status, ["running"]),
+          isNotNull(agentRuns.id),
+          isNotNull(correctionRequests.id),
+        ),
+      ),
+    )
+    .limit(1);
+  if (busy) return "busy";
+  const jira = new Set<string>();
+  for (const { board, connection } of await boardsForProject(db, project.id)) {
+    await removeBoard(db, project.id, board.id);
+    if (connection.tracker === "jira") jira.add(connection.id);
+  }
+  await db
+    .update(projects)
+    .set({ importedAt: null })
+    .where(eq(projects.id, project.id));
+  await recordEvent(db, {
+    type: "project.removed",
+    projectId: project.id,
+    userId,
+  });
+  // Each Jira webhook follows its connection's projects.
+  for (const connectionId of jira)
+    await ensureJiraWebhook(db, ctx, connectionId);
+  return "removed";
 }
 
 /** The tracker refused the token: the person removed Yarrow's access. */

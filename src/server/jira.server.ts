@@ -9,6 +9,7 @@ export {
   labelTrackerTickets,
   linkTrackerBoard,
   openTrackerTickets,
+  removeProject,
   moveTrackerTicket,
   setTrackerBoards,
   setTrackerMoves,

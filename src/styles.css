@@ -6232,6 +6232,13 @@ button.st-back {
   font-size: 12.5px;
   line-height: 1.5;
 }
+/* Why a project could not be removed, under its name. */
+.st-remove-error {
+  margin: 0;
+  padding: 0 18px 16px 70px;
+  font-size: 13px;
+  color: var(--red);
+}
 @media (max-width: 640px) {
   .ac-email,
   .ac-sent {

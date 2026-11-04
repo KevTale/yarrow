@@ -10,6 +10,7 @@ export type EventType =
   | "admin.daily_funding_saved"
   | "project.created"
   | "project.imported"
+  | "project.removed"
   | "project.updated"
   | "project.github_linked"
   | "project.suspended"

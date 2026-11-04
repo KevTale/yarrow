@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Github } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, ExternalLink, Github, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { z } from "zod";
 import { NotConfigured } from "@/components/ui";
 import { SignInPrompt } from "@/components/email-sign-in";
@@ -7,7 +9,8 @@ import {
   TrackerConnection,
   type ProjectSetup,
 } from "@/components/project-connections";
-import { getProjectFn } from "@/functions/owner.functions";
+import { Spinner } from "@/components/navigation-feedback";
+import { getProjectFn, removeProjectFn } from "@/functions/owner.functions";
 
 export const Route = createFileRoute("/projects/$projectId")({
   validateSearch: z.object({
@@ -67,6 +70,7 @@ function ProjectSettings({ data }: { data: ProjectSetup }) {
         </p>
       )}
       <Connections data={data} />
+      <RemoveProject projectId={project.id} repository={project.repository} />
     </main>
   );
 }
@@ -103,6 +107,96 @@ function Connections({ data }: { data: ProjectSetup }) {
         {data.trackersAvailable.trello && (
           <TrackerConnection data={data} tracker="trello" />
         )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Remove project: off the dashboard and its boards unlinked, after a second
+ * click. The GitHub App and the tracker connections stay, for the other
+ * projects; the setup imports it again. Refused while a ticket of it works.
+ */
+function RemoveProject({
+  projectId,
+  repository,
+}: {
+  projectId: string;
+  repository: string;
+}) {
+  const remove = useServerFn(removeProjectFn);
+  const [asking, setAsking] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setError("");
+    setPending(true);
+    try {
+      const { status } = await remove({ data: { projectId } });
+      if (status === "busy") {
+        setError("A ticket of this project is queued or at work.");
+        setPending(false);
+        return;
+      }
+      // A full load: the dashboard's copy of the project goes with it.
+      window.location.assign("/dashboard");
+    } catch {
+      setError("The project could not be removed. Try again in a moment.");
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="st-section">
+      <h2>Remove</h2>
+      <div className="st-cards">
+        <div className="st-card-wrap ac-danger">
+          <div className="st-card">
+            <span className="st-icon" aria-hidden="true">
+              <Trash2 size={18} />
+            </span>
+            <span className="st-card-body">
+              <strong>Remove project</strong>
+              <span className="mono muted">{repository}</span>
+            </span>
+            {asking ? (
+              <>
+                <button
+                  type="button"
+                  className="bd-btn bd-btn-ghost"
+                  onClick={() => {
+                    setAsking(false);
+                    setError("");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="bd-btn ac-delete"
+                  disabled={pending}
+                  onClick={() => void confirm()}
+                >
+                  {pending ? <Spinner /> : "Remove"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="bd-btn ac-delete"
+                onClick={() => setAsking(true)}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          {error && (
+            <p className="st-remove-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );

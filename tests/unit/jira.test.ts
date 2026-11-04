@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { parseTicketLink } from "../../src/core/ticket-link";
 import { ensureAccount } from "../../src/db/accounts";
-import { createProject } from "../../src/db/projects";
+import { createProject, importProject } from "../../src/db/projects";
 import * as schema from "../../src/db/schema";
 import { projectTickets } from "../../src/db/tickets";
 import {
@@ -30,6 +30,7 @@ import {
   setTrackerMoves,
   labelTrackerTickets,
   openTrackerTickets,
+  removeProject,
   setTrackerBoards,
   settleJira,
   type TrackerContext,
@@ -641,6 +642,49 @@ describe("Jira for builders", async () => {
         true,
       ),
     ).rejects.toThrow("OPS is not a linked board.");
+  });
+
+  it("removes a project from Yarrow, its boards with it, once nothing of it is at work", async () => {
+    const { projectId, ctx, connect } = await setup();
+    const connectionId = await connect();
+    await setTrackerBoards(db, ctx, marie.userId, {
+      projectId,
+      connectionId,
+      keys: ["APP"],
+    });
+    await importProject(db, projectId, marie.userId);
+    const [ticket] = await raw
+      .insert(schema.workUnits)
+      .values({
+        projectId,
+        source: "jira",
+        externalId: "APP-2",
+        title: "Dark mode",
+        url: "https://acme.atlassian.net/browse/APP-2",
+        authorized: true,
+        status: "running",
+      })
+      .returning({ id: schema.workUnits.id });
+    expect(await removeProject(db, ctx, marie.userId, projectId)).toBe("busy");
+    expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "delivered" })
+      .where(eq(schema.workUnits.id, ticket!.id));
+    expect(await removeProject(db, ctx, marie.userId, projectId)).toBe(
+      "removed",
+    );
+    expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
+    const [project] = await raw
+      .select({ importedAt: schema.projects.importedAt })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, projectId));
+    expect(project!.importedAt).toBeNull();
+    // The Jira connection stays, for the other projects.
+    expect(await raw.select().from(schema.trackerConnections)).toHaveLength(1);
+    await expect(
+      removeProject(db, ctx, crypto.randomUUID(), projectId),
+    ).rejects.toThrow();
   });
 
   it("writes Markdown in Jira's document format", () => {

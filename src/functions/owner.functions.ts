@@ -27,6 +27,7 @@ import {
   removeBoard,
 } from "@/db/trackers";
 import { getViewer, requireViewer } from "@/server/auth.server";
+import { removeProject, trackerContext } from "@/server/jira.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv, NotConfiguredError } from "@/server/env.server";
 import { STATE_COOKIE, storeTrackerTokens } from "@/server/integrations.server";
@@ -140,6 +141,17 @@ export const importProjectFn = createServerFn({ method: "POST" })
       await requireProjectMember(db, viewer.userId, data.projectId);
       await importProject(db, data.projectId, viewer.userId);
     });
+  });
+
+/** Remove project, from its settings: "busy" while one of its tickets works. */
+export const removeProjectFn = createServerFn({ method: "POST" })
+  .validator(projectId)
+  .handler(async ({ data }) => {
+    const viewer = await requireViewer();
+    const status = await withDb((db) =>
+      removeProject(db, trackerContext(), viewer.userId, data.projectId),
+    );
+    return { status };
   });
 
 export const updateProjectFn = createServerFn({ method: "POST" })
