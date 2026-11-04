@@ -481,11 +481,7 @@ export function BuilderView({
   );
   const choose = (id: string) =>
     navigate({
-      search: (current) => ({
-        ...current,
-        tab: "builder" as const,
-        project: id,
-      }),
+      search: (current) => ({ ...current, project: id }),
     });
   const jiraCard = jiraStep && jiraStep.projects.length > 0 && (
     <JiraCard

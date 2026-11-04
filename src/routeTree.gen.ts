@@ -10,12 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as SponsorsRouteImport } from './routes/sponsors'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TryAgentRouteImport } from './routes/try-agent'
@@ -54,11 +52,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChangelogRoute = ChangelogRouteImport.update({
-  id: '/changelog',
-  path: '/changelog',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -77,11 +70,6 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SponsorsRoute = SponsorsRouteImport.update({
-  id: '/sponsors',
-  path: '/sponsors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StartRoute = StartRouteImport.update({
@@ -250,12 +238,10 @@ const VoiceLlmSplatRoute = VoiceLlmSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
-  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -291,12 +277,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
-  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -333,12 +317,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/legal': typeof LegalRoute
   '/privacy': typeof PrivacyRoute
   '/sign-in': typeof SignInRoute
-  '/sponsors': typeof SponsorsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/try-agent': typeof TryAgentRoute
@@ -376,12 +358,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
     | '/sign-in'
-    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -417,12 +397,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
     | '/sign-in'
-    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -458,12 +436,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/changelog'
     | '/dashboard'
     | '/legal'
     | '/privacy'
     | '/sign-in'
-    | '/sponsors'
     | '/start'
     | '/terms'
     | '/try-agent'
@@ -500,12 +476,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
   LegalRoute: typeof LegalRoute
   PrivacyRoute: typeof PrivacyRoute
   SignInRoute: typeof SignInRoute
-  SponsorsRoute: typeof SponsorsRoute
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   TryAgentRoute: typeof TryAgentRoute
@@ -549,13 +523,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/changelog': {
-      id: '/changelog'
-      path: '/changelog'
-      fullPath: '/changelog'
-      preLoaderRoute: typeof ChangelogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -582,13 +549,6 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sponsors': {
-      id: '/sponsors'
-      path: '/sponsors'
-      fullPath: '/sponsors'
-      preLoaderRoute: typeof SponsorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/start': {
@@ -820,12 +780,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
   LegalRoute: LegalRoute,
   PrivacyRoute: PrivacyRoute,
   SignInRoute: SignInRoute,
-  SponsorsRoute: SponsorsRoute,
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   TryAgentRoute: TryAgentRoute,

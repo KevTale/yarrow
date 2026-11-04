@@ -1,5 +1,5 @@
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, LogIn, ScrollText, UserRound } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, LogIn, UserRound } from "lucide-react";
 import { UserMenu } from "./arc/user-menu/user-menu";
 import { logoOnDark } from "./brand-svg";
 import { useReviewCount } from "./review-count";
@@ -36,11 +36,6 @@ export function SiteHeader({
   const navigate = useNavigate();
   const member = Boolean(viewer && !viewer.guest);
   const waiting = useReviewCount(member, toReview);
-  const location = useLocation();
-  const tab =
-    location.pathname === "/dashboard"
-      ? (location.search as { tab?: string }).tab
-      : undefined;
   const name =
     viewer?.githubLogin ?? viewer?.name ?? viewer?.email ?? "Account";
   return (
@@ -54,16 +49,9 @@ export function SiteHeader({
           <Brand />
         </Link>
         <div className="header-actions">
-          {member ? (
-            // Signed in: the two places one works in, side by side.
+          {member && (
             <nav className="header-nav" aria-label="Dashboard">
-              <Link
-                to="/dashboard"
-                search={{ tab: "builder" }}
-                data-status={tab === "builder" ? "active" : undefined}
-                aria-current={tab === "builder" ? "page" : undefined}
-                activeOptions={{ exact: true, includeSearch: true }}
-              >
+              <Link to="/dashboard">
                 Tickets
                 {waiting > 0 && (
                   <span
@@ -74,21 +62,6 @@ export function SiteHeader({
                   </span>
                 )}
               </Link>
-              <Link
-                to="/dashboard"
-                search={{ tab: "sponsor" }}
-                data-status={tab === "sponsor" ? "active" : undefined}
-                aria-current={tab === "sponsor" ? "page" : undefined}
-                activeOptions={{ exact: true, includeSearch: true }}
-              >
-                Sponsoring
-              </Link>
-            </nav>
-          ) : (
-            <nav className="header-nav header-site" aria-label="Site">
-              {/* The sponsors' way in: the page speaks to builders. */}
-              <Link to="/sponsors">Sponsors</Link>
-              <Link to="/changelog">Changelog</Link>
             </nav>
           )}
           {viewer ? (
@@ -101,31 +74,29 @@ export function SiteHeader({
                 avatarSrc: viewer.avatarUrl ?? undefined,
               }}
               showTheme={false}
-              items={[
+              items={
                 viewer.guest
-                  ? {
-                      label: "Dashboard",
-                      icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
-                      onSelect: () => void navigate({ to: "/dashboard" }),
-                    }
-                  : {
-                      label: "Changelog",
-                      icon: <ScrollText size={16} strokeWidth={1.75} />,
-                      onSelect: () => void navigate({ to: "/changelog" }),
-                    },
-                viewer.guest
-                  ? {
-                      label: "Sign in",
-                      icon: <LogIn size={16} strokeWidth={1.75} />,
-                      onSelect: () =>
-                        window.location.assign("/sign-in?next=/dashboard"),
-                    }
-                  : {
-                      label: "Account",
-                      icon: <UserRound size={16} strokeWidth={1.75} />,
-                      onSelect: () => void navigate({ to: "/account" }),
-                    },
-              ]}
+                  ? [
+                      {
+                        label: "Dashboard",
+                        icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
+                        onSelect: () => void navigate({ to: "/dashboard" }),
+                      },
+                      {
+                        label: "Sign in",
+                        icon: <LogIn size={16} strokeWidth={1.75} />,
+                        onSelect: () =>
+                          window.location.assign("/sign-in?next=/dashboard"),
+                      },
+                    ]
+                  : [
+                      {
+                        label: "Account",
+                        icon: <UserRound size={16} strokeWidth={1.75} />,
+                        onSelect: () => void navigate({ to: "/account" }),
+                      },
+                    ]
+              }
               onSignOut={() => {
                 window.location.assign("/auth/sign-out");
                 // The item shows its progress until the page leaves.

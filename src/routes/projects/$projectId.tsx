@@ -79,7 +79,7 @@ function ProjectSettings({ data }: { data: ProjectSetup }) {
       <div className="st-head">
         <Link
           to="/dashboard"
-          search={{ tab: "builder", project: project.id }}
+          search={{ project: project.id }}
           className="st-back"
           aria-label="Back to the dashboard"
           data-tip="Dashboard"

@@ -1,21 +1,12 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Github } from "lucide-react";
-import { useEffect } from "react";
-import { z } from "zod";
 import { TrackerIcon } from "@/components/brand-icons";
 import { DashboardShot, TicketSteps } from "@/components/landing-shots";
 import { getViewerFn } from "@/functions/viewer.functions";
 
 export const Route = createFileRoute("/")({
-  // Older links to the sponsors' board carry these.
-  validateSearch: z.object({
-    checkout: z.enum(["success"]).optional(),
-    edit: z.boolean().optional(),
-  }),
   // Signed in, the address opens the dashboard.
-  beforeLoad: async ({ search }) => {
-    if (search.edit !== undefined || search.checkout)
-      throw redirect({ to: "/sponsors", search });
+  beforeLoad: async () => {
     if (await getViewerFn()) throw redirect({ to: "/dashboard" });
   },
   component: Landing,
@@ -28,12 +19,6 @@ const getStarted = (
 );
 
 function Landing() {
-  const navigate = useNavigate();
-  // Pull requests already out link to the board's old place on this page.
-  useEffect(() => {
-    if (window.location.hash === "#sponsors")
-      void navigate({ to: "/sponsors", replace: true });
-  }, [navigate]);
   return (
     <main id="main" className="landing">
       <section className="lp-hero container">

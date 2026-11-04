@@ -296,11 +296,7 @@ function Board({ setup }: { setup: ProjectSetup }) {
 
 function Finish({ projectId }: { projectId: string }) {
   return (
-    <Link
-      className="go"
-      to="/dashboard"
-      search={{ tab: "builder", project: projectId }}
-    >
+    <Link className="go" to="/dashboard" search={{ project: projectId }}>
       Open your tickets
       <i>
         <ArrowRight size={14} strokeWidth={2.2} />

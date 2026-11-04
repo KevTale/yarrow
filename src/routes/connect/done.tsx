@@ -18,7 +18,7 @@ export const Route = createFileRoute("/connect/done")({
     if (search.setup_action === "request")
       throw redirect({
         to: "/dashboard",
-        search: { tab: "builder", requested: true },
+        search: { requested: true },
       });
     throw redirect({ to: "/start", search: { installation } });
   },

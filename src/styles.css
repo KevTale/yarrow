@@ -2950,15 +2950,6 @@ tbody tr:hover {
   background: #ffffff08;
   box-shadow: inset 0 0 0 1px #ffffff0a;
 }
-.bd-label {
-  font:
-    500 11px var(--font-geist-mono),
-    monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-  padding: 0 10px 8px;
-}
 
 /* Jira's mark in front of its keys and on its setup card. */
 .bd-source {
@@ -4769,37 +4760,25 @@ a.pb-sponsor:hover b {
 .welcome {
   display: grid;
   gap: 36px;
+  max-width: 560px;
   padding-top: 16px;
 }
 .welcome h1 {
   font-size: clamp(36px, 5vw, 52px);
   letter-spacing: -0.02em;
 }
-.welcome-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-}
 .welcome-card {
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
   gap: 12px;
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: linear-gradient(180deg, var(--surface), var(--bg));
 }
-.welcome-card .bd-label {
-  padding: 0;
-}
 .welcome-card h2 {
   font-size: 26px;
   letter-spacing: -0.01em;
   text-wrap: balance;
-}
-.welcome-card > p {
-  color: var(--secondary);
-  font-size: 14.5px;
 }
 .welcome-go {
   justify-self: start;
@@ -4875,69 +4854,10 @@ a.pb-sponsor:hover b {
     animation: none;
   }
 }
-/* Today's board, with the spot waiting for this sponsor. */
-.wf-board {
-  display: grid;
-  margin-block: 14px 6px;
-  padding: 6px 0;
-  border-radius: 12px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  list-style: none;
-}
-.wf-row {
-  display: grid;
-  grid-template-columns: 22px 28px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.wf-row + .wf-row {
-  border-top: 1px solid #1d2025;
-}
-.wf-row.you {
-  background: #f2b5440f;
-}
-.wf-row.you b {
-  color: var(--amber);
-  font-weight: 600;
-}
-.wf-row.you .board-logo {
-  border: 1px dashed var(--amber);
-  color: var(--amber);
-  background: none;
-}
-.wf-row.open {
-  color: var(--muted);
-}
-.wf-rank {
-  font:
-    500 13px var(--font-geist-mono),
-    monospace;
-  color: var(--muted);
-}
-.wf-row.you .wf-rank {
-  color: var(--amber);
-}
-.wf-amount {
-  font:
-    500 15px var(--font-display),
-    sans-serif;
-}
 @media (max-width: 760px) {
-  .welcome-grid {
-    grid-template-columns: 1fr;
-  }
   .welcome-card {
     padding: 22px 18px;
   }
-}
-.wf-row b.anonymous {
-  font-weight: 500;
-  font-style: italic;
-  color: var(--secondary);
 }
 
 /* ---------- Loading states ---------- */
@@ -7970,10 +7890,6 @@ body:has(.sb-dialog[open]) {
     gap: 40px;
     padding-block: 64px;
   }
-  /* The only button on the page: it stays, the links give way. */
-  .header-site {
-    display: none;
-  }
   .lp-stage {
     margin-inline: 0;
     padding-bottom: 56px;
@@ -10299,111 +10215,9 @@ html:has(.pp-stage:modal) {
   height: 40px;
   border-radius: 9px;
 }
-/* The changelog, after x.ai's: the date held on the left, the notes on the right. */
-.changelog {
-  max-width: 1000px;
-  padding-block: 72px 48px;
-}
-.changelog h1 {
-  font-size: clamp(40px, 6vw, 60px);
-  font-weight: 450;
-  letter-spacing: -0.01em;
-  text-align: center;
-  margin-bottom: 56px;
-}
-.cl-entry {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 24px;
-  padding-block: 56px;
-  border-top: 1px solid var(--line);
-}
-.cl-when {
-  position: sticky;
-  top: 92px;
-  align-self: start;
-  padding-top: 2px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.cl-short {
-  display: none;
-}
-.cl-section + .cl-section {
-  margin-top: 28px;
-}
-.cl-section h3 {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted);
-  margin-bottom: 12px;
-}
-.cl-section ul {
-  display: grid;
-  gap: 10px;
-  padding-left: 20px;
-  list-style: disc;
-}
-.cl-section li {
-  font-size: 16px;
-  line-height: 1.55;
-  color: var(--text);
-}
-.cl-section li::marker {
-  color: var(--muted);
-}
-.cl-tag {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--muted);
-  vertical-align: 1px;
-}
-@media (max-width: 760px) {
-  .changelog {
-    padding-block: 48px 32px;
-  }
-  .changelog h1 {
-    margin-bottom: 32px;
-  }
-  .cl-entry {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-    padding-block: 36px;
-  }
-  .cl-when {
-    position: static;
-    padding-top: 0;
-  }
-  .cl-long {
-    display: none;
-  }
-  .cl-short {
-    display: inline;
-  }
-  .cl-section li {
-    font-size: 15px;
-  }
-}
 @media (max-width: 560px) {
   .header-nav {
     gap: 16px;
-  }
-}
-/* The narrowest phones keep the way in for sponsors. */
-@media (max-width: 359px) {
-  .header-nav a[href="/changelog"] {
-    display: none;
   }
 }
 
