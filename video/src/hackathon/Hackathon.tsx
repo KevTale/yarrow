@@ -188,20 +188,20 @@ const wordFrame = (beat: Beat, index: number) => {
   return f((beat.at ?? 0) + words[Math.min(index, words.length - 1)]![1]);
 };
 
-const Rise: React.FC<{ at: number; children: React.ReactNode; style?: React.CSSProperties }> = ({ at, children, style }) => {
+export const Rise: React.FC<{ at: number; children: React.ReactNode; style?: React.CSSProperties }> = ({ at, children, style }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const k = spring({ frame: frame - at, fps, config: { damping: 200 }, durationInFrames: 14 });
   return <div style={{ opacity: k, transform: `translateY(${(1 - k) * 24}px)`, ...style }}>{children}</div>;
 };
 
-const Big: React.FC<{ children: React.ReactNode; size?: number; color?: string }> = ({ children, size = 110, color = c.text }) => (
+export const Big: React.FC<{ children: React.ReactNode; size?: number; color?: string }> = ({ children, size = 110, color = c.text }) => (
   <div style={{ fontFamily: font.display, fontSize: size, lineHeight: 1.02, letterSpacing: -2, color, textShadow: "0 6px 40px rgba(0,0,0,.6)" }}>
     {children}
   </div>
 );
 
-const Source: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+export const Source: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ fontSize: 24, color: c.muted, marginTop: 18 }}>{children}</div>
 );
 
@@ -319,7 +319,7 @@ const Volume: React.FC<{ beat: Beat }> = ({ beat }) => {
 
 /* ---------- Brand moments ---------- */
 
-const Logo: React.FC<{ end?: boolean }> = ({ end }) => {
+export const Logo: React.FC<{ end?: boolean }> = ({ end }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const k = spring({ frame: frame - 6, fps, config: { damping: 18, stiffness: 90 } });
