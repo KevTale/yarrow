@@ -8,7 +8,7 @@ export const Route = createFileRoute("/terms")({
 
 function Terms() {
   return (
-    <LegalPage title="Terms" updated="October 10, 2026">
+    <LegalPage title="Terms" updated="November 2, 2026">
       <p>
         These terms govern the use of Yarrow (yarrow.run), operated by the
         company {company.name}, founded in {company.founded} (“we”). By using
@@ -49,10 +49,9 @@ function Terms() {
           whose credit paid for it: their name, logo, description and website,
           labelled “Sponsored by”. The card is how the work stays free for you:
           it is part of the service and cannot be removed. You accept it, with
-          these terms, by ticking them before you connect GitHub. If the card is
-          removed or hidden from a pull request, we may stop handling that
-          project&apos;s tickets. We review sponsors&apos; cards; tell us if one
-          looks wrong.
+          these terms, when you connect GitHub. If the card is removed or hidden
+          from a pull request, we may stop handling that project&apos;s tickets.
+          We review sponsors&apos; cards; tell us if one looks wrong.
         </li>
         <li>
           Pull requests are drafts, provided as is. You review them before

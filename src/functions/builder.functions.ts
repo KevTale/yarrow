@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { mention } from "@/core/corrections";
 import { logoSchema } from "@/core/forms";
 import {
   BODY_MAX,
@@ -10,7 +9,6 @@ import {
   TITLE_MAX,
 } from "@/core/new-ticket";
 import { projectLogo } from "@/core/logos";
-import { TERMS_VERSION } from "@/core/terms";
 import type { OpenIssue, ReviewRow, TicketRow } from "@/core/tickets";
 import { requireProjectMember } from "@/db/accounts";
 import { projectsForUser, requestGithubTask } from "@/db/github-tasks";
@@ -18,7 +16,6 @@ import { ownerDashboard } from "@/db/queries";
 import { resolveLogo } from "@/db/images";
 import { projects as projectsTable, workUnits } from "@/db/schema";
 import { linkTicket, proposedTicketKey, threadMessages } from "@/db/chat";
-import { recordEvent } from "@/db/events";
 import { projectTickets, retryTicket, reviewQueue } from "@/db/tickets";
 import { getViewer, requireViewer } from "@/server/auth.server";
 import { databaseConfigured, withDb } from "@/server/db.server";
@@ -108,24 +105,6 @@ export const getBuilderFn = createServerFn({ method: "GET" })
       };
     });
   });
-
-/**
- * The builder ticks the Terms, the sponsors' card at the foot of every pull
- * request included, before GitHub (`/connect/terms`).
- */
-export const acceptTermsFn = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const viewer = await requireViewer();
-    await withDb((db) =>
-      recordEvent(db, {
-        type: "builder.terms_accepted",
-        userId: viewer.userId,
-        payload: { terms: TERMS_VERSION },
-      }),
-    );
-    return { ok: true };
-  },
-);
 
 const ticketRef = z.object({
   projectId: z.uuid(),
@@ -386,11 +365,6 @@ export const closePullRequestFn = createServerFn({ method: "POST" })
     if (!panel?.pullRequest || !brain) return unavailable;
     return brain.closePullRequest({ workUnitId: panel.workUnitId });
   });
-
-/** What maintainers comment on a Yarrow pull request to ask for a change. */
-export const getMentionFn = createServerFn({ method: "GET" }).handler(() =>
-  mention(appEnv().GITHUB_APP_SLUG),
-);
 
 /** The logo tile in the project's head: saved as soon as it is chosen. */
 export const setProjectLogoFn = createServerFn({ method: "POST" })

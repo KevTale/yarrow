@@ -7986,29 +7986,6 @@ body:has(.sb-dialog[open]) {
   background: var(--surface);
 }
 
-.connect-terms {
-  display: grid;
-  justify-items: center;
-  padding-block: 72px 120px;
-}
-.connect-terms-inner {
-  width: min(480px, 100%);
-  display: grid;
-  gap: 22px;
-}
-.connect-terms h1 {
-  font-size: clamp(36px, 5vw, 44px);
-  letter-spacing: -0.02em;
-  text-align: center;
-}
-.connect-terms-correct {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-  text-align: center;
-  text-wrap: balance;
-}
-.connect-terms-correct code,
 .rp-correct code {
   font:
     12px var(--font-geist-mono),
@@ -8019,27 +7996,6 @@ body:has(.sb-dialog[open]) {
   border-radius: 6px;
   background: var(--surface);
   user-select: all;
-}
-.connect-terms-lede {
-  margin: -8px auto 0;
-  max-width: 44ch;
-  font-size: 16px;
-  line-height: 1.55;
-  color: var(--secondary);
-  text-align: center;
-  text-wrap: pretty;
-}
-.connect-terms-check {
-  --checkbox-line: 21px;
-  font-size: 14px;
-  line-height: 21px;
-  color: var(--secondary);
-}
-.connect-terms .signin-github[aria-disabled="true"] {
-  opacity: 0.45;
-  box-shadow: none;
-  cursor: default;
-  filter: none;
 }
 .pp {
   display: grid;

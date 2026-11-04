@@ -1000,7 +1000,7 @@ export function ModalHead({
  * its text as gray lines and the real card closing it. Enough of a pull
  * request to read as one, without a host's page around it.
  */
-export function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
+function PrSketch({ sponsor }: { sponsor: PrCardSponsor }) {
   return (
     <figure
       className="pr-sketch"

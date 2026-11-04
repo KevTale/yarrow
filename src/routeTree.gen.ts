@@ -25,7 +25,6 @@ import { Route as AuthGithubRouteImport } from './routes/auth/github'
 import { Route as AuthSignOutRouteImport } from './routes/auth/sign-out'
 import { Route as ConnectDoneRouteImport } from './routes/connect/done'
 import { Route as ConnectGithubRouteImport } from './routes/connect/github'
-import { Route as ConnectTermsRouteImport } from './routes/connect/terms'
 import { Route as DemoSplatRouteImport } from './routes/demo/$'
 import { Route as EvidenceSplatRouteImport } from './routes/evidence/$'
 import { Route as ImagesNameRouteImport } from './routes/images/$name'
@@ -125,11 +124,6 @@ const ConnectDoneRoute = ConnectDoneRouteImport.update({
 const ConnectGithubRoute = ConnectGithubRouteImport.update({
   id: '/connect/github',
   path: '/connect/github',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConnectTermsRoute = ConnectTermsRouteImport.update({
-  id: '/connect/terms',
-  path: '/connect/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoSplatRoute = DemoSplatRouteImport.update({
@@ -252,7 +246,6 @@ export interface FileRoutesByFullPath {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
-  '/connect/terms': typeof ConnectTermsRoute
   '/demo/$': typeof DemoSplatRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
@@ -291,7 +284,6 @@ export interface FileRoutesByTo {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
-  '/connect/terms': typeof ConnectTermsRoute
   '/demo/$': typeof DemoSplatRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
@@ -331,7 +323,6 @@ export interface FileRoutesById {
   '/auth/sign-out': typeof AuthSignOutRoute
   '/connect/done': typeof ConnectDoneRoute
   '/connect/github': typeof ConnectGithubRoute
-  '/connect/terms': typeof ConnectTermsRoute
   '/demo/$': typeof DemoSplatRoute
   '/evidence/$': typeof EvidenceSplatRoute
   '/images/$name': typeof ImagesNameRoute
@@ -372,7 +363,6 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
-    | '/connect/terms'
     | '/demo/$'
     | '/evidence/$'
     | '/images/$name'
@@ -411,7 +401,6 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
-    | '/connect/terms'
     | '/demo/$'
     | '/evidence/$'
     | '/images/$name'
@@ -450,7 +439,6 @@ export interface FileRouteTypes {
     | '/auth/sign-out'
     | '/connect/done'
     | '/connect/github'
-    | '/connect/terms'
     | '/demo/$'
     | '/evidence/$'
     | '/images/$name'
@@ -490,7 +478,6 @@ export interface RootRouteChildren {
   AuthSignOutRoute: typeof AuthSignOutRoute
   ConnectDoneRoute: typeof ConnectDoneRoute
   ConnectGithubRoute: typeof ConnectGithubRoute
-  ConnectTermsRoute: typeof ConnectTermsRoute
   DemoSplatRoute: typeof DemoSplatRoute
   EvidenceSplatRoute: typeof EvidenceSplatRoute
   ImagesNameRoute: typeof ImagesNameRoute
@@ -626,13 +613,6 @@ declare module '@tanstack/react-router' {
       path: '/connect/github'
       fullPath: '/connect/github'
       preLoaderRoute: typeof ConnectGithubRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/connect/terms': {
-      id: '/connect/terms'
-      path: '/connect/terms'
-      fullPath: '/connect/terms'
-      preLoaderRoute: typeof ConnectTermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo/$': {
@@ -794,7 +774,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignOutRoute: AuthSignOutRoute,
   ConnectDoneRoute: ConnectDoneRoute,
   ConnectGithubRoute: ConnectGithubRoute,
-  ConnectTermsRoute: ConnectTermsRoute,
   DemoSplatRoute: DemoSplatRoute,
   EvidenceSplatRoute: EvidenceSplatRoute,
   ImagesNameRoute: ImagesNameRoute,
