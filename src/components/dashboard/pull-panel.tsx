@@ -262,16 +262,29 @@ export function PullPanel({
   projectId,
   rowKey,
   onChanged,
+  merging,
+  onMerge,
+  notMerged,
 }: {
   projectId: string;
   rowKey: string;
   /** The table's row moved (merged, a correction started). */
   onChanged: () => void;
+  /** Slid to merge, GitHub's answer on its way. */
+  merging: boolean;
+  /** Nothing once it is slid. */
+  onMerge?: () => void;
+  /** GitHub's words, when it refused to merge. */
+  notMerged?: string;
 }) {
   const { panel, setPanel, refresh } = usePullPanel(projectId, rowKey);
   useEffect(() => {
     void loadFiles(projectId, rowKey).catch(() => {});
   }, [projectId, rowKey]);
+  // The row reached Done before the merge did: read again once it lands.
+  useEffect(() => {
+    if (!merging) void refresh();
+  }, [merging, refresh]);
 
   // The stage comes up as the row opens, for an open pull request on a
   // window wide enough, for a call from the film; on a phone, the call
@@ -460,8 +473,8 @@ export function PullPanel({
         />
       )}
       {app && <OpenApp app={app} />}
-      {open && !changing && (
-        <MergeGo rowKey={rowKey} projectId={projectId} onChanged={onChanged} />
+      {open && !changing && onMerge && (
+        <MergeGo notMerged={notMerged} onMerge={onMerge} />
       )}
     </span>
   );

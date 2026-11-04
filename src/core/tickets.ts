@@ -167,6 +167,20 @@ export const toReview = (row: TicketRow) =>
 export const done = (row: TicketRow) =>
   row.status === "merged" || row.status === "pr_closed";
 
+/**
+ * Slid to merge, GitHub's answer on its way: Done at once, the seconds GitHub
+ * takes reading as a bug. `at` keeps it among the recent ones.
+ */
+export const mergingRow = (row: TicketRow, at: string): TicketRow => ({
+  ...row,
+  status: "merged",
+  pending: true,
+  updatedAt: at,
+});
+
+export const merging = (row: TicketRow) =>
+  row.status === "merged" && row.pending;
+
 /** The dashboard's groups: each ticket is in exactly one. */
 export type TicketStage = "review" | "progress" | "todo" | "stopped" | "done";
 

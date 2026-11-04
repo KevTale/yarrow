@@ -5,7 +5,7 @@ import { Markdown } from "@/components/markdown";
 import { Spinner } from "@/components/navigation-feedback";
 import { RunStory, StopReason } from "@/components/run-activity";
 import { ticketText } from "@/core/new-ticket";
-import { workText, type TicketRow } from "@/core/tickets";
+import { merging, workText, type TicketRow } from "@/core/tickets";
 import { answerTicketFn, getTicketFn } from "@/functions/builder.functions";
 import { PullPanel } from "./pull-panel";
 
@@ -50,15 +50,27 @@ export function TicketPanel({
   projectId,
   row,
   onChanged,
+  onMerge,
+  notMerged,
 }: {
   projectId: string;
   row: TicketRow;
   /** The row moved (merged, a change asked). */
   onChanged: () => void;
+  onMerge: () => void;
+  /** GitHub's words, when it refused to merge. */
+  notMerged?: string;
 }) {
   if (row.pullRequest)
     return (
-      <PullPanel projectId={projectId} rowKey={row.key} onChanged={onChanged} />
+      <PullPanel
+        projectId={projectId}
+        rowKey={row.key}
+        onChanged={onChanged}
+        merging={merging(row)}
+        onMerge={row.status === "merged" ? undefined : onMerge}
+        notMerged={notMerged}
+      />
     );
   return <TicketBrief projectId={projectId} row={row} onChanged={onChanged} />;
 }

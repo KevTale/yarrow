@@ -24,7 +24,9 @@ import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import {
+  merging as isMerging,
   mergeTickets,
+  mergingRow,
   moving,
   ticketStage,
   toReview,
@@ -35,6 +37,7 @@ import {
 import {
   createTicketFn,
   getBuilderFn,
+  pullRequestActionFn,
   queueTicketsFn,
   retryTicketFn,
   setProjectLogoFn,
@@ -158,6 +161,7 @@ export function BuilderView({
   const queue = useServerFn(queueTicketsFn);
   const unqueue = useServerFn(unqueueTicketsFn);
   const retry = useServerFn(retryTicketFn);
+  const merge = useServerFn(pullRequestActionFn);
   const createTicket = useServerFn(createTicketFn);
   const saveLogo = useServerFn(setProjectLogoFn);
   const [store, setStore] = useState<Record<string, BuilderData>>(() => ({
@@ -181,6 +185,9 @@ export function BuilderView({
   // The row opened in place ("projectId:key"), one at a time. It moves
   // with its ticket, open, to the group its state now says.
   const [opened, setOpened] = useState<string | null>(null);
+  // Rows slid to merge ("projectId:key") since when, and GitHub's refusals.
+  const [merges, setMerges] = useState<Record<string, string>>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   // The new ticket dialog, and whether it came from In progress; drafted
   // from a pull request's notes, in that pull request's project.
@@ -237,7 +244,9 @@ export function BuilderView({
   }, [store]);
   // The header's count, and each project's in the switcher, follow what
   // the page knows.
-  const waitingReview = meta.review.filter(toReview);
+  const waitingReview = meta.review.filter(
+    (row) => toReview(row) && !merges[`${row.project.id}:${row.key}`],
+  );
   const toReviewCount = waitingReview.length;
   useEffect(() => setReviewCount(toReviewCount), [toReviewCount]);
   const reviewCounts: Record<string, number> = {};
@@ -310,9 +319,15 @@ export function BuilderView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId]);
 
+  // Over what the server says: a poll landing before GitHub answers would
+  // send a row just slid back to To review.
   const rows = useMemo(
-    () => (live ? mergeTickets(live.tickets, live.issues) : []),
-    [live],
+    () =>
+      (live ? mergeTickets(live.tickets, live.issues) : []).map((row) => {
+        const since = merges[`${currentId}:${row.key}`];
+        return since ? mergingRow(row, since) : row;
+      }),
+    [live, merges, currentId],
   );
   const busy =
     rows.some(moving) || meta.review.some(moving) || waiting !== null;
@@ -335,7 +350,7 @@ export function BuilderView({
     const timer = setTimeout(() => void pull(), busy ? 15_000 : 60_000);
     return () => clearTimeout(timer);
   });
-  const list = useFlip<HTMLDivElement>(live, currentId ?? "");
+  const list = useFlip<HTMLDivElement>(rows, currentId ?? "");
   // The opened ticket moved (started, finished, merged): its new group
   // unfolds, so the row the builder is reading stays in view.
   const openedRow = rows.find((row) => `${currentId}:${row.key}` === opened);
@@ -421,6 +436,50 @@ export function BuilderView({
     } catch {
       setError("That did not go through. Try again in a moment.");
     }
+  };
+
+  // Done as it is slid, as Start shows at once: GitHub takes seconds to
+  // answer. A refusal brings the row back, saying why.
+  const mergeTicket = async (key: string) => {
+    if (!project) return;
+    const id = project.id;
+    const mark = `${id}:${key}`;
+    const without = (items: Record<string, string>) =>
+      Object.fromEntries(
+        Object.entries(items).filter(([item]) => item !== mark),
+      );
+    const at = new Date().toISOString();
+    setRefused(without);
+    setMerges((all) => ({ ...all, [mark]: at }));
+    const result = await merge({
+      data: { projectId: id, key, action: "merge" },
+    }).catch(() => ({
+      ok: false as const,
+      error: "That did not go through. Try again.",
+    }));
+    if (result.ok) {
+      setStore((all) => ({
+        ...all,
+        [id]: {
+          ...all[id]!,
+          tickets: all[id]!.tickets.map((row) =>
+            row.key === key
+              ? { ...row, status: "merged" as const, updatedAt: at }
+              : row,
+          ),
+        },
+      }));
+      setMeta((current) => ({
+        ...current,
+        review: current.review.filter(
+          (row) => row.project.id !== id || row.key !== key,
+        ),
+      }));
+      void pull(id);
+    } else {
+      setRefused((all) => ({ ...all, [mark]: result.error }));
+    }
+    setMerges(without);
   };
 
   async function changeLogo(logo: string | null) {
@@ -683,6 +742,8 @@ export function BuilderView({
                                 onFreshEnd={() => setFresh(null)}
                                 act={act}
                                 onChanged={() => void pull()}
+                                onMerge={() => void mergeTicket(row.key)}
+                                notMerged={refused[id]}
                               />
                             );
                           })}
@@ -876,6 +937,8 @@ function TicketLine({
   onFreshEnd,
   act,
   onChanged,
+  onMerge,
+  notMerged,
 }: {
   row: TicketRow;
   projectId: string;
@@ -885,6 +948,8 @@ function TicketLine({
   onFreshEnd?: () => void;
   act?: TicketAct;
   onChanged: () => void;
+  onMerge: () => void;
+  notMerged?: string;
 }) {
   const dateTime = useDateTime(row.createdAt);
   const item = useRef<HTMLLIElement>(null);
@@ -955,7 +1020,13 @@ function TicketLine({
         </span>
       </div>
       <OpenRow open={open}>
-        <TicketPanel projectId={projectId} row={row} onChanged={onChanged} />
+        <TicketPanel
+          projectId={projectId}
+          row={row}
+          onChanged={onChanged}
+          onMerge={onMerge}
+          notMerged={notMerged}
+        />
       </OpenRow>
     </li>
   );
@@ -966,6 +1037,8 @@ function RowState({ row }: { row: TicketRow }) {
   // The pull request itself is in the opened row; the line says only what
   // is happening to it.
   if (row.pullRequest) {
+    if (isMerging(row))
+      return <TextShimmer className="tix-state working">Merging</TextShimmer>;
     // A change asked on it: waiting its turn, then at work on the branch.
     if (row.change === "queued")
       return <span className="tix-state waiting">Waiting</span>;

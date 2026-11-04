@@ -4,7 +4,9 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   formatSeconds,
   formatTokens,
+  merging,
   mergeTickets,
+  mergingRow,
   moving,
   ticketIdentity,
   ticketStage,
@@ -539,5 +541,17 @@ describe("the dashboard's groups", () => {
     expect(journey.map(([change]) => ticketStage(row(change)))).toEqual(
       journey.map(([, stage]) => stage),
     );
+  });
+
+  it("puts a ticket slid to merge in Done before GitHub answers", () => {
+    const at = "2026-11-02T20:00:00.000Z";
+    const slid = mergingRow(row({ status: "pull_request" }), at);
+    expect(ticketStage(slid)).toBe("done");
+    expect(toReview(slid)).toBe(false);
+    expect(merging(slid)).toBe(true);
+    expect(moving(slid)).toBe(true);
+    // Done keeps the recent ones in view, whatever date the ticket had.
+    expect(slid.updatedAt).toBe(at);
+    expect(merging(row({ status: "merged" }))).toBe(false);
   });
 });
