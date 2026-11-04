@@ -135,7 +135,7 @@ function RemoveProject({
     try {
       const { status } = await remove({ data: { projectId } });
       if (status === "busy") {
-        setError("A ticket of this project is queued or at work.");
+        setError("A ticket of this project is at work.");
         setPending(false);
         return;
       }

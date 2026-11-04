@@ -667,6 +667,18 @@ describe("Jira for builders", async () => {
         status: "running",
       })
       .returning({ id: schema.workUnits.id });
+    // A queued ticket does not hold the project back: it leaves the queue.
+    const [queued] = await raw
+      .insert(schema.workUnits)
+      .values({
+        projectId,
+        source: "github",
+        externalId: "3",
+        title: "Typo",
+        url: "https://github.com/acme/app/issues/3",
+        authorized: true,
+      })
+      .returning({ id: schema.workUnits.id });
     expect(await removeProject(db, ctx, marie.userId, projectId)).toBe("busy");
     expect(await raw.select().from(schema.trackerBoards)).toHaveLength(1);
     await raw
@@ -683,6 +695,11 @@ describe("Jira for builders", async () => {
       .from(schema.workUnits)
       .where(eq(schema.workUnits.id, ticket!.id));
     expect(shipped!.boardId).toBeNull();
+    const [unqueued] = await raw
+      .select({ authorized: schema.workUnits.authorized })
+      .from(schema.workUnits)
+      .where(eq(schema.workUnits.id, queued!.id));
+    expect(unqueued!.authorized).toBe(false);
     const [project] = await raw
       .select({ importedAt: schema.projects.importedAt })
       .from(schema.projects)

@@ -13,7 +13,7 @@ import {
   removeBoard,
 } from "../../db/trackers";
 import { upsertTicket } from "../../db/workunits";
-import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import { recordEvent } from "../../db/events";
 import {
   agentRuns,
@@ -383,8 +383,8 @@ export async function setTrackerBoards(
  * Remove project, from its settings: the repository leaves Yarrow (off the
  * dashboard, not imported again in the setup) and its boards are unlinked;
  * the GitHub App, the tracker connections and the other projects stay.
- * Refused while one of its tickets is queued or at work, or a change asked
- * waits. Imported again, it starts afresh.
+ * Refused while one of its tickets is at work or a change asked waits; its
+ * queued tickets leave the queue. Imported again, it starts afresh.
  */
 export async function removeProject(
   db: Database,
@@ -414,8 +414,7 @@ export async function removeProject(
       and(
         eq(workUnits.projectId, project.id),
         or(
-          and(eq(workUnits.status, "queued"), eq(workUnits.authorized, true)),
-          inArray(workUnits.status, ["running"]),
+          eq(workUnits.status, "running"),
           isNotNull(agentRuns.id),
           isNotNull(correctionRequests.id),
         ),
@@ -432,6 +431,13 @@ export async function removeProject(
     .update(projects)
     .set({ importedAt: null })
     .where(eq(projects.id, project.id));
+  // The queue reads no import: its queued tickets would still run.
+  await db
+    .update(workUnits)
+    .set({ authorized: false })
+    .where(
+      and(eq(workUnits.projectId, project.id), eq(workUnits.status, "queued")),
+    );
   await recordEvent(db, {
     type: "project.removed",
     projectId: project.id,
