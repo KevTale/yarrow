@@ -292,6 +292,11 @@ describe("the builder's ticket table", () => {
 
   it("hands a pull request back to Yarrow while a change asked is made", async () => {
     const shipped = await ticket(3);
+    // Imported: its pull requests wait in the header's count.
+    await raw
+      .update(schema.projects)
+      .set({ importedAt: new Date() })
+      .where(eq(schema.projects.id, projectId));
     await raw
       .update(schema.workUnits)
       .set({ status: "delivered" })
