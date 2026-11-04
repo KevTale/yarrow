@@ -48,7 +48,7 @@ flowchart LR
   RUN -->|stores the demo| R2[("R2")]
   RUN -->|draft pull request| GH["GitHub App"]
   WEB -->|live call| STAGE["Stage<br/>the branch on a live desktop"]
-  STAGE <--> TALK["Muse Spark<br/>ElevenLabs voice"]
+  STAGE <--> TALK["Claude Sonnet<br/>ElevenLabs voice"]
 ```
 
 The brain runs every minute. Tickets start first in, first out within an account and round-robin between accounts, and each run is one durable Workflow. Tracker tickets are synced every five minutes.
@@ -59,7 +59,7 @@ A run is never reviewed by the lab that wrote it:
 | --------------------------------- | ----------------------------------------- | ------------------------------------------------- |
 | Implementation                    | Muse Wonder                               | Yarrow's own container, with no API key inside it |
 | Code review                       | Claude Opus                               | Claude Managed Agents                             |
-| Chat, live calls, writing tickets | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
+| Chat, live calls, writing tickets | Claude Sonnet                             | Claude API, with ElevenLabs for the voice         |
 | Projects with secrets             | Claude Opus implements, GPT Astra reviews | Claude Managed Agents and the OpenAI Agents API   |
 
 Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`, `TALK_MODEL`, `OPENAI_REVIEW_MODEL` in `workers/wrangler.jsonc`).

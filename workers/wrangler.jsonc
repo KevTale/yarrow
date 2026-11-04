@@ -74,7 +74,7 @@
         // Who talks: the chat, the live call and the new ticket's agent
         // (src/runner/talk-models.ts). The bench's turns may choose
         // (pnpm bench:talk).
-        "TALK_MODEL": "spark",
+        "TALK_MODEL": "sonnet",
         "TALK_BENCH": "on",
         // Pull requests' previews: <work unit id>-dev.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": "-dev.yarrow.page",
@@ -142,7 +142,7 @@
         "IMPLEMENTER": "meta",
         "META_MODEL": "muse-wonder-1.0",
         "META_EFFORT": "high",
-        "TALK_MODEL": "spark",
+        "TALK_MODEL": "sonnet",
         // Pull requests' previews: <work unit id>.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": ".yarrow.page",
       },
