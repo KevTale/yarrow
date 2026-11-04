@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BuilderView } from "@/components/dashboard/builder";
 import { ConnectNotice } from "@/components/dashboard/connect-notice";
-import { WelcomeView } from "@/components/dashboard/welcome";
 import { SignInPrompt } from "@/components/email-sign-in";
 import { NotConfigured } from "@/components/ui";
 import { getBuilderFn } from "@/functions/builder.functions";
@@ -120,14 +119,6 @@ function DashboardPage() {
     return (
       <main id="main" className="container page-main">
         <NotConfigured />
-      </main>
-    );
-
-  // A new account, signed in on purpose: the way in, not an empty list.
-  if (builder.projects.length === 0 && waiting === null && !notice)
-    return (
-      <main id="main" className="container dashboard">
-        <WelcomeView />
       </main>
     );
 

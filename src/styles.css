@@ -367,22 +367,6 @@ select:focus-visible {
   align-items: center;
   gap: 16px;
 }
-/* On the right whoever is reading: a step above Sign in, the site's places. */
-.header-nav {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-.header-nav a {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--secondary);
-  transition: color 0.16s;
-}
-.header-nav a:hover,
-.header-nav a[data-status="active"] {
-  color: var(--text);
-}
 .brand {
   display: block;
   height: 24px;
@@ -3336,24 +3320,6 @@ tbody tr:hover {
 }
 
 /* ---------- Dashboard: tickets ---------- */
-/* The header's Tickets carries the pull requests waiting for review. */
-.header-nav a {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-.header-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  display: inline-grid;
-  place-items: center;
-  background: var(--amber);
-  color: #1a1408;
-  font-size: 11px;
-  font-weight: 600;
-}
 /* The project's logo, its name opening the switcher, its settings, the
    search at the far end. */
 .tix-head {
@@ -4753,110 +4719,6 @@ a.pb-sponsor:hover b {
 @media (max-width: 640px) {
   .sponsor-profile-fields {
     padding: 6px 15px 17px;
-  }
-}
-
-/* ---------- Dashboard: welcome ---------- */
-.welcome {
-  display: grid;
-  gap: 36px;
-  max-width: 560px;
-  padding-top: 16px;
-}
-.welcome h1 {
-  font-size: clamp(36px, 5vw, 52px);
-  letter-spacing: -0.02em;
-}
-.welcome-card {
-  display: grid;
-  gap: 12px;
-  padding: 28px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: linear-gradient(180deg, var(--surface), var(--bg));
-}
-.welcome-card h2 {
-  font-size: 26px;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-}
-.welcome-go {
-  justify-self: start;
-  margin-top: 8px;
-}
-/* A ticket on its way to a pull request. */
-.wf {
-  display: grid;
-  gap: 8px;
-  margin-block: 14px 6px;
-  padding: 18px;
-  border-radius: 12px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  font-size: 14px;
-}
-.wf-ticket,
-.wf-pr {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: var(--elevated);
-}
-.wf-ticket .mono,
-.wf-pr .mono {
-  color: var(--muted);
-  font-size: 12.5px;
-}
-.wf-pr {
-  color: var(--green);
-}
-.wf-step {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-left: 14px;
-  font:
-    12.5px var(--font-geist-mono),
-    monospace;
-  color: var(--secondary);
-}
-.wf-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: none;
-}
-.wf-dot.writing {
-  background: var(--amber);
-  animation: wf-pulse 2.4s ease-in-out infinite;
-}
-.wf-dot.reviewing {
-  background: var(--amber);
-  animation: wf-pulse 2.4s ease-in-out 0.8s infinite;
-}
-.wf-dot.done {
-  background: var(--green);
-}
-@keyframes wf-pulse {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  40% {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wf-dot.writing,
-  .wf-dot.reviewing {
-    animation: none;
-  }
-}
-@media (max-width: 760px) {
-  .welcome-card {
-    padding: 22px 18px;
   }
 }
 
@@ -10171,12 +10033,6 @@ html:has(.pp-stage:modal) {
   height: 40px;
   border-radius: 9px;
 }
-@media (max-width: 560px) {
-  .header-nav {
-    gap: 16px;
-  }
-}
-
 /* A pull request's stage (routes/stage): its app live, then how it came up. */
 .stage-head {
   display: flex;

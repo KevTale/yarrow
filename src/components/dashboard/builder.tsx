@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   Github,
@@ -455,21 +456,38 @@ export function BuilderView({
     }
   }
 
+  // No project yet: the same page at 0 tickets, Import project in its name's
+  // place, and no "+" with nowhere to write a ticket.
   if (meta.projects.length === 0)
     return (
-      <div className="bd-empty">
-        {waiting ? (
+      <div className="bd">
+        <div className="tix-head">
+          <a className="go" href="/connect/github?start">
+            Import project
+            <i>
+              <ArrowRight size={14} strokeWidth={2.2} />
+            </i>
+          </a>
+        </div>
+        {waiting && (
           <p className="bd-wait" role="status">
             Connecting <span className="mono">{waiting}</span>…
           </p>
-        ) : (
-          <>
-            <p className="muted">No project yet</p>
-            <a className="go" href="/connect/github">
-              <Github size={16} /> Connect GitHub
-            </a>
-          </>
         )}
+        <div className="tix-list glass">
+          {stages
+            .filter((stage) => stage.key !== "stopped")
+            .map((stage) => (
+              <TicketGroup
+                key={stage.key}
+                stage={stage.key}
+                label={stage.label}
+                count={0}
+                folded={folded.includes(stage.key)}
+                onFold={() => fold(stage.key)}
+              />
+            ))}
+        </div>
       </div>
     );
 
@@ -751,7 +769,7 @@ function TicketGroup({
   folded: boolean;
   onFold: () => void;
   onAdd?: () => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const reduced = useReducedMotion();
   return (

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, LogIn, UserRound } from "lucide-react";
+import { LayoutDashboard, LogIn, Ticket, UserRound } from "lucide-react";
 import { UserMenu } from "./arc/user-menu/user-menu";
 import { logoOnDark } from "./brand-svg";
 import { useReviewCount } from "./review-count";
@@ -49,24 +49,9 @@ export function SiteHeader({
           <Brand />
         </Link>
         <div className="header-actions">
-          {member && (
-            <nav className="header-nav" aria-label="Dashboard">
-              <Link to="/dashboard">
-                Tickets
-                {waiting > 0 && (
-                  <span
-                    className="header-count"
-                    aria-label={`${waiting} to review`}
-                  >
-                    {waiting > 99 ? "99+" : waiting}
-                  </span>
-                )}
-              </Link>
-            </nav>
-          )}
           {viewer ? (
             // uiarc's user menu: a panel from the avatar, a bottom sheet on
-            // phones.
+            // phones. The avatar and Tickets carry what waits for review.
             <UserMenu
               user={{
                 name,
@@ -74,6 +59,7 @@ export function SiteHeader({
                 avatarSrc: viewer.avatarUrl ?? undefined,
               }}
               showTheme={false}
+              badge={waiting}
               items={
                 viewer.guest
                   ? [
@@ -90,6 +76,12 @@ export function SiteHeader({
                       },
                     ]
                   : [
+                      {
+                        label: "Tickets",
+                        icon: <Ticket size={16} strokeWidth={1.75} />,
+                        badge: waiting,
+                        onSelect: () => void navigate({ to: "/dashboard" }),
+                      },
                       {
                         label: "Account",
                         icon: <UserRound size={16} strokeWidth={1.75} />,
