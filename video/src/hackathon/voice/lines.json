@@ -1,0 +1,70 @@
+{
+  "model": "eleven_v4",
+  "settings": {
+    "stability": 0.45,
+    "similarity_boost": 0.85,
+    "use_speaker_boost": true
+  },
+  "lines": [
+    {
+      "id": "landing",
+      "text": "Yarrow helps you write the right ticket, gets an agent to build it, and lets you review what it ships. All in one place. Let me show you."
+    },
+    {
+      "id": "dashboard",
+      "text": "I sign in with GitHub, and here's my dashboard. Tickets come from GitHub issues, Jira, Linear or Trello. None yet, so let's write one."
+    },
+    {
+      "id": "dictation",
+      "text": "I want a new functionality for my application. Right now, all the to-dos are mixed up, and you can't filter them by status. So I need buttons above the list: All, To Do, Doing and Done."
+    },
+    {
+      "id": "drafted",
+      "text": "Seconds later, I have a clear ticket, with its acceptance criteria. I create it."
+    },
+    {
+      "id": "start",
+      "text": "It's in To do. I slide to start."
+    },
+    {
+      "id": "working",
+      "text": "Muse Wonder, Meta's model, picks it up in the cloud. It reads the code, writes the change, runs the app, and records a demo."
+    },
+    {
+      "id": "ready",
+      "text": "Eight minutes later, it's ready to review, with a live demo. Let's watch."
+    },
+    {
+      "id": "interrupt",
+      "text": "Wait, can I ask a question?"
+    },
+    {
+      "id": "doing",
+      "text": "Can you click on the Doing button, and then add a new task?"
+    },
+    {
+      "id": "idea",
+      "text": "Okay, I see. I think it would be interesting to add a new ticket, to set the status of a task while we're creating it. What do you think?"
+    },
+    {
+      "id": "create",
+      "text": "Can you create it?"
+    },
+    {
+      "id": "card",
+      "text": "And there's my next ticket, straight from the conversation. Create ticket."
+    },
+    {
+      "id": "merge",
+      "text": "This one, I've seen it work, and I know what changed. I slide to merge."
+    },
+    {
+      "id": "merged",
+      "text": "Merged. And my new ticket is already waiting in To do."
+    },
+    {
+      "id": "try",
+      "text": "That's Yarrow. Try it on yarrow dot run."
+    }
+  ]
+}

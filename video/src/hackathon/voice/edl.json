@@ -1,0 +1,213 @@
+{
+ "rush": "2026-11-04 17-06-17.mp4",
+ "beats": [
+  {
+   "id": "landing",
+   "src": [
+    13.6,
+    22.25
+   ],
+   "say": "landing",
+   "at": 0.15
+  },
+  {
+   "id": "dashboard",
+   "src": [
+    54.5,
+    66.0
+   ],
+   "say": "dashboard",
+   "at": 0.3
+  },
+  {
+   "id": "dictation",
+   "src": [
+    69.5,
+    100.8
+   ],
+   "say": "dictation",
+   "at": 0.4
+  },
+  {
+   "id": "agent-draft",
+   "src": [
+    102.55,
+    104.85
+   ],
+   "agent": true
+  },
+  {
+   "id": "agent-ticket",
+   "src": [
+    110.7,
+    114.0
+   ],
+   "agent": true
+  },
+  {
+   "id": "drafted",
+   "src": [
+    126.0,
+    132.7
+   ],
+   "say": "drafted",
+   "at": 0.2
+  },
+  {
+   "id": "start",
+   "src": [
+    135.0,
+    141.8
+   ],
+   "say": "start",
+   "at": 1.0
+  },
+  {
+   "id": "working",
+   "src": [
+    147.2,
+    159.6
+   ],
+   "say": "working",
+   "at": 0.3
+  },
+  {
+   "id": "timelapse",
+   "src": [
+    159.6,
+    634.4
+   ],
+   "seconds": 2.6,
+   "label": "timelapse",
+   "since": 140.8
+  },
+  {
+   "id": "ready",
+   "src": [
+    634.6,
+    644.0
+   ],
+   "say": "ready",
+   "at": 0.3
+  },
+  {
+   "id": "play",
+   "src": [
+    759.9,
+    761.1
+   ]
+  },
+  {
+   "id": "demo-change",
+   "src": [
+    777.9,
+    785.15
+   ],
+   "agent": true
+  },
+  {
+   "id": "demo-doing",
+   "src": [
+    792.2,
+    796.84
+   ],
+   "agent": true
+  },
+  {
+   "id": "interrupt",
+   "src": [
+    796.84,
+    801.6
+   ],
+   "say": "interrupt",
+   "at": 0.15
+  },
+  {
+   "id": "go-ahead",
+   "src": [
+    803.2,
+    804.55
+   ],
+   "agent": true
+  },
+  {
+   "id": "doing",
+   "src": [
+    837.0,
+    845.6
+   ],
+   "say": "doing",
+   "at": 0.2
+  },
+  {
+   "id": "hidden",
+   "src": [
+    846.4,
+    857.12
+   ],
+   "agent": true
+  },
+  {
+   "id": "idea",
+   "src": [
+    881.6,
+    895.6
+   ],
+   "say": "idea",
+   "at": 0.2
+  },
+  {
+   "id": "makes-sense",
+   "src": [
+    896.55,
+    900.55
+   ],
+   "agent": true
+  },
+  {
+   "id": "create",
+   "src": [
+    901.9,
+    906.2
+   ],
+   "say": "create",
+   "at": 0.1
+  },
+  {
+   "id": "card-for-you",
+   "src": [
+    907.1,
+    910.5
+   ],
+   "agent": true
+  },
+  {
+   "id": "card",
+   "src": [
+    924.0,
+    930.9
+   ],
+   "say": "card",
+   "at": 0.3
+  },
+  {
+   "id": "merge",
+   "src": [
+    931.0,
+    939.8
+   ],
+   "say": "merge",
+   "at": 0.3
+  },
+  {
+   "id": "merged",
+   "src": [
+    939.8,
+    948.0
+   ],
+   "say": "merged",
+   "at": 0.6,
+   "tail": 1.5
+  }
+ ]
+}

@@ -5,6 +5,8 @@ import { Intro as HackathonIntro, INTRO_FRAMES } from "./hackathon/Intro";
 import { Middle, MIDDLE_FRAMES } from "./hackathon/Middle";
 import { Outro, OUTRO_FRAMES } from "./hackathon/Outro";
 import { TOTAL as HACKATHON_TOTAL } from "./hackathon/timeline";
+import { FILM_VOICE_FRAMES, FilmVoice } from "./hackathon/voice/FilmVoice";
+import { MIDDLE_VOICE_FRAMES, MiddleVoice } from "./hackathon/voice/MiddleVoice";
 import { Launch } from "./Launch";
 import { Dashboard } from "./scenes/Dashboard";
 import { End } from "./scenes/End";
@@ -54,6 +56,18 @@ export const RemotionRoot: React.FC = () => (
       component={HackathonIntro}
       {...size}
       durationInFrames={INTRO_FRAMES}
+    />
+    <Composition
+      id="HackathonFilmVoice"
+      component={FilmVoice}
+      {...size}
+      durationInFrames={FILM_VOICE_FRAMES}
+    />
+    <Composition
+      id="HackathonMiddleVoice"
+      component={MiddleVoice}
+      {...size}
+      durationInFrames={MIDDLE_VOICE_FRAMES}
     />
     <Folder name="Scenes">
       <Composition

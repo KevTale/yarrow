@@ -1,0 +1,275 @@
+{
+ "frames": 3979,
+ "beats": [
+  {
+   "id": "landing",
+   "src": [
+    13.6,
+    22.25
+   ],
+   "say": "landing",
+   "at": 0.15,
+   "frames": 269,
+   "speed": 0.9646840148698885,
+   "start": 0
+  },
+  {
+   "id": "dashboard",
+   "src": [
+    54.5,
+    66.0
+   ],
+   "say": "dashboard",
+   "at": 0.3,
+   "frames": 315,
+   "speed": 1.0952380952380953,
+   "start": 269
+  },
+  {
+   "id": "dictation",
+   "src": [
+    69.5,
+    100.8
+   ],
+   "say": "dictation",
+   "at": 0.4,
+   "frames": 402,
+   "speed": 2.335820895522388,
+   "start": 584
+  },
+  {
+   "id": "agent-draft",
+   "src": [
+    102.55,
+    104.85
+   ],
+   "frames": 69,
+   "speed": 0.9999999999999989,
+   "start": 986
+  },
+  {
+   "id": "agent-ticket",
+   "src": [
+    110.7,
+    114.0
+   ],
+   "frames": 99,
+   "speed": 0.9999999999999992,
+   "start": 1055
+  },
+  {
+   "id": "drafted",
+   "src": [
+    126.0,
+    132.7
+   ],
+   "say": "drafted",
+   "at": 0.2,
+   "frames": 170,
+   "speed": 1.1823529411764686,
+   "start": 1154
+  },
+  {
+   "id": "start",
+   "src": [
+    135.0,
+    141.8
+   ],
+   "say": "start",
+   "at": 1.0,
+   "frames": 141,
+   "speed": 1.4468085106383002,
+   "start": 1324
+  },
+  {
+   "id": "working",
+   "src": [
+    147.2,
+    159.6
+   ],
+   "say": "working",
+   "at": 0.3,
+   "frames": 262,
+   "speed": 1.4198473282442756,
+   "start": 1465
+  },
+  {
+   "id": "timelapse",
+   "src": [
+    159.6,
+    634.4
+   ],
+   "label": "timelapse",
+   "since": 140.8,
+   "frames": 78,
+   "speed": 182.61538461538458,
+   "start": 1727
+  },
+  {
+   "id": "ready",
+   "src": [
+    634.6,
+    644.0
+   ],
+   "say": "ready",
+   "at": 0.3,
+   "frames": 166,
+   "speed": 1.6987951807228876,
+   "start": 1805
+  },
+  {
+   "id": "play",
+   "src": [
+    759.9,
+    761.1
+   ],
+   "frames": 36,
+   "speed": 1.000000000000038,
+   "start": 1971
+  },
+  {
+   "id": "demo-change",
+   "src": [
+    777.9,
+    785.15
+   ],
+   "frames": 218,
+   "speed": 0.9977064220183486,
+   "start": 2007
+  },
+  {
+   "id": "demo-doing",
+   "src": [
+    792.2,
+    796.84
+   ],
+   "frames": 139,
+   "speed": 1.0014388489208603,
+   "start": 2225
+  },
+  {
+   "id": "interrupt",
+   "src": [
+    796.84,
+    801.6
+   ],
+   "say": "interrupt",
+   "at": 0.15,
+   "frames": 77,
+   "speed": 1.854545454545451,
+   "start": 2364
+  },
+  {
+   "id": "go-ahead",
+   "src": [
+    803.2,
+    804.55
+   ],
+   "frames": 40,
+   "speed": 1.0124999999999318,
+   "start": 2441
+  },
+  {
+   "id": "doing",
+   "src": [
+    837.0,
+    845.6
+   ],
+   "say": "doing",
+   "at": 0.2,
+   "frames": 127,
+   "speed": 2.0314960629921313,
+   "start": 2481
+  },
+  {
+   "id": "hidden",
+   "src": [
+    846.4,
+    857.12
+   ],
+   "frames": 322,
+   "speed": 0.9987577639751579,
+   "start": 2608
+  },
+  {
+   "id": "idea",
+   "src": [
+    881.6,
+    895.6
+   ],
+   "say": "idea",
+   "at": 0.2,
+   "frames": 259,
+   "speed": 1.6216216216216217,
+   "start": 2930
+  },
+  {
+   "id": "makes-sense",
+   "src": [
+    896.55,
+    900.55
+   ],
+   "frames": 120,
+   "speed": 1.0,
+   "start": 3189
+  },
+  {
+   "id": "create",
+   "src": [
+    901.9,
+    906.2
+   ],
+   "say": "create",
+   "at": 0.1,
+   "frames": 52,
+   "speed": 2.48076923076927,
+   "start": 3309
+  },
+  {
+   "id": "card-for-you",
+   "src": [
+    907.1,
+    910.5
+   ],
+   "frames": 102,
+   "speed": 0.9999999999999933,
+   "start": 3361
+  },
+  {
+   "id": "card",
+   "src": [
+    924.0,
+    930.9
+   ],
+   "say": "card",
+   "at": 0.3,
+   "frames": 154,
+   "speed": 1.3441558441558397,
+   "start": 3463
+  },
+  {
+   "id": "merge",
+   "src": [
+    931.0,
+    939.8
+   ],
+   "say": "merge",
+   "at": 0.3,
+   "frames": 178,
+   "speed": 1.4831460674157226,
+   "start": 3617
+  },
+  {
+   "id": "merged",
+   "src": [
+    939.8,
+    948.0
+   ],
+   "say": "merged",
+   "at": 0.6,
+   "frames": 184,
+   "speed": 1.3369565217391377,
+   "start": 3795
+  }
+ ]
+}
