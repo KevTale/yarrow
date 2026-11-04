@@ -70,9 +70,9 @@ Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`
 | --------------------- | -------------------------------------------------------------------------------------- |
 | `src/routes/`         | Pages and endpoints, on TanStack Start and Cloudflare Workers                          |
 | `src/functions/`      | Server functions called by the pages                                                   |
-| `src/core/`           | Shared rules with no I/O: pricing, queue, contracts. Runs in every Worker              |
-| `src/db/`, `drizzle/` | Drizzle schema, the transactional ledger, SQL migrations                               |
-| `src/server/`         | Auth, Stripe, the GitHub App, Jira, Linear and Trello                                  |
+| `src/core/`           | Shared rules with no I/O: queue, contracts. Runs in every Worker                       |
+| `src/db/`, `drizzle/` | Drizzle schema and SQL migrations                                                      |
+| `src/server/`         | Auth, the GitHub App, Jira, Linear and Trello                                          |
 | `src/runner/`         | Agent clients, prompts, the recorder behind the demos, the voice                       |
 | `workers/brain.ts`    | Cron dispatcher and the per-run Workflow                                               |
 | `workers/muse.ts`     | The container Muse Wonder works in (`workers/muse/Dockerfile`)                         |
@@ -128,12 +128,11 @@ Secrets of the web Worker go in `.dev.vars`, those of the brain in `workers/.dev
 | `ANTHROPIC_AGENT_ID`, `ANTHROPIC_ENVIRONMENT_ID`            | brain      | Printed by `pnpm bootstrap:anthropic`                |
 | `OPENAI_API_KEY`                                            | brain      | Reviews on projects with secrets                     |
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `VOICE_SECRET` | brain      | Live calls, set up by `pnpm voice:agent`             |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX`  | web        | Compute credit                                       |
 | `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET`                      | web, brain | Jira OAuth                                           |
 | `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`                  | web, brain | Linear OAuth                                         |
 | `LINEAR_WEBHOOK_SECRET`                                     | web        | Verifying Linear webhooks                            |
 | `TRELLO_API_KEY`, `TRELLO_API_SECRET`                       | web, brain | Trello                                               |
-| `RESEND_API_KEY`                                            | web, brain | Emails and the out-of-credit alert                   |
+| `RESEND_API_KEY`                                            | web, brain | Emails and alerts                                    |
 | `SUPABASE_SECRET_KEY`                                       | web        | Account deletion, email changes, sign-in links       |
 
 ## Development
@@ -197,13 +196,12 @@ pnpm exec wrangler secret put NAME --config workers/wrangler.jsonc --env dev # b
    - Callback URL: `https://<supabase-ref>.supabase.co/auth/v1/callback`. Setup URL: `<APP_URL>/connect/done`, with "Redirect on update" on.
 4. **Providers.** Use platform API keys from Meta, Anthropic and OpenAI, never a consumer subscription. `pnpm bootstrap:anthropic` creates the Claude agent and its environment. Turn on automatic top-up with a monthly limit on each console: when an account runs dry, tickets wait in the queue and the brain sends an alert through Resend.
 5. **Voice.** With `ELEVENLABS_API_KEY` set, `pnpm voice:agent` creates or updates the ElevenLabs agent and sets its secrets on the brain. It also needs `CLOUDFLARE_API_TOKEN`.
-6. **Stripe.** Add a webhook on `<APP_URL>/api/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` and `charge.dispute.created`. Set `STRIPE_TAX=on` once Stripe Tax is active.
-7. **Trackers** (optional).
+6. **Trackers** (optional).
    - Jira: create an OAuth 2.0 integration on [developer.atlassian.com](https://developer.atlassian.com/console/myapps/) with the `read:jira-work` and `write:jira-work` scopes, the callback `<APP_URL>/integrations/jira/callback`, and sharing turned on.
    - Linear: create a public application on [linear.app](https://linear.app/settings/api/applications/new) with the callback `<APP_URL>/integrations/linear/callback` and a webhook on `<APP_URL>/api/webhooks/linear` for Issues.
    - Trello: create a Power-Up and its API key on [trello.com](https://trello.com/power-ups/admin), with `<APP_URL>` in the key's allowed origins. Trello returns to `<APP_URL>/integrations/trello-callback`.
-8. **Storage.** Create the R2 buckets named in the two Wrangler files. Both Workers bind them as `EVIDENCE`.
-9. **Secrets.** Set them on both Workers, then push to the environment's branch.
+7. **Storage.** Create the R2 buckets named in the two Wrangler files. Both Workers bind them as `EVIDENCE`.
+8. **Secrets.** Set them on both Workers, then push to the environment's branch.
 
 ## Security model
 
@@ -211,9 +209,12 @@ pnpm exec wrangler secret put NAME --config workers/wrangler.jsonc --env dev # b
 - **No project secrets.** Yarrow stores references to the provider's vault, never the values.
 - **One way to write to GitHub.** Only the brain writes, through the GitHub App. Sandboxes get read-only tokens.
 - **A database the browser cannot reach.** Every table has row level security with no policy, and queries are server-side only.
-- **An auditable ledger.** Writes are idempotent and transactional, and amounts are integer USD cents (`src/db/ledger.ts`).
 
 ## Documentation
 
 - [`docs/mvp/BUILD.md`](docs/mvp/BUILD.md) is the source of truth for product decisions and why they were made.
 - [`AGENTS.md`](AGENTS.md) gives the stack, commands and rules, for contributors and coding agents.
+
+## License
+
+Yarrow is free software under the [GNU Affero General Public License v3.0](LICENSE). If you run a modified version as a service, you must offer its source code to its users.
