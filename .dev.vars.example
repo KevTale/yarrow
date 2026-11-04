@@ -36,3 +36,9 @@ TOKEN_ENCRYPTION_KEY=
 
 # Writes project owners' test secrets to Managed Agents vaults.
 ANTHROPIC_API_KEY=
+
+# Supabase > Project Settings > API Keys. Account deletion, email changes,
+# the sign-in links in Yarrow's own emails.
+SUPABASE_SECRET_KEY=
+# Sign-in and change-of-address emails.
+RESEND_API_KEY=

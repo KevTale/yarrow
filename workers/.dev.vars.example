@@ -5,6 +5,8 @@
 DATABASE_URL=
 
 # Platform API keys, never subscriptions.
+# Muse Wonder implements, Muse Spark talks.
+META_API_KEY=
 ANTHROPIC_API_KEY=
 # Printed by `pnpm bootstrap:anthropic`.
 ANTHROPIC_AGENT_ID=
@@ -26,3 +28,9 @@ TRELLO_API_SECRET=
 
 # Optional: the out-of-credit alert to ALERT_EMAIL. Same key as the web Worker.
 RESEND_API_KEY=
+
+# The live call's voice. `pnpm voice:agent` creates the ElevenLabs agent and
+# sets ELEVENLABS_AGENT_ID and VOICE_SECRET.
+ELEVENLABS_API_KEY=
+ELEVENLABS_AGENT_ID=
+VOICE_SECRET=

@@ -1,127 +1,219 @@
-# Yarrow
+<p align="center">
+  <a href="https://yarrow.run">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="public/brand/yarrow-logo-on-dark.svg">
+      <img src="public/brand/yarrow-logo.svg" alt="Yarrow" width="200">
+    </picture>
+  </a>
+</p>
 
-Fund the compute. Ship the PR.
+<h3 align="center">The best ticket harness for your team</h3>
 
-Yarrow s'adresse aux gens qui construisent du logiciel : SaaS, jeux, outils, open source ou non. Des **sponsors** financent du compute IA, et des **porteurs de projets** connectent leur repo et leur tracker (GitHub Issues, Linear, Jira, Trello) pour faire traiter **gratuitement** leurs tickets tagués. Chaque ticket donne l'un de ces deux résultats :
+<p align="center">
+  Coding is solved. Writing the right ticket and reviewing what agents ship are not.
+</p>
 
-- une PR draft signée `Sponsored by <sponsors> via Yarrow` ;
-- une abstention motivée.
+<p align="center">
+  <a href="https://yarrow.run">Website</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#deployment">Deployment</a>
+</p>
 
-Claude Opus 5.5 implémente via Claude Managed Agents, OpenAI Astra relit via l'Agents API d'OpenAI. Les agents tournent entièrement chez les fournisseurs : la plateforme n'héberge aucun environnement d'exécution.
+<p align="center">
+  <a href="https://github.com/KevTale/yarrow/actions/workflows/deploy.yml"><img src="https://github.com/KevTale/yarrow/actions/workflows/deploy.yml/badge.svg?branch=main" alt="Deploy status"></a>
+</p>
 
-[BUILD.md](docs/mvp/BUILD.md) fait foi pour les décisions produit. La [synthèse](docs/mvp/synthese.md) est un historique des options étudiées.
+Yarrow helps you shape an idea into a clear ticket. Once agents have built it, it walks you through a live demo of the result and answers your questions.
 
-## Lancer en local
+## What it does
 
-Prérequis : **Node.js 22+** et **pnpm** (version dans `packageManager`).
+1. **Write the ticket with an agent.** In writing or on a call, it reads the repository and the project's tickets, says what already exists and asks what it cannot find out alone. Tickets can also come from GitHub Issues or Jira.
+2. **Agents build it.** One model implements and a model from another lab reviews. The outcome is a draft pull request, or a stated reason for stopping.
+3. **Watch the demo.** Every pull request comes with a narrated demo recorded on a real desktop: the app running, the code in a real VS Code, the commands in a terminal. It goes from the context to the change to the proof.
+4. **Ask anything.** Speak or type and the demo stops. The agent answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
+5. **Merge, or ask for a change.** From Yarrow, or by commenting `@yarrow-run` on the pull request.
+
+## How it works
+
+```mermaid
+flowchart LR
+  TR["GitHub Issues<br/>Jira"] -->|tickets| WEB
+  NEW["New ticket<br/>written with the agent"] --> WEB
+  WEB["Web Worker<br/>dashboard, webhooks"] --> DB[("Postgres")]
+  CRON["Brain<br/>cron, every minute"] -->|picks the next tickets| DB
+  CRON --> RUN["Durable Workflow<br/>one per run"]
+  RUN -->|implements| IMPL["Muse Wonder<br/>Yarrow's container"]
+  RUN -->|reviews| REV["Claude Opus<br/>Managed Agents"]
+  RUN -->|stores the demo| R2[("R2")]
+  RUN -->|draft pull request| GH["GitHub App"]
+  WEB -->|live call| STAGE["Stage<br/>the branch on a live desktop"]
+  STAGE <--> TALK["Muse Spark<br/>ElevenLabs voice"]
+```
+
+The brain runs every minute. Tickets start first in, first out within an account and round-robin between accounts, and each run is one durable Workflow. Tracker tickets are synced every five minutes.
+
+A run is never reviewed by the lab that wrote it:
+
+| Work                              | Model                                     | Where it runs                                     |
+| --------------------------------- | ----------------------------------------- | ------------------------------------------------- |
+| Implementation                    | Muse Wonder                               | Yarrow's own container, with no API key inside it |
+| Code review                       | Claude Opus                               | Claude Managed Agents                             |
+| Chat, live calls, writing tickets | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
+| Projects with secrets             | Claude Opus implements, GPT Astra reviews | Claude Managed Agents and the OpenAI Agents API   |
+
+Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`, `TALK_MODEL`, `OPENAI_REVIEW_MODEL` in `workers/wrangler.jsonc`).
+
+## Project structure
+
+| Path                  | What it is                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `src/routes/`         | Pages and endpoints, on TanStack Start and Cloudflare Workers                          |
+| `src/functions/`      | Server functions called by the pages                                                   |
+| `src/core/`           | Shared rules with no I/O: pricing, queue, contracts. Runs in every Worker              |
+| `src/db/`, `drizzle/` | Drizzle schema, the transactional ledger, SQL migrations                               |
+| `src/server/`         | Auth, Stripe, the GitHub App, Jira, Linear and Trello                                  |
+| `src/runner/`         | Agent clients, prompts, the recorder behind the demos, the voice                       |
+| `workers/brain.ts`    | Cron dispatcher and the per-run Workflow                                               |
+| `workers/muse.ts`     | The container Muse Wonder works in (`workers/muse/Dockerfile`)                         |
+| `workers/stage.ts`    | The live desktop behind a call, on the same image                                      |
+| `workers/admin.ts`    | Internal admin behind Cloudflare Access. It holds no secret and goes through the brain |
+| `bench/`              | Live test bench: six small apps and the tickets Yarrow must solve on them              |
+| `tests/`              | Unit tests on real SQL through PGlite, end-to-end tests with Playwright                |
+| `video/`              | Promo films in Remotion, a pnpm workspace of their own                                 |
+
+## Getting started
+
+You need [Node.js](https://nodejs.org) 22 or later and pnpm, which Corepack provides.
 
 ```bash
+git clone https://github.com/KevTale/yarrow.git
+cd yarrow
 corepack enable
 pnpm install
-pnpm dev                        # http://localhost:3000
+pnpm dev
 ```
 
-Aucun secret n'est requis pour l'interface. Sans base de données, les pages publiques affichent leur état vide et les intégrations répondent « not configured ». Pour brancher une intégration, copier [`.dev.vars.example`](.dev.vars.example) en `.dev.vars` et ne remplir que ce dont on a besoin, avec des valeurs de test uniquement.
+The app runs on [localhost:3000](http://localhost:3000). No secret is needed for the interface: without a database the public pages show their empty state, and each integration answers "not configured".
 
-## Pages
+On Windows, clone with `git -c core.longpaths=true clone` if the path to your folder is long.
 
-| Route                                   | Rôle                                                                        |
-| --------------------------------------- | --------------------------------------------------------------------------- |
-| `/`                                     | Landing : chiffres réels, derniers runs, sponsors                           |
-| `/fund`                                 | Packs $10 / $25 / $100 ou montant libre, estimation du crédit, Stripe       |
-| `/leaderboard`                          | Sponsors classés par compute consommé ; le crédit restant est « committed » |
-| `/showcase`                             | Projets visibles et leurs PR                                                |
-| `/work`, `/runs/$runId`                 | Flux des runs, détail : timeline, review, captures, coût, sponsors          |
-| `/dashboard`                            | Espace sponsor et porteur : contributions, projets, runs                    |
-| `/sponsor/filters`                      | Périmètre du sponsor : `all_except` / `only`, catégories, stacks, cachés    |
-| `/projects/new`, `/projects/$projectId` | Création, GitHub App, tracker, configuration de lancement, secrets          |
-| `/sign-in`                              | Connexion GitHub via Supabase Auth                                          |
-
-Endpoints serveur : `/auth/*` (OAuth GitHub), `/api/webhooks/stripe`, `/api/webhooks/github`, `/integrations/*` (OAuth Linear et Jira, jeton Trello) et `/evidence/*` (captures et vidéos stockées dans R2).
-
-## Architecture
-
-```text
-src/routes/       Pages et endpoints TanStack Start
-src/functions/    Server functions appelées par les pages
-src/components/   Composants UI
-src/core/         Règles pures : prix, packs, file d'attente, contrats, attribution
-src/db/           Schéma Drizzle, ledger transactionnel, lectures
-src/server/       Auth Supabase, Stripe, GitHub App, Linear/Jira/Trello
-src/runner/       Clients Managed Agents et Agents API, prompts, pipeline d'un run
-workers/          Cerveau : dispatcher cron + Workflow durable par run
-scripts/          Création unique de l'agent Claude et de son environnement
-drizzle/          Migrations SQL
-tests/            Tests unitaires (vrai SQL via PGlite) et Playwright
-```
-
-Deux Workers Cloudflare :
-
-- **la boutique** (`wrangler.jsonc`) : UI, auth, paiements, webhooks, tableaux de bord ;
-- **le cerveau** (`workers/wrangler.jsonc`) : chaque minute, il choisit les tickets à traiter (FIFO par compte, tour de rôle entre comptes, 5 runs en parallèle max par compte) et lance un Workflow par run. Toutes les 5 minutes, il synchronise Linear, Jira et Trello.
-
-Détails dans [l'architecture](docs/architecture.md).
-
-## Environnements
-
-| | Adresse | Déploiement | Supabase | GitHub App |
-|---|---|---|---|---|
-| **local** | `localhost:3000` | `pnpm dev`, `pnpm brain:dev` | `yarrow-dev` | `yarrow-run-dev` |
-| **dev** | `dev.yarrow.run` | chaque push sur `main` | `yarrow-dev` | `yarrow-run-dev` |
-| **prod** | `yarrow.run` | chaque push sur `prod` (`git push origin main:prod`) | `yarrow-prod` | `yarrow-run` |
-
-Le workflow [`deploy.yml`](.github/workflows/deploy.yml) lance lint, typecheck et tests, puis `pnpm deploy:dev` ou `pnpm deploy:prod` (boutique et cerveau). Il lui faut un seul secret de dépôt, `CLOUDFLARE_API_TOKEN` (modèle « Edit Cloudflare Workers », avec la zone `yarrow.run`). Les valeurs publiques de chaque environnement sont dans `wrangler.jsonc` et `workers/wrangler.jsonc` ; les secrets se posent une fois par environnement :
+### Running it on your own services
 
 ```bash
-pnpm exec wrangler secret put NOM --env dev                                 # boutique
-pnpm exec wrangler secret put NOM --config workers/wrangler.jsonc --env dev # cerveau
+cp .dev.vars.example .dev.vars
+cp workers/.dev.vars.example workers/.dev.vars
+cp .env.example .env
 ```
 
-## Mise en ligne
+1. Fill in what you need, with test values only. A missing secret turns off that feature and nothing else.
+2. Point `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `GITHUB_APP_SLUG` in `wrangler.jsonc` at your own Supabase project and GitHub App. The committed values belong to Yarrow's development environment.
+3. Apply the migrations with `pnpm db:migrate`, which reads `DATABASE_URL` from your shell or from `.env`.
+4. Run `pnpm dev` for the web app and `pnpm brain:dev` for the brain.
 
-À faire une fois par environnement, en commençant par dev :
+Muse Wonder and the live stage run in Cloudflare Containers, on a deployed environment only. A brain running locally implements with Claude.
 
-1. **Base :** les migrations sont appliquées sur les deux projets Supabase (`yarrow-dev`, `yarrow-prod`). Renseigner `DATABASE_URL` (pooler transactionnel) dans les deux Workers.
-2. **Auth (Supabase) :** provider GitHub avec le Client ID et un client secret de la GitHub App ci-dessous. URL Configuration : Site URL `<APP_URL>`, redirection `<APP_URL>/**`. Email : OTP expiry à 86400 s (les liens de connexion durent 24 h).
-3. **GitHub App** (`yarrow-run-dev` pour dev et le local, `yarrow-run` pour la prod, installable par **n'importe quel compte**) :
-   - permissions de dépôt : Contents, Pull requests et Issues en écriture, Metadata en lecture ; permission de compte : Email addresses en lecture (connexion Supabase) ;
-   - événements : Installation, Installation repositories, Issues, Issue comment, Pull request, Repository ;
-   - webhook : `<APP_URL>/api/webhooks/github` ;
-   - Callback URL : `https://<ref Supabase>.supabase.co/auth/v1/callback` ; Setup URL : `<APP_URL>/connect/done`, avec « Redirect on update ».
-4. **Stripe :** webhook `<APP_URL>/api/webhooks/stripe` avec `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` et `charge.dispute.created`. Activer Stripe Tax puis `STRIPE_TAX=on`.
-5. **Fournisseurs :** clés API Anthropic et OpenAI de la plateforme. `scripts/set-secrets.ps1` propose de créer l'agent Claude et son environnement avec la clé saisie (`pnpm bootstrap:anthropic`) et pose `ANTHROPIC_AGENT_ID` et `ANTHROPIC_ENVIRONMENT_ID`. Activer la recharge automatique sur les deux consoles (avec un plafond mensuel) : quand un compte est vide malgré tout, les tickets restent dans la file, la distribution se met en pause et l'alerte part par Resend si le cerveau a `RESEND_API_KEY`.
-6. **Trackers :** applications OAuth Linear et Jira, clé Trello, et `TOKEN_ENCRYPTION_KEY` (identique dans les deux Workers). Jira, une app par environnement (« Yarrow dev », « Yarrow ») sur [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) :
-   - *Create* > *OAuth 2.0 integration* ;
-   - *Permissions* > *Jira API* > *Add*, puis *Configure* > *Edit Scopes* : `read:jira-work` et `write:jira-work` (Yarrow demande aussi `offline_access` à la connexion) ;
-   - *Authorization* > *OAuth 2.0 (3LO)* > *Callback URL* : `<APP_URL>/integrations/jira/callback` ;
-   - *Distribution* > *Sharing*, pour que n'importe quel site Jira puisse se connecter (nom de l'éditeur, politique de confidentialité `<APP_URL>/privacy`) ;
-   - *Settings* : Client ID et Secret, posés dans les deux Workers par `scripts/set-secrets.ps1 -Target <env> -Jira`.
-   Linear, une app par environnement (« Yarrow dev », « Yarrow ») sur [linear.app/settings/api/applications/new](https://linear.app/settings/api/applications/new) :
-   - *Callback URLs* : `<APP_URL>/integrations/linear/callback` ;
-   - *Webhooks* activés, URL `<APP_URL>/api/webhooks/linear`, événements *Issues* ; Linear crée ce webhook dans chaque workspace qui autorise l'app ;
-   - l'app publique, pour que n'importe quel workspace puisse se connecter ;
-   - Client ID, Client secret et le secret de signature du webhook, posés par `scripts/set-secrets.ps1 -Target <env> -Linear`.
-7. **R2 :** activer R2 dans le tableau de bord Cloudflare, puis créer les buckets `yarrow-evidence-dev` et `yarrow-evidence` (fait le 2026-10-15). Les deux Workers les lient sous `EVIDENCE` ; en local, R2 est simulé.
-8. **Secrets :** chaque secret avec `wrangler secret put` (voir [Environnements](#environnements)), puis un push sur la branche de l'environnement.
+## Configuration
 
-La liste complète des secrets est dans [`.dev.vars.example`](.dev.vars.example) et [`workers/.dev.vars.example`](workers/.dev.vars.example). Pour couper la distribution des runs sans rien redéployer : `DISPATCH=off` sur le cerveau.
+Secrets of the web Worker go in `.dev.vars`, those of the brain in `workers/.dev.vars`. Public values live in `wrangler.jsonc` and `workers/wrangler.jsonc`.
 
-## Vérifications
+| Variable                                                    | Worker     | Used for                                             |
+| ----------------------------------------------------------- | ---------- | ---------------------------------------------------- |
+| `DATABASE_URL`                                              | web, brain | Postgres, through the transaction pooler             |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                   | web, brain | The GitHub App                                       |
+| `GITHUB_APP_WEBHOOK_SECRET`                                 | web        | Verifying GitHub webhooks                            |
+| `TOKEN_ENCRYPTION_KEY`                                      | web, brain | Encrypting tracker tokens, 32 random bytes in base64 |
+| `META_API_KEY`                                              | brain      | Muse Wonder and Muse Spark                           |
+| `ANTHROPIC_API_KEY`                                         | web, brain | Reviews, projects with secrets, their vaults         |
+| `ANTHROPIC_AGENT_ID`, `ANTHROPIC_ENVIRONMENT_ID`            | brain      | Printed by `pnpm bootstrap:anthropic`                |
+| `OPENAI_API_KEY`                                            | brain      | Reviews on projects with secrets                     |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `VOICE_SECRET` | brain      | Live calls, set up by `pnpm voice:agent`             |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_TAX`  | web        | Compute credit                                       |
+| `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET`                      | web, brain | Jira OAuth                                           |
+| `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`                  | web, brain | Linear OAuth                                         |
+| `LINEAR_WEBHOOK_SECRET`                                     | web        | Verifying Linear webhooks                            |
+| `TRELLO_API_KEY`, `TRELLO_API_SECRET`                       | web, brain | Trello                                               |
+| `RESEND_API_KEY`                                            | web, brain | Emails and the out-of-credit alert                   |
+| `SUPABASE_SECRET_KEY`                                       | web        | Account deletion, email changes, sign-in links       |
+
+## Development
+
+| Command                           | What it does                                                          |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`                        | Web app on port 3000                                                  |
+| `pnpm brain:dev`                  | The brain Worker                                                      |
+| `pnpm admin:dev`                  | The admin Worker on port 8788                                         |
+| `pnpm check`                      | Lint, typecheck for the web app and the brain, unit tests, build      |
+| `pnpm test:e2e`                   | Playwright on desktop and mobile, on the production build             |
+| `pnpm brain:check`                | Bundles the brain without deploying it                                |
+| `pnpm db:generate`                | New Drizzle migration after editing `src/db/schema.ts`                |
+| `pnpm db:migrate`                 | Applies the migrations                                                |
+| `pnpm recorder:embed`             | Embeds the recorder after editing `src/runner/recorder/present.mjs`   |
+| `pnpm bench <scenario\|app\|all>` | Real tickets on the bench repositories, answered by a deployed Yarrow |
+| `pnpm bench:talk`                 | The same spoken questions asked of each model on a pull request       |
+| `pnpm --dir video studio`         | Previews the promo film, after `pnpm install` inside `video/`         |
+
+### Testing
+
+`pnpm check` runs without any secret or remote service. Unit tests apply the real migrations on PGlite and run real SQL, with provider APIs mocked from their documentation. End-to-end tests need a browser and a build first:
 
 ```bash
-pnpm check                      # lint, typecheck (boutique + cerveau), tests unitaires, build
+pnpm build
 pnpm exec playwright install chromium
-pnpm test:e2e                   # desktop et mobile, sur le build de production
-pnpm brain:check                # bundle du cerveau en dry-run, sans déploiement
+pnpm test:e2e
 ```
 
-Les tests unitaires appliquent les migrations sur un PostgreSQL embarqué (PGlite) : ledger, filtres sponsors, file d'attente, webhooks GitHub et Stripe, trackers et pipeline d'un run. Les API des fournisseurs y sont simulées d'après leur documentation : seul un vrai run confirmera les deux API d'agents, encore en bêta.
+The bench is the live check. Each app in `bench/apps/` is pushed to a repository of its own, and `bench/scenarios.ts` holds the tickets and what Yarrow must make of them. Run it after changing what the agents do or deliver. Each scenario costs what a real ticket costs.
 
-## Base de données
+## Deployment
 
-Supabase Postgres + Drizzle, uniquement côté serveur. RLS activée sur toutes les tables, sans policy : le navigateur n'a accès à rien. Montants en cents USD.
+Two branches deploy to two environments through [`deploy.yml`](.github/workflows/deploy.yml), which runs lint, typecheck and tests before `pnpm deploy:dev` or `pnpm deploy:prod`:
+
+| Environment | Branch | Address          | Database and GitHub App |
+| ----------- | ------ | ---------------- | ----------------------- |
+| Local       |        | `localhost:3000` | Shared with development |
+| Development | `main` | `dev.yarrow.run` | Its own                 |
+| Production  | `prod` | `yarrow.run`     | Its own                 |
+
+The workflow needs one repository secret, `CLOUDFLARE_API_TOKEN`. The worker names, routes and account in `wrangler.jsonc`, `workers/wrangler.jsonc`, `workers/admin.wrangler.jsonc` and `deploy.yml` are Yarrow's: replace them to deploy your own. To stop new runs without redeploying, set `DISPATCH=off` on the brain.
+
+Each secret is set once per environment:
 
 ```bash
-pnpm db:generate                # nouvelle migration après une modification de src/db/schema.ts
-pnpm db:migrate                 # lit DATABASE_URL dans le shell ou dans .env
+pnpm exec wrangler secret put NAME --env dev                                 # web
+pnpm exec wrangler secret put NAME --config workers/wrangler.jsonc --env dev # brain
 ```
+
+### Setting up an environment
+
+`<APP_URL>` is the address of the environment.
+
+1. **Database.** Create a Supabase project, apply the migrations and set `DATABASE_URL` on both Workers.
+2. **Sign-in.** In Supabase Auth, enable the GitHub provider with the client ID and secret of the GitHub App below. Set the site URL to `<APP_URL>`, the redirect to `<APP_URL>/**` and the email OTP expiry to 86400 seconds.
+3. **GitHub App.** Make it installable by any account.
+   - Repository permissions: Contents, Pull requests and Issues in write, Metadata in read. Account permission: Email addresses in read.
+   - Events: Installation, Installation repositories, Issues, Issue comment, Pull request, Repository.
+   - Webhook: `<APP_URL>/api/webhooks/github`.
+   - Callback URL: `https://<supabase-ref>.supabase.co/auth/v1/callback`. Setup URL: `<APP_URL>/connect/done`, with "Redirect on update" on.
+4. **Providers.** Use platform API keys from Meta, Anthropic and OpenAI, never a consumer subscription. `pnpm bootstrap:anthropic` creates the Claude agent and its environment. Turn on automatic top-up with a monthly limit on each console: when an account runs dry, tickets wait in the queue and the brain sends an alert through Resend.
+5. **Voice.** With `ELEVENLABS_API_KEY` set, `pnpm voice:agent` creates or updates the ElevenLabs agent and sets its secrets on the brain. It also needs `CLOUDFLARE_API_TOKEN`.
+6. **Stripe.** Add a webhook on `<APP_URL>/api/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` and `charge.dispute.created`. Set `STRIPE_TAX=on` once Stripe Tax is active.
+7. **Trackers** (optional).
+   - Jira: create an OAuth 2.0 integration on [developer.atlassian.com](https://developer.atlassian.com/console/myapps/) with the `read:jira-work` and `write:jira-work` scopes, the callback `<APP_URL>/integrations/jira/callback`, and sharing turned on.
+   - Linear: create a public application on [linear.app](https://linear.app/settings/api/applications/new) with the callback `<APP_URL>/integrations/linear/callback` and a webhook on `<APP_URL>/api/webhooks/linear` for Issues.
+   - Trello: create a key on [trello.com](https://trello.com/power-ups/admin). Trello returns to `<APP_URL>/integrations/trello-callback`.
+8. **Storage.** Create the R2 buckets named in the two Wrangler files. Both Workers bind them as `EVIDENCE`.
+9. **Secrets.** Set them on both Workers, then push to the environment's branch.
+
+## Security model
+
+- **Platform API keys only.** No Claude, ChatGPT or other consumer subscription is used, stored or triggered.
+- **No project secrets.** Yarrow stores references to the provider's vault, never the values.
+- **One way to write to GitHub.** Only the brain writes, through the GitHub App. Sandboxes get read-only tokens.
+- **A database the browser cannot reach.** Every table has row level security with no policy, and queries are server-side only.
+- **An auditable ledger.** Writes are idempotent and transactional, and amounts are integer USD cents (`src/db/ledger.ts`).
+
+## Documentation
+
+- [`docs/mvp/BUILD.md`](docs/mvp/BUILD.md) is the source of truth for product decisions and why they were made.
+- [`AGENTS.md`](AGENTS.md) gives the stack, commands and rules, for contributors and coding agents.
