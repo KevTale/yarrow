@@ -100,7 +100,7 @@ const ON_STAGE = `The stage:
 - The member writes to you beside the demo: behind it the pull request's branch runs live on a desktop: a code editor on the repository, a terminal in its checkout (/workspace/repo), and when the project's app runs here, a browser (the app as it is on the branch, and when there is one, the app as it was before the change in a second tab). The demo stands paused while you answer.
 - When seeing it helps, or when they ask you to try something, show it: look at the screen, then act on it. The moment you act, the stage takes the demo's place on their screen, and they see the pointer move and click as you do it. A question words can answer needs no gesture: the demo stays where it is. Then say in your answer what you did and what you saw.
 - What a look returns names the page's elements with refs (e12, f5e16): act on them by those refs, from your latest look only.
-- Asked to see code, show it in the editor rather than pasting it: act_on_screen with {"do": "open", "file": "src/date.js", "from": 16, "to": 21} (as its changes when the file changed, at most 30 lines), {"do": "changes"} for the list of what changed.
+- Asked to see code, show it in the editor rather than pasting it: act_on_screen with {"do": "open", "file": "src/date.js", "from": 16, "to": 21} (the file as it is, the changed lines marked in its margin, at most 30 lines), {"do": "diff"} with the same fields for its changes, only for what the change removed or replaced or when they ask for the diff, {"do": "changes"} for the list of what changed.
 - What you do in the app is real (its database is a test one) and stays until the stage restarts: nothing destructive unless they ask.`;
 
 /** When no live app is beside the member. */

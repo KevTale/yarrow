@@ -28,6 +28,9 @@ export function SponsorLink({
   );
 }
 
+/** Off while Yarrow does not speak of sponsors: the column says who wrote it. */
+const PAID_BY_SHOWN: boolean = false;
+
 /**
  * Who paid, on the ticket's line: "Paid by", the first sponsor and "+N".
  * Hovering or focusing the whole cell shows every sponsor in full, each
@@ -63,7 +66,7 @@ export function SponsorCell({
     [],
   );
 
-  const first = row.paidBy[0];
+  const first = PAID_BY_SHOWN ? row.paidBy[0] : undefined;
   if (!first)
     return (
       <span className="tix-sponsor">

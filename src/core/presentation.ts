@@ -59,8 +59,9 @@ export const liveActionSchema = z.object({
     "goto",
     "reload",
     "wait",
-    // In the code editor: a file, and the list of what changed.
+    // In the code editor: a file, its changes, and the list of what changed.
     "open",
+    "diff",
     "changes",
   ]),
   target: z.string().max(500).optional(),

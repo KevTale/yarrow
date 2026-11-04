@@ -48,7 +48,7 @@ const ACTIONS = [
   "wait",
 ];
 // The gestures of a chapter in the editor (tab "code").
-const CODE_ACTIONS = ["changes", "open", "wait"];
+const CODE_ACTIONS = ["changes", "open", "diff", "wait"];
 /** Lines one gesture selects: they fit on the screen. */
 const CODE_LINES = 30;
 /** A terminal's command is read as it is typed. */
@@ -231,7 +231,7 @@ function codeProblems(chapter, at) {
       problems.push(where + ".do: one of " + CODE_ACTIONS.join(", "));
       continue;
     }
-    if (action.do !== "open") continue;
+    if (action.do !== "open" && action.do !== "diff") continue;
     const file = path.join(repository(), String(action.file || ""));
     if (
       !action.file ||
@@ -2383,12 +2383,23 @@ class Desktop {
     log("editor up in " + ((Date.now() - born) / 1000).toFixed(1) + " s");
   }
 
-  /** The first file it opens takes it 9 s: that one now, behind the others. */
+  /** Its first search and first file take it seconds: now, behind the others. */
   async warmEditor() {
-    const { page } = this.editor;
-    await page.keyboard.press("Control+Shift+g");
-    await page.locator(CHANGED_ROW).first().click({ timeout: 4000 });
-    await page.waitForSelector(".view-lines .view-line", { timeout: 20000 });
+    const file = this.git(["status", "--porcelain"])
+      .split("\n")
+      .map((line) => line.slice(3))
+      .find(
+        (name) =>
+          name &&
+          fs
+            .statSync(path.join(this.cwd, name), { throwIfNoEntry: false })
+            ?.isFile(),
+      );
+    if (!file) return;
+    await this.quick("Control+p", file, path.basename(file), 20000);
+    await this.editor.page.waitForSelector(".view-lines .view-line", {
+      timeout: 20000,
+    });
   }
 
   /** The whole screen, filmed until the end; chapters are cut from it later. */
@@ -2776,7 +2787,7 @@ class Desktop {
   }
 
   /** The editor's quick input: a line, or a file once its list has it, then Enter. */
-  async quick(key, text, listed = null) {
+  async quick(key, text, listed = null, patience = 5000) {
     const { page } = this.editor;
     await page.keyboard.press(key);
     await page.waitForSelector(".quick-input-widget input:focus", {
@@ -2788,7 +2799,7 @@ class Desktop {
       await page
         .locator(".quick-input-list .monaco-list-row", { hasText: listed })
         .first()
-        .waitFor({ state: "visible", timeout: 5000 });
+        .waitFor({ state: "visible", timeout: patience });
     await sleep(this.brisk ? 120 : 320);
     await page.keyboard.press("Enter");
     await page
@@ -2834,8 +2845,9 @@ class Desktop {
   }
 
   /**
-   * A file, as its changes when it changed: `from` to `to` selected and the
-   * pointer on them, else its first change.
+   * A file as it is, the explorer beside it; `diff`, its changes when it
+   * changed: `from` to `to` selected and the pointer on them, else its first
+   * change.
    */
   async openCode(action, marks, clock) {
     const { page } = this.editor;
@@ -2847,21 +2859,30 @@ class Desktop {
     const changed = /M/.test(status);
     // A list too long to show it: the file as it is.
     const shown =
+      action.do === "diff" &&
       changed &&
       (await this.openChanges(file, marks, clock).then(
         () => true,
         () => false,
       ));
     if (!shown) {
+      await page.keyboard.press("Control+Shift+e");
       await this.quick("Control+p", file, path.basename(file));
       await page
         .locator(".tab.active", { hasText: path.basename(file) })
         .first()
         .waitFor({ state: "visible", timeout: 6000 });
+      // Its changes may be what was in front, under the same name.
+      await page
+        .waitForSelector(".editor-instance .monaco-diff-editor", {
+          state: "hidden",
+          timeout: 3000,
+        })
+        .catch(() => {});
     }
     await page.waitForSelector(".view-lines .view-line", { timeout: 6000 });
     await sleep(this.brisk ? 120 : 350);
-    const from = action.from ?? (shown ? this.firstChange(file) : null);
+    const from = action.from ?? (changed ? this.firstChange(file) : null);
     const to = Math.min(action.to ?? from, from + CODE_LINES - 1);
     this.editor.shown = { file, from, to };
     if (!from) return;
@@ -3185,7 +3206,8 @@ class Desktop {
     if (kind === "wait")
       return sleep(Math.min(Number(action.ms) || 1000, 8000));
     if (kind === "changes") return this.changes(marks, clock);
-    if (kind === "open") return this.openCode(action, marks, clock);
+    if (kind === "open" || kind === "diff")
+      return this.openCode(action, marks, clock);
     if (kind === "goto")
       return this.address(page, join(base, action.path), marks, clock);
     if (kind === "reload") return this.reload(page, marks, clock);
@@ -4143,7 +4165,9 @@ class Presenter {
     const { desktop, plan } = this;
     if (
       desktop.front === "code" ||
-      actions.some((action) => action.do === "open" || action.do === "changes")
+      actions.some((action) =>
+        ["open", "diff", "changes"].includes(action.do),
+      )
     )
       return this.inEditor(actions, read);
     const problems = [];

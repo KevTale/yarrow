@@ -52,10 +52,11 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
                   "reload",
                   "wait",
                   "open",
+                  "diff",
                   "changes",
                 ],
                 description:
-                  "point at or circle an element to show it; click; fill a field with text; select an option's value; press a key; scroll (an element into view, or the page by y pixels); goto a path of the app; reload; wait ms. In the code editor: open a file of the repository, as its changes when it changed, lines from to to selected and pointed at; changes, the list of what changed.",
+                  "point at or circle an element to show it; click; fill a field with text; select an option's value; press a key; scroll (an element into view, or the page by y pixels); goto a path of the app; reload; wait ms. In the code editor: open a file of the repository as it is, lines from to to selected and pointed at; diff, the same on its changes, for what the change removed or replaced; changes, the list of what changed.",
               },
               target: {
                 type: "string",
@@ -74,13 +75,16 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
               file: {
                 type: "string",
                 description:
-                  "For open, from the repository's root: src/date.js.",
+                  "For open and diff, from the repository's root: src/date.js.",
               },
-              from: { type: "number", description: "For open: first line." },
+              from: {
+                type: "number",
+                description: "For open and diff: first line.",
+              },
               to: {
                 type: "number",
                 description:
-                  "For open: last line, at most 30 lines after from.",
+                  "For open and diff: last line, at most 30 lines after from.",
               },
             },
             required: ["do"],
