@@ -215,7 +215,23 @@ export async function importProject(
       .where(and(eq(projects.id, projectId), isNull(projects.importedAt)))
       .returning({ id: projects.id });
     if (!project) return;
-    await tx.insert(githubTasks).values({ projectId, kind: "setup_project" });
+    // Imported again after a removal: the brain sets it up again.
+    await tx
+      .insert(githubTasks)
+      .values({ projectId, kind: "setup_project" })
+      .onConflictDoUpdate({
+        target: [
+          githubTasks.projectId,
+          githubTasks.kind,
+          githubTasks.issueNumber,
+        ],
+        set: {
+          doneAt: null,
+          attempts: 0,
+          lastError: null,
+          createdAt: new Date(),
+        },
+      });
     await recordEvent(tx, { type: "project.imported", projectId, userId });
   });
 }

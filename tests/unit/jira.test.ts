@@ -708,6 +708,19 @@ describe("Jira for builders", async () => {
     expect(project!.importedAt).toBeNull();
     // The Jira connection stays, for the other projects.
     expect(await raw.select().from(schema.trackerConnections)).toHaveLength(1);
+    // Imported again, then again once set up: the brain sets it up each time.
+    await importProject(db, projectId, marie.userId);
+    await raw.update(schema.githubTasks).set({ doneAt: new Date() });
+    expect(await removeProject(db, ctx, marie.userId, projectId)).toBe(
+      "removed",
+    );
+    await importProject(db, projectId, marie.userId);
+    const tasks = await raw
+      .select()
+      .from(schema.githubTasks)
+      .where(eq(schema.githubTasks.projectId, projectId));
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]!.doneAt).toBeNull();
     await expect(
       removeProject(db, ctx, crypto.randomUUID(), projectId),
     ).rejects.toThrow();
