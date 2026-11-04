@@ -328,7 +328,7 @@ const Logo: React.FC<{ end?: boolean }> = ({ end }) => {
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 50% 45%, #17191d 0%, #0c0d0f 65%)" }}>
       <Img src={staticFile("yarrow-logo-on-dark.svg")} style={{ width: 760, opacity: k, transform: `scale(${0.85 + 0.15 * k})` }} />
       <div style={{ marginTop: 48, opacity: t, transform: `translateY(${(1 - t) * 12}px)`, fontFamily: font.display, fontSize: end ? 72 : 52, color: end ? c.amber : c.secondary }}>
-        {end ? "yarrow.run" : "The best ticket harness for your team"}
+        {end ? "yarrow.run" : "The best ticket harness for your product team"}
       </div>
     </AbsoluteFill>
   );

@@ -29,7 +29,7 @@ Narration in English, spoken, about 150 words a minute. Notes in French. Timings
 À l'écran, chaque chiffre apparaît quand il est dit, la source en petit dessous :
 - **402M → 1.3B** merged pull requests, 2024 → 2026 · *GitHub Octoverse 2026*
 - **5×** longer in review · *Faros AI, AI Engineering Report 2026*
-- Sur « That's where Yarrow comes in » : le logo Yarrow en grand, et dessous **The best ticket harness for your team**.
+- Sur « That's where Yarrow comes in » : le logo Yarrow en grand, et dessous **The best ticket harness for your product team**.
 
 L'intro ne pose qu'un problème, la review : les tickets arrivent dans la démo (le ticket créé depuis la conversation) et dans la conclusion. Le 1,3 milliard reste 1,3, jamais arrondi à 1,5 : la source est à l'écran.
 
@@ -135,7 +135,7 @@ Sources :
 - Composition Remotion `Hackathon` : [video/src/hackathon/Hackathon.tsx](../../video/src/hackathon/Hackathon.tsx), ses beats dans [timeline.ts](../../video/src/hackathon/timeline.ts). Chaque beat dure le temps de sa ligne de voix.
 - Voix ElevenLabs, une prise par ligne : [lines.json](../../video/src/hackathon/lines.json) (Kevin = « Mark », l'agent = « Josh », la voix des films du produit), accélérées de 10 % après coup ; `scripts/hackathon-voice.mjs` ne refait que les lignes changées et écrit `voice.json` (durées et temps de chaque mot, pour les sous-titres).
 - La prise de yarrow.run : `video/public/hackathon/landing.mp4` (Playwright sur Edge, frames CDP, un curseur dessiné), ses moments dans [take.json](../../video/src/hackathon/take.json) : Start sur #147, le run, To review, le film, deux questions, Create ticket (#148), Merge.
-- Déjà en place, à garder : les chiffres animés (402M → 1.3B, 5×) avec leur source, le logo et « The best ticket harness for your team », le drop (flash de diff, silence sur « Instead… », zoom sur la démo), les sous-titres mot à mot, le zoom de caméra par beat.
+- Déjà en place, à garder : les chiffres animés (402M → 1.3B, 5×) avec leur source, le logo et « The best ticket harness for your product team », le drop (flash de diff, silence sur « Instead… », zoom sur la démo), les sous-titres mot à mot, le zoom de caméra par beat.
 
 **Placeholders à remplacer par les rushs de Kevin**
 - La face cam (vue `face` : silhouette « FACE CAM · KEVIN ») : intro, transition, Muse Spark, conclusion.
