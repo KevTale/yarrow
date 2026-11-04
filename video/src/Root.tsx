@@ -1,4 +1,6 @@
 import { Composition, Folder } from "remotion";
+import { Hackathon } from "./hackathon/Hackathon";
+import { TOTAL as HACKATHON_TOTAL } from "./hackathon/timeline";
 import { Launch } from "./Launch";
 import { Dashboard } from "./scenes/Dashboard";
 import { End } from "./scenes/End";
@@ -18,6 +20,12 @@ export const RemotionRoot: React.FC = () => (
       component={Launch}
       {...size}
       durationInFrames={TOTAL}
+    />
+    <Composition
+      id="Hackathon"
+      component={Hackathon}
+      {...size}
+      durationInFrames={HACKATHON_TOTAL}
     />
     <Folder name="Scenes">
       <Composition

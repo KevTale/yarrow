@@ -1,0 +1,36 @@
+{
+  "model": "eleven_v4",
+  "tempo": 1.1,
+  "voices": {
+    "kevin": "UgBBYS2sOqTuMpoF3BR0",
+    "agent": "ZoiZ8fuDWInAcwPXaVeq"
+  },
+  "lines": [
+    { "id": "hi", "by": "kevin", "text": "Hi, I'm Kevin, founder of Yarrow." },
+    { "id": "solved", "by": "kevin", "text": "As we all know, with the latest AI models, coding is basically solved." },
+    { "id": "volume", "by": "kevin", "text": "Two years ago, developers on GitHub merged 400 million pull requests. This year, it's 1.3 billion. More than three times as many, largely driven by AI agents." },
+    { "id": "review", "by": "kevin", "text": "But here's the thing: teams can't keep up. According to Faros AI, a pull request now sits in review five times longer." },
+    { "id": "hands", "by": "kevin", "text": "So on one hand, we've never produced so much code. On the other, we just don't have the capacity to review what agents ship, and merge it with confidence." },
+    { "id": "yarrow", "by": "kevin", "text": "That's where Yarrow comes in." },
+    { "id": "show", "by": "kevin", "text": "We take your tickets all the way, from the idea to the merge. Let me show you." },
+    { "id": "setup", "by": "kevin", "text": "OK, so first, I connect the GitHub repository where my code lives... and I import its Jira backlog." },
+    { "id": "dashboard", "by": "kevin", "text": "And here we go, this is my Yarrow dashboard. Every single Jira ticket is right here, already synced. Nothing to set up." },
+    { "id": "pick", "by": "kevin", "text": "Let's take this one: filter the task list by status." },
+    { "id": "start", "by": "kevin", "text": "I slide Start... and Muse Wonder, Meta's model, picks it up right away in the cloud. It reads the code, writes the change, runs the app, and records a demo." },
+    { "id": "later", "by": "kevin", "text": "A few minutes later, it's done. Now, usually, this is where I'd open a four-hundred-line diff... and hope for the best." },
+    { "id": "instead", "by": "kevin", "text": "Instead..." },
+    { "id": "shows", "by": "kevin", "text": "it shows me." },
+    { "id": "q1", "by": "kevin", "text": "Wait, quick question. Does my filter survive a reload?" },
+    { "id": "a1", "by": "agent", "text": "Yes. Picking a status puts it in the page address, so a reload brings you straight back to that filtered view." },
+    { "id": "q2", "by": "kevin", "text": "Got it. Could overdue tasks come first in each filter?" },
+    { "id": "a2", "by": "agent", "text": "Overdue tasks aren't part of this ticket, which only adds the four status filters. Putting them first would be a separate change, and it's worth raising as its own ticket." },
+    { "id": "create", "by": "kevin", "text": "Perfect. Create ticket." },
+    { "id": "spark", "by": "kevin", "text": "That's not a recording. That's Muse Spark, Meta's model, live, on my actual app. I can interrupt it anytime, it answers by showing me, and my question just became my next ticket." },
+    { "id": "conversation", "by": "kevin", "text": "Reviewing a pull request now takes the time of a conversation." },
+    { "id": "preview", "by": "kevin", "text": "And if I want to try it myself, Open the app. Every pull request gets its own preview URL, automatically. No config, no deploy, it's just there." },
+    { "id": "merge", "by": "kevin", "text": "OK. I've seen it working, and I know exactly what changed. I slide to merge... it lands on GitHub, and Jira moves to Done." },
+    { "id": "given", "by": "kevin", "text": "So, agents are going to write most of the code. That's a given. But your team still decides what gets built, and what gets shipped." },
+    { "id": "fast", "by": "kevin", "text": "That's the part Yarrow makes fast. You write a clear ticket, you get a working demo back, and you merge knowing exactly what you're shipping. Dozens of tickets a day, and you understand every single one." },
+    { "id": "try", "by": "kevin", "text": "That's Yarrow. Go try it on yarrow.run." }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "moments": {
+    "loaded": -0.01,
+    "list": 2.73,
+    "start_reach": 6.78,
+    "started": 10.8,
+    "reading": 10.84,
+    "reviewing": 13.7,
+    "to_review": 21.04,
+    "room": 25.06,
+    "play": 27.09,
+    "q1_type": 42.83,
+    "q1_send": 46.03,
+    "q1_done": 48.95,
+    "q2_type": 52.05,
+    "q2_send": 55.17,
+    "q2_done": 58.08,
+    "created": 61.2,
+    "merge_reach": 63.71,
+    "merged": 67.65,
+    "end": 71.66
+  },
+  "a1": "Wait, quick question. Does my filter survive a reload?\n\nYes. Picking a status puts it in the page address, so a reload brings you straight back to that filtered view. \n0:41",
+  "a2": "Wait, quick question. Does my filter survive a reload?\n\nYes. Picking a status puts it in the page address, so a reload brings you straight back to that filtered view. \n0:41\n\nGot it. Could overdue tasks come first in each filter?\n\nOverdue tasks aren't part of this ticket, which only adds the four status filters and keeps the list order as it is. Putting overdue tasks first would be a separate change, and it's worth raising as its own ticket.\n\nTicket\n\nSort overdue tasks first in each filter\n\nCreate ticket"
+}
