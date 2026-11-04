@@ -49,6 +49,7 @@ import {
 } from "@/components/presentation";
 import { Spinner } from "@/components/navigation-feedback";
 import { Markdown, Rich } from "@/components/markdown";
+import { useOneVoice } from "@/components/one-voice";
 import {
   branchFileUrl,
   OpenApp,
@@ -297,6 +298,7 @@ export function PullPanel({
   const play = useRef<FilmControl | null>(null);
   const pause = useRef<(() => FilmMoment) | null>(null);
   const where = useRef<(() => FilmMoment) | null>(null);
+  const room = useRef<HTMLDivElement>(null);
   // Where they stopped it.
   const stopped = useRef<FilmMoment | null>(null);
   const askedHere = useRef(false);
@@ -319,6 +321,14 @@ export function PullPanel({
     onVoice: () => stopHere(),
     onMoment: () => where.current?.() ?? null,
   });
+  const speak = useOneVoice(room, () => {
+    pause.current?.();
+    hushAnswer(rowKey);
+    if (stage.talk !== "off") stage.endTalk();
+  });
+  useEffect(() => {
+    if (stage.talk !== "off") speak();
+  }, [stage.talk, speak]);
   const lost = useSessionLost(
     projectId,
     rowKey,
@@ -361,8 +371,10 @@ export function PullPanel({
       answer.status !== "failed" &&
       !answerToRead(answer.body, answer.change ?? answer.ticket) &&
       saved(VOICE_KEY)
-    )
+    ) {
+      speak();
       sayAnswer({ projectId, key: rowKey, messageId: answer.id });
+    }
     // Only an answer ending moves it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answering]);
@@ -490,7 +502,7 @@ export function PullPanel({
   if (presentation) {
     const notes = notesOf(panel);
     return (
-      <div className="pp pp-roomy">
+      <div className="pp pp-roomy" ref={room}>
         {cinema && <div style={{ height: slot }} />}
         <dialog
           ref={theater}

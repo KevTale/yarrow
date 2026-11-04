@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
+import { GroupRows, OpenRow } from "@/components/dashboard/open-row";
 import { SlideGo } from "@/components/dashboard/slide-go";
 import { StageMark } from "@/components/dashboard/stage-mark";
 import { TicketBody } from "@/components/dashboard/ticket-body";
@@ -80,6 +81,8 @@ function benchTicket(
 
 /** The ticket that stands open as the page loads. */
 const FIRST_OPEN = 145;
+/** The page's scroll padding: what a row brought into view stays under. */
+const UNDER_HEADER = 100;
 
 const BOARD: ListTicket[] = [
   benchTicket("filter", "todo", {
@@ -197,25 +200,25 @@ export function TicketGroup({
   stage,
   label,
   count,
-  holdsOpen = false,
+  opened = 0,
   children,
 }: {
   stage: TicketStage;
   label: string;
   count: number;
-  /** The row open is here now: the group unfolds, so it stays in view. */
-  holdsOpen?: boolean;
+  /** Its rows open: one more and it unfolds, so that row stays in view. */
+  opened?: number;
   children?: ReactNode;
 }) {
   const [folded, setFolded] = useState(false);
-  const [held, setHeld] = useState(holdsOpen);
-  if (held !== holdsOpen) {
-    setHeld(holdsOpen);
-    if (holdsOpen) setFolded(false);
+  const [held, setHeld] = useState(opened);
+  if (held !== opened) {
+    setHeld(opened);
+    if (opened > held) setFolded(false);
   }
   return (
-    <section className="tix-group">
-      <div className="tix-ghead">
+    <section className="tix-group" data-flip-group={stage}>
+      <div className="tix-ghead" data-flip={`group:${stage}`}>
         <button
           type="button"
           className="tix-gtoggle"
@@ -232,9 +235,9 @@ export function TicketGroup({
           <span className="tix-count">{count}</span>
         </button>
       </div>
-      {!folded && Children.count(children) > 0 && (
-        <ul className="tix-rows">{children}</ul>
-      )}
+      <GroupRows open={!folded} empty={Children.count(children) === 0}>
+        {children}
+      </GroupRows>
     </section>
   );
 }
@@ -276,7 +279,7 @@ function TicketRow({
 }: {
   ticket: SampleTicket;
   opened?: boolean;
-  /** Open as the list says, when it keeps one open at a time. */
+  /** Open as the list says, when it is the list's to say. */
   open?: boolean;
   onToggle?: () => void;
   stage?: ListStage;
@@ -290,43 +293,41 @@ function TicketRow({
   const open = held ?? own;
   return (
     <li className={open ? "tix-item open" : "tix-item"}>
-      <div
-        data-flip={ticket.number}
-        data-flip-value={stage}
-        className={open ? "tix-row open" : "tix-row"}
-      >
-        <button
-          type="button"
-          className="tix-open"
-          aria-expanded={open}
-          onClick={onToggle ?? (() => setOwn(!own))}
+      <div className="tix-box" data-flip-box>
+        <div
+          data-flip={ticket.number}
+          data-flip-value={stage}
+          className={open ? "tix-row open" : "tix-row"}
         >
-          <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
-          <TicketNumber number={ticket.number} />
-          <span className="tix-title">{ticket.title}</span>
-        </button>
-        <span className="tix-meta">
-          <span className="tix-cell">
-            {ticket.work && (
-              <TextShimmer className="tix-state working">
-                {ticket.work}
-              </TextShimmer>
-            )}
-            {note && <span className="lp-merged">{note}</span>}
-            {go}
+          <button
+            type="button"
+            className="tix-open"
+            aria-expanded={open}
+            onClick={onToggle ?? (() => setOwn(!own))}
+          >
+            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
+            <TicketNumber number={ticket.number} />
+            <span className="tix-title">{ticket.title}</span>
+          </button>
+          <span className="tix-meta">
+            <span className="tix-cell">
+              {ticket.work && (
+                <TextShimmer className="tix-state working">
+                  {ticket.work}
+                </TextShimmer>
+              )}
+              {note && <span className="lp-merged">{note}</span>}
+              {go}
+            </span>
+            <span className="tix-sponsor">
+              <span className="tix-paid">Created by</span>
+              <span>{ticket.who}</span>
+            </span>
+            <span className="tix-date">{ticket.when}</span>
           </span>
-          <span className="tix-sponsor">
-            <span className="tix-paid">Created by</span>
-            <span>{ticket.who}</span>
-          </span>
-          <span className="tix-date">{ticket.when}</span>
-        </span>
-      </div>
-      {open && (
-        <div className="tix-opened">
-          <div className="tix-card">{children}</div>
         </div>
-      )}
+        <OpenRow open={open}>{children}</OpenRow>
+      </div>
     </li>
   );
 }
@@ -378,12 +379,14 @@ function RowAtWork({
  * one to review stands open, the first thing the page shows, and merges to
  * Done; one to do starts, works in front of the visitor, comes back on its film
  * and merges in turn; what the agent proposes in a room is created in To do.
- * One row open at a time, as on the real list.
+ * As many rows open as the visitor likes, as on the real list. The window keeps
+ * its size on a wide screen, the list scrolling inside, so nothing opened here
+ * moves the page.
  */
 export function DashboardShot({ cta }: { cta: ReactNode }) {
   const reduced = useReducedMotion();
   const [tickets, setTickets] = useState(BOARD);
-  const [opened, setOpened] = useState<number | null>(FIRST_OPEN);
+  const [opened, setOpened] = useState([FIRST_OPEN]);
   const [chats, setChats] = useState<Record<number, RoomLine[]>>({});
   const [follow, setFollow] = useState<{ number: number } | null>(null);
   const list = useFlip<HTMLDivElement>(tickets);
@@ -403,33 +406,58 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
       const box = list.current
         ?.querySelector(`[data-flip="${number}"]`)
         ?.getBoundingClientRect();
+      const frame = list.current?.getBoundingClientRect();
       moveTo(number, "review");
-      if (box && box.bottom > 0 && box.top < window.innerHeight)
+      if (
+        box &&
+        frame &&
+        box.bottom > Math.max(frame.top, 0) &&
+        box.top < Math.min(frame.bottom, window.innerHeight)
+      )
         setFollow({ number });
     },
     [list, moveTo],
   );
 
-  // The row an act just moved stays in view, whatever folded above it.
+  // The row an act just moved stays in view, once what it holds has opened:
+  // the window scrolls for it, the page staying where it is; on a phone,
+  // where the list is the page's, the page.
   useEffect(() => {
     if (!follow) return;
-    list.current
-      ?.querySelector(`[data-flip="${follow.number}"]`)
-      ?.closest(".tix-item")
-      ?.scrollIntoView({
-        block: "nearest",
-        behavior: reduced ? "auto" : "smooth",
-      });
+    const timer = setTimeout(() => {
+      const frame = list.current;
+      const item = frame
+        ?.querySelector(`[data-flip="${follow.number}"]`)
+        ?.closest(".tix-item");
+      if (!frame || !item) return;
+      const behavior = reduced ? "auto" : "smooth";
+      if (getComputedStyle(frame).overflowY === "visible") {
+        item.scrollIntoView({ block: "nearest", behavior });
+        return;
+      }
+      const box = item.getBoundingClientRect();
+      const shown = frame.getBoundingClientRect();
+      const top = Math.max(shown.top, UNDER_HEADER);
+      if (
+        box.top < top ||
+        box.bottom > Math.min(shown.bottom, window.innerHeight)
+      )
+        frame.scrollBy({ top: box.top - top, behavior });
+    }, 120);
+    return () => clearTimeout(timer);
   }, [follow, list, reduced]);
 
+  const openTicket = (number: number) => {
+    setOpened((all) => (all.includes(number) ? all : [...all, number]));
+    setFollow({ number });
+  };
   const start = (number: number) => {
     moveTo(number, "progress");
-    setOpened(number);
-    setFollow({ number });
+    openTicket(number);
   };
   const merge = (number: number) => {
     moveTo(number, "done");
-    setOpened(null);
+    setOpened((all) => all.filter((one) => one !== number));
     setFollow({ number });
   };
   const createTicket = (title: string, asks: string) => {
@@ -450,10 +478,6 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
     setFollow({ number });
     return number;
   };
-  const openTicket = (number: number) => {
-    setOpened(number);
-    setFollow({ number });
-  };
 
   const chatOf = (number: number): RoomChat => [
     chats[number] ?? [],
@@ -469,8 +493,11 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
 
   const row = (ticket: ListTicket) => {
     const { number, stage } = ticket;
-    const open = opened === number;
-    const onToggle = () => setOpened(open ? null : number);
+    const open = opened.includes(number);
+    const onToggle = () =>
+      setOpened((all) =>
+        open ? all.filter((one) => one !== number) : [...all, number],
+      );
     if (stage === "progress")
       return (
         <RowAtWork
@@ -526,23 +553,27 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
   };
 
   return (
-    <div className="tix-list glass lp-dash" ref={list}>
-      {STAGES.map(({ stage, label }) => {
-        const here = tickets
-          .filter((ticket) => ticket.stage === stage)
-          .sort((a, b) => b.number - a.number);
-        return (
-          <TicketGroup
-            key={stage}
-            stage={stage}
-            label={label}
-            count={here.length}
-            holdsOpen={here.some((ticket) => ticket.number === opened)}
-          >
-            {here.map(row)}
-          </TicketGroup>
-        );
-      })}
+    <div className="glass lp-dash lp-window">
+      <div className="tix-list" ref={list}>
+        {STAGES.map(({ stage, label }) => {
+          const here = tickets
+            .filter((ticket) => ticket.stage === stage)
+            .sort((a, b) => b.number - a.number);
+          return (
+            <TicketGroup
+              key={stage}
+              stage={stage}
+              label={label}
+              count={here.length}
+              opened={
+                here.filter((ticket) => opened.includes(ticket.number)).length
+              }
+            >
+              {here.map(row)}
+            </TicketGroup>
+          );
+        })}
+      </div>
     </div>
   );
 }

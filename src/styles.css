@@ -3464,7 +3464,7 @@ tbody tr:hover {
 }
 .tix-gchev {
   color: var(--muted);
-  transition: transform 0.2s var(--ease-standard);
+  transition: transform 0.1s var(--ease-standard);
 }
 .tix-gchev.folded {
   transform: rotate(-90deg);
@@ -3534,8 +3534,12 @@ tbody tr:hover {
 }
 /* A ticket's chevron sits under its group's mark; the gutter before it is
    left for actions on the row. */
-.tix-item {
+.tix-item,
+.tix-box {
   border-radius: 12px;
+}
+.tix-box {
+  position: relative;
 }
 .tix-row {
   position: relative;
@@ -3628,8 +3632,8 @@ tbody tr:hover {
   flex: none;
   color: #5f6570;
   transition:
-    transform 0.2s var(--ease-standard),
-    color 0.16s;
+    transform 0.1s var(--ease-standard),
+    color 0.1s;
 }
 .tix-open[aria-expanded="true"] .tix-chev {
   transform: rotate(90deg);
@@ -4328,6 +4332,11 @@ tbody tr:hover {
   .ps-button h2 {
     font-size: 22px;
   }
+}
+/* A row on its way out of its group or into it, past the group's edges. */
+.tix-group.moving .tix-rows {
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 /* ---------- Models: writer, reviewer, stats on hover or tap ---------- */
@@ -7665,6 +7674,24 @@ body:has(.sb-dialog[open]) {
 }
 .lp-dash .tix-go {
   opacity: 1;
+}
+/* Sized to the list as it loads, its room open beside the conversation, the
+   list scrolling inside past that: a ticket opened here moves neither the
+   page nor the light behind it. Once the room stacks, it is the page's. */
+@media (min-width: 1001px) {
+  .lp-stage .container {
+    container-type: inline-size;
+  }
+  .lp-window {
+    display: grid;
+    height: calc(62.5cqw + 120px);
+  }
+  .lp-window > .tix-list {
+    align-content: start;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
 }
 
 /* The new ticket dialog, alone in its section, no destination and no buttons. */

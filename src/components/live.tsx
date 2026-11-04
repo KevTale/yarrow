@@ -121,18 +121,50 @@ function layoutTop(element: HTMLElement): number {
   return top;
 }
 
-/** Where each row stands in the list, by its key. */
-function positions(root: HTMLElement): Map<string, number> {
-  const base = layoutTop(root);
-  const tops = new Map<string, number>();
-  for (const row of root.querySelectorAll<HTMLElement>("[data-flip]"))
-    tops.set(row.dataset.flip!, layoutTop(row) - base);
-  return tops;
+/** A row's place in the list and the group it stands in, if the list has any. */
+function placeOf(row: HTMLElement, base: number) {
+  return {
+    top: layoutTop(row) - base,
+    group: row.closest<HTMLElement>("[data-flip-group]")?.dataset.flipGroup,
+  };
 }
+
+/** Where each row stands in the list, by its key. */
+function positions(root: HTMLElement) {
+  const base = layoutTop(root);
+  const places = new Map<string, ReturnType<typeof placeOf>>();
+  for (const row of root.querySelectorAll<HTMLElement>("[data-flip]"))
+    places.set(row.dataset.flip!, placeOf(row, base));
+  return places;
+}
+
+const MOVE_MS = 500;
+
+/**
+ * A row goes to its place with what opens under it (`data-flip-box`, around
+ * both), let out of its group for as long as that takes: a group clips what
+ * it holds, to fold.
+ */
+function move(row: HTMLElement, frames: Keyframe[], easing: string) {
+  const group = row.closest("[data-flip-group]");
+  group?.classList.add("moving");
+  (row.closest("[data-flip-box]") ?? row).animate(frames, {
+    duration: MOVE_MS,
+    easing,
+  }).onfinish = () => group?.classList.remove("moving");
+}
+
+/** Lifted off the list: a row changing group passes over the others. */
+const LIFTED = {
+  zIndex: 3,
+  backgroundColor: "var(--elevated)",
+  boxShadow: "var(--shadow-floating)",
+};
 
 /**
  * Animates rows when the data moves: a row that changes place slides to it,
- * a new row fades in, a row whose value changed flashes. Rows carry
+ * one that changes group (`data-flip-group`, around it) crosses the list to
+ * it, a new row fades in, a row whose value changed flashes. Rows carry
  * `data-flip` (a stable key) and optionally `data-flip-value`. Only a new
  * `data` (not a filter or a search) animates; a new `scope` (another
  * project) starts over without animating.
@@ -146,7 +178,7 @@ export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
   // still shows them. Read at the last render instead, a ticket opened
   // since (its panel loading), a font or a logo arriving had moved rows
   // the list never saw move, and the next refresh slid them all.
-  const before = useRef<Map<string, number> | null>(null);
+  const before = useRef<ReturnType<typeof positions> | null>(null);
   /* eslint-disable react-hooks/refs -- FLIP's first step: the layout before this commit */
   if (ref.current && seen.current !== data && seenScope.current === scope)
     before.current = positions(ref.current);
@@ -162,10 +194,10 @@ export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
     seen.current = data;
     seenScope.current = scope;
     const motion = !reduced();
-    const now = positions(root);
+    const base = layoutTop(root);
     for (const row of root.querySelectorAll<HTMLElement>("[data-flip]")) {
       const key = row.dataset.flip!;
-      const top = now.get(key)!;
+      const { top, group } = placeOf(row, base);
       const value = row.dataset.flipValue;
       const previous = values.current.get(key);
       if (value !== undefined) values.current.set(key, value);
@@ -179,10 +211,24 @@ export function useFlip<T extends HTMLElement>(data: unknown, scope = "") {
           ],
           { duration: 450, easing: "ease-out" },
         );
-      else if (was !== top)
-        row.animate(
-          [{ transform: `translateY(${was - top}px)` }, { transform: "none" }],
-          { duration: 500, easing: "cubic-bezier(.2,.8,.2,1)" },
+      else if (was.group !== group)
+        move(
+          row,
+          [
+            { ...LIFTED, transform: `translateY(${was.top - top}px)` },
+            { ...LIFTED, offset: 0.85 },
+            { zIndex: 3, transform: "none" },
+          ],
+          "cubic-bezier(.4,0,.2,1)",
+        );
+      else if (was.top !== top)
+        move(
+          row,
+          [
+            { transform: `translateY(${was.top - top}px)` },
+            { transform: "none" },
+          ],
+          "cubic-bezier(.2,.8,.2,1)",
         );
       if (previous !== undefined && value !== undefined && previous !== value)
         row.animate(

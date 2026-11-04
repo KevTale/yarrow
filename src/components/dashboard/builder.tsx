@@ -11,7 +11,6 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type RefObject,
   useEffect,
@@ -20,7 +19,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { motionTokens } from "@/components/arc/lib/motion-tokens";
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import {
@@ -49,6 +47,7 @@ import { longDate, useDateTime } from "@/components/ui";
 import { useFlip, useLive } from "@/components/live";
 import type { JiraStep } from "@/server/trackers/flow";
 import { JiraCard } from "./jira-card";
+import { GroupRows, OpenRow } from "./open-row";
 import {
   DraftTicket,
   NewTicket,
@@ -182,9 +181,12 @@ export function BuilderView({
   );
   const folded = useMemo(() => parseFolded(foldedText), [foldedText]);
   const [fresh, setFresh] = useState<string | null>(highlight);
-  // The row opened in place ("projectId:key"), one at a time. It moves
-  // with its ticket, open, to the group its state now says.
-  const [opened, setOpened] = useState<string | null>(null);
+  // The rows opened in place ("projectId:key"), as many as they like. Each
+  // moves with its ticket, open, to the group its state now says.
+  const [opened, setOpened] = useState<string[]>([]);
+  // The one the member just opened or acted on comes into view: a poll
+  // moving another leaves the page where it is.
+  const following = useRef<string | null>(null);
   // Rows slid to merge ("projectId:key") since when, and GitHub's refusals.
   const [merges, setMerges] = useState<Record<string, string>>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
@@ -351,15 +353,25 @@ export function BuilderView({
     return () => clearTimeout(timer);
   });
   const list = useFlip<HTMLDivElement>(rows, currentId ?? "");
-  // The opened ticket moved (started, finished, merged): its new group
+  // An opened ticket moved (started, finished, merged): its new group
   // unfolds, so the row the builder is reading stays in view.
-  const openedRow = rows.find((row) => `${currentId}:${row.key}` === opened);
-  const openedStage = openedRow ? ticketStage(openedRow) : null;
+  const openedStages = useRef(new Map<string, Stage>());
   useEffect(() => {
-    if (openedStage) unfold(openedStage);
-    // Only when the opened row changes group, not on every fold.
+    const now = new Map(
+      rows.flatMap((row) => {
+        const id = `${currentId}:${row.key}`;
+        return opened.includes(id) ? [[id, ticketStage(row)] as const] : [];
+      }),
+    );
+    const moved = [...now]
+      .filter(([id, stage]) => openedStages.current.get(id) !== stage)
+      .map(([, stage]) => stage);
+    openedStages.current = now;
+    if (moved.some((stage) => folded.includes(stage)))
+      writeFolded(folded.filter((stage) => !moved.includes(stage)));
+    // Only when an opened row changes group, not on every fold.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openedStage]);
+  }, [rows, opened]);
 
   // "C" writes a ticket, as in the trackers builders know.
   const canWrite = Boolean(project?.linked && !composing);
@@ -386,6 +398,10 @@ export function BuilderView({
     if (!project || keys.length === 0) return;
     const id = project.id;
     setError("");
+    const acted = keys
+      .map((key) => `${id}:${key}`)
+      .find((item) => opened.includes(item));
+    if (acted) following.current = acted;
     const marked = new Set(keys);
     // Show the change at once; the next poll brings the real state.
     setStore((all) => {
@@ -449,6 +465,7 @@ export function BuilderView({
         Object.entries(items).filter(([item]) => item !== mark),
       );
     const at = new Date().toISOString();
+    following.current = mark;
     setRefused(without);
     setMerges((all) => ({ ...all, [mark]: at }));
     const result = await merge({
@@ -477,6 +494,7 @@ export function BuilderView({
       }));
       void pull(id);
     } else {
+      following.current = mark;
       setRefused((all) => ({ ...all, [mark]: result.error }));
     }
     setMerges(without);
@@ -576,7 +594,11 @@ export function BuilderView({
   const loading = currentId !== null && !live;
   const shownProject =
     project ?? meta.projects.find((item) => item.id === currentId) ?? null;
-  const toggle = (id: string) => setOpened(opened === id ? null : id);
+  const toggle = (id: string) => {
+    const shut = opened.includes(id);
+    following.current = shut ? null : id;
+    setOpened(shut ? opened.filter((item) => item !== id) : [...opened, id]);
+  };
   // Every linked project loads in the background.
   const composeIn = composing?.projectId
     ? (store[composing.projectId]?.project ?? null)
@@ -614,7 +636,7 @@ export function BuilderView({
       const row = rows.find((one) => one.key === key);
       unfold(row ? ticketStage(row) : "todo");
       setFresh(key);
-      setOpened(`${id}:${key}`);
+      if (!opened.includes(`${id}:${key}`)) toggle(`${id}:${key}`);
     },
   };
 
@@ -736,8 +758,9 @@ export function BuilderView({
                                 key={row.key}
                                 row={row}
                                 projectId={project.id}
-                                open={opened === id}
+                                open={opened.includes(id)}
                                 onToggle={() => toggle(id)}
+                                followRef={following}
                                 fresh={fresh === row.key}
                                 onFreshEnd={() => setFresh(null)}
                                 act={act}
@@ -831,10 +854,9 @@ function TicketGroup({
   onAdd?: () => void;
   children?: React.ReactNode;
 }) {
-  const reduced = useReducedMotion();
   return (
-    <section className="tix-group" aria-label={label}>
-      <div className="tix-ghead">
+    <section className="tix-group" aria-label={label} data-flip-group={stage}>
+      <div className="tix-ghead" data-flip={`group:${stage}`}>
         <button
           type="button"
           className="tix-gtoggle"
@@ -866,26 +888,9 @@ function TicketGroup({
           </button>
         )}
       </div>
-      <AnimatePresence initial={false}>
-        {!folded && count > 0 && (
-          <motion.ul
-            className="tix-rows"
-            initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            transition={
-              reduced
-                ? { duration: motionTokens.duration.instant }
-                : {
-                    ...motionTokens.spring.smooth,
-                    opacity: { duration: motionTokens.duration.fast },
-                  }
-            }
-          >
-            {children}
-          </motion.ul>
-        )}
-      </AnimatePresence>
+      <GroupRows open={!folded} empty={count === 0}>
+        {children}
+      </GroupRows>
     </section>
   );
 }
@@ -901,14 +906,20 @@ const OVER_ROW = 100;
 const TAKEN_OVER = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
 
 /**
- * An opened row comes to the middle of the window, or under the header when
- * it is taller, the whole time it and the page settle (what it holds loads,
- * the row closing elsewhere folds), until the member takes over.
+ * The row the member follows comes to the middle of the window, or under the
+ * header when it is taller, the whole time it and the page settle (what it
+ * holds loads), until the member takes over.
  */
-function useOpenedInView(row: RefObject<HTMLElement | null>, open: boolean) {
+function useOpenedInView(
+  row: RefObject<HTMLElement | null>,
+  open: boolean,
+  id: string,
+  followRef: RefObject<string | null>,
+) {
   useEffect(() => {
     const opened = row.current;
-    if (!open || !opened) return;
+    if (!open || !opened || followRef.current !== id) return;
+    followRef.current = null;
     const settling = new ResizeObserver(() => {
       const fits = opened.offsetHeight < window.innerHeight - OVER_ROW;
       opened.scrollIntoView({ block: fits ? "center" : "start" });
@@ -924,7 +935,7 @@ function useOpenedInView(row: RefObject<HTMLElement | null>, open: boolean) {
       window.clearTimeout(settled);
       for (const event of TAKEN_OVER) window.removeEventListener(event, stop);
     };
-  }, [row, open]);
+  }, [row, open, id, followRef]);
 }
 
 function TicketLine({
@@ -932,6 +943,7 @@ function TicketLine({
   projectId,
   open,
   onToggle,
+  followRef,
   fresh = false,
   onFreshEnd,
   act,
@@ -943,6 +955,7 @@ function TicketLine({
   projectId: string;
   open: boolean;
   onToggle: () => void;
+  followRef: RefObject<string | null>;
   fresh?: boolean;
   onFreshEnd?: () => void;
   act?: TicketAct;
@@ -952,81 +965,85 @@ function TicketLine({
 }) {
   const dateTime = useDateTime(row.createdAt);
   const item = useRef<HTMLLIElement>(null);
-  useOpenedInView(item, open);
+  useOpenedInView(item, open, `${projectId}:${row.key}`, followRef);
   const intent = () => {
     prefetchTicket(projectId, row.key);
     if (row.pullRequest) prefetchPullPanel(projectId, row.key);
   };
   return (
     <li ref={item} className={`tix-item ${open ? "open" : ""}`}>
-      <div
-        data-flip={`${projectId}:${row.key}`}
-        data-flip-value={row.status}
-        className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
-        onAnimationEnd={onFreshEnd}
-      >
-        <RowMenu row={row} projectId={projectId} onChanged={onChanged} />
-        <button
-          type="button"
-          className="tix-open"
-          aria-expanded={open}
-          onClick={onToggle}
-          onPointerEnter={intent}
-          onFocus={intent}
+      <div className="tix-box" data-flip-box>
+        <div
+          data-flip={`${projectId}:${row.key}`}
+          data-flip-value={row.status}
+          className={`tix-row ${open ? "open" : ""} ${fresh ? "fresh" : ""}`}
+          onAnimationEnd={onFreshEnd}
         >
-          <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
-          <TicketRef row={row} />
-          <span className="tix-title" title={row.title}>
-            {row.headline ?? row.title}
-          </span>
-        </button>
-        <span className="tix-meta">
-          <span className="tix-cell">
-            <RowState row={row} />
-            {act && row.status === "none" && (
-              <SlideGo
-                label="Start"
-                icon={<Play size={10} fill="currentColor" aria-hidden="true" />}
-                busy={row.pending}
-                onGo={() => act("queue", [row.key])}
-              />
-            )}
-            {act && row.status === "queued" && !row.pending && (
-              <button
-                type="button"
-                className="tix-go quiet"
-                onClick={() => act("unqueue", [row.key])}
-              >
-                <X size={12} aria-hidden="true" /> Cancel
-              </button>
-            )}
-            {act && row.status === "abstained" && (
-              <SlideGo
-                label="Retry"
-                icon={<RotateCcw size={12} aria-hidden="true" />}
-                onGo={() => act("retry", [row.key])}
-              />
-            )}
-          </span>
-          <SponsorCell row={row} projectId={projectId} />
-          <time
-            className="tix-date"
-            dateTime={row.createdAt}
-            title={longDate(row.createdAt)}
+          <RowMenu row={row} projectId={projectId} onChanged={onChanged} />
+          <button
+            type="button"
+            className="tix-open"
+            aria-expanded={open}
+            onClick={onToggle}
+            onPointerEnter={intent}
+            onFocus={intent}
           >
-            {dateTime}
-          </time>
-        </span>
+            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
+            <TicketRef row={row} />
+            <span className="tix-title" title={row.title}>
+              {row.headline ?? row.title}
+            </span>
+          </button>
+          <span className="tix-meta">
+            <span className="tix-cell">
+              <RowState row={row} />
+              {act && row.status === "none" && (
+                <SlideGo
+                  label="Start"
+                  icon={
+                    <Play size={10} fill="currentColor" aria-hidden="true" />
+                  }
+                  busy={row.pending}
+                  onGo={() => act("queue", [row.key])}
+                />
+              )}
+              {act && row.status === "queued" && !row.pending && (
+                <button
+                  type="button"
+                  className="tix-go quiet"
+                  onClick={() => act("unqueue", [row.key])}
+                >
+                  <X size={12} aria-hidden="true" /> Cancel
+                </button>
+              )}
+              {act && row.status === "abstained" && (
+                <SlideGo
+                  label="Retry"
+                  icon={<RotateCcw size={12} aria-hidden="true" />}
+                  onGo={() => act("retry", [row.key])}
+                />
+              )}
+            </span>
+            <SponsorCell row={row} projectId={projectId} />
+            <time
+              className="tix-date"
+              dateTime={row.createdAt}
+              title={longDate(row.createdAt)}
+            >
+              {dateTime}
+            </time>
+          </span>
+        </div>
+        <OpenRow open={open}>
+          <TicketPanel
+            projectId={projectId}
+            row={row}
+            onChanged={onChanged}
+            onMerge={onMerge}
+            notMerged={notMerged}
+          />
+        </OpenRow>
       </div>
-      <OpenRow open={open}>
-        <TicketPanel
-          projectId={projectId}
-          row={row}
-          onChanged={onChanged}
-          onMerge={onMerge}
-          notMerged={notMerged}
-        />
-      </OpenRow>
     </li>
   );
 }
@@ -1065,39 +1082,6 @@ function RowState({ row }: { row: TicketRow }) {
   return work ? (
     <TextShimmer className="tix-state working">{work}</TextShimmer>
   ) : null;
-}
-
-/** The opened row unfolds under its row and folds back on a spring. */
-function OpenRow({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: React.ReactNode;
-}) {
-  const reduced = useReducedMotion();
-  return (
-    <AnimatePresence initial={false}>
-      {open && (
-        <motion.div
-          className="tix-opened"
-          initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-          transition={
-            reduced
-              ? { duration: motionTokens.duration.instant }
-              : {
-                  ...motionTokens.spring.smooth,
-                  opacity: { duration: motionTokens.duration.fast },
-                }
-          }
-        >
-          <div className="tix-card">{children}</div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
 
 /** Titles line up after the longest ticket number shown, no further. */

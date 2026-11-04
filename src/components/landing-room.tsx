@@ -14,6 +14,7 @@ import { FilesChanged } from "@/components/dashboard/files-changed";
 import { SlideGo } from "@/components/dashboard/slide-go";
 import { TicketReady } from "@/components/dashboard/ticket-ready";
 import { askSample, SampleBox } from "@/components/landing-agent";
+import { useOneVoice } from "@/components/one-voice";
 import { Presentation, type FilmMoment } from "@/components/presentation";
 import { chatParts } from "@/core/chat";
 import type { DraftLine } from "@/core/new-ticket";
@@ -43,9 +44,6 @@ export interface RoomLine extends DraftLine {
 }
 
 export type RoomChat = [RoomLine[], Dispatch<SetStateAction<RoomLine[]>>];
-
-/** The rooms of the page: one voice at a time. */
-let sounding: (() => void) | null = null;
 
 /**
  * The room of a ticket to review, as a real one: the real player on a real
@@ -104,20 +102,7 @@ export function SampleRoom({
     };
   }, [sample]);
 
-  useEffect(() => {
-    const here = room.current;
-    const hush = () => void pause.current?.();
-    const onPlay = () => {
-      if (sounding !== hush) sounding?.();
-      sounding = hush;
-    };
-    // Media events do not bubble: caught on their way down.
-    here?.addEventListener("play", onPlay, true);
-    return () => {
-      here?.removeEventListener("play", onPlay, true);
-      if (sounding === hush) sounding = null;
-    };
-  }, []);
+  useOneVoice(room, () => void pause.current?.());
 
   useLayoutEffect(() => {
     const box = thread.current;
