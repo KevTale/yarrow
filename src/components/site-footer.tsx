@@ -11,7 +11,7 @@ export function SiteFooter() {
         <span className="badge">BETA</span>
       </div>
       <div className="container footer-bottom">
-        <span>The best ticket harness for your team.</span>
+        <span>The best ticket harness for your product team.</span>
         <nav aria-label="Legal" className="footer-legal">
           <Link to="/legal">Legal notice</Link>
           <Link to="/terms">Terms</Link>

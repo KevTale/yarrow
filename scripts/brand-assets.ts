@@ -324,7 +324,7 @@ const ogHtml = `<!doctype html>
 <body><div class="card">
   <div class="logo">${files["yarrow-logo-on-dark.svg"]}</div>
   <div>
-    <h1>The best ticket harness for your team</h1>
+    <h1>The best ticket harness for your product team</h1>
     <p>Write your tickets with an agent. Others build and review them. You watch the result work, ask anything and <b>merge</b>.</p>
   </div>
 </div></body>`;

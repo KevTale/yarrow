@@ -24,7 +24,7 @@ function Landing() {
       <section className="lp-hero container">
         <h1>
           The best ticket harness <br />
-          for your team
+          for your product team
         </h1>
         <p>
           Coding is solved. Writing the right ticket and reviewing what agents

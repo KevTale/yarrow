@@ -87,7 +87,7 @@ ${content.paragraphs.map(p).join("\n")}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 4px"><tr><td style="background:#f2b544;border-radius:10px"><a href="${escape(content.button.url)}" style="display:inline-block;padding:13px 22px;font:600 15px ${FONT};color:#141714;text-decoration:none">${escape(content.button.label)}</a></td></tr></table>
 ${content.note ? `<p style="margin:20px 0 0;font:13px/1.6 ${FONT};color:#8a909b">${escape(content.note)}</p>` : ""}
 </td></tr>
-<tr><td style="padding:24px 4px 0;font:12px/1.7 ${FONT};color:#6b717c">The best ticket harness for your team · <a href="${env.APP_URL}" style="color:#8a909b">yarrow.run</a><br>${escape(operatorStatement)}</td></tr>
+<tr><td style="padding:24px 4px 0;font:12px/1.7 ${FONT};color:#6b717c">The best ticket harness for your product team · <a href="${env.APP_URL}" style="color:#8a909b">yarrow.run</a><br>${escape(operatorStatement)}</td></tr>
 </table></td></tr></table>
 </body></html>`;
   const text = [

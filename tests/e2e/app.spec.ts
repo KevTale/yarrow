@@ -8,7 +8,7 @@ test("landing renders without client errors or horizontal overflow", async ({
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: "The best ticket harness for your team",
+      name: "The best ticket harness for your product team",
     }),
   ).toBeVisible();
   expect(

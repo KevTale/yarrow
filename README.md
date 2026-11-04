@@ -7,7 +7,7 @@
   </a>
 </p>
 
-<h3 align="center">The best ticket harness for your team</h3>
+<h3 align="center">The best ticket harness for your product team</h3>
 
 <p align="center">
   Coding is solved. Writing the right ticket and reviewing what agents ship are not.

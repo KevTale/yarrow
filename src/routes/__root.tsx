@@ -27,7 +27,7 @@ import {
 } from "@/functions/viewer.functions";
 import { siteJsonLd } from "@/core/company";
 
-const TITLE = "Yarrow · The best ticket harness for your team";
+const TITLE = "Yarrow · The best ticket harness for your product team";
 const DESCRIPTION =
   "Coding is solved. Writing the right ticket and reviewing what agents ship are not. This is where Yarrow comes in.";
 
@@ -68,7 +68,7 @@ export const Route = createRootRoute({
       { property: "og:image:height", content: "630" },
       {
         property: "og:image:alt",
-        content: "Yarrow: The best ticket harness for your team",
+        content: "Yarrow: The best ticket harness for your product team",
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: TITLE },
