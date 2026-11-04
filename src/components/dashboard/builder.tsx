@@ -66,17 +66,13 @@ type BuilderData = Extract<
 
 /**
  * The groups, in the order the builder acts on them: what waits for them
- * first. "+" writes a ticket into To do, or into In progress, started.
- * Each ticket's group is `ticketStage`.
+ * first. Each ticket's group is `ticketStage`; New ticket, beside the
+ * search, is the one way to write one.
  */
-const stages: {
-  key: Stage;
-  label: string;
-  add?: "create" | "start";
-}[] = [
+const stages: { key: Stage; label: string }[] = [
   { key: "review", label: "To review" },
-  { key: "progress", label: "In progress", add: "start" },
-  { key: "todo", label: "To do", add: "create" },
+  { key: "progress", label: "In progress" },
+  { key: "todo", label: "To do" },
   { key: "stopped", label: "Stopped" },
   { key: "done", label: "Done" },
 ];
@@ -740,14 +736,6 @@ export function BuilderView({
                           count={shown.length}
                           folded={!q && folded.includes(stage.key)}
                           onFold={() => fold(stage.key)}
-                          onAdd={
-                            stage.add
-                              ? () =>
-                                  setComposing({
-                                    start: stage.add === "start",
-                                  })
-                              : undefined
-                          }
                         >
                           {(stage.key === "done" && !q && !older
                             ? shown.filter(
@@ -841,14 +829,13 @@ function OlderToggle({
   );
 }
 
-/** A stage: its head folds it, its "+" writes a ticket into it. */
+/** A stage: its head folds it. */
 function TicketGroup({
   stage,
   label,
   count,
   folded,
   onFold,
-  onAdd,
   children,
 }: {
   stage: Stage;
@@ -856,7 +843,6 @@ function TicketGroup({
   count: number;
   folded: boolean;
   onFold: () => void;
-  onAdd?: () => void;
   children?: React.ReactNode;
 }) {
   return (
@@ -877,21 +863,6 @@ function TicketGroup({
             aria-hidden="true"
           />
         </button>
-        {onAdd && (
-          <button
-            type="button"
-            className="tix-icon-btn"
-            aria-label={
-              stage === "progress" ? "New ticket, started" : "New ticket"
-            }
-            data-tip={
-              stage === "progress" ? "New ticket, started" : "New ticket"
-            }
-            onClick={onAdd}
-          >
-            <Plus size={16} />
-          </button>
-        )}
       </div>
       <GroupRows open={!folded} empty={count === 0}>
         {children}

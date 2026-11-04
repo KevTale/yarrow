@@ -469,8 +469,9 @@ export function PullPanel({
       (correction) =>
         correction.status === "queued" || correction.status === "working",
     );
-  const away = (
-    <span className="pp-foot-away">
+  // What opens elsewhere sits with the files; the decision alone on the right.
+  const elsewhere = (
+    <>
       {linked && (
         <ProofLink
           proof={linked}
@@ -485,6 +486,10 @@ export function PullPanel({
         />
       )}
       {app && <OpenApp app={app} />}
+    </>
+  );
+  const away = (
+    <span className="pp-foot-away">
       {open && !changing && onMerge && (
         <MergeGo notMerged={notMerged} onMerge={onMerge} />
       )}
@@ -627,6 +632,7 @@ export function PullPanel({
               />
             )}
             {ideas}
+            {elsewhere}
             {away}
           </div>
         </dialog>
@@ -741,6 +747,7 @@ export function PullPanel({
                 />
               )}
               {ideas}
+              {elsewhere}
               {away}
             </div>
           )}

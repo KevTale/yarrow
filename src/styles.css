@@ -3172,22 +3172,13 @@ tbody tr:hover {
 }
 /* A stage's "+" ends its band: its tip lines up with its right edge, so it
    never reaches past a phone's screen, hidden or shown. */
-.tix-ghead [data-tip]::after {
-  left: auto;
-  right: 0;
-  transform: translateY(-2px);
-}
-.tix-ghead [data-tip]:hover::after,
-.tix-ghead [data-tip]:focus-visible::after {
-  transform: none;
-}
 /* uiarc's search field at the stages' height. */
 .bd-search {
   --control-height-md: 38px;
   margin-left: auto;
   width: min(260px, 100%);
 }
-/* New ticket beside it, as Linear's New issue: a quiet pill, lit on hover. */
+/* New ticket beside it, as Linear's New issue: bare, a pill lit on hover. */
 .bd-new {
   display: inline-flex;
   align-items: center;
@@ -3196,7 +3187,7 @@ tbody tr:hover {
   padding: 0 16px 0 13px;
   border: 0;
   border-radius: 999px;
-  background: #ffffff0d;
+  background: none;
   color: var(--secondary);
   font:
     500 13px var(--font-geist-sans),
@@ -3737,8 +3728,9 @@ tbody tr:hover {
 }
 /* Start, Retry and Merge are one lever, at the foot of the opened ticket and
    at its height (36px): a neutral rounded track, a grey knob pulled to its
-   right end, a faint trail behind it; the knob turns light once letting go
-   does it. */
+   right end. As it goes the trail behind it frosts into glass and whitens,
+   and the knob turns white (`slide-go.tsx`); a soft light round it once
+   letting go does it. */
 .tix-slide {
   position: relative;
   display: inline-flex;
@@ -3747,7 +3739,7 @@ tbody tr:hover {
   width: 176px;
   height: 36px;
   padding: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid #ffffff1a;
   border-radius: 999px;
   background: none;
   color: var(--muted);
@@ -3758,10 +3750,6 @@ tbody tr:hover {
   overflow: hidden;
   user-select: none;
   touch-action: pan-y;
-  transition: border-color 0.15s;
-}
-.tix-slide:hover {
-  border-color: #ffffff2e;
 }
 .tix-slide-fill {
   position: absolute;
@@ -3769,13 +3757,11 @@ tbody tr:hover {
   bottom: 4px;
   left: 4px;
   border-radius: 999px;
-  background: #fff;
-  opacity: 0.05;
+  background: linear-gradient(90deg, #ffffff05, #ffffff3d);
+  box-shadow:
+    inset 0 1px 0 #ffffff2e,
+    inset 0 0 0 1px #ffffff14;
   pointer-events: none;
-}
-.tix-slide.armed .tix-slide-fill,
-.tix-slide.busy .tix-slide-fill {
-  opacity: 0.09;
 }
 .tix-slide-label {
   position: absolute;
@@ -3822,9 +3808,8 @@ tbody tr:hover {
   color: var(--text);
   cursor: grab;
   transition:
-    background-color 0.15s,
-    color 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    box-shadow 0.2s;
 }
 .tix-slide-knob:active {
   cursor: grabbing;
@@ -3832,8 +3817,7 @@ tbody tr:hover {
 .tix-slide.armed .tix-slide-knob,
 .tix-slide.busy .tix-slide-knob {
   border-color: transparent;
-  background: var(--text);
-  color: #111214;
+  box-shadow: 0 0 14px 1px #ffffff59;
 }
 .tix-slide-knob:focus-visible {
   outline: 2px solid var(--text);

@@ -52,6 +52,24 @@ export function SlideGo({
   );
   const fill = useTransform(x, (value) => value + KNOB);
   const fade = useTransform(x, [0, Math.max(run, 1) * 0.6], [1, 0]);
+  // How far it went, 0 to 1: the trail frosts into glass and whitens, the
+  // track's edge with it, and the knob turns white, its icon dark.
+  const reach = useTransform(x, (value) =>
+    run > 0 ? Math.min(1, Math.max(0, value / run)) : 0,
+  );
+  const frost = useTransform(
+    reach,
+    (value) =>
+      `blur(${(value * 6).toFixed(1)}px) saturate(${(1 + value * 0.5).toFixed(2)})`,
+  );
+  const trail = useTransform(reach, [0, 1], [0.2, 1]);
+  const edge = useTransform(
+    reach,
+    [0, 1],
+    ["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0.34)"],
+  );
+  const knobFace = useTransform(reach, [0, 1], ["#2b2d31", "#ffffff"]);
+  const knobInk = useTransform(reach, [0.4, 0.7], ["#e9eaed", "#111214"]);
 
   useEffect(() => {
     const element = track.current;
@@ -88,18 +106,28 @@ export function SlideGo({
   }
 
   return (
-    <div
+    <motion.div
       ref={track}
       className={`tix-slide ${armed ? "armed" : ""} ${busy ? "busy" : ""}`}
       aria-disabled={disabled || undefined}
+      style={{ borderColor: edge }}
     >
-      <motion.span className="tix-slide-fill" style={{ width: fill }} />
       <motion.span className="tix-slide-label" style={{ opacity: fade }}>
         {prompt}
         <span className="tix-slide-hint" aria-hidden="true">
           ›››
         </span>
       </motion.span>
+      {/* Over the words, so that they frost behind it. */}
+      <motion.span
+        className="tix-slide-fill"
+        style={{
+          width: fill,
+          opacity: trail,
+          backdropFilter: frost,
+          WebkitBackdropFilter: frost,
+        }}
+      />
       <motion.button
         ref={knob}
         type="button"
@@ -112,7 +140,7 @@ export function SlideGo({
         dragConstraints={{ left: 0, right: run }}
         dragElastic={0.04}
         dragMomentum={false}
-        style={{ x }}
+        style={{ x, backgroundColor: knobFace, color: knobInk }}
         whileTap={{ scale: 0.94 }}
         onDragEnd={() => {
           if (x.get() >= run * THRESHOLD) go();
@@ -131,6 +159,6 @@ export function SlideGo({
       >
         {busy ? <Spinner /> : icon}
       </motion.button>
-    </div>
+    </motion.div>
   );
 }
