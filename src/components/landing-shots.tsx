@@ -302,9 +302,9 @@ function TicketRow({
             aria-expanded={open}
             onClick={onToggle ?? (() => setOwn(!own))}
           >
-            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
             <TicketNumber number={ticket.number} />
             <span className="tix-title">{ticket.title}</span>
+            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
           </button>
           <span className="tix-meta">
             <span className="tix-cell">

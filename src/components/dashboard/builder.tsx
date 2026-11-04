@@ -964,11 +964,11 @@ function TicketLine({
             onPointerEnter={intent}
             onFocus={intent}
           >
-            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
             <TicketRef row={row} />
             <span className="tix-title" title={row.title}>
               {row.headline ?? row.title}
             </span>
+            <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
           </button>
           <span className="tix-meta">
             <span className="tix-cell">

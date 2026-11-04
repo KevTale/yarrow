@@ -3661,8 +3661,9 @@ tbody tr:hover {
   min-width: calc(var(--ref-ch, 3) * 1ch + 18px);
   white-space: nowrap;
 }
+/* As long as its words, shortened with an ellipsis, the chevron after it. */
 .tix-title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3908,7 +3909,7 @@ tbody tr:hover {
    ticket's number and the date. */
 .tix-card {
   margin: 0 10px 0 11px;
-  padding: 22px 0 26px 49px;
+  padding: 22px 0 26px 25px;
 }
 .tix-card .pp {
   padding: 0;
@@ -4280,11 +4281,11 @@ tbody tr:hover {
   .tix-older {
     min-width: 100cqw;
   }
-  .tix-open,
-  .tix-title {
+  .tix-open {
     flex: 1 0 auto;
   }
   .tix-title {
+    flex: 0 0 auto;
     max-width: 300px;
   }
   .tix-opened {
@@ -7767,7 +7768,6 @@ body:has(.sb-dialog[open]) {
     flex: 1 1 0;
   }
   .lp-dash .tix-title {
-    flex: 1 1 0;
     max-width: none;
   }
 }
@@ -9135,7 +9135,7 @@ html:has(.pp-stage:modal) {
   }
 }
 
-/* A ticket with its demo: one room, from the row's chevron to its date. The
+/* A ticket with its demo: one room, from the row's first mark to its date. The
    screen is sized once (140px are the header's room and the row's own line and
    margins), the conversation beside it to the room's end. */
 .tix-card:has(.pp-roomy) {
