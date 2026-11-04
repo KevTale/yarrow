@@ -7,9 +7,10 @@ test("landing renders without client errors or horizontal overflow", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Fund the compute. Ship the PR." }),
+    page.getByRole("heading", {
+      name: "The best ticket harness for your team",
+    }),
   ).toBeVisible();
-  await expect(page.getByText("Claude Opus 5.5 implements")).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -23,14 +24,21 @@ test("landing renders without client errors or horizontal overflow", async ({
 });
 
 test("removed pages are gone", async ({ page }) => {
-  for (const path of ["/fund", "/leaderboard", "/shipped", "/showcase"]) {
+  for (const path of [
+    "/changelog",
+    "/fund",
+    "/leaderboard",
+    "/shipped",
+    "/showcase",
+    "/sponsors",
+  ]) {
     const response = await page.goto(path);
     expect(response?.status()).toBe(404);
   }
 });
 
 test("private pages ask for GitHub sign-in", async ({ page }) => {
-  for (const path of ["/dashboard", "/projects/new", "/sponsor/filters"]) {
+  for (const path of ["/dashboard", "/account"]) {
     await page.goto(path);
     await expect(
       page.getByRole("link", { name: /Continue with GitHub/ }),
