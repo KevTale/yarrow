@@ -56,7 +56,6 @@ export const Intro: React.FC = () => (
     <Sequence from={LOGO} name="logo">
       <LogoIn />
     </Sequence>
-    <Captions />
     <Audio src={staticFile("rush/intro-voice.wav")} />
   </AbsoluteFill>
 );
@@ -302,51 +301,5 @@ const LogoIn: React.FC = () => {
     <AbsoluteFill style={{ opacity: k }}>
       <Logo />
     </AbsoluteFill>
-  );
-};
-
-/* ---------- Captions ---------- */
-
-/** The sentence being said, each word as it is said. */
-const Captions: React.FC = () => {
-  const frame = useCurrentFrame();
-  const now = frame / FPS;
-  const groups: [number, number][] = [];
-  let open = 0;
-  words.forEach(([word], i) => {
-    const n = i + 1 - open;
-    const stop = (/[.?!]$/.test(word) && n >= 2) || (/,$/.test(word) && n >= 4) || n >= 8;
-    if (stop || i === words.length - 1) {
-      groups.push([open, i + 1]);
-      open = i + 1;
-    }
-  });
-  const index = groups.filter(([first]) => words[first]![1] <= now + 0.05).length - 1;
-  if (index < 0 || frame >= LOGO) return null;
-  const [begin, stop] = groups[index]!;
-  const last = words[stop - 1]![2];
-  const next = groups[index + 1] ? words[groups[index + 1]![0]]![1] : Infinity;
-  const o = interpolate(now, [Math.min(last + 0.5, next - 0.05), Math.min(last + 0.7, next)], [1, 0], clamp);
-  return (
-    <div style={{ position: "absolute", bottom: 64, left: 0, right: 0, display: "flex", justifyContent: "center", opacity: o }}>
-      <div
-        style={{
-          maxWidth: 1500,
-          padding: "14px 30px",
-          borderRadius: 16,
-          background: "rgba(8,9,11,.8)",
-          fontSize: 42,
-          fontWeight: 500,
-          lineHeight: 1.3,
-          textAlign: "center",
-        }}
-      >
-        {words.slice(begin, stop).map(([word, start], i) => (
-          <span key={i} style={{ opacity: start <= now + 0.05 ? 1 : 0.3 }}>
-            {word}{" "}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 };

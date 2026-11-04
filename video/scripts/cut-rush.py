@@ -1,6 +1,6 @@
 """Cut a face-cam rush: drop the silences, tighten the pauses, speed it up, and map the words.
 
-    python -I scripts/cut-rush.py <rush.mp4> <stt.json> public/rush
+    python -I scripts/cut-rush.py <rush.mp4> <stt.json> public/rush [speed]
 
 The rush is OBS's 3840x1080 side by side (webcam on the right), mic on audio track 1.
 stt.json is ElevenLabs speech-to-text of that track (model scribe_v2, word timestamps).
@@ -14,7 +14,7 @@ from pathlib import Path
 RUSH = sys.argv[1]
 STT = Path(sys.argv[2])
 OUT = Path(sys.argv[3])
-SPEED = 1.1
+SPEED = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0  # 1.1 was felt on the face cam
 FPS = 30
 KEEP_AFTER, KEEP_BEFORE = 0.16, 0.14  # around each tightened pause, before speed
 MAX_GAP = 0.42                        # pauses longer than this are tightened
