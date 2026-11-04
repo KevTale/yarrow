@@ -129,10 +129,16 @@ export async function removeBoard(
   projectId: string,
   boardId: string,
 ): Promise<void> {
+  // Its queued tickets leave the queue; every ticket lets go of the board,
+  // the shipped ones too, or the board could not be deleted.
   await db
     .update(workUnits)
-    .set({ boardId: null, authorized: false })
+    .set({ authorized: false })
     .where(and(eq(workUnits.boardId, boardId), eq(workUnits.status, "queued")));
+  await db
+    .update(workUnits)
+    .set({ boardId: null })
+    .where(eq(workUnits.boardId, boardId));
   await db
     .delete(trackerBoards)
     .where(

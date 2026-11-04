@@ -93,6 +93,8 @@ export async function upsertTicket(
         body: ticket.body,
         url: ticket.url,
         authorized: ticket.labeled,
+        // A board unlinked then linked again finds its tickets back.
+        ...(ticket.boardId ? { boardId: ticket.boardId } : {}),
         ...(requeue ? { status: "queued" as const, queuedAt: new Date() } : {}),
         ...(ticket.closed && existing.status === "queued"
           ? { status: "closed" as const }

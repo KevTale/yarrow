@@ -653,11 +653,13 @@ describe("Jira for builders", async () => {
       keys: ["APP"],
     });
     await importProject(db, projectId, marie.userId);
+    const [board] = await raw.select().from(schema.trackerBoards);
     const [ticket] = await raw
       .insert(schema.workUnits)
       .values({
         projectId,
         source: "jira",
+        boardId: board!.id,
         externalId: "APP-2",
         title: "Dark mode",
         url: "https://acme.atlassian.net/browse/APP-2",
@@ -675,6 +677,12 @@ describe("Jira for builders", async () => {
       "removed",
     );
     expect(await raw.select().from(schema.trackerBoards)).toEqual([]);
+    // The shipped ticket stays, without its board.
+    const [shipped] = await raw
+      .select({ boardId: schema.workUnits.boardId })
+      .from(schema.workUnits)
+      .where(eq(schema.workUnits.id, ticket!.id));
+    expect(shipped!.boardId).toBeNull();
     const [project] = await raw
       .select({ importedAt: schema.projects.importedAt })
       .from(schema.projects)
