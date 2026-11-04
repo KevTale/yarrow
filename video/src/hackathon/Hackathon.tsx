@@ -350,8 +350,6 @@ const Placeholder: React.FC<{ text: string }> = ({ text }) => (
 
 const GITHUB =
   "M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3";
-const JIRA =
-  "M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.001 1.001 0 0 0 23.013 0Z";
 
 const Setup: React.FC = () => {
   const frame = useCurrentFrame();
@@ -371,9 +369,9 @@ const Setup: React.FC = () => {
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: 60, flexDirection: "row", background: c.bg }}>
       <Placeholder text="PLACEHOLDER · REAL SETUP SCREENS TO RECORD" />
-      {step(6, GITHUB, "#edeef0", "Connect GitHub", "acme/tasks connected")}
+      {step(6, GITHUB, "#edeef0", "Connect GitHub", "App installed")}
       <div style={{ fontSize: 60, color: c.muted }}>→</div>
-      {step(f(3.6), JIRA, "#2684ff", "Import Jira", "Backlog synced")}
+      {step(f(3.6), GITHUB, "#edeef0", "Import my-todo-app", "3 issues synced")}
       <Bubble />
     </AbsoluteFill>
   );

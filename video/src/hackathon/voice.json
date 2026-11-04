@@ -1022,9 +1022,9 @@
     ]
   },
   "setup": {
-    "text": "OK, so first, I connect the GitHub repository where my code lives... and I import its Jira backlog.",
+    "text": "OK, so first, I connect GitHub, and I pick the repository where my code lives.",
     "by": "kevin",
-    "rawDuration": 7.2700000000000005,
+    "rawDuration": 5.67,
     "rawWords": [
       [
         "OK,",
@@ -1040,66 +1040,54 @@
       ],
       [
         "I",
-        1.68
+        1.64
       ],
       [
         "connect",
-        1.84
+        1.76
       ],
       [
-        "the",
-        2.12
-      ],
-      [
-        "GitHub",
-        2.24
-      ],
-      [
-        "repository",
-        2.92
-      ],
-      [
-        "where",
-        3.36
-      ],
-      [
-        "my",
-        3.52
-      ],
-      [
-        "code",
-        3.68
-      ],
-      [
-        "lives...",
-        3.92
+        "GitHub,",
+        2.16
       ],
       [
         "and",
-        4.96
+        2.92
       ],
       [
         "I",
-        5.2
+        3.12
       ],
       [
-        "import",
-        5.56
+        "pick",
+        3.28
       ],
       [
-        "its",
-        5.84
+        "the",
+        3.48
       ],
       [
-        "Jira",
-        6.08
+        "repository",
+        3.88
       ],
       [
-        "backlog.",
-        6.4
+        "where",
+        4.32
+      ],
+      [
+        "my",
+        4.48
+      ],
+      [
+        "code",
+        4.64
+      ],
+      [
+        "lives.",
+        4.88
       ]
     ],
-    "duration": 6.61,
+    "duration": 5.15,
     "words": [
       [
         "OK,",
@@ -1115,70 +1103,58 @@
       ],
       [
         "I",
-        1.53
+        1.49
       ],
       [
         "connect",
-        1.67
+        1.6
       ],
       [
-        "the",
-        1.93
-      ],
-      [
-        "GitHub",
-        2.04
-      ],
-      [
-        "repository",
-        2.65
-      ],
-      [
-        "where",
-        3.05
-      ],
-      [
-        "my",
-        3.2
-      ],
-      [
-        "code",
-        3.35
-      ],
-      [
-        "lives...",
-        3.56
+        "GitHub,",
+        1.96
       ],
       [
         "and",
-        4.51
+        2.65
       ],
       [
         "I",
-        4.73
+        2.84
       ],
       [
-        "import",
-        5.05
+        "pick",
+        2.98
       ],
       [
-        "its",
-        5.31
+        "the",
+        3.16
       ],
       [
-        "Jira",
-        5.53
+        "repository",
+        3.53
       ],
       [
-        "backlog.",
-        5.82
+        "where",
+        3.93
+      ],
+      [
+        "my",
+        4.07
+      ],
+      [
+        "code",
+        4.22
+      ],
+      [
+        "lives.",
+        4.44
       ]
     ]
   },
   "dashboard": {
-    "text": "And here we go, this is my Yarrow dashboard. Every single Jira ticket is right here, already synced. Nothing to set up.",
+    "text": "And here we go, this is my Yarrow dashboard. Every GitHub issue is right here, already synced. Nothing to set up.",
     "by": "kevin",
-    "rawDuration": 8.23,
+    "rawDuration": 7.510000000000001,
     "rawWords": [
       [
         "And",
@@ -1186,90 +1162,86 @@
       ],
       [
         "here",
-        0.32
+        0.24
       ],
       [
         "we",
-        0.48
+        0.4
       ],
       [
         "go,",
-        0.68
+        0.6
       ],
       [
         "this",
-        1.28
+        1.2
       ],
       [
         "is",
-        1.68
+        1.52
       ],
       [
         "my",
-        1.92
+        1.68
       ],
       [
         "Yarrow",
-        2.04
+        1.84
       ],
       [
         "dashboard.",
-        2.4
+        2.44
       ],
       [
         "Every",
-        3.44
+        3.2
       ],
       [
-        "single",
+        "GitHub",
+        3.52
+      ],
+      [
+        "issue",
         3.84
       ],
       [
-        "Jira",
-        4.16
-      ],
-      [
-        "ticket",
-        4.48
-      ],
-      [
         "is",
-        4.8
+        4.28
       ],
       [
         "right",
-        5.04
+        4.48
       ],
       [
         "here,",
-        5.4
+        4.72
       ],
       [
         "already",
-        6.04
+        5.32
       ],
       [
         "synced.",
-        6.36
+        5.6
       ],
       [
         "Nothing",
-        7.12
+        6.32
       ],
       [
         "to",
-        7.32
+        6.6
       ],
       [
         "set",
-        7.44
+        6.72
       ],
       [
         "up.",
-        7.6
+        6.88
       ]
     ],
-    "duration": 7.48,
+    "duration": 6.83,
     "words": [
       [
         "And",
@@ -1277,87 +1249,83 @@
       ],
       [
         "here",
-        0.29
+        0.22
       ],
       [
         "we",
-        0.44
+        0.36
       ],
       [
         "go,",
-        0.62
+        0.55
       ],
       [
         "this",
-        1.16
+        1.09
       ],
       [
         "is",
-        1.53
+        1.38
       ],
       [
         "my",
-        1.75
+        1.53
       ],
       [
         "Yarrow",
-        1.85
+        1.67
       ],
       [
         "dashboard.",
-        2.18
+        2.22
       ],
       [
         "Every",
-        3.13
+        2.91
       ],
       [
-        "single",
+        "GitHub",
+        3.2
+      ],
+      [
+        "issue",
         3.49
       ],
       [
-        "Jira",
-        3.78
-      ],
-      [
-        "ticket",
-        4.07
-      ],
-      [
         "is",
-        4.36
+        3.89
       ],
       [
         "right",
-        4.58
+        4.07
       ],
       [
         "here,",
-        4.91
+        4.29
       ],
       [
         "already",
-        5.49
+        4.84
       ],
       [
         "synced.",
-        5.78
+        5.09
       ],
       [
         "Nothing",
-        6.47
+        5.75
       ],
       [
         "to",
-        6.65
+        6
       ],
       [
         "set",
-        6.76
+        6.11
       ],
       [
         "up.",
-        6.91
+        6.25
       ]
     ]
   },
@@ -3156,9 +3124,9 @@
     ]
   },
   "merge": {
-    "text": "OK. I've seen it working, and I know exactly what changed. I slide to merge... it lands on GitHub, and Jira moves to Done.",
+    "text": "OK. I've seen it working, and I know exactly what changed. I slide to merge... it lands on GitHub, and the issue closes.",
     "by": "kevin",
-    "rawDuration": 8.39,
+    "rawDuration": 8.23,
     "rawWords": [
       [
         "OK.",
@@ -3178,15 +3146,15 @@
       ],
       [
         "working,",
-        1.6
+        1.56
       ],
       [
         "and",
-        1.96
+        1.88
       ],
       [
         "I",
-        2.08
+        2
       ],
       [
         "know",
@@ -3206,7 +3174,7 @@
       ],
       [
         "I",
-        4.08
+        4.04
       ],
       [
         "slide",
@@ -3222,15 +3190,15 @@
       ],
       [
         "it",
-        5.44
+        5.52
       ],
       [
         "lands",
-        5.6
+        5.72
       ],
       [
         "on",
-        5.84
+        5.92
       ],
       [
         "GitHub,",
@@ -3238,26 +3206,22 @@
       ],
       [
         "and",
-        6.64
+        6.68
       ],
       [
-        "Jira",
+        "the",
         6.8
       ],
       [
-        "moves",
-        7.2
+        "issue",
+        6.96
       ],
       [
-        "to",
-        7.48
-      ],
-      [
-        "Done.",
-        7.68
+        "closes.",
+        7.28
       ]
     ],
-    "duration": 7.63,
+    "duration": 7.48,
     "words": [
       [
         "OK.",
@@ -3277,15 +3241,15 @@
       ],
       [
         "working,",
-        1.45
+        1.42
       ],
       [
         "and",
-        1.78
+        1.71
       ],
       [
         "I",
-        1.89
+        1.82
       ],
       [
         "know",
@@ -3305,7 +3269,7 @@
       ],
       [
         "I",
-        3.71
+        3.67
       ],
       [
         "slide",
@@ -3321,15 +3285,15 @@
       ],
       [
         "it",
-        4.95
+        5.02
       ],
       [
         "lands",
-        5.09
+        5.2
       ],
       [
         "on",
-        5.31
+        5.38
       ],
       [
         "GitHub,",
@@ -3337,23 +3301,19 @@
       ],
       [
         "and",
-        6.04
+        6.07
       ],
       [
-        "Jira",
+        "the",
         6.18
       ],
       [
-        "moves",
-        6.55
+        "issue",
+        6.33
       ],
       [
-        "to",
-        6.8
-      ],
-      [
-        "Done.",
-        6.98
+        "closes.",
+        6.62
       ]
     ]
   },

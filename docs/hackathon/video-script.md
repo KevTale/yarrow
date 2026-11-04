@@ -39,15 +39,15 @@ L'intro ne pose qu'un problème, la review : les tickets arrivent dans la démo 
 
 ## 3. Setup (0:33–0:53, écran + webcam)
 
-> OK, so first, I connect the GitHub repository where my code lives… and I import its Jira backlog.
+> OK, so first, I connect GitHub, and I pick the repository where my code lives.
 >
-> And here we go, this is my Yarrow dashboard. Every single Jira ticket is right here, already synced. Nothing to set up.
+> And here we go, this is my Yarrow dashboard. Every GitHub issue is right here, already synced. Nothing to set up.
 
-À l'écran : Connect GitHub → install de l'App → étape « where tickets live » → Import Jira → dashboard. L'install GitHub en ×4 ou coupée : c'est l'écran de GitHub, pas le nôtre.
+À l'écran : déjà connecté (pas de sign-in à l'image), la landing une seconde → Get started → l'install de l'App GitHub en ×4 ou coupée (c'est l'écran de GitHub, pas le nôtre) → « Import your repository » avec la seule ligne `my-todo-app` → Import → dashboard, les 3 issues en To do.
 
 ## 4. Start (0:53–1:08)
 
-> As you can see, we've got twelve tickets to do on this project. Let's take this one: filter the task list by status.
+> As you can see, we've got three issues to do on this project. Let's take this one: filter the task list by status.
 >
 > I slide Start… and Muse Wonder, Meta's model, picks it up right away in the cloud. It reads the code, writes the change, runs the app, and records a demo.
 
@@ -95,9 +95,9 @@ La première question est celle du bench vocal (« what the code does with an un
 
 > And if I want to try it myself, Open the app. Every pull request gets its own preview URL, automatically. No config, no deploy, it's just there.
 >
-> OK. I've seen it working, and I know exactly what changed. I slide to merge… it lands on GitHub, and Jira moves to Done.
+> OK. I've seen it working, and I know exactly what changed. I slide to merge… it lands on GitHub, and the issue closes.
 
-À l'écran : Open the app, la preview s'ouvre à son adresse yarrow.page (l'URL bien visible), deux clics dans l'app. Retour, le levier Merge, la ligne passe à Done. Si possible un plan d'une seconde sur le ticket Jira passé en Done.
+À l'écran : Open the app, la preview s'ouvre à son adresse yarrow.page (l'URL bien visible), deux clics dans l'app. Retour, le levier Merge, la ligne passe à Done. Si possible un plan d'une seconde sur l'issue GitHub passée en Closed (la PR porte « Closes #1 »).
 
 ## 9. Close (2:33–2:55, face cam)
 
@@ -111,9 +111,10 @@ Mot final à l'écran : **yarrow.run**.
 
 ## Before recording
 
-- Un projet Jira propre (une douzaine de tickets plausibles), lié au dépôt Tally du bench.
+- Le dépôt privé [KevTale/my-todo-app](https://github.com/KevTale/my-todo-app) : une liste de tâches React + Vite, ses 3 issues (#1 Filter the task list by status, #2 Mark overdue tasks in red, #3 Edit a task's title inline). Sur prod, avant de filmer : Remove project sur chaque projet importé, et la sélection de l'App `yarrow-run` réduite à `my-todo-app` sur GitHub, pour que l'import n'affiche qu'une ligne.
+- Le ticket filtre essayé une fois sur dev (jamais sur prod : sa PR reviendrait à l'import).
 - L'implémenteur sur Meta : `pnpm implementer meta`.
-- Le ticket `filter` lancé une fois avant le tournage : si la démo est bonne, on filme le vrai Start et on monte sur ce résultat déjà prêt.
+- Sur prod, on filme le vrai Start sur #1 ; le run dure ~7 min, on coupe pendant.
 - Un vrai diff long d'une PR quelconque pour le flash de la partie 5.
 
 Sources :
@@ -139,7 +140,7 @@ Sources :
 **Placeholders à remplacer par les rushs de Kevin**
 - La face cam (vue `face` : silhouette « FACE CAM · KEVIN ») : intro, transition, Muse Spark, conclusion.
 - La bulle webcam en bas à droite (`Bubble`).
-- L'écran de setup GitHub → Jira (vue `setup`).
+- L'écran de setup GitHub → import du dépôt (vue `setup`).
 - « Open the app » (vue `preview` : un faux navigateur et une adresse yarrow.page inventée).
 - La voix ElevenLabs de Kevin, par sa vraie voix ; celle de l'agent par la vraie voix de l'appel, s'il l'a filmé.
 - Si Kevin filme le vrai dashboard, ses prises remplacent aussi la prise de la landing.
