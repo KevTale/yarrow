@@ -3946,8 +3946,8 @@ tbody tr:hover {
   font-size: 13.5px;
   color: var(--muted);
 }
-/* Why the agents stopped, at the head of the ticket, unboxed. */
-.pp-main .ra-stop {
+/* Why the agents stopped, at the head of the conversation, unboxed. */
+.pp-chat .ra-stop {
   padding: 0;
   border: 0;
   background: none;
@@ -3991,26 +3991,6 @@ tbody tr:hover {
 .tix-older button:hover,
 .tix-older button:focus-visible {
   color: var(--text);
-}
-/* The answer to the agents: the right column, as a pull request's
-   conversation, its box at the foot. As tall as the questions beside it,
-   not as the conversation's column. */
-.pp-grid > .pp-talk.tp-talk {
-  position: static;
-  min-height: 0;
-  max-height: none;
-  grid-template-rows: 1fr auto;
-}
-.tp-talk-note {
-  align-self: end;
-  margin: 0 0 12px 22px;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-@media (max-width: 760px) {
-  .tp-talk-note {
-    margin-left: 0;
-  }
 }
 /* Markdown at reading size: a little larger and heavier than the
    interface, on a line short enough for the eye to come back to. */
@@ -9999,7 +9979,7 @@ html:has(.pp-stage:modal) {
     gap: 24px;
   }
   /* Its box stays at the bottom of the screen the whole way down the row. */
-  .pp-grid > .pp-talk:not(.tp-talk) {
+  .pp-grid > .pp-talk {
     display: contents;
   }
   .pp-grid > .pp-talk .pp-talk-thread {
@@ -10019,18 +9999,6 @@ html:has(.pp-stage:modal) {
   .pp-grid > .pp-talk > .pp-asking,
   .pp .sk-ask {
     margin-left: 0;
-  }
-  .pp-grid > .pp-talk.tp-talk {
-    padding-top: 22px;
-    border-top: 1px solid #ffffff0f;
-    border-left: 0;
-  }
-  .pp-grid > .pp-talk.tp-talk .pp-talk-thread {
-    padding: 0 6px 22px 0;
-    border-top: 0;
-  }
-  .pp-grid > .pp-talk.tp-talk > .pp-asking {
-    position: static;
   }
 }
 

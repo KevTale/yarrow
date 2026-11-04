@@ -61,6 +61,8 @@ export interface ChatAnswer {
   change: string | null;
   /** The ticket it proposes, created only from its card. */
   ticket: ChatTicket | null;
+  /** A stopped ticket starts again, on the member's word, with this note. */
+  restart?: { note: string | null };
   usage: ChatUsage;
 }
 
@@ -94,6 +96,27 @@ Changes:
 - A closed or merged pull request can no longer change: say so.
 
 ${TICKET_RULES}`;
+
+/** On a ticket the agents stopped on: no pull request came out of it. */
+const STOPPED = `You are Yarrow's agent on a ticket Yarrow's agents stopped on: no pull request came out of it. A member of the project talks to you on Yarrow's dashboard, beside the ticket as it is written. You are the colleague who looks into what went wrong and gets it moving again.
+
+How you answer:
+- ${LANGUAGE_RULE}
+- In plain, whole sentences, the way you would explain it to someone next to you: what happened, why, and what comes next. Two to five sentences unless they ask for more. No headings, no filler, no praise of the question.
+- The member is not always a developer: say what an error means instead of quoting it, and quote it only when they ask.
+- Never guess: what happened is below, and the repository (read at its default branch) and the tickets are there through your tools. When you do not know, say so.
+
+What each stop means, and what gets it moving:
+- ticket_unclear: the agents would not guess what the ticket wants. Their questions are below and on the page: the member's answers are what they wait for.
+- github_refused: GitHub turned Yarrow's write down, usually a permission the Yarrow app lacks on this repository. Starting again changes nothing until the member fixes it, on GitHub, in the repository's settings under GitHub Apps.
+- provider_error: an AI provider failed. It usually passes, and starting again is the way.
+- platform_error: Yarrow itself failed, not the ticket and not the member. Say what failed, from the error below. Starting again is the way; when several attempts failed alike, say it is on Yarrow's side.
+
+Starting again:
+- You cannot change code or the repository. You can start the ticket again with start_again: the implementer then works from the ticket as written.
+- Call it when they ask for it or say yes to it. When they answer the agents' questions, that answer is their yes. Otherwise never on your own: a question is not a yes. Offer it in your words when it would help.
+- What the implementer must know goes in the note, as the member said it: their answer, or what you agreed. It goes on the ticket as a comment.
+- Then say in one short sentence that it is starting again.`;
 
 /** When the member writes beside the stage, the branch running live. */
 const ON_STAGE = `The stage:
@@ -213,6 +236,32 @@ export const CHAT_TOOLS: Tool[] = [
   },
 ];
 
+/** The agent's one action on a stopped ticket. */
+const START_AGAIN: Tool = {
+  name: "start_again",
+  description:
+    "Start this stopped ticket again, when the member asks for it or says yes to it. The note goes on the ticket as a comment, where the implementer reads it.",
+  input_schema: {
+    type: "object",
+    properties: {
+      note: {
+        type: "string",
+        description:
+          "What the implementer must know that the ticket does not say: the member's answer, or what you agreed, in the conversation's language. Empty when nothing changed.",
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+/** What the agent has on a stopped ticket: no change to propose, no card. */
+const STOPPED_TOOLS: Tool[] = [
+  ...CHAT_TOOLS.filter(
+    (tool) => tool.name !== "propose_change" && tool.name !== "propose_ticket",
+  ),
+  START_AGAIN,
+];
+
 /** What a proposal's tool answers: the card shows under the agent's words. */
 const CARD_SHOWN =
   "Shown to the member as a card, under your words. Do not repeat it: one short sentence at most.";
@@ -236,6 +285,7 @@ const inputs = {
     body: z.string().trim().min(1).max(4000),
     suggestion: z.number().int().min(1).optional(),
   }),
+  start_again: z.object({ note: z.string().trim().max(4000).optional() }),
 };
 
 const clip = (text: string, max: number) =>
@@ -306,7 +356,7 @@ export function chatContextText(
     diff: Awaited<ReturnType<RepoReader["pullDiff"]>> | null;
   },
 ): string {
-  const { project, ticket, pullRequest, panel } = context;
+  const { project, ticket, pullRequest, panel, stop } = context;
   const parts: string[] = [
     `Project: ${project.name} (${project.repository} on GitHub, default branch ${project.defaultBranch}).`,
     `Ticket (${ticket.source} ${ticket.key}): ${ticket.title}\n${ticket.url}\n${clip(ticket.body.trim() || "(no description)", 6000)}`,
@@ -316,6 +366,10 @@ export function chatContextText(
       `Pull request #${pullRequest.number}, ${pullRequest.state}, branch ${pullRequest.branch}: ${pullRequest.url}`,
     );
   else parts.push("No pull request is open for this ticket.");
+  if (stop)
+    parts.push(
+      `Why it stopped (${stop.reason}, ${stop.attempts === 1 ? "first attempt" : `${stop.attempts} attempts`}):\n${stop.summary}${stop.error ? `\n\nThe error behind it:\n${stop.error}` : ""}`,
+    );
   const spotted = spottedLines(panel);
   if (spotted.length)
     parts.push(
@@ -370,7 +424,11 @@ export function chatContextText(
         )
         .join("\n")}`,
     );
-  parts.push(pageShows(panel));
+  parts.push(
+    stop
+      ? "On the page, beside the conversation: the ticket as it is written. Above your words: why it stopped."
+      : pageShows(panel),
+  );
   if (extra.presentation)
     parts.push(
       `The demo (your screen with your voice; what is said, with its time):\n${presentationLines(extra.presentation)}`,
@@ -433,7 +491,7 @@ export async function listTickets(sources: ChatSources): Promise<string> {
 /** One tool call, run: its text for the model, and a change when proposed. */
 export async function runChatTool(
   call: Anthropic.Beta.BetaToolUseBlock,
-  context: Pick<ChatContext, "project" | "pullRequest"> & {
+  context: Pick<ChatContext, "project" | "pullRequest" | "stop"> & {
     spotted: string[];
   },
   sources: ChatSources,
@@ -534,6 +592,15 @@ export async function runChatTool(
         ticket: { title: input.title, body: input.body, note },
       };
     }
+    case "start_again": {
+      if (!context.stop)
+        return { text: "This ticket has not stopped.", error: true };
+      const input = parsed.data as z.infer<typeof inputs.start_again>;
+      return {
+        text: "It starts again once you have answered: say so in one short sentence.",
+        restart: { note: input.note || null },
+      };
+    }
     default:
       return { text: `No tool ${call.name}.`, error: true };
   }
@@ -545,6 +612,7 @@ export interface ChatToolResult {
   error?: boolean;
   change?: string;
   ticket?: ChatTicket;
+  restart?: { note: string | null };
 }
 
 /**
@@ -576,7 +644,9 @@ export async function answerQuestion(input: {
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     {
       type: "text",
-      text: `${instructions(hasVideo(context.panel))}\n\n${stage ? ON_STAGE : OFF_STAGE}`,
+      text: context.stop
+        ? STOPPED
+        : `${instructions(hasVideo(context.panel))}\n\n${stage ? ON_STAGE : OFF_STAGE}`,
     },
     {
       type: "text",
@@ -587,7 +657,11 @@ export async function answerQuestion(input: {
       cache_control: { type: "ephemeral" },
     },
   ];
-  const tools = stage ? [...CHAT_TOOLS, ...STAGE_TOOLS] : CHAT_TOOLS;
+  const tools = context.stop
+    ? STOPPED_TOOLS
+    : stage
+      ? [...CHAT_TOOLS, ...STAGE_TOOLS]
+      : CHAT_TOOLS;
   // Earlier answers come back as their words alone: the context above them
   // may have changed since (a correction landed).
   const messages: MessageParam[] = context.history.map((message) => ({
@@ -646,6 +720,7 @@ export async function answerQuestion(input: {
   };
   let change: string | null = null;
   let ticket: ChatTicket | null = null;
+  let restart: ChatAnswer["restart"];
   let shown = false;
   for (let step = 0; ; step++) {
     const turn = await ask(step >= CHAT_MAX_STEPS);
@@ -662,7 +737,7 @@ export async function answerQuestion(input: {
         .trim();
       if (turn.refused && !text)
         return { body: "I can't help with that one.", change, ticket, usage };
-      return { body: text, change, ticket, usage };
+      return { body: text, change, ticket, restart, usage };
     }
     messages.push({ role: "assistant", content: turn.content });
     const run = async (call: Anthropic.Beta.BetaToolUseBlock) => {
@@ -684,6 +759,7 @@ export async function answerQuestion(input: {
       }));
       if (result.change) change = result.change;
       if (result.ticket) ticket = result.ticket;
+      if (result.restart) restart = result.restart;
       return {
         type: "tool_result" as const,
         tool_use_id: call.id,

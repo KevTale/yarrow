@@ -627,6 +627,14 @@ describe("run failures", () => {
       summary:
         "GitHub refused to write .github/workflows/check.yml: the Yarrow app needs the Workflows permission on this repository.",
     });
+    expect(
+      describeFailure(
+        "git failed (128): Cloning into '/workspace/repo'...\nfatal: Repository not found\n",
+      ),
+    ).toEqual({
+      reason: "platform_error",
+      summary: "Yarrow could not read the repository: Repository not found.",
+    });
     expect(describeFailure(refused, ["deno.json"]).summary).toContain(
       "missing a permission",
     );

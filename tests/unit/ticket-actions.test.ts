@@ -11,8 +11,10 @@ import {
   CLOSED_FROM_YARROW,
   closePullRequest,
   closeTicket,
+  startAgain,
 } from "../../src/server/github/ticket-actions";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
+import type { TrackerContext } from "../../src/server/trackers/context";
 import { createTestDatabase } from "./helpers/pglite";
 
 const t = await createTestDatabase();
@@ -97,6 +99,39 @@ describe("the builder's actions on a ticket", () => {
     expect(answeredFromYarrow("Marie", "a\nb")).toBe(
       "**Marie** answered from Yarrow:\n\n> a\n> b",
     );
+    expect(await status()).toBe("queued");
+  });
+
+  it("starts a stopped ticket again from its conversation", async () => {
+    const trackers = { secrets: {} } as TrackerContext;
+    await stop();
+    const { calls, fetcher } = github();
+    expect(
+      await startAgain(
+        db,
+        credentials,
+        trackers,
+        { projectId, key: "3", note: null, login: "Marie" },
+        fetcher,
+      ),
+    ).toEqual({ ok: true });
+    expect(calls).toEqual([]);
+    expect(await status()).toBe("queued");
+
+    await stop();
+    expect(
+      await startAgain(
+        db,
+        credentials,
+        trackers,
+        { projectId, key: "3", note: "Only the CSV export.", login: "Marie" },
+        fetcher,
+      ),
+    ).toEqual({ ok: true });
+    expect(calls.at(-1)).toEqual({
+      call: "POST /repos/marie/halyard/issues/3/comments",
+      body: { body: answeredFromYarrow("Marie", "Only the CSV export.") },
+    });
     expect(await status()).toBe("queued");
   });
 

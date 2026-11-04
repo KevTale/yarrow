@@ -1084,11 +1084,11 @@ function lines(panel: Panel): Line[] {
 export type ThreadMessage = Message;
 
 /**
- * The pull request's conversation: the agent's notes, questions, answers,
- * the changes asked, then the box to ask the next one. Beside the film in
- * the panel; beside the live stage on its page, where the agent may act on
- * the stage and `turn` is the live call's turn under way, until the thread
- * has it.
+ * A ticket's conversation: the agent's notes, questions, answers, the changes
+ * asked, then the box to ask the next one. Beside the film in the panel;
+ * beside the live stage on its page, where the agent may act on the stage and
+ * `turn` is the live call's turn under way, until the thread has it; beside a
+ * stopped ticket, with no pull request, under `head`.
  */
 export function Conversation({
   panel,
@@ -1104,6 +1104,7 @@ export function Conversation({
   turn = [],
   onAsking,
   call,
+  head,
 }: {
   panel: Panel;
   projectId: string;
@@ -1125,6 +1126,8 @@ export function Conversation({
   onAsking?: () => void;
   /** The agent can be called from here. */
   call?: ConversationCall;
+  /** What it opens on, before anything is said. */
+  head?: ReactNode;
 }) {
   // The agent's notes set the panel's column (--talk-opened in the styles);
   // what is said after them scrolls inside, so a long conversation neither
@@ -1146,8 +1149,8 @@ export function Conversation({
     aside.style.setProperty("--talk-opened", `${height}px`);
   }, []);
   const { live, pullRequest } = panel;
-  if (!pullRequest) return null;
-  const open = pullRequest.state === "open" && live?.open !== false;
+  if (!pullRequest && !head) return null;
+  const open = pullRequest?.state === "open" && live?.open !== false;
   const answering = panel.messages.some(
     (message) => message.status === "pending",
   );
@@ -1165,6 +1168,7 @@ export function Conversation({
           open={open}
           onSeek={onSeek}
           onMade={onMade}
+          head={head}
         />
       </div>
       <Ask
@@ -1204,6 +1208,7 @@ function Thread({
   open,
   onSeek,
   onMade,
+  head,
 }: {
   panel: Panel;
   projectId: string;
@@ -1213,6 +1218,7 @@ function Thread({
   /** Plays the film from a moment; null without a film. */
   onSeek: ((ms: number) => void) | null;
   onMade: () => void;
+  head?: ReactNode;
 }) {
   const shown = lines(panel);
   const working = workingText(panel);
@@ -1229,6 +1235,7 @@ function Thread({
   }, [latest, said]);
   return (
     <ol className="pp-chat" ref={list}>
+      {head && <li className="pp-it">{head}</li>}
       <Notes panel={panel} />
       {shown.map((line) =>
         line.kind === "correction" ? (

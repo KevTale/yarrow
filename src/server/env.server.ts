@@ -63,7 +63,7 @@ export interface AppEnv {
         { instruction: string } | { chatMessageId: string }
       ),
     ): Promise<ActionResult>;
-    /** A question in the pull request's conversation, answered in the background. */
+    /** A question in a ticket's conversation, answered in the background. */
     askChat(input: {
       workUnitId: string;
       userId: string;
@@ -76,12 +76,6 @@ export interface AppEnv {
       body: string;
       queue: boolean;
     }): Promise<NewIssueResult>;
-    answerTicket(input: {
-      projectId: string;
-      key: string;
-      answer: string;
-      login: string;
-    }): Promise<ActionResult>;
     closeTicket(input: {
       projectId: string;
       key: string;

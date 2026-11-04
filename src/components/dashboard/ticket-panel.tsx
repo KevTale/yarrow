@@ -1,13 +1,10 @@
-import { useServerFn } from "@tanstack/react-start";
-import { RotateCcw } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/markdown";
-import { Spinner } from "@/components/navigation-feedback";
 import { RunStory, StopReason } from "@/components/run-activity";
 import { ticketText } from "@/core/new-ticket";
 import { merging, workText, type TicketRow } from "@/core/tickets";
-import { answerTicketFn, getTicketFn } from "@/functions/builder.functions";
-import { PullPanel } from "./pull-panel";
+import { getTicketFn } from "@/functions/builder.functions";
+import { Conversation, PullPanel, usePullPanel } from "./pull-panel";
 
 type Detail = Awaited<ReturnType<typeof getTicketFn>>;
 export type TicketAct = (
@@ -77,8 +74,9 @@ export function TicketPanel({
 
 /**
  * The ticket as written in its tracker, read live and again whenever the
- * tracker says it changed; beside it why the agents stopped, or their work
- * live, from the moment it is In progress.
+ * tracker says it changed, the same in every stage; beside it the
+ * conversation on why the agents stopped, or their work live, from the moment
+ * it is In progress.
  */
 function TicketBrief({
   projectId,
@@ -112,7 +110,6 @@ function TicketBrief({
   return (
     <div className={stopped || going ? "pp-grid" : undefined}>
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
-        {stopped && <StopReason reason={row.reason} summary={row.summary} />}
         {detail === undefined ? (
           <div className="tp-lines" aria-busy="true" aria-label="Loading">
             <span className="sk" style={{ width: "88%" }} />
@@ -121,19 +118,11 @@ function TicketBrief({
         ) : text ? (
           <Markdown source={text} />
         ) : (
-          // Stopped, the reason says enough: no "No description" under it.
-          !stopped && <p className="tp-empty">No description</p>
+          <p className="tp-empty">No description</p>
         )}
       </section>
       {stopped && (
-        // Answered as a pull request is talked about: the box at the foot of
-        // the right column.
-        <aside className="pp-talk tp-talk" aria-label="Answer">
-          <p className="tp-talk-note">
-            Your answer goes on the ticket, then it starts again.
-          </p>
-          <Answer projectId={projectId} row={row} onAnswered={onChanged} />
-        </aside>
+        <StoppedTalk projectId={projectId} row={row} onChanged={onChanged} />
       )}
       {going && (
         <aside className="pp-aside">
@@ -149,97 +138,43 @@ function TicketBrief({
 }
 
 /**
- * The agents stopped and asked: the builder answers here. The answer is
- * written on the ticket, where the agents read it, and the ticket starts
- * again.
+ * Why the agents stopped, at the head of the conversation: the agent looks
+ * into it with the member and starts the ticket again on their word, the row
+ * following. Nothing said here starts a run by itself.
  */
-function Answer({
+function StoppedTalk({
   projectId,
   row,
-  onAnswered,
+  onChanged,
 }: {
   projectId: string;
   row: TicketRow;
-  onAnswered: () => void;
+  onChanged: () => void;
 }) {
-  const send = useServerFn(answerTicketFn);
-  const [text, setText] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  // One line, growing with what is typed, as the pull request's box.
-  const box = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const area = box.current;
-    if (!area) return;
-    area.style.height = "auto";
-    area.style.height = `${area.scrollHeight}px`;
-  }, [text]);
-
-  async function submit() {
-    const answer = text.trim();
-    if (!answer || pending) return;
-    setError("");
-    setPending(true);
-    try {
-      const result = await send({
-        data: { projectId, key: row.key, answer },
-      });
-      if (result.ok) {
-        setText("");
-        onAnswered();
-      } else setError(result.error);
-    } catch {
-      setError("That did not go through. Try again.");
-    } finally {
-      setPending(false);
-    }
-  }
-
+  const { panel, setPanel, refresh } = usePullPanel(projectId, row.key);
+  const [draft, setDraft] = useState("");
+  const answering = Boolean(
+    panel?.messages.some((message) => message.status === "pending"),
+  );
+  const wasAnswering = useRef(false);
+  useEffect(() => {
+    if (wasAnswering.current && !answering) onChanged();
+    wasAnswering.current = answering;
+  }, [answering, onChanged]);
+  const reason = <StopReason reason={row.reason} summary={row.summary} />;
+  if (!panel) return <aside className="pp-aside">{reason}</aside>;
   return (
-    <div className="pp-asking">
-      <form
-        className="pp-input"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        <textarea
-          ref={box}
-          aria-label={`Answer the agents on ${row.ref}`}
-          placeholder="Answer the questions…"
-          rows={1}
-          value={text}
-          maxLength={4000}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              void submit();
-            }
-          }}
-        />
-        {text.trim() && (
-          <button
-            type="submit"
-            className="pp-go"
-            aria-label="Answer and retry"
-            data-tip="Answer and retry"
-            aria-disabled={pending}
-          >
-            {pending ? <Spinner /> : <RotateCcw size={16} strokeWidth={2.2} />}
-          </button>
-        )}
-      </form>
-      {error && (
-        <p className="pp-error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    <Conversation
+      panel={panel}
+      projectId={projectId}
+      rowKey={row.key}
+      draft={draft}
+      onDraft={setDraft}
+      onPanel={setPanel}
+      onRefresh={refresh}
+      onSeek={null}
+      onMade={onChanged}
+      head={reason}
+    />
   );
 }

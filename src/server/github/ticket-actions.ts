@@ -4,13 +4,15 @@ import { recordEvent } from "../../db/events";
 import { PostgresLedger } from "../../db/ledger";
 import { projects, pullRequests, workUnits } from "../../db/schema";
 import { retryTicket, signalIssues } from "../../db/tickets";
+import type { TrackerContext } from "../trackers/context";
+import { answerTrackerTicket } from "../trackers/flow";
 import type { AppCredentials, Fetch } from "./app";
 import { splitRepository } from "./delivery";
 import { reason, writeClient, type ActionResult } from "./pull-actions";
 
 /**
  * What the builder does to a ticket itself from the dashboard, beyond its
- * pull request: answer the agents' questions, close it. Only the brain runs
+ * pull request: start it again with what the agents must know, close it. Only the brain runs
  * the GitHub writes (the one GitHub write path); a Jira ticket's own write
  * is done by the web Worker before it asks the brain for the rest.
  */
@@ -72,6 +74,40 @@ export async function answerIssue(
     return { ok: false, error: reason(error) };
   }
   return (await retryTicket(db, input.projectId, input.key))
+    ? { ok: true }
+    : { ok: false, error: "This ticket is not waiting for an answer." };
+}
+
+/**
+ * A stopped ticket started again from its conversation: what the agent was
+ * told goes on the ticket first, where the implementer reads it.
+ */
+export async function startAgain(
+  db: Database,
+  credentials: AppCredentials,
+  trackers: TrackerContext,
+  input: { projectId: string; key: string; note: string | null; login: string },
+  fetcher?: Fetch,
+): Promise<ActionResult> {
+  const { projectId, key, note, login } = input;
+  if (note) {
+    const unit = await unitFor(db, projectId, key);
+    if (unit?.source === "github")
+      return answerIssue(
+        db,
+        credentials,
+        { projectId, key, answer: note, login },
+        fetcher,
+      );
+    await answerTrackerTicket(
+      db,
+      trackers,
+      projectId,
+      key,
+      answeredFromYarrow(login, note),
+    );
+  }
+  return (await retryTicket(db, projectId, key))
     ? { ok: true }
     : { ok: false, error: "This ticket is not waiting for an answer." };
 }

@@ -26,6 +26,7 @@ import {
   saveAnswer,
   saveSpokenTurn,
   threadMessages,
+  ticketOfAnswer,
   type ChatContext,
 } from "../../src/db/chat";
 import { projectsForUser } from "../../src/db/github-tasks";
@@ -504,6 +505,138 @@ const context: ChatContext = {
   panel: null,
   history: [{ author: "builder", body: "Put the filters on the right?" }],
 };
+
+describe("the conversation on a stopped ticket", () => {
+  const error = "git failed (128): fatal: Remote branch main not found";
+  const stopped = async () => {
+    await raw.delete(schema.pullRequests);
+    await raw
+      .update(schema.workUnits)
+      .set({ status: "abstained" })
+      .where(eq(schema.workUnits.id, workUnitId));
+    const [run] = await raw
+      .insert(schema.agentRuns)
+      .values({
+        id: crypto.randomUUID(),
+        workUnitId,
+        kind: "implementation",
+        status: "abstained",
+        implementer: "muse-wonder-1.0:high",
+        reviewer: "claude-opus-5-5:high",
+      })
+      .returning({ id: schema.agentRuns.id });
+    await raw.insert(schema.results).values({
+      agentRunId: run!.id,
+      outcome: "abstained",
+      abstentionReason: "platform_error",
+      summary: "Yarrow stopped on an internal error.",
+    });
+    await raw.insert(schema.events).values({
+      type: "run.failed",
+      agentRunId: run!.id,
+      payload: { message: error },
+    });
+    const asked = await askQuestion(db, {
+      workUnitId,
+      userId: marie.userId,
+      text: "What went wrong?",
+    });
+    if (!asked.ok) throw new Error("not asked");
+    return asked.answerId;
+  };
+
+  it("tells the agent why it stopped, with the error behind it", async () => {
+    const context = (await chatContext(db, await stopped()))!;
+    expect(context.stop).toEqual({
+      reason: "platform_error",
+      summary: "Yarrow stopped on an internal error.",
+      error,
+      attempts: 1,
+    });
+    const text = chatContextText(context, { presentation: null, diff: null });
+    expect(text).toContain("platform_error, first attempt");
+    expect(text).toContain(error);
+    expect(text).not.toContain("There is no demo");
+  });
+
+  it("starts it again only through its tool, the note kept", async () => {
+    const answerId = await stopped();
+    const { client, requests } = claude((body) =>
+      (body.messages as unknown[]).length === 1
+        ? {
+            stop_reason: "tool_use",
+            content: [
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "start_again",
+                input: { note: "Only the CSV export." },
+              },
+            ],
+          }
+        : {
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: "It is starting again." }],
+          },
+    );
+    const answer = await answerQuestion({
+      client,
+      context: (await chatContext(db, answerId))!,
+      sources: sources(),
+      presentation: null,
+    });
+    expect(answer.restart).toEqual({ note: "Only the CSV export." });
+    expect(answer.body).toBe("It is starting again.");
+    const tools = (requests[0]!.body.tools as { name: string }[]).map(
+      (tool) => tool.name,
+    );
+    expect(tools).toContain("start_again");
+    expect(tools).not.toContain("propose_change");
+    expect(tools).not.toContain("propose_ticket");
+    expect(await ticketOfAnswer(db, answerId)).toEqual({
+      projectId: (await projectsForUser(db, marie.userId))[0]!.id,
+      key: "3",
+      login: "Marie",
+    });
+  });
+
+  it("says nothing started when the agent only answers", async () => {
+    const { client } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "The repository had no commit." }],
+    }));
+    const answer = await answerQuestion({
+      client,
+      context: (await chatContext(db, await stopped()))!,
+      sources: sources(),
+      presentation: null,
+    });
+    expect(answer.restart).toBeUndefined();
+  });
+
+  it("offers no restart on a pull request", async () => {
+    const asked = await askQuestion(db, {
+      workUnitId,
+      userId: marie.userId,
+      text: "Why this?",
+    });
+    if (!asked.ok) throw new Error("not asked");
+    const { client, requests } = claude(() => ({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: "Because." }],
+    }));
+    await answerQuestion({
+      client,
+      context: (await chatContext(db, asked.answerId))!,
+      sources: sources(),
+      presentation: null,
+    });
+    const tools = (requests[0]!.body.tools as { name: string }[]).map(
+      (tool) => tool.name,
+    );
+    expect(tools).not.toContain("start_again");
+  });
+});
 
 function sources(): ChatSources & { reads: string[] } {
   const reads: string[] = [];

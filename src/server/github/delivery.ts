@@ -56,6 +56,37 @@ async function branchHead(
 }
 
 /**
+ * A repository with no commit has no branch to clone and none to open a pull
+ * request against: its default branch gets a first commit, a README with its
+ * name, as GitHub's own first page offers. The contents API is the one write
+ * an empty repository accepts (the Git Database answers 409). Two runs may
+ * start together on it: the second finds the first one's commit.
+ */
+export async function ensureFirstCommit(
+  client: GitHubClient,
+  { owner, repo }: Repository,
+): Promise<void> {
+  try {
+    await client.request("GET", `/repos/${owner}/${repo}/commits?per_page=1`);
+    return;
+  } catch (error) {
+    if (!(error instanceof GitHubError) || error.status !== 409) throw error;
+  }
+  try {
+    await client.request("PUT", `/repos/${owner}/${repo}/contents/README.md`, {
+      message: "Initial commit",
+      content: btoa(`# ${repo}\n`),
+    });
+  } catch (error) {
+    if (
+      !(error instanceof GitHubError) ||
+      (error.status !== 409 && error.status !== 422)
+    )
+      throw error;
+  }
+}
+
+/**
  * One commit with every change, on `branch`. The branch is created from
  * `baseBranch` the first time; corrections add a commit on top of it.
  * Returns the new commit SHA.

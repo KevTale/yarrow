@@ -42,6 +42,7 @@ import {
   branchName,
   commentOnIssue,
   commitChanges,
+  ensureFirstCommit,
   openDraftPullRequest,
   updatePullRequestBody,
   splitRepository,
@@ -402,7 +403,14 @@ export class RunPipeline {
       this.deps.fetcher,
     ).request<{
       default_branch: string;
+      size: number;
     }>("GET", `/repos/${owner}/${repo}`);
+    // Nothing to clone yet: a repository created for this ticket.
+    if (run.kind === "implementation" && repository.size === 0)
+      await ensureFirstCommit(
+        new GitHubClient(await this.token(access, "write"), this.deps.fetcher),
+        { owner, repo },
+      );
     const ticket = await this.freshTicket(context, readToken);
     if (run.kind === "implementation" && context.tracker)
       await this.moveTicket(workUnit.id, "started");

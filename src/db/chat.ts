@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  desc,
   eq,
   gte,
   inArray,
@@ -18,7 +19,16 @@ import {
 } from "../core/chat";
 import type { Database } from "./client";
 import { pullPanel, type PanelData } from "./pull-panel";
-import { chatMessages, projects, pullRequests, workUnits } from "./schema";
+import {
+  accountMembers,
+  agentRuns,
+  chatMessages,
+  events,
+  projects,
+  pullRequests,
+  results,
+  workUnits,
+} from "./schema";
 
 /** One line of the conversation, as the dashboard shows it. */
 export interface PanelMessage {
@@ -192,7 +202,13 @@ export async function saveAnswer(
 ): Promise<void> {
   await db
     .update(chatMessages)
-    .set({ ...answer, status: "done" })
+    .set({
+      body: answer.body,
+      change: answer.change,
+      ticket: answer.ticket,
+      usage: answer.usage,
+      status: "done",
+    })
     .where(
       and(eq(chatMessages.id, answerId), eq(chatMessages.status, "pending")),
     );
@@ -356,8 +372,73 @@ export interface ChatContext {
     state: "open" | "merged" | "closed";
   } | null;
   panel: PanelData | null;
+  /** The agents stopped on this ticket, with no pull request to show for it. */
+  stop?: TicketStop | null;
   /** Earlier questions and answers, then the question being answered. */
   history: { author: "builder" | "agent"; body: string }[];
+}
+
+/** Why a ticket stopped: as the page says it, and the error behind it. */
+export interface TicketStop {
+  reason: string;
+  summary: string;
+  error: string | null;
+  /** Runs that tried this ticket. */
+  attempts: number;
+}
+
+async function whyStopped(
+  db: Database,
+  workUnitId: string,
+): Promise<TicketStop | null> {
+  const runs = await db
+    .select({
+      id: agentRuns.id,
+      reason: results.abstentionReason,
+      summary: results.summary,
+    })
+    .from(agentRuns)
+    .innerJoin(results, eq(results.agentRunId, agentRuns.id))
+    .where(eq(agentRuns.workUnitId, workUnitId))
+    .orderBy(desc(agentRuns.createdAt));
+  const last = runs[0];
+  if (!last) return null;
+  const [failed] = await db
+    .select({ payload: events.payload })
+    .from(events)
+    .where(and(eq(events.agentRunId, last.id), eq(events.type, "run.failed")));
+  const error = failed?.payload.message;
+  return {
+    reason: last.reason ?? "stopped",
+    summary: last.summary,
+    error: typeof error === "string" ? error : null,
+    attempts: runs.length,
+  };
+}
+
+/** The ticket an answer is about, and who asked. */
+export async function ticketOfAnswer(
+  db: Database,
+  answerId: string,
+): Promise<{ projectId: string; key: string; login: string } | null> {
+  const [row] = await db
+    .select({
+      projectId: workUnits.projectId,
+      key: workUnits.externalId,
+      login: accountMembers.githubLogin,
+    })
+    .from(chatMessages)
+    .innerJoin(workUnits, eq(workUnits.id, chatMessages.workUnitId))
+    .innerJoin(projects, eq(projects.id, workUnits.projectId))
+    .leftJoin(
+      accountMembers,
+      and(
+        eq(accountMembers.accountId, projects.accountId),
+        eq(accountMembers.userId, chatMessages.userId),
+      ),
+    )
+    .where(eq(chatMessages.id, answerId));
+  return row ? { ...row, login: row.login ?? "A maintainer" } : null;
 }
 
 export async function chatContext(
@@ -449,14 +530,16 @@ async function describePull(
     project: typeof projects.$inferSelect;
   },
 ): Promise<Omit<ChatContext, "answerId" | "history">> {
-  const [[pull], panel] = await Promise.all([
+  const [[pull], panel, stop] = await Promise.all([
     db
       .select()
       .from(pullRequests)
       .where(eq(pullRequests.workUnitId, row.unit.id)),
     pullPanel(db, row.unit.projectId, row.unit.externalId),
+    row.unit.status === "abstained" ? whyStopped(db, row.unit.id) : null,
   ]);
   return {
+    stop: pull ? null : stop,
     project: {
       id: row.project.id,
       name: row.project.name,

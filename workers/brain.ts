@@ -40,6 +40,7 @@ import {
   askedToday,
   askQuestion,
   chatContext,
+  ticketOfAnswer,
   failAnswer,
   pullContext,
   saveSpokenTurn,
@@ -81,7 +82,7 @@ import {
   type NewIssueResult,
 } from "../src/server/github/new-issue";
 import {
-  answerIssue,
+  startAgain,
   closePullRequest,
   closeTicket,
 } from "../src/server/github/ticket-actions";
@@ -822,7 +823,41 @@ export class ChatWorkflow extends WorkflowEntrypoint<BrainEnv, ChatRequest> {
     await step.do("save", () =>
       withDb(env, (db) => saveAnswer(db, answerId, answer)),
     );
+    const { restart } = answer;
+    if (restart)
+      await step.do("start again", () =>
+        startTicketAgain(env, answerId, restart.note),
+      );
   }
+}
+
+/** The agent starts a stopped ticket again, on the member's word. */
+async function startTicketAgain(
+  env: BrainEnv,
+  answerId: string,
+  note: string | null,
+): Promise<void> {
+  if (!env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY) return;
+  const credentials = {
+    appId: env.GITHUB_APP_ID,
+    privateKey: env.GITHUB_APP_PRIVATE_KEY,
+  };
+  const result = await withDb(env, async (db) => {
+    const ticket = await ticketOfAnswer(db, answerId);
+    return ticket
+      ? startAgain(
+          db,
+          credentials,
+          { secrets: trackerSecretsFromEnv(env) },
+          { ...ticket, note },
+        )
+      : null;
+  });
+  if (result?.ok)
+    await tick(env, true).catch((error) =>
+      console.warn("start again", describe(error)),
+    );
+  else if (result) console.warn("start again", result.error);
 }
 
 /** How long the page gets to go to the app, before the agent's first move. */
@@ -1206,27 +1241,6 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     return result;
   }
 
-  /** The agents' questions answered on a GitHub issue: queued again, now. */
-  async answerTicket(input: {
-    projectId: string;
-    key: string;
-    answer: string;
-    login: string;
-  }): Promise<ActionResult> {
-    const credentials = this.credentials();
-    if (!credentials) return { ok: false, error: "GitHub is not configured." };
-    const result = await withDb(this.env, (db) =>
-      answerIssue(db, credentials, input),
-    );
-    if (result.ok)
-      this.ctx.waitUntil(
-        tick(this.env, true).catch((error) =>
-          console.warn("answer", describe(error)),
-        ),
-      );
-    return result;
-  }
-
   /**
    * A ticket closed from the dashboard: the issue on GitHub (a tracker ticket
    * is moved by the web Worker), its open pull request, Yarrow's copy.
@@ -1268,7 +1282,7 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     return result;
   }
 
-  /** A question in a pull request's conversation: answered in the background. */
+  /** A question in a ticket's conversation: answered in the background. */
   async askChat(input: {
     workUnitId: string;
     userId: string;

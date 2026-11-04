@@ -22,7 +22,6 @@ import { databaseConfigured, withDb } from "@/server/db.server";
 import { appEnv } from "@/server/env.server";
 import { openIssues, readIssue } from "@/server/github/issues.server";
 import {
-  answerTrackerTicket,
   closeTrackerTicket,
   createTrackerTicket,
   jiraReady,
@@ -259,9 +258,9 @@ export const requestChangeFn = createServerFn({ method: "POST" })
   });
 
 /**
- * A question in the pull request's conversation: the agent answers in the
- * background, the opened row polls until it has. Asked beside the stage,
- * the agent may act on it while it is up.
+ * A question in a ticket's conversation, on its pull request or beside why it
+ * stopped: the agent answers in the background, the opened row polls until it
+ * has. Asked beside the stage, the agent may act on it while it is up.
  */
 export const askChatFn = createServerFn({ method: "POST" })
   .validator(
@@ -273,7 +272,7 @@ export const askChatFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { viewer, panel } = await memberPanel(data.projectId, data.key);
     const brain = appEnv().BRAIN;
-    if (!panel?.pullRequest || !brain) return unavailable;
+    if (!panel || !brain) return unavailable;
     return brain.askChat({
       workUnitId: panel.workUnitId,
       userId: viewer.userId,
@@ -284,52 +283,6 @@ export const askChatFn = createServerFn({ method: "POST" })
 
 type Outcome = { ok: true } | { ok: false; error: string };
 const githubKey = (key: string) => /^\d+$/.test(key);
-
-/**
- * The agents stopped and asked: the builder's answer goes on the ticket as
- * a comment (by the App on GitHub, through the brain; as the person who
- * connected Jira on Jira), then the ticket is queued again.
- */
-export const answerTicketFn = createServerFn({ method: "POST" })
-  .validator(ticketRef.extend({ answer: z.string().trim().min(1).max(4000) }))
-  .handler(async ({ data }): Promise<Outcome> => {
-    const viewer = await requireViewer();
-    const login = viewer.githubLogin ?? viewer.name ?? "A maintainer";
-    const project = await withDb((db) =>
-      requireProjectMember(db, viewer.userId, data.projectId),
-    );
-    if (githubKey(data.key)) {
-      const brain = appEnv().BRAIN;
-      if (!brain) return unavailable;
-      return brain.answerTicket({
-        projectId: project.id,
-        key: data.key,
-        answer: data.answer,
-        login,
-      });
-    }
-    try {
-      const retried = await withDb(async (db) => {
-        await answerTrackerTicket(
-          db,
-          trackerContext(),
-          project.id,
-          data.key,
-          `${login} answered from Yarrow:\n\n${data.answer}`,
-        );
-        return retryTicket(db, project.id, data.key);
-      });
-      if (!retried)
-        return {
-          ok: false,
-          error: "This ticket is not waiting for an answer.",
-        };
-      await kickBrain();
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, error: (error as Error).message };
-    }
-  });
 
 /**
  * Closes a ticket where it lives (a GitHub issue as not planned, a Jira or

@@ -18,6 +18,7 @@ import {
 import {
   branchName,
   commitChanges,
+  ensureFirstCommit,
   openDraftPullRequest,
 } from "../../src/server/github/delivery";
 import { handleGitHubEvent } from "../../src/server/github/webhook";
@@ -86,6 +87,55 @@ function fakeGitHub(
   }) as typeof fetch;
   return { client: new GitHubClient("token", fetcher), calls };
 }
+
+describe("a repository with no commit", () => {
+  const repository = { owner: "o", repo: "r" };
+  const github = (commits: number, put = 201) => {
+    const calls: { method: string; path: string; body: unknown }[] = [];
+    const fetcher = (async (url: string, init: RequestInit) => {
+      const method = init.method ?? "GET";
+      const path = url.replace("https://api.github.com", "");
+      const body = init.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ method, path, body });
+      const status = method === "PUT" ? put : commits;
+      return new Response(
+        JSON.stringify({ message: "Git Repository is empty." }),
+        {
+          status,
+        },
+      );
+    }) as typeof fetch;
+    return { client: new GitHubClient("token", fetcher), calls };
+  };
+
+  it("gets a first commit, a README with its name", async () => {
+    const { client, calls } = github(409);
+    await ensureFirstCommit(client, repository);
+    expect(calls.at(-1)).toEqual({
+      method: "PUT",
+      path: "/repos/o/r/contents/README.md",
+      body: { message: "Initial commit", content: btoa("# r\n") },
+    });
+  });
+
+  it("leaves a repository that has one alone", async () => {
+    const { client, calls } = github(200);
+    await ensureFirstCommit(client, repository);
+    expect(calls.map((call) => call.method)).toEqual(["GET"]);
+  });
+
+  it("finds the commit of a run that started with it", async () => {
+    const { client } = github(409, 422);
+    await expect(
+      ensureFirstCommit(client, repository),
+    ).resolves.toBeUndefined();
+  });
+
+  it("says when GitHub refuses it", async () => {
+    const { client } = github(409, 403);
+    await expect(ensureFirstCommit(client, repository)).rejects.toThrow("403");
+  });
+});
 
 describe("PR delivery", () => {
   const repository = { owner: "o", repo: "r" };

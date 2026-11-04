@@ -83,6 +83,12 @@ export function describeFailure(
       summary:
         "GitHub refused the change: the repository or the branch is out of the Yarrow app's reach.",
     };
+  const clone = /^git failed \(\d+\):[\s\S]*?fatal: (.+)/.exec(bare(message));
+  if (clone)
+    return {
+      reason: "platform_error",
+      summary: `Yarrow could not read the repository: ${clone[1]!.trim()}.`,
+    };
   const unpaid = outOfCredit(message);
   if (unpaid)
     return {
