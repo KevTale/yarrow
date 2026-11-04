@@ -7634,15 +7634,25 @@ body:has(.sb-dialog[open]) {
 }
 
 /* The extract set down on a lit floor: Linear's measured gradients, the light
-   rising under the window from below. */
+   rising under the window from below. Measured from the floor, not the window:
+   with its rows closed the window is short and the light rises behind the
+   pitch, where it starts from the page's own black. */
 .lp-stage {
   position: relative;
   margin-inline: 5px;
   padding-bottom: 112px;
+}
+.lp-stage::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  height: max(100%, 640px);
   border-radius: 6px;
   background:
-    radial-gradient(52.53% 57.5% at 50% 100%, #08090a00 0%, #08090a80 100%),
+    radial-gradient(52.53% 556px at 50% 100%, #08090a00 0%, #08090a80 100%),
     linear-gradient(#08090a calc(100% - 640px), #9ea3ac 100%);
+  pointer-events: none;
 }
 /* Its shadow on the floor, wider than the window. */
 .lp-stage::before {
@@ -7653,12 +7663,16 @@ body:has(.sb-dialog[open]) {
   background: radial-gradient(closest-side, #000000b3, #0000);
   pointer-events: none;
 }
-/* A project's tickets on the landing: the dashboard's rows in a window. */
+/* A project's tickets on the landing: the dashboard's rows in a window. Start
+   shows with no pointer over the line: the visitor has to find it. */
 .lp-dash {
   box-shadow:
     0 0 0 1px #00000066,
     0 24px 48px -8px #000000cc,
     0 8px 16px #00000080;
+}
+.lp-dash .tix-go {
+  opacity: 1;
 }
 
 /* The new ticket dialog, alone in its section, no destination and no buttons. */
@@ -7678,10 +7692,10 @@ body:has(.sb-dialog[open]) {
   padding: 22px 18px;
 }
 /* The room its activity will take, so the page does not move as it comes. */
-.lp-at-work .tix-card {
+.tix-card:has(.lp-work) {
   min-height: 408px;
 }
-.lp-at-work .ra-line {
+.lp-work .ra-line {
   animation: lp-rise 0.3s var(--ease-enter);
 }
 .lp-modal .pp-say,
@@ -7697,22 +7711,6 @@ body:has(.sb-dialog[open]) {
 .lp-merged {
   color: var(--green);
   font-size: 13px;
-}
-.lp-files {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--secondary);
-  font-size: 13px;
-  white-space: nowrap;
-}
-.lp-files .add {
-  color: var(--green);
-  font-weight: 500;
-}
-.lp-files .del {
-  color: var(--red);
-  font-weight: 500;
 }
 
 @media (max-width: 960px) {
@@ -7755,6 +7753,8 @@ body:has(.sb-dialog[open]) {
   .lp-stage {
     margin-inline: 0;
     padding-bottom: 56px;
+  }
+  .lp-stage::after {
     border-radius: 0;
   }
   .lp-stage::before {
@@ -7764,8 +7764,21 @@ body:has(.sb-dialog[open]) {
   .glass {
     padding: 4px;
   }
-  .lp-dash .tix-meta {
+  /* A line keeps its title and Start, what else it says left for the wide. */
+  .lp-dash .bd-num,
+  .lp-dash .tix-meta > :not(.tix-cell),
+  .lp-dash .tix-cell > :not(.tix-go) {
     display: none;
+  }
+  .lp-dash .tix-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lp-dash .tix-open {
+    flex: 1 1 0;
+  }
+  .lp-dash .tix-title {
+    flex: 1 1 0;
+    max-width: none;
   }
 }
 

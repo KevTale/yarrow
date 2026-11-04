@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { asksBack } from "@/core/new-ticket";
 import {
+  plainWords,
   readAnswer,
   readTicket,
   tryInstructions,
   tryTurnSchema,
+  type TryTurn,
 } from "@/core/try-ticket";
 import { tryDays } from "@/db/schema";
 import { countTryTurn } from "@/db/try-days";
@@ -38,6 +40,14 @@ describe("an answer on the ticket to review", () => {
       text: "Here it is",
       change: null,
     });
+  });
+});
+
+describe("an answer made into a ticket", () => {
+  it("keeps the words and leaves the moments", () => {
+    expect(
+      plainWords("Done tasks can drop down [at 1:04]. I'd sort them last."),
+    ).toBe("Done tasks can drop down. I'd sort them last.");
   });
 });
 
@@ -98,8 +108,17 @@ describe("a turn of the sample agent", () => {
     expect(told).not.toContain("Urgent");
   });
 
-  it("takes a visitor's line, on either sample", () => {
+  it("says nothing of its first words on a sample that opened with none", () => {
+    const told = tryInstructions({ ...turn, sample: "filter" } as TryTurn);
+    expect(told).toContain("Picking Doing");
+    expect(told).not.toContain("before they asked anything");
+  });
+
+  it("takes a visitor's line, on any sample", () => {
     expect(tryTurnSchema.safeParse(turn).success).toBe(true);
+    expect(tryTurnSchema.safeParse({ ...turn, sample: "filter" }).success).toBe(
+      true,
+    );
     expect(
       tryTurnSchema.safeParse({
         kind: "ticket",

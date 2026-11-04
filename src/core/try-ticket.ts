@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANGUAGE_RULE } from "./chat";
+import { chatParts, LANGUAGE_RULE } from "./chat";
 
 /**
  * The landing's samples, a ticket being written and the tickets to review, and
@@ -30,7 +30,7 @@ const said = z
 export const tryTurnSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("review"),
-    sample: z.enum(["priority", "archive"]),
+    sample: z.enum(["priority", "archive", "filter"]),
     said,
     /** The chapter on the screen. */
     chapter: z.number().int().min(0).max(12),
@@ -69,6 +69,15 @@ export function readAnswer(raw: string): {
   };
 }
 
+/** An answer as a ticket keeps it: its words, without the film's moments. */
+export const plainWords = (text: string) =>
+  chatParts(text)
+    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+    .join("")
+    .replace(/[ \t]+([.,!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+
 const OPENS = "<ticket>";
 const CLOSES = "</ticket>";
 
@@ -100,14 +109,14 @@ export function readTicket(raw: string): {
   };
 }
 
-export type TrySampleName = "priority" | "archive";
+export type TrySampleName = "priority" | "archive" | "filter";
 
 /** A real run: what it was asked and what came of it. */
 interface TrySample {
   ticket: string;
   /** What the run said it changed. */
   changed: string;
-  /** What the run left the owner to know: the chat's first words. */
+  /** What the run left the owner to know: the chat's first words, if any. */
   notes: string[];
   files: string;
   /** The question ready in the box, on a choice the film itself flags. */
@@ -122,10 +131,7 @@ export const TRY_SAMPLES: Record<TrySampleName, TrySample> = {
       "Tasks need a priority. Everything in the task list looks equally important. Add a priority to tasks: Low, Normal or Urgent, chosen when a task is created, Normal by default. The list shows a badge on each task that is not Normal, red for Urgent, and urgent tasks come first.",
     changed:
       "The new-task form has a priority picker (Low, Normal, Urgent) that starts on Normal, and existing tasks become Normal. The list shows a grey Low badge or a red Urgent badge, and urgent tasks sit at the top. They stay there even once they're done, because the ticket says urgent comes first.",
-    notes: [
-      "An urgent task stays at the top even after it's marked Done. Say if you'd rather finished tasks drop down",
-      "Run the new database migration when you deploy. Existing tasks become Normal",
-    ],
+    notes: [],
     files:
       "db/migrations/004_task_priority.sql, public/style.css, src/db.js, src/server.js, src/views.js, test/views.test.js",
     ask: "Can urgent tasks drop down once they're done?",
@@ -179,6 +185,33 @@ export const TRY_SAMPLES: Record<TrySampleName, TrySample> = {
       },
     ],
   },
+  filter: {
+    ticket:
+      "Filter the task list by status. The task list shows every task at once. Add filters above it: All, To do, Doing and Done, each with its count. Picking one shows only those tasks, and the choice stays in the address so a reload keeps it. All stays the default.",
+    changed:
+      "Above the task list there are now four filters, All, To do, Doing and Done, each showing how many tasks it holds. Picking one shows only those tasks and goes into the page address, so a reload keeps it. All is the default. Adding a task sends people back to All, even with a filter picked.",
+    notes: [],
+    files: "public/style.css, src/server.js, src/views.js, test/views.test.js",
+    ask: "Can it keep my filter when I add a task?",
+    film: [
+      {
+        title: "Before",
+        said: "0:00 Okay, so this is the task list right now... you just get every task in one long\n0:05 list, all mixed together,\n0:06 and there's no way to see only the ones that are in progress.\n0:10 So the ticket asks for a filter for each status,\n0:13 with counts, and for the choice to stay put when you reload.",
+      },
+      {
+        title: "The filters",
+        said: "0:17 And here it is with the change... so above the list you've now got All,\n0:21 To do, Doing and Done, and each one shows how many tasks are in it.\n0:26 All is picked by default, so you still see everything like before.",
+      },
+      {
+        title: "Picking Doing",
+        said: "0:30 Let me click Doing... and only the two in-progress tasks are left,\n0:35 and you'll notice the address now ends with status equals doing,\n0:39 so that's what's keeping the choice.",
+      },
+      {
+        title: "After a reload",
+        said: "0:41 Now if I reload the page... it comes straight back to just the Doing tasks,\n0:46 because the filter is right there in the address.\n0:48 And I can click All whenever I want the whole list again.",
+      },
+    ],
+  },
 };
 
 /** What the agent says when the ticket is not the one the film answers. */
@@ -193,6 +226,9 @@ const ACME =
 
 function reviewInstructions(name: TrySampleName, chapter: number): string {
   const { ticket, changed, notes, files, film: chapters } = TRY_SAMPLES[name];
+  const wrote = notes.length
+    ? `\nWhat you wrote in the conversation before they asked anything: ${notes.join(". ")}.`
+    : "";
   const film = chapters
     .map(
       (part, i) =>
@@ -208,15 +244,14 @@ ${ACME}
 The ticket: ${ticket}
 
 What changed: ${changed}
-The files: ${files}. The tests pass.
-What you wrote in the conversation before they asked anything: ${notes.join(". ")}.
+The files: ${files}. The tests pass.${wrote}
 
 The demo beside you is a recording of the real app, made and narrated by the agent who built the change:
 ${film}
 
 Every answer points at the one moment of the demo closest to what you say, written as [at 0:12] right after the sentence about it, the time of the line that shows it: the screen goes there and the visitor can play it from there.
 
-When they ask for a change, or ask whether something could work differently, say what you would change in one sentence, then write [change:what the app will do, in a few words]. That puts a card under your words: never mention a card, a tag or a sample, and never offer or ask whether they want it. You never change the app from here.
+When they ask for a change, or ask whether something could work differently, say what you would change in one sentence, then write [change:what the app will do, in a few words, no period]. That puts a card under your words: never mention a card, a tag or a sample, and never offer or ask whether they want it. You never change the app from here.
 
 At most two short sentences and thirty words, plain words. ${LANGUAGE_RULE} No lists, no headings. Never invent anything about this ticket or about Yarrow. Other subjects: say in a few words that you are here for this ticket.`;
 }

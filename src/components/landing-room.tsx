@@ -1,20 +1,24 @@
-import { ArrowLeft, GitCommitHorizontal, GitMerge } from "lucide-react";
+import { ArrowLeft, GitCommitHorizontal, GitMerge, Ticket } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import { ChatWords } from "@/components/dashboard/chat-words";
 import { FilesChanged } from "@/components/dashboard/files-changed";
 import { SlideGo } from "@/components/dashboard/slide-go";
+import { TicketReady } from "@/components/dashboard/ticket-ready";
 import { askSample, SampleBox } from "@/components/landing-agent";
 import { Presentation, type FilmMoment } from "@/components/presentation";
 import { chatParts } from "@/core/chat";
 import type { DraftLine } from "@/core/new-ticket";
 import {
+  plainWords,
   readAnswer,
   TRY_SAMPLES,
   TRY_TURNS,
@@ -32,9 +36,13 @@ const filmOf = (sample: TrySampleName): StoredArtifact => ({
   poster: `/demo/${sample}/poster.jpg`,
 });
 
-interface Line extends DraftLine {
+export interface RoomLine extends DraftLine {
   change?: string | null;
+  /** The ticket made of that change. */
+  made?: number;
 }
+
+export type RoomChat = [RoomLine[], Dispatch<SetStateAction<RoomLine[]>>];
 
 /** The rooms of the page: one voice at a time. */
 let sounding: (() => void) | null = null;
@@ -43,7 +51,8 @@ let sounding: (() => void) | null = null;
  * The room of a ticket to review, as a real one: the real player on a real
  * run's film and the real chat, a question ready in its box. Its agent answers
  * fast and takes the film where it talks about; what it would change stays a
- * card, and the slide merges nothing.
+ * card, a ticket to create where the list can take one, and the slide merges
+ * nothing.
  */
 export function SampleRoom({
   sample,
@@ -51,6 +60,9 @@ export function SampleRoom({
   cta,
   merged,
   onMerged,
+  chat,
+  onTicket,
+  onOpenTicket,
 }: {
   sample: TrySampleName;
   /** Said before the run's own words. */
@@ -58,12 +70,18 @@ export function SampleRoom({
   cta: ReactNode;
   merged: boolean;
   onMerged: () => void;
+  /** Kept by the list, the room closing and opening again. */
+  chat?: RoomChat;
+  /** Makes the ticket and says its number: a change is then a ticket's card. */
+  onTicket?: (title: string, asks: string) => number;
+  onOpenTicket?: (number: number) => void;
 }) {
   const { ask, notes } = TRY_SAMPLES[sample];
   const [film] = useState(() => filmOf(sample));
-  const [said, setSaid] = useState<Line[]>([]);
+  const own = useState<RoomLine[]>([]);
+  const [said, setSaid] = chat ?? own;
   const [words, setWords] = useState<string | null>(null);
-  const [text, setText] = useState(ask);
+  const [text, setText] = useState(said.length ? "" : ask);
   const [enough, setEnough] = useState(false);
   const [files, setFiles] = useState<PullFile[] | null>(null);
   const [cinema, setCinema] = useState(false);
@@ -122,7 +140,7 @@ export function SampleRoom({
     if (!line || words !== null) return;
     const moment = pause.current?.();
     setText("");
-    const lines: Line[] = [...said, { author: "builder", body: line }];
+    const lines: RoomLine[] = [...said, { author: "builder", body: line }];
     setSaid(lines);
     if (lines.filter((one) => one.author === "builder").length > TRY_TURNS) {
       setEnough(true);
@@ -167,6 +185,11 @@ export function SampleRoom({
       setWords(null);
     }
   }
+
+  const makeTicket = (at: number, line: RoomLine) => {
+    const made = onTicket?.(line.change!, plainWords(line.body));
+    setSaid((all) => all.map((one, i) => (i === at ? { ...one, made } : one)));
+  };
 
   return (
     <div className="pp pp-roomy" ref={room}>
@@ -222,14 +245,16 @@ export function SampleRoom({
           <aside ref={tray} className="pp-tray" aria-label="Conversation">
             <div className="pp-talk-thread" ref={thread}>
               <ol className="pp-chat">
-                <li className="pp-it">
-                  {lead && <p className="pp-say">{lead}</p>}
-                  {notes.map((note) => (
-                    <p className="pp-say" key={note}>
-                      {note}
-                    </p>
-                  ))}
-                </li>
+                {(lead || notes.length > 0) && (
+                  <li className="pp-it">
+                    {lead && <p className="pp-say">{lead}</p>}
+                    {notes.map((note) => (
+                      <p className="pp-say" key={note}>
+                        {note}
+                      </p>
+                    ))}
+                  </li>
+                )}
                 {said.map((line, i) =>
                   line.author === "builder" ? (
                     <li className="pp-me" key={i}>
@@ -241,16 +266,36 @@ export function SampleRoom({
                         body={line.body}
                         onSeek={(ms) => seek.current?.(ms)}
                       />
-                      {line.change && (
-                        <div className="pp-proposal">
-                          <div className="pp-proposal-head">
-                            <GitCommitHorizontal size={15} aria-hidden="true" />
-                            Change
+                      {line.change &&
+                        (line.made ? (
+                          <button
+                            type="button"
+                            className="pp-act pp-ticket-made"
+                            onClick={() => onOpenTicket?.(line.made!)}
+                          >
+                            <Ticket size={15} aria-hidden="true" />
+                            <span>{line.change}</span>
+                            <small>#{line.made}</small>
+                          </button>
+                        ) : onTicket ? (
+                          <TicketReady
+                            title={line.change}
+                            label="Create ticket"
+                            onGo={() => makeTicket(i, line)}
+                          />
+                        ) : (
+                          <div className="pp-proposal">
+                            <div className="pp-proposal-head">
+                              <GitCommitHorizontal
+                                size={15}
+                                aria-hidden="true"
+                              />
+                              Change
+                            </div>
+                            <p>{line.change}</p>
+                            <div className="pp-proposal-foot">{cta}</div>
                           </div>
-                          <p>{line.change}</p>
-                          <div className="pp-proposal-foot">{cta}</div>
-                        </div>
-                      )}
+                        ))}
                     </li>
                   ),
                 )}

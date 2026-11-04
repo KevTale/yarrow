@@ -1,18 +1,25 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Github,
-  Ticket,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Github, Play, Ticket } from "lucide-react";
 import { useReducedMotion } from "motion/react";
-import { Children, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Children,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
+import { SlideGo } from "@/components/dashboard/slide-go";
 import { StageMark } from "@/components/dashboard/stage-mark";
 import { TicketBody } from "@/components/dashboard/ticket-body";
 import { TicketReady } from "@/components/dashboard/ticket-ready";
 import { askSample, SampleBox } from "@/components/landing-agent";
-import { SampleRoom } from "@/components/landing-room";
+import {
+  SampleRoom,
+  type RoomChat,
+  type RoomLine,
+} from "@/components/landing-room";
+import { useFlip } from "@/components/live";
 import { Markdown } from "@/components/markdown";
 import { ActivityList, type Crew } from "@/components/run-activity";
 import { clockTime } from "@/components/ui";
@@ -26,6 +33,7 @@ import {
   TRY_SAMPLES,
   TRY_TURNS,
   TRY_WORDS,
+  type TrySampleName,
 } from "@/core/try-ticket";
 
 interface SampleTicket {
@@ -40,68 +48,57 @@ interface WrittenTicket extends SampleTicket {
   asks: string;
 }
 
-interface ShippedTicket extends WrittenTicket {
-  changed: string;
-  /** What the reviewer says beside it. */
-  reviewed: string;
-  files: { count: number; add: number; del: number };
-}
-
 const crew: Crew = { implementer: "Muse Wonder", reviewer: "Claude Opus" };
 
-/** The ticket to review: the bench's real ticket, its film served with the site. */
-const priority: SampleTicket = {
-  number: 145,
-  title: "Tasks need a priority",
-  who: "Sam Okafor",
-  when: "Nov 1, 09:12",
-};
+/** Where a ticket of the first list stands. */
+type ListStage = Extract<TicketStage, "todo" | "review" | "progress" | "done">;
 
-const filtering: WrittenTicket = {
-  number: 147,
-  title: "Filter tasks by due date",
-  who: "Léa Martin",
-  when: "Nov 1, 10:26",
-  work: `${crew.implementer} is writing`,
-  asks: `People plan their week from the list and can't narrow it down.
+interface ListTicket extends WrittenTicket {
+  stage: ListStage;
+  /** The film its room opens on. */
+  sample: TrySampleName;
+  /** Said first in its room: a ticket written here gets another's film. */
+  lead?: string;
+}
 
-**Done when**
-- The list filters by today, this week and overdue
-- The filter is still there after a reload`,
-};
+/** A bench ticket as the list holds it, its film served with the site. */
+function benchTicket(
+  sample: TrySampleName,
+  stage: ListStage,
+  ticket: Pick<SampleTicket, "number" | "who" | "when">,
+): ListTicket {
+  const { ticket: text } = TRY_SAMPLES[sample];
+  const title = firstSentence(text);
+  return {
+    ...ticket,
+    title,
+    asks: text.slice(title.length + 2),
+    stage,
+    sample,
+  };
+}
 
-const shipped: ShippedTicket[] = [
-  {
-    number: 143,
-    title: "Comments on tasks",
+/** The ticket that stands open as the page loads. */
+const FIRST_OPEN = 145;
+
+const BOARD: ListTicket[] = [
+  benchTicket("filter", "todo", {
+    number: 147,
     who: "Léa Martin",
-    when: "Oct 30, 11:48",
-    asks: `What is said about a task gets lost in chat.
-
-**Done when**
-- Anyone on the task can comment
-- A mention sends an email`,
-    changed:
-      "Comments sit under each task, newest last. A mention sends one email, even when the comment is edited.",
-    reviewed: "Merged on Oct 30.",
-    files: { count: 11, add: 203, del: 9 },
-  },
-  {
-    number: 141,
-    title: "Search across projects",
+    when: "Nov 1, 10:26",
+  }),
+  benchTicket("priority", "review", {
+    number: FIRST_OPEN,
     who: "Sam Okafor",
-    when: "Oct 29, 17:22",
-    asks: `Finding a task means opening each project.
+    when: "Nov 1, 09:12",
+  }),
+];
 
-**Done when**
-- A search box sits in the header
-- It looks through every project
-- Archived tasks stay out`,
-    changed:
-      "A search box in the header looks through every project the person can see. Archived tasks stay out.",
-    reviewed: "Merged on Oct 29.",
-    files: { count: 7, add: 96, del: 12 },
-  },
+const STAGES: { stage: ListStage; label: string }[] = [
+  { stage: "todo", label: "To do" },
+  { stage: "review", label: "To review" },
+  { stage: "progress", label: "In progress" },
+  { stage: "done", label: "Done" },
 ];
 
 type WorkStep = [
@@ -120,43 +117,45 @@ const asActivity = (steps: WorkStep[], from: number, gapMs: number) =>
     detail,
   }));
 
-/** The activity of the ticket at work, so far. */
-function workSoFar(): ActivityLine[] {
-  const lines: WorkStep[] = [
-    ["yarrow", "phase", { phase: "implementing" }],
-    ["implementer", "read", { path: "src/views.js", ok: true }],
-    ["implementer", "read", { path: "src/db.js", ok: true }],
-    ["implementer", "search", { pattern: "due_on", ok: true }],
-    [
-      "implementer",
-      "note",
-      {
-        text: "The list has no notion of a week yet: the filter goes in the query, so a reload keeps it.",
-      },
-    ],
-    [
-      "implementer",
-      "edit",
-      { path: "src/db.js", added: 14, removed: 3, ok: true },
-    ],
-    [
-      "implementer",
-      "edit",
-      { path: "src/server.js", added: 9, removed: 1, ok: true },
-    ],
-    [
-      "implementer",
-      "edit",
-      { path: "src/views.js", added: 26, removed: 4, ok: true },
-    ],
-  ];
-  return asActivity(lines, Date.now() - lines.length * 40_000, 40_000);
-}
-
 /** The activity of the archive ticket: the real run's, from the start. */
 function archiveWork(gapMs: number): ActivityLine[] {
   return asActivity(ARCHIVE_STEPS, Date.now(), gapMs);
 }
+
+/** A ticket started on the first list: the filter run's, from the start. */
+const filterWork = (gapMs: number) =>
+  asActivity(FILTER_STEPS, Date.now(), gapMs);
+
+const FILTER_STEPS: WorkStep[] = [
+  ["yarrow", "phase", { phase: "implementing" }],
+  ["implementer", "read", { path: "src/views.js", ok: true }],
+  ["implementer", "read", { path: "src/server.js", ok: true }],
+  [
+    "implementer",
+    "edit",
+    { path: "src/views.js", added: 16, removed: 3, ok: true },
+  ],
+  [
+    "implementer",
+    "edit",
+    { path: "src/server.js", added: 1, removed: 1, ok: true },
+  ],
+  [
+    "implementer",
+    "edit",
+    { path: "public/style.css", added: 20, removed: 0, ok: true },
+  ],
+  [
+    "implementer",
+    "edit",
+    { path: "test/views.test.js", added: 26, removed: 0, ok: true },
+  ],
+  ["implementer", "test", { passed: 8, failed: 0, ok: true }],
+  ["yarrow", "phase", { phase: "reviewing" }],
+  ["reviewer", "review", { passed: 0, failed: 0 }],
+  ["yarrow", "phase", { phase: "delivering" }],
+  ["yarrow", "outcome", { phase: "pull_request" }],
+];
 
 const ARCHIVE_STEPS: WorkStep[] = [
   ["yarrow", "phase", { phase: "implementing" }],
@@ -198,14 +197,22 @@ export function TicketGroup({
   stage,
   label,
   count,
+  holdsOpen = false,
   children,
 }: {
   stage: TicketStage;
   label: string;
   count: number;
+  /** The row open is here now: the group unfolds, so it stays in view. */
+  holdsOpen?: boolean;
   children?: ReactNode;
 }) {
   const [folded, setFolded] = useState(false);
+  const [held, setHeld] = useState(holdsOpen);
+  if (held !== holdsOpen) {
+    setHeld(holdsOpen);
+    if (holdsOpen) setFolded(false);
+  }
   return (
     <section className="tix-group">
       <div className="tix-ghead">
@@ -243,7 +250,7 @@ function TicketAtWork({
   live?: boolean;
 }) {
   return (
-    <div className="pp-grid">
+    <div className="pp-grid lp-work">
       <section className="pp-main">
         <Markdown source={asks} />
       </section>
@@ -256,62 +263,43 @@ function TicketAtWork({
   );
 }
 
-/** The list's ticket at work, its activity so far. */
-function TicketSoFar({ ticket }: { ticket: WrittenTicket }) {
-  const [lines] = useState(workSoFar);
-  return <TicketAtWork asks={ticket.asks} lines={lines} />;
-}
-
-/** A ticket merged: what it asked and what came of it. */
-function TicketShipped({ ticket }: { ticket: ShippedTicket }) {
-  return (
-    <div className="pp">
-      <div className="pp-grid">
-        <div className="pp-main">
-          <section className="pp-section">
-            <h3>What the ticket asks</h3>
-            <Markdown source={ticket.asks} className="pp-text" />
-          </section>
-          <section className="pp-section">
-            <h3>What changed</h3>
-            <Markdown source={ticket.changed} className="pp-text" />
-          </section>
-        </div>
-        <aside className="pp-aside">
-          <p className="pp-say">{ticket.reviewed}</p>
-          <span className="lp-files">
-            <FileText size={14} aria-hidden="true" /> {ticket.files.count} files
-            changed <b className="add">+{ticket.files.add}</b>{" "}
-            <b className="del">−{ticket.files.del}</b>
-          </span>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
 /** A row of the list that opens on `children`. */
 function TicketRow({
   ticket,
   opened = false,
+  open: held,
+  onToggle,
+  stage,
   note,
+  go,
   children,
 }: {
   ticket: SampleTicket;
   opened?: boolean;
+  /** Open as the list says, when it keeps one open at a time. */
+  open?: boolean;
+  onToggle?: () => void;
+  stage?: ListStage;
   /** Where it ended up, in place of its state. */
   note?: string;
+  /** What to do with it now, on its line. */
+  go?: ReactNode;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(opened);
+  const [own, setOwn] = useState(opened);
+  const open = held ?? own;
   return (
     <li className={open ? "tix-item open" : "tix-item"}>
-      <div className={open ? "tix-row open" : "tix-row"}>
+      <div
+        data-flip={ticket.number}
+        data-flip-value={stage}
+        className={open ? "tix-row open" : "tix-row"}
+      >
         <button
           type="button"
           className="tix-open"
           aria-expanded={open}
-          onClick={() => setOpen(!open)}
+          onClick={onToggle ?? (() => setOwn(!own))}
         >
           <ChevronRight size={14} className="tix-chev" aria-hidden="true" />
           <TicketNumber number={ticket.number} />
@@ -325,6 +313,7 @@ function TicketRow({
               </TextShimmer>
             )}
             {note && <span className="lp-merged">{note}</span>}
+            {go}
           </span>
           <span className="tix-sponsor">
             <span className="tix-paid">Created by</span>
@@ -342,51 +331,226 @@ function TicketRow({
   );
 }
 
+/** What is at work on a ticket, `seen` of its `total` steps in. */
+const workAt = (seen: number, total: number) =>
+  WORK[
+    Math.min(
+      WORK.length - 1,
+      Math.floor((seen / Math.max(total, 1)) * WORK.length),
+    )
+  ];
+
+/** A ticket started on the first list: its run's steps, then To review. */
+function RowAtWork({
+  ticket,
+  open,
+  onToggle,
+  onBuilt,
+}: {
+  ticket: ListTicket;
+  open: boolean;
+  onToggle: () => void;
+  onBuilt: (number: number) => void;
+}) {
+  const [lines] = useState(() => filterWork(STEP_MS));
+  const [seen, setSeen] = useState(1);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => (seen < lines.length ? setSeen(seen + 1) : onBuilt(ticket.number)),
+      STEP_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [seen, lines, ticket.number, onBuilt]);
+  return (
+    <TicketRow
+      ticket={{ ...ticket, work: workAt(seen, lines.length) }}
+      stage={ticket.stage}
+      open={open}
+      onToggle={onToggle}
+    >
+      <TicketAtWork asks={ticket.asks} lines={lines.slice(0, seen)} />
+    </TicketRow>
+  );
+}
+
 /**
- * A project's tickets, on the dashboard's own styles: they open, and the one
- * to review stands open, the first thing the page shows.
+ * A project's tickets, on the dashboard's own styles, the whole way through:
+ * one to review stands open, the first thing the page shows, and merges to
+ * Done; one to do starts, works in front of the visitor, comes back on its film
+ * and merges in turn; what the agent proposes in a room is created in To do.
+ * One row open at a time, as on the real list.
  */
 export function DashboardShot({ cta }: { cta: ReactNode }) {
-  const [merged, setMerged] = useState(false);
-  return (
-    <div className="tix-list glass lp-dash">
-      <TicketGroup stage="review" label="To review" count={merged ? 0 : 1}>
+  const reduced = useReducedMotion();
+  const [tickets, setTickets] = useState(BOARD);
+  const [opened, setOpened] = useState<number | null>(FIRST_OPEN);
+  const [chats, setChats] = useState<Record<number, RoomLine[]>>({});
+  const [follow, setFollow] = useState<{ number: number } | null>(null);
+  const list = useFlip<HTMLDivElement>(tickets);
+
+  const moveTo = useCallback(
+    (number: number, stage: ListStage) =>
+      setTickets((all) =>
+        all.map((ticket) =>
+          ticket.number === number ? { ...ticket, stage } : ticket,
+        ),
+      ),
+    [],
+  );
+  // Built with the visitor watching: it stays in view on its way up.
+  const toReview = useCallback(
+    (number: number) => {
+      const box = list.current
+        ?.querySelector(`[data-flip="${number}"]`)
+        ?.getBoundingClientRect();
+      moveTo(number, "review");
+      if (box && box.bottom > 0 && box.top < window.innerHeight)
+        setFollow({ number });
+    },
+    [list, moveTo],
+  );
+
+  // The row an act just moved stays in view, whatever folded above it.
+  useEffect(() => {
+    if (!follow) return;
+    list.current
+      ?.querySelector(`[data-flip="${follow.number}"]`)
+      ?.closest(".tix-item")
+      ?.scrollIntoView({
+        block: "nearest",
+        behavior: reduced ? "auto" : "smooth",
+      });
+  }, [follow, list, reduced]);
+
+  const start = (number: number) => {
+    moveTo(number, "progress");
+    setOpened(number);
+    setFollow({ number });
+  };
+  const merge = (number: number) => {
+    moveTo(number, "done");
+    setOpened(null);
+    setFollow({ number });
+  };
+  const createTicket = (title: string, asks: string) => {
+    const number = Math.max(...tickets.map((ticket) => ticket.number)) + 1;
+    setTickets((all) => [
+      ...all,
+      {
+        number,
+        title,
+        who: "You",
+        when: today(),
+        asks,
+        stage: "todo",
+        sample: "filter",
+        lead: TRY_NOT_BUILT,
+      },
+    ]);
+    setFollow({ number });
+    return number;
+  };
+  const openTicket = (number: number) => {
+    setOpened(number);
+    setFollow({ number });
+  };
+
+  const chatOf = (number: number): RoomChat => [
+    chats[number] ?? [],
+    (next) =>
+      setChats((all) => {
+        const now = all[number] ?? [];
+        return {
+          ...all,
+          [number]: typeof next === "function" ? next(now) : next,
+        };
+      }),
+  ];
+
+  const row = (ticket: ListTicket) => {
+    const { number, stage } = ticket;
+    const open = opened === number;
+    const onToggle = () => setOpened(open ? null : number);
+    if (stage === "progress")
+      return (
+        <RowAtWork
+          key={number}
+          ticket={ticket}
+          open={open}
+          onToggle={onToggle}
+          onBuilt={toReview}
+        />
+      );
+    if (stage === "todo")
+      return (
         <TicketRow
-          ticket={priority}
-          note={merged ? "Merged" : undefined}
-          opened
+          key={number}
+          ticket={ticket}
+          stage={stage}
+          open={open}
+          onToggle={onToggle}
+          go={
+            <SlideGo
+              label="Start"
+              icon={<Play size={10} fill="currentColor" aria-hidden="true" />}
+              onGo={() => start(number)}
+            />
+          }
         >
-          <SampleRoom
-            sample="priority"
-            cta={cta}
-            merged={merged}
-            onMerged={() => setMerged(true)}
-          />
+          <section className="pp-main">
+            <Markdown source={ticket.asks} />
+          </section>
         </TicketRow>
-      </TicketGroup>
-      <TicketGroup stage="progress" label="In progress" count={1}>
-        <TicketRow ticket={filtering}>
-          <TicketSoFar ticket={filtering} />
-        </TicketRow>
-      </TicketGroup>
-      <TicketGroup stage="stopped" label="Stopped" count={0} />
-      <TicketGroup
-        stage="done"
-        label="Done"
-        count={shipped.length + (merged ? 1 : 0)}
+      );
+    return (
+      <TicketRow
+        key={number}
+        ticket={ticket}
+        stage={stage}
+        open={open}
+        onToggle={onToggle}
+        note={stage === "done" ? "Merged" : undefined}
       >
-        {shipped.map((ticket) => (
-          <TicketRow ticket={ticket} key={ticket.number}>
-            <TicketShipped ticket={ticket} />
-          </TicketRow>
-        ))}
-      </TicketGroup>
+        <SampleRoom
+          sample={ticket.sample}
+          lead={ticket.lead}
+          cta={cta}
+          merged={stage === "done"}
+          onMerged={() => merge(number)}
+          chat={chatOf(number)}
+          onTicket={createTicket}
+          onOpenTicket={openTicket}
+        />
+      </TicketRow>
+    );
+  };
+
+  return (
+    <div className="tix-list glass lp-dash" ref={list}>
+      {STAGES.map(({ stage, label }) => {
+        const here = tickets
+          .filter((ticket) => ticket.stage === stage)
+          .sort((a, b) => b.number - a.number);
+        return (
+          <TicketGroup
+            key={stage}
+            stage={stage}
+            label={label}
+            count={here.length}
+            holdsOpen={here.some((ticket) => ticket.number === opened)}
+          >
+            {here.map(row)}
+          </TicketGroup>
+        );
+      })}
     </div>
   );
 }
 
 const IDEA = "We need a way to archive old tasks";
 const LINE_MS = 800;
+/** A step of a ticket at work on the first list: ten seconds in all. */
+const STEP_MS = 10_000 / FILTER_STEPS.length;
 const WORK = [
   `${crew.implementer} is writing`,
   `${crew.reviewer} is reviewing`,
@@ -572,13 +736,7 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
     words === null &&
     (enough || (last?.author === "agent" && !asksBack(last.body)));
   const built = seen > 0 && seen >= lines.length;
-  const state =
-    WORK[
-      Math.min(
-        WORK.length - 1,
-        Math.floor((seen / Math.max(lines.length, 1)) * WORK.length),
-      )
-    ];
+  const state = workAt(seen, lines.length);
   return (
     <>
       <section className="lp-part">
@@ -673,7 +831,7 @@ export function TicketSteps({ cta }: { cta: ReactNode }) {
       <section className="lp-part" ref={work}>
         <StepHead step="work" />
         <div className="container">
-          <div className="tix-list glass lp-dash lp-at-work">
+          <div className="tix-list glass lp-dash">
             <TicketGroup stage="progress" label="In progress" count={1}>
               <TicketRow
                 ticket={{ ...ticket, work: built ? undefined : state }}

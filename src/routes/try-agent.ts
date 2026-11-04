@@ -11,7 +11,7 @@ import { appEnv } from "@/server/env.server";
 import { talkStep } from "@/runner/talk-models";
 
 /**
- * The agent of the landing's two samples, for anyone: nothing to read or
+ * The agent of the landing's samples, for anyone: nothing to read or
  * write but the words, on Yarrow's own key. Cloudflare's limits slow a
  * script down, late and roughly; the day's ceiling is what bounds the bill.
  * Its words stream as plain text.
