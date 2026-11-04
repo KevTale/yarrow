@@ -28,10 +28,10 @@ Yarrow helps you shape an idea into a clear ticket. Once agents have built it, i
 
 ## What it does
 
-1. **Write the ticket with an agent.** In writing or on a call, it reads the repository and the project's tickets, says what already exists and asks what it cannot find out alone. Tickets can also come from GitHub Issues or Jira.
-2. **Agents build it.** One model implements and a model from another lab reviews. The outcome is a draft pull request, or a stated reason for stopping.
+1. **Write the ticket with an agent.** Muse Spark, in writing or on a call. It reads the repository and the project's tickets, says what already exists and asks what it cannot find out alone. Tickets can also come from GitHub Issues or Jira.
+2. **Agents build it.** Muse Wonder implements and Claude Opus reviews its code: never the lab that wrote it. The outcome is a draft pull request, or a stated reason for stopping.
 3. **Watch the demo.** Every pull request comes with a narrated demo recorded on a real desktop: the app running, the code in a real VS Code, the commands in a terminal. It goes from the context to the change to the proof.
-4. **Ask anything.** Speak or type and the demo stops. The agent answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
+4. **Ask anything.** Speak or type and the demo stops. Muse Spark answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
 5. **Merge, or ask for a change.** From Yarrow, or by commenting `@yarrow-run` on the pull request.
 
 ## How it works
@@ -39,28 +39,30 @@ Yarrow helps you shape an idea into a clear ticket. Once agents have built it, i
 ```mermaid
 flowchart LR
   TR["GitHub Issues<br/>Jira"] -->|tickets| WEB
-  NEW["New ticket<br/>written with the agent"] --> WEB
+  NEW["New ticket<br/>written with Muse Spark"] --> WEB
   WEB["Web Worker<br/>dashboard, webhooks"] --> DB[("Postgres")]
   CRON["Brain<br/>cron, every minute"] -->|picks the next tickets| DB
   CRON --> RUN["Durable Workflow<br/>one per run"]
   RUN -->|implements| IMPL["Muse Wonder<br/>Yarrow's container"]
-  RUN -->|reviews| REV["Claude Opus<br/>Managed Agents"]
+  RUN -->|reviews the code| REV["Claude Opus<br/>Managed Agents"]
   RUN -->|stores the demo| R2[("R2")]
   RUN -->|draft pull request| GH["GitHub App"]
   WEB -->|live call| STAGE["Stage<br/>the branch on a live desktop"]
-  STAGE <--> TALK["Claude Sonnet<br/>ElevenLabs voice"]
+  STAGE <--> TALK["Muse Spark<br/>ElevenLabs voice"]
+  NEW <--> TALK
 ```
 
 The brain runs every minute. Tickets start first in, first out within an account and round-robin between accounts, and each run is one durable Workflow. Tracker tickets are synced every five minutes.
 
-A run is never reviewed by the lab that wrote it:
+Two of Meta's models do the work you see: Muse Wonder writes the code, Muse Spark talks with you. Claude Opus only reviews Muse Wonder's code before the pull request opens, so a run is never reviewed by the lab that wrote it.
 
-| Work                              | Model                                     | Where it runs                                     |
-| --------------------------------- | ----------------------------------------- | ------------------------------------------------- |
-| Implementation                    | Muse Wonder                               | Yarrow's own container, with no API key inside it |
-| Code review                       | Claude Opus                               | Claude Managed Agents                             |
-| Chat, live calls, writing tickets | Claude Sonnet                             | Claude API, with ElevenLabs for the voice         |
-| Projects with secrets             | Claude Opus implements, GPT Astra reviews | Claude Managed Agents and the OpenAI Agents API   |
+| Work                                                     | Model                                     | Where it runs                                     |
+| -------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------- |
+| Writing a ticket: New ticket, in writing or on a call    | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
+| Implementation                                           | Muse Wonder                               | Yarrow's own container, with no API key inside it |
+| Code review, before the pull request opens               | Claude Opus                               | Claude Managed Agents                             |
+| Reviewing a ticket: questions on the demo, chat and call | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
+| Projects with secrets                                    | Claude Opus implements, GPT Astra reviews | Claude Managed Agents and the OpenAI Agents API   |
 
 Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`, `TALK_MODEL`, `OPENAI_REVIEW_MODEL` in `workers/wrangler.jsonc`).
 
