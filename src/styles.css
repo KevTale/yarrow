@@ -9733,6 +9733,18 @@ html:has(.pp-stage:modal) {
   gap: 18px;
   align-content: start;
 }
+/* In progress, the agents' activity beside the ticket: as tall as a pull
+   request's conversation at most, held in view, what comes after scrolling
+   inside. */
+.pp-grid > .pp-activity {
+  position: sticky;
+  top: 72px;
+  max-height: max(380px, calc(100dvh - 194px));
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
 .pp-count {
   font:
     12px var(--font-geist-mono),
@@ -10022,6 +10034,10 @@ html:has(.pp-stage:modal) {
   }
   .pp-grid > .pp-talk .pp-talk-thread:not(:has(li)) {
     display: none;
+  }
+  .pp-grid > .pp-activity {
+    position: static;
+    max-height: 65vh;
   }
   .pp-grid > .pp-talk > .pp-asking {
     position: sticky;

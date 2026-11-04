@@ -178,15 +178,60 @@ function TicketBrief({
         <StoppedTalk projectId={projectId} row={row} onChanged={onChanged} />
       )}
       {going && (
-        <aside className="pp-aside">
+        <Activity>
           {working && row.runId ? (
             <RunStory runId={row.runId} />
           ) : (
             <p className="muted">Waiting</p>
           )}
-        </aside>
+        </Activity>
       )}
     </div>
+  );
+}
+
+/** How near its end the activity is still followed, in pixels. */
+const FOLLOWED_PX = 40;
+
+/**
+ * The agents' activity, scrolling inside: at its end it stays there as lines
+ * come; scrolled up to read, it stays where it was.
+ */
+function Activity({ children }: { children: ReactNode }) {
+  const column = useRef<HTMLElement>(null);
+  const followed = useRef(true);
+  useEffect(() => {
+    const box = column.current;
+    if (!box) return;
+    const follow = () => {
+      if (followed.current) box.scrollTop = box.scrollHeight;
+    };
+    const grown = new ResizeObserver(follow);
+    for (const child of box.children) grown.observe(child);
+    const changed = new MutationObserver(() => {
+      grown.disconnect();
+      for (const child of box.children) grown.observe(child);
+      follow();
+    });
+    changed.observe(box, { childList: true });
+    follow();
+    return () => {
+      grown.disconnect();
+      changed.disconnect();
+    };
+  }, []);
+  return (
+    <aside
+      ref={column}
+      className="pp-aside pp-activity"
+      onScroll={(event) => {
+        const box = event.currentTarget;
+        followed.current =
+          box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOWED_PX;
+      }}
+    >
+      {children}
+    </aside>
   );
 }
 
