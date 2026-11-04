@@ -3946,11 +3946,22 @@ tbody tr:hover {
   font-size: 13.5px;
   color: var(--muted);
 }
-/* Why the agents stopped, at the head of the conversation, unboxed. */
+/* Why the agents stopped, at the head of the conversation, unboxed: its
+   first words, at their size. */
 .pp-chat .ra-stop {
   padding: 0;
   border: 0;
   background: none;
+}
+.pp-chat .ra-stop p,
+.pp-chat .ra-stop ul {
+  font-size: 15px;
+  font-weight: 420;
+  line-height: 1.6;
+  color: var(--text);
+}
+.pp-chat .ra-stop ul {
+  list-style: disc;
 }
 .ra-story {
   display: grid;
