@@ -34,6 +34,26 @@ Yarrow helps you shape an idea into a clear ticket. Once agents have built it, i
 4. **Ask anything.** Speak or type and the demo stops. Muse Spark answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
 5. **Merge, or ask for a change.** From Yarrow, or by commenting `@yarrow-run` on the pull request.
 
+## Meta hackathon
+
+Built before the Hackathon:
+
+- Core infrastructure: the GitHub repository, TanStack Start application, Supabase backend, and Cloudflare hosting and deployment setup.
+- Importing GitHub repositories, connecting Jira projects, and listing GitHub Issues and Jira tickets in Yarrow.
+- Starting tickets directly from Yarrow, with Claude Opus implementing the changes and GPT Astra reviewing them before opening a draft pull request. (Later changed to Muse Wonder and Claude Opus)
+
+Built during the Hackathon:
+
+- Integration of Muse Wonder as the implementer, running in Yarrow’s own containers, with Claude Opus reviewing its changes.
+- Agent-assisted ticket writing with Muse Spark, through text or voice. The agent reads the repository and existing tickets, identifies what already exists, asks clarifying questions, and drafts the ticket.
+- A live desktop running the pull request’s branch, where the agent can navigate the app, open files, and run commands and tests.
+- Interactive voice and text conversations during reviews: interrupt the demo, ask questions, and have the agent demonstrate its answers on the live desktop.
+- Integration of Muse Spark across ticket creation, review conversations, and live calls.
+- Turning ideas raised during a review into new tickets directly from the conversation.
+- Slide-to-start, slide-to-retry, and slide-to-merge interactions.
+- A unified review experience combining the demo, live desktop, conversation, changed files, and follow-up tickets.
+- Completed builder-facing integrations with Linear and Trello, alongside a redesigned onboarding flow for importing repositories and connecting ticket sources.
+
 ## How it works
 
 ```mermaid
