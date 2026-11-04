@@ -31,16 +31,16 @@ export const INTRO_FRAMES = f(cut.duration) + 50;
 
 /** Each panel beside Kevin: when it opens, when it closes. */
 const PANELS = {
-  github: [at("2026") - 6, at("But") - 8],
-  features: [at("ship", 1) - 6, at("pull", 2) - 12],
-  faros: [at("pull", 2) - 6, at("Agents") + 14],
-  jam: [at("Agents") + 14, at("Teams") + 14],
+  github: [at("Two") - 4, at("But") - 8],
+  features: [at("But") + 2, at("pull", 1) - 12],
+  faros: [at("pull", 1) - 6, at("Agents") + 14],
+  jam: [at("Agents") + 14, at("That's", 1) + 4],
 } as const;
 
 export const Intro: React.FC = () => (
   <AbsoluteFill style={{ background: c.bg, fontFamily: font.sans, color: c.text }}>
     <Cam />
-    <Sequence from={at("Hi")} durationInFrames={at("This") - at("Hi")} name="name">
+    <Sequence from={at("Hi")} durationInFrames={at("Two") - at("Hi")} name="name">
       <Name />
     </Sequence>
     {Object.entries(PANELS).map(([id, [from, to]]) => (
@@ -66,7 +66,7 @@ export const Intro: React.FC = () => (
 const Cam: React.FC = () => {
   const frame = useCurrentFrame();
   const piece = cut.cuts.filter((t) => f(t) <= frame).length;
-  const close = interpolate(frame, [at("Teams"), LOGO], [0, 0.07], { ...clamp, easing: ease.inOut });
+  const close = interpolate(frame, [at("That's", 1) - 10, LOGO], [0, 0.06], { ...clamp, easing: ease.inOut });
   const scale = (piece % 2 ? 1.08 : 1) + close;
   const out = interpolate(frame, [LOGO, LOGO + 12], [0, 1], { ...clamp, easing: ease.inOut });
   return (
@@ -82,7 +82,7 @@ const Name: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const k = spring({ frame: frame - (at("Kevin") - at("Hi")), fps, config: { damping: 200 }, durationInFrames: 16 });
-  const out = interpolate(frame, [at("This") - at("Hi") - 10, at("This") - at("Hi")], [1, 0], clamp);
+  const out = interpolate(frame, [at("Two") - at("Hi") - 10, at("Two") - at("Hi")], [1, 0], clamp);
   return (
     <div
       style={{
@@ -141,11 +141,11 @@ const Panel: React.FC<{ length: number; children: React.ReactNode }> = ({ length
   );
 };
 
-/** 1.3B merged pull requests in 2026, 400M in 2024: ×3. */
+/** 400M merged pull requests in 2024, 1.3B in 2026: ×3. */
 const GitHub: React.FC<{ from: number }> = ({ from }) => {
   const frame = useCurrentFrame() + from;
   const now = interpolate(frame, [at("1.3"), end("billion") + 6], [0, 1.3], { ...clamp, easing: Easing.out(Easing.cubic) });
-  const then = interpolate(frame, [at("400"), end("million") + 4], [0, 400], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const then = interpolate(frame, [at("four"), end("million") + 4], [0, 400], { ...clamp, easing: Easing.out(Easing.cubic) });
   const bar = (year: string, show: number, value: number, max: number, label: string, color: string) => (
     <Rise at={show - from} style={{ marginTop: 34 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -162,8 +162,8 @@ const GitHub: React.FC<{ from: number }> = ({ from }) => {
       <Rise at={4}>
         <Big size={40} color={c.secondary}>Pull requests merged on GitHub</Big>
       </Rise>
-      {bar("2026", at("2026") - 4, now, 1.3, `${now.toFixed(1)}B`, c.text)}
-      {bar("2024", at("Two") - 4, then, 1300, `${Math.round(then)}M`, c.muted)}
+      {bar("2024", at("Two") + 2, then, 1300, `${Math.round(then)}M`, c.muted)}
+      {bar("2026", at("This") - 4, now, 1.3, `${now.toFixed(1)}B`, c.text)}
       <Rise at={at("three") - from} style={{ marginTop: 44 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 28 }}>
           <Big size={170} color={c.amber}>×3</Big>
@@ -243,7 +243,7 @@ const TITLES = [
 const Jam: React.FC<{ from: number }> = ({ from }) => {
   const frame = useCurrentFrame() + from;
   const { fps } = useVideoConfig();
-  const first = at("open");
+  const first = at("ship");
   const jam = at("traffic");
   const every = Math.max(3, Math.floor((jam - first) / TITLES.length));
   const arrived = TITLES.map((_, i) => first + i * every).filter((t) => t <= frame);

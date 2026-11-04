@@ -48,8 +48,7 @@ cuts = [out_time(s) for s, _ in keeps[1:]]
 
 # Captions: what was meant, at the moment it was said.
 FIX = {"Yero.": "Yarrow.", "Yero": "Yarrow", "Pharos": "Faros", "twenty-twenty-six,": "2026,",
-       "twenty-twenty-four,": "2024,", "feature": "features", "agent": "agents", "ships": "ship",
-       "four": "400"}
+       "twenty-twenty-four,": "2024,"}
 mapped = []
 i = 0
 while i < len(spoken):
