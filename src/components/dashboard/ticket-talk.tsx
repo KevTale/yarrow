@@ -18,6 +18,8 @@ const QUIET_MS = 60_000;
 const FORM_EVERY_MS = 1500;
 /** How long a hand's edit waits before it reaches the draft, on a call. */
 const SAVE_AFTER_MS = 500;
+/** A voice in the microphone: ElevenLabs' VAD score past this. */
+const VOICED = 0.9;
 
 const sameForm = (a: DraftText, b: DraftText) =>
   a.title === b.title && a.body === b.body;
@@ -43,6 +45,11 @@ async function eachLine(
 interface Session {
   endSession(): Promise<void>;
   sendUserMessage(text: string): void;
+}
+
+/** Their words as they say them: Scribe realtime on the microphone. */
+interface Transcription {
+  close(): void;
 }
 
 /**
@@ -85,6 +92,13 @@ export function TicketTalk({
   const said = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const turn = useRef<AbortController | null>(null);
+  const transcription = useRef<Transcription | null>(null);
+  /** Their words of this turn already done (Scribe commits each pause). */
+  const heardSoFar = useRef("");
+  /** The agent's voice is heard now: what Scribe hears is its echo. */
+  const speaking = useRef(false);
+  /** Their voice was heard since their last turn: a late word is not shown. */
+  const voiced = useRef(false);
   const thinking =
     words !== null || (call === "on" && thread.at(-1)?.author === "builder");
 
@@ -110,6 +124,11 @@ export function TicketTalk({
     clearTimeout(quiet.current);
     void session.current?.endSession();
     session.current = null;
+    transcription.current?.close();
+    transcription.current = null;
+    heardSoFar.current = "";
+    speaking.current = false;
+    voiced.current = false;
     wire.current?.close();
     wire.current = null;
     setHearing("");
@@ -219,6 +238,41 @@ export function TicketTalk({
     }
   }
 
+  /** Their words as they say them, in their bubble, while their voice is heard. */
+  function transcribe(
+    eleven: typeof import("@elevenlabs/client"),
+    token: string,
+    language: string,
+  ) {
+    const words = eleven.Scribe.connect({
+      token,
+      modelId: "scribe_v2_realtime",
+      commitStrategy: eleven.CommitStrategy.VAD,
+      vadSilenceThresholdSecs: 0.5,
+      languageCode: language,
+      microphone: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const show = (text: string) => {
+      if (speaking.current || !voiced.current) return;
+      const heard = `${heardSoFar.current} ${text}`.trim();
+      if (heard) setHearing(heard);
+    };
+    words.on(eleven.RealtimeEvents.PARTIAL_TRANSCRIPT, ({ text }) => {
+      stir();
+      show(text);
+    });
+    words.on(eleven.RealtimeEvents.COMMITTED_TRANSCRIPT, ({ text }) => {
+      if (speaking.current || !voiced.current) return;
+      show(text);
+      heardSoFar.current = `${heardSoFar.current} ${text}`.trim();
+    });
+    transcription.current = words;
+  }
+
   async function dial() {
     const opened = ++calls.current;
     setError("");
@@ -246,13 +300,21 @@ export function TicketTalk({
           connectionType: "webrtc",
           overrides: { agent: { language: language as "en" } },
           customLlmExtraBody: { yarrow: given.grant },
-          onModeChange: stir,
+          onModeChange: ({ mode }) => {
+            stir();
+            speaking.current = mode === "speaking";
+          },
+          onVadScore: ({ vadScore }) => {
+            if (vadScore >= VOICED && !speaking.current) voiced.current = true;
+          },
           onIncomingEvent: (event: {
             type?: string;
             tentative_user_transcription_event?: { user_transcript?: string };
           }) => {
             if (event.type !== "tentative_user_transcript") return;
             stir();
+            // Scribe shows their words sooner, when it is on.
+            if (transcription.current) return;
             setHearing(
               event.tentative_user_transcription_event?.user_transcript?.trim() ??
                 "",
@@ -260,7 +322,11 @@ export function TicketTalk({
           },
           onMessage: ({ source, message }) => {
             stir();
-            if (source === "user") setHearing("");
+            if (source === "user") {
+              setHearing("");
+              heardSoFar.current = "";
+              voiced.current = false;
+            }
             const line = withoutBeats(message).trim();
             if (line) heard(source === "user" ? "builder" : "agent", line);
           },
@@ -278,6 +344,8 @@ export function TicketTalk({
       session.current = live;
       setCall("on");
       stir();
+      if (given.transcriptionToken)
+        transcribe(eleven, given.transcriptionToken, language);
     } catch (failed) {
       if (calls.current !== opened) return;
       hangUp();

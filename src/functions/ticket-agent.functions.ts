@@ -14,7 +14,13 @@ const form = {
 };
 
 export type TicketCall =
-  | { ok: true; conversationToken: string; grant: string }
+  | {
+      ok: true;
+      conversationToken: string;
+      grant: string;
+      /** The member's words shown as they say them (Scribe realtime). */
+      transcriptionToken: string | null;
+    }
   | { ok: false; reason: string };
 
 /**

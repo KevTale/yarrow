@@ -1505,7 +1505,12 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     userId: string;
     language: string;
   }): Promise<
-    | { ok: true; conversationToken: string; grant: string }
+    | {
+        ok: true;
+        conversationToken: string;
+        grant: string;
+        transcriptionToken: string | null;
+      }
     | { ok: false; reason: string }
   > {
     const { env } = this;
@@ -1519,11 +1524,21 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     const asked = await withDb(env, (db) => turnsToday(db, input.userId));
     if (asked >= CHAT_DAILY_QUESTIONS)
       return { ok: false, reason: "That's all the questions for today." };
-    const [token, grant] = await Promise.all([
+    const [token, grant, words] = await Promise.all([
       conversationToken(env.ELEVENLABS_API_KEY, env.ELEVENLABS_AGENT_ID),
       signTalkGrant(env.VOICE_SECRET, input),
+      // Their words as they say them; the call goes on without.
+      transcriptionToken(env.ELEVENLABS_API_KEY).catch((error) => {
+        console.warn("ticket:transcription", describe(error));
+        return null;
+      }),
     ]);
-    return { ok: true, conversationToken: token, grant };
+    return {
+      ok: true,
+      conversationToken: token,
+      grant,
+      transcriptionToken: words,
+    };
   }
 
   /**
