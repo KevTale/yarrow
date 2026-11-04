@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { Play, RotateCcw, X } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import { RunStory, StopReason } from "@/components/run-activity";
 import { ticketText } from "@/core/new-ticket";
 import { merging, workText, type TicketRow } from "@/core/tickets";
 import { getTicketFn } from "@/functions/builder.functions";
 import { Conversation, PullPanel, usePullPanel } from "./pull-panel";
+import { SlideGo } from "./slide-go";
 
 type Detail = Awaited<ReturnType<typeof getTicketFn>>;
 export type TicketAct = (
@@ -41,17 +43,21 @@ export function prefetchTicket(projectId: string, key: string): void {
  * A ticket's row, opened. With a pull request, the pull request alone (the
  * review, the changes): it says what the ticket asked. Before, what the
  * ticket asks, as written in GitHub or Jira. Start, Cancel, Retry and Merge
- * stay on the row's line.
+ * are at its foot, on the right, never on the row's line: what is acted on is
+ * read first.
  */
 export function TicketPanel({
   projectId,
   row,
+  act,
   onChanged,
   onMerge,
   notMerged,
 }: {
   projectId: string;
   row: TicketRow;
+  /** Start, Cancel and Retry, for those who can. */
+  act?: TicketAct;
   /** The row moved (merged, a change asked). */
   onChanged: () => void;
   onMerge: () => void;
@@ -69,7 +75,46 @@ export function TicketPanel({
         notMerged={notMerged}
       />
     );
-  return <TicketBrief projectId={projectId} row={row} onChanged={onChanged} />;
+  return (
+    <TicketBrief
+      projectId={projectId}
+      row={row}
+      act={act}
+      onChanged={onChanged}
+    />
+  );
+}
+
+/** What the ticket can be told now, at the foot's right end, if anything. */
+function ticketGo(row: TicketRow, act: TicketAct): ReactNode {
+  if (row.status === "none")
+    return (
+      <SlideGo
+        label="Start"
+        icon={<Play size={11} fill="currentColor" aria-hidden="true" />}
+        busy={row.pending}
+        onGo={() => act("queue", [row.key])}
+      />
+    );
+  if (row.status === "queued" && !row.pending)
+    return (
+      <button
+        type="button"
+        className="tix-go quiet"
+        onClick={() => act("unqueue", [row.key])}
+      >
+        <X size={12} aria-hidden="true" /> Cancel
+      </button>
+    );
+  if (row.status === "abstained")
+    return (
+      <SlideGo
+        label="Retry"
+        icon={<RotateCcw size={13} aria-hidden="true" />}
+        onGo={() => act("retry", [row.key])}
+      />
+    );
+  return null;
 }
 
 /**
@@ -81,10 +126,12 @@ export function TicketPanel({
 function TicketBrief({
   projectId,
   row,
+  act,
   onChanged,
 }: {
   projectId: string;
   row: TicketRow;
+  act?: TicketAct;
   onChanged: () => void;
 }) {
   const id = cacheKey(projectId, row.key);
@@ -107,6 +154,7 @@ function TicketBrief({
   const going = working || row.status === "queued";
   const stopped = row.status === "abstained";
   const text = detail ? ticketText(detail.body, row.title) : "";
+  const go = act ? ticketGo(row, act) : null;
   return (
     <div className={stopped || going ? "pp-grid" : undefined}>
       <section className="pp-main" aria-label={`${row.ref}, as written`}>
@@ -119,6 +167,11 @@ function TicketBrief({
           <Markdown source={text} />
         ) : (
           <p className="tp-empty">No description</p>
+        )}
+        {go && (
+          <div className="pp-foot">
+            <span className="pp-foot-away">{go}</span>
+          </div>
         )}
       </section>
       {stopped && (

@@ -3709,49 +3709,51 @@ tbody tr:hover {
   border-color: #f2b54499;
   background: #f2b5442e;
 }
-/* Start, Retry and Merge are levers: the knob is pulled to the right end,
-   a trail of its colour behind it; lit once letting go does it. */
+/* Start, Retry and Merge are one lever, at the foot of the opened ticket: a
+   dark rounded track, the knob in the act's colour pulled to its right end,
+   a trail of that colour behind it, lit once letting go does it. */
 .tix-slide {
+  --tone: var(--amber);
+  --on-tone: #1d1505;
   position: relative;
-  width: 112px;
-  height: 28px;
-  padding: 1px;
-  gap: 0;
-  border-radius: 999px;
-  overflow: hidden;
-  cursor: default;
-  user-select: none;
-  touch-action: pan-y;
-}
-/* Merge, the one act that ends a review: a dark track, its knob the grey block
-   at its left, lit as letting go does it. */
-.tix-slide.dark {
-  width: 176px;
-  height: 34px;
-  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 184px;
+  height: 40px;
+  padding: 6px;
   border: 1px solid #ffffff1f;
-  border-radius: 10px;
+  border-radius: 999px;
   background: #0a0b0d;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+  touch-action: pan-y;
+  transition: border-color 0.15s;
 }
-.tix-slide.dark:hover {
+.tix-slide.go-green {
+  --tone: var(--green);
+  --on-tone: #07140d;
+}
+.tix-slide:hover {
   border-color: #ffffff33;
-  background: #0a0b0d;
 }
 .tix-slide-fill {
   position: absolute;
-  top: 1px;
-  bottom: 1px;
-  left: 1px;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
   border-radius: 999px;
-  background: currentColor;
-  opacity: 0.22;
+  background: var(--tone);
+  opacity: 0.12;
   pointer-events: none;
 }
 .tix-slide.armed .tix-slide-fill,
 .tix-slide.busy .tix-slide-fill {
-  opacity: 0.4;
+  opacity: 0.3;
 }
 .tix-slide-label {
   position: absolute;
@@ -3760,7 +3762,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding-left: 22px;
+  padding-left: 34px;
   pointer-events: none;
 }
 .tix-slide-hint {
@@ -3789,13 +3791,13 @@ tbody tr:hover {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: var(--amber);
-  color: #1d1505;
+  background: var(--tone);
+  color: var(--on-tone);
   cursor: grab;
   box-shadow: 0 1px 3px #00000059;
   transition: box-shadow 0.15s;
@@ -3806,43 +3808,7 @@ tbody tr:hover {
 .tix-slide.armed .tix-slide-knob {
   box-shadow:
     0 1px 3px #00000059,
-    0 0 12px 2px color-mix(in srgb, var(--amber) 55%, transparent);
-}
-.tix-slide.dark .tix-slide-fill {
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  border-radius: 7px;
-  background: #fff;
-  opacity: 0.05;
-}
-.tix-slide.dark.armed .tix-slide-fill,
-.tix-slide.dark.busy .tix-slide-fill {
-  background: var(--green);
-  opacity: 0.14;
-}
-.tix-slide.dark .tix-slide-label {
-  padding-left: 42px;
-}
-.tix-slide.dark .tix-slide-hint {
-  display: none;
-}
-.tix-slide.dark .tix-slide-knob {
-  width: 42px;
-  height: 26px;
-  border: 1px solid #ffffff24;
-  border-radius: 7px;
-  background: #2b2d31;
-  color: #fff;
-  box-shadow: none;
-  transition: background-color 0.15s;
-}
-.tix-slide.dark.armed .tix-slide-knob,
-.tix-slide.dark.busy .tix-slide-knob {
-  border-color: transparent;
-  background: var(--green);
-  color: #07140d;
-  box-shadow: none;
+    0 0 12px 2px color-mix(in srgb, var(--tone) 55%, transparent);
 }
 .tix-slide-knob:focus-visible {
   outline: 2px solid var(--text);
@@ -7672,9 +7638,6 @@ body:has(.sb-dialog[open]) {
     0 24px 48px -8px #000000cc,
     0 8px 16px #00000080;
 }
-.lp-dash .tix-go {
-  opacity: 1;
-}
 /* Sized to the list as it loads, its room open beside the conversation, the
    list scrolling inside past that: a ticket opened here moves neither the
    page nor the light behind it. Once the room stacks, it is the page's. */
@@ -7783,10 +7746,9 @@ body:has(.sb-dialog[open]) {
   .glass {
     padding: 4px;
   }
-  /* A line keeps its title and Start, what else it says left for the wide. */
+  /* A line keeps its title, what else it says left for the wide. */
   .lp-dash .bd-num,
-  .lp-dash .tix-meta > :not(.tix-cell),
-  .lp-dash .tix-cell > :not(.tix-go) {
+  .lp-dash .tix-meta {
     display: none;
   }
   .lp-dash .tix-rows {

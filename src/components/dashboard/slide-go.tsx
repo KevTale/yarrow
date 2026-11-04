@@ -9,19 +9,21 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/navigation-feedback";
 
-const KNOB = 24;
+const KNOB = 26;
 /** How far the knob must go, of its run, for the slide to count. */
 const THRESHOLD = 0.8;
 
 /**
  * Start, Retry and Merge: a lever pulled to the right, the confirmation and
- * the act in one gesture (decided 2026-10-27, replacing a second click). A
- * slide short of the end springs back; a click only nudges the knob, to
- * show it slides. Enter or Space on the focused lever does it at once.
+ * the act in one gesture (decided 2026-10-27, replacing a second click), one
+ * design for all three at the foot of the opened ticket, its colour the act's
+ * (decided 2026-11-03). A slide short of the end springs back; a click only
+ * nudges the knob, to show it slides. Enter or Space on the focused lever
+ * does it at once.
  */
 export function SlideGo({
   label,
-  prompt = label,
+  prompt = `Slide to ${label.toLowerCase()}`,
   icon,
   tone = "amber",
   busy = false,
@@ -33,7 +35,8 @@ export function SlideGo({
   /** What the track says, when more than the word. */
   prompt?: string;
   icon: React.ReactNode;
-  tone?: "amber" | "dark";
+  /** Amber to start, green to merge. */
+  tone?: "amber" | "green";
   /** The act is under way: the knob stays at the end, spinning. */
   busy?: boolean;
   disabled?: boolean;
@@ -90,7 +93,7 @@ export function SlideGo({
   return (
     <div
       ref={track}
-      className={`tix-go tix-slide ${tone} ${armed ? "armed" : ""} ${busy ? "busy" : ""}`}
+      className={`tix-slide go-${tone}${armed ? "armed" : ""} ${busy ? "busy" : ""}`}
       aria-disabled={disabled || undefined}
     >
       <motion.span className="tix-slide-fill" style={{ width: fill }} />

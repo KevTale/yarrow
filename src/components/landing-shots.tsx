@@ -274,7 +274,6 @@ function TicketRow({
   onToggle,
   stage,
   note,
-  go,
   children,
 }: {
   ticket: SampleTicket;
@@ -285,8 +284,6 @@ function TicketRow({
   stage?: ListStage;
   /** Where it ended up, in place of its state. */
   note?: string;
-  /** What to do with it now, on its line. */
-  go?: ReactNode;
   children: ReactNode;
 }) {
   const [own, setOwn] = useState(opened);
@@ -317,7 +314,6 @@ function TicketRow({
                 </TextShimmer>
               )}
               {note && <span className="lp-merged">{note}</span>}
-              {go}
             </span>
             <span className="tix-sponsor">
               <span className="tix-paid">Created by</span>
@@ -516,16 +512,20 @@ export function DashboardShot({ cta }: { cta: ReactNode }) {
           stage={stage}
           open={open}
           onToggle={onToggle}
-          go={
-            <SlideGo
-              label="Start"
-              icon={<Play size={10} fill="currentColor" aria-hidden="true" />}
-              onGo={() => start(number)}
-            />
-          }
         >
           <section className="pp-main">
             <Markdown source={ticket.asks} />
+            <div className="pp-foot">
+              <span className="pp-foot-away">
+                <SlideGo
+                  label="Start"
+                  icon={
+                    <Play size={11} fill="currentColor" aria-hidden="true" />
+                  }
+                  onGo={() => start(number)}
+                />
+              </span>
+            </div>
           </section>
         </TicketRow>
       );

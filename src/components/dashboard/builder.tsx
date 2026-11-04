@@ -5,11 +5,8 @@ import {
   ChevronDown,
   ChevronRight,
   Github,
-  Play,
   Plus,
-  RotateCcw,
   Settings,
-  X,
 } from "lucide-react";
 import {
   type RefObject,
@@ -57,7 +54,6 @@ import {
 import { ProjectSwitcher } from "./project-switcher";
 import { SponsorCell } from "./paid-by";
 import { RowMenu } from "./row-menu";
-import { SlideGo } from "./slide-go";
 import { StageMark } from "./stage-mark";
 import { prefetchPullPanel } from "./pull-panel";
 import { prefetchTicket, TicketPanel, type TicketAct } from "./ticket-panel";
@@ -997,32 +993,6 @@ function TicketLine({
           <span className="tix-meta">
             <span className="tix-cell">
               <RowState row={row} />
-              {act && row.status === "none" && (
-                <SlideGo
-                  label="Start"
-                  icon={
-                    <Play size={10} fill="currentColor" aria-hidden="true" />
-                  }
-                  busy={row.pending}
-                  onGo={() => act("queue", [row.key])}
-                />
-              )}
-              {act && row.status === "queued" && !row.pending && (
-                <button
-                  type="button"
-                  className="tix-go quiet"
-                  onClick={() => act("unqueue", [row.key])}
-                >
-                  <X size={12} aria-hidden="true" /> Cancel
-                </button>
-              )}
-              {act && row.status === "abstained" && (
-                <SlideGo
-                  label="Retry"
-                  icon={<RotateCcw size={12} aria-hidden="true" />}
-                  onGo={() => act("retry", [row.key])}
-                />
-              )}
             </span>
             <SponsorCell row={row} projectId={projectId} />
             <time
@@ -1038,6 +1008,7 @@ function TicketLine({
           <TicketPanel
             projectId={projectId}
             row={row}
+            act={act}
             onChanged={onChanged}
             onMerge={onMerge}
             notMerged={notMerged}

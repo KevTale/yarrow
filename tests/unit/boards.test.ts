@@ -198,9 +198,10 @@ describe("pull request cost", () => {
       });
     // ($12 spent + $25 of hypothesis) / (2 pull requests + 10)
     expect(await pullRequestCostCents(db, now)).toBe(308);
-    // Past 90 days, it no longer counts.
+    // Past 90 days, it no longer counts: past them from the clock too, as the
+    // pull requests are dated by the database.
     expect(
-      await pullRequestCostCents(db, new Date("2027-02-01T00:00:00Z")),
+      await pullRequestCostCents(db, new Date(Date.now() + 91 * 86_400_000)),
     ).toBe(250);
   });
 });
