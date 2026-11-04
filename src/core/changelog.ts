@@ -1,6 +1,8 @@
 /**
- * The public changelog, newest first, one entry per day as it landed on main.
- * Only what a builder or a sponsor sees; real dates only.
+ * The public changelog, newest first, one entry per day.
+ * What stands today, on the day it landed in that form: what left the product
+ * leaves the page, what was rebuilt sits on the day of its rebuild, the rest
+ * never moves. Only what a builder or a sponsor sees; real dates only.
  */
 export type ChangeTag = "Builders" | "Sponsors";
 export type Change = string | { text: string; tag: ChangeTag };
@@ -16,9 +18,6 @@ export interface ChangelogEntry {
 
 const builders = (text: string): Change => ({ text, tag: "Builders" });
 const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
-
-/** The hackathon's first day: the page folds the days before it. */
-export const HACKATHON_START = "2026-10-26";
 
 export const changelog: ChangelogEntry[] = [
   {
@@ -63,13 +62,16 @@ export const changelog: ChangelogEntry[] = [
     title: "Write a ticket with the agent",
     new: [
       builders(
-        "New ticket is written with the agent, in writing or on a call: it reads the repository and every ticket of the project, says what already exists, asks what neither answers and fills in the title and description as you talk.",
+        "New ticket is written with the agent, in writing or on a call: it reads the repository and every ticket of the project, says what already exists, asks what neither answers and fills in the title and description as you talk. The ticket opens in GitHub or in a linked Jira project.",
       ),
       builders(
         "Ask the agent for a ticket in a pull request's conversation: a card under its words creates it where the project's tickets go, not started, or opens it in the new ticket dialog.",
       ),
       builders(
         "Connecting GitHub leads to a setup, one step at a time: the repository, where the tickets are, how a linked board's tickets move, then the dashboard.",
+      ),
+      builders(
+        "A new dashboard layout: the list is the only frame, with the project and the search above it on the page.",
       ),
       "A new landing made of the real product: a ticket to review open on its real demo and agent, a real agent writing a ticket, and that ticket's way to review.",
       sponsors(
@@ -106,6 +108,12 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "Interrupt the demo as you would a colleague: it stops as you start speaking or send, the agent answers aloud and shows it on the live app, and Play or saying go on takes the demo up from the sentence it cut.",
       ),
+      builders(
+        "A click in the demo gives you the app itself: your mouse and keyboard reach it.",
+      ),
+      builders(
+        "Full screen takes the demo and its bar to the middle of the window.",
+      ),
       builders("Slide to merge, at the end of the bar under the demo."),
     ],
     improved: [
@@ -121,16 +129,12 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "Demos have no dock: each app fills the screen and the demo cuts to the one it needs.",
       ),
-      builders("Full screen centers the demo and its bar in the window."),
     ],
   },
   {
     date: "2026-10-30",
-    title: "One thing at a time",
+    title: "A row that holds still",
     new: [
-      builders(
-        "Take control of a pull request's app from its ticket: your mouse and keyboard reach the app itself.",
-      ),
       builders(
         "A bar at the foot of an opened ticket: the files changed on the left, what opens elsewhere on the right.",
       ),
@@ -159,13 +163,10 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-29",
-    title: "What proves a change",
+    title: "The app at its own address",
     new: [
       builders(
-        "An open pull request's app at its own address: the preview, signed in, for the project's members.",
-      ),
-      builders(
-        "Each pull request proves itself with what fits the change: screens before and after, what a command printed, a measure, the document or the app's page.",
+        "An open pull request's app at its own address: the preview, signed in, for the project's members, opening on the page that shows the change.",
       ),
     ],
     improved: [
@@ -177,9 +178,6 @@ export const changelog: ChangelogEntry[] = [
       ),
       builders(
         "A demo can play a canvas, so a browser game's ticket shows the game played.",
-      ),
-      builders(
-        "What a command printed reads without a terminal: the lines that changed marked, the rest folded until asked for.",
       ),
       builders(
         "Your words show in the conversation as you say them on a call.",
@@ -208,11 +206,8 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-27",
-    title: "Levers and plain words",
+    title: "Levers",
     improved: [
-      builders(
-        "A pull request's panel reads What the ticket asks, then What changed, one text by one agent, the reviewer, the last to look. GitHub's description says the same.",
-      ),
       builders(
         "Start, Retry and Merge are levers pulled to the right, the confirmation in the gesture.",
       ),
@@ -247,18 +242,10 @@ export const changelog: ChangelogEntry[] = [
     title: "A change under way",
     improved: [
       builders(
-        "A pull request being changed waits in In progress, out of To review's count, and comes back to To review with its commit. An opened row stays where it is until you close it.",
+        "A pull request being changed waits in In progress, out of To review's count, and comes back to To review with its commit.",
       ),
       builders(
-        "Summaries, reviews, the agent's answers and ticket descriptions read their Markdown: italics, struck text, emphasis inside emphasis.",
-      ),
-      builders(
-        "A pull request's summary and review say it in a few lines, set larger and easier to read. Ask the conversation for the details.",
-      ),
-    ],
-    fixed: [
-      builders(
-        "A suggested ticket leaves the pull request's sidebar once you make it a ticket.",
+        "Summaries, the agent's answers and ticket descriptions read their Markdown: italics, struck text, emphasis inside emphasis.",
       ),
     ],
   },
@@ -267,7 +254,7 @@ export const changelog: ChangelogEntry[] = [
     title: "Ask the agent",
     new: [
       builders(
-        "A pull request's conversation, under the review and beside the film in cinema mode: ask the agent about the change, the code or the project's tickets. It reads the code to answer, points to moments of the presentation, and proposes a change you make in one click.",
+        "A conversation on each pull request: ask the agent about the change, the code or the project's tickets. It reads the code to answer and proposes a change you make in one click.",
       ),
     ],
     improved: [
@@ -277,71 +264,11 @@ export const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    date: "2026-10-23",
-    title: "Cinema mode",
+    date: "2026-10-21",
+    title: "A video of the change",
     new: [
       builders(
-        "Cinema mode: a pull request's presentation fills the window beside the conversation, the changes asked and the box to ask for one; Back returns to the pull request.",
-      ),
-      builders("The arrow keys move a presentation three seconds back or on."),
-    ],
-    improved: [
-      builders(
-        "In a presentation the dock is a thin strip and each app takes the rest of the screen, with square corners.",
-      ),
-      builders(
-        "A presentation's controls sit on a light rounded shade, readable over any page, each with its tip, and the film carries no Before or After label nor amber outline: the voice and the agent's pointer say it.",
-      ),
-      builders(
-        "A pull request's lint, tests and build fold into one line, Technical checks pass, that opens on each of them. The review drops its Changes requested tag: its words say it.",
-      ),
-    ],
-    fixed: [
-      builders(
-        "After the reviewer sends a change back, a pull request's summary still tells the whole ticket, and the review says what it found first and that it was fixed, or names what still fails.",
-      ),
-      builders(
-        "A presentation no longer shows a page's text selected after the agent's first click.",
-      ),
-      builders(
-        "When a presentation's controls hide, its captions drop to the foot of the film instead of hanging over the app.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-22",
-    title: "Pull requests in plain words",
-    new: [
-      builders(
-        "Every pull request lists the ticket's acceptance criteria, each ticked once it was shown working.",
-      ),
-      builders(
-        "What the agents noticed outside a ticket shows as a suggested ticket beside its pull request: one click and the new ticket opens written, ready to send.",
-      ),
-    ],
-    improved: [
-      builders(
-        "A pull request's summary says what the ticket asked, then what was done. Its review reads like a colleague's: what the reviewer checked, then everything that works, the ticket's criteria and the tests in plain words, then what to keep an eye on.",
-      ),
-      builders(
-        "In a pull request's presentation the app fills the screen and reads larger, the dock no longer looks like the player's buttons, and each chapter ends with its words instead of a silence.",
-      ),
-    ],
-    fixed: [
-      builders(
-        "On a phone, tickets keep their line and scroll sideways, and an opened ticket's text no longer runs past the screen.",
-      ),
-      builders(
-        "The ticket list no longer slides by itself on a refresh after a ticket was opened.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-19",
-    title: "Screenshots",
-    new: [
-      builders(
-        "A pull request that changes what people see comes with screenshots of the changed screens, in its panel and, for public projects, in its description.",
+        "A pull request can come with a short video of the agent's screen, with its voice, in chapters.",
       ),
     ],
   },
@@ -353,19 +280,13 @@ export const changelog: ChangelogEntry[] = [
         "Open a ticket on the dashboard to read it as written in GitHub or Jira, then start it, cancel it or review its pull request in place.",
       ),
       builders(
-        '"+" on To do or In progress writes a new ticket in a dialog; C opens it too.',
-      ),
-      builders(
-        "When the agents stop with questions, answer them under the ticket: the answer is written on the ticket and it starts again.",
+        "When the agents stop with questions, answer them on the ticket: the answer is written on it and it starts again.",
       ),
       builders(
         'Close a ticket, or only its pull request, from the "…" of its row.',
       ),
     ],
     improved: [
-      builders(
-        "Tickets and Sponsoring are two links in the header; Changelog moved to the avatar menu.",
-      ),
       builders(
         "Every ticket in one list, grouped by stage: To review, In progress, To do, Stopped, Done. Each shows the day it was written.",
       ),
@@ -378,11 +299,8 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-13",
-    title: "Write tickets in Yarrow",
+    title: "Tickets in sync",
     new: [
-      builders(
-        "New ticket on the dashboard: write it once, it opens in GitHub or in a linked Jira project, queued at once or left to queue.",
-      ),
       builders(
         "A yarrow label set in Jira itself queues the ticket in seconds.",
       ),
@@ -395,22 +313,13 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-12",
-    title: "One account, and a way in for sponsors",
-    new: [
-      sponsors(
-        "A Sponsors link in the header takes you straight to the board.",
-      ),
-      "This changelog.",
-    ],
+    title: "One account",
+    new: ["This changelog."],
     improved: [
       "Signing in with GitHub after signing in by email adds GitHub to the same account, so your projects and your sponsoring stay together.",
       builders(
-        "Back from GitHub without the repository of the issue you pasted, the dashboard says so and takes you back to add it.",
-      ),
-      builders(
         "An organization member who asks its admins to install Yarrow sees that the request went out.",
       ),
-      "The landing says it plainly: free pull requests from frontier AI. No API key, no card, no subscription.",
       sponsors("The board shows what the smallest amount funds."),
     ],
   },
@@ -418,9 +327,7 @@ export const changelog: ChangelogEntry[] = [
     date: "2026-10-11",
     title: "Manage pull requests without leaving Yarrow",
     new: [
-      builders(
-        "Open a pull request's row to read what changed, its checks, the review and the risks, then merge it, mark it ready or ask for a change.",
-      ),
+      builders("Merge a pull request from Yarrow, or ask for a change."),
       builders(
         "Comment @yarrow-run on a pull request, followed by what to change, and it comes back with a correction.",
       ),
@@ -431,38 +338,23 @@ export const changelog: ChangelogEntry[] = [
         "Your card takes your website's icon when you have not uploaded a logo.",
       ),
     ],
-    improved: [
-      builders(
-        "Your avatar counts the pull requests waiting for your review, and the dashboard opens on them.",
-      ),
-      "Pull request descriptions put each note in its place: what it does, what could not be checked, what you need to act on.",
-      "Share a run's public page from its row.",
-    ],
-    fixed: [
-      "When an AI provider refuses a run for lack of credit on Yarrow's side, the ticket goes back to the queue in its place instead of stopping.",
-    ],
   },
   {
     date: "2026-10-10",
     title: "Live tickets, and why it's free",
     new: [
-      "Live tickets on the landing: the latest work, moving only when the work does.",
+      "Live tickets: the latest work, moving only when the work does.",
       "Why is it free? A pull request sketched in place, with the sponsors' card at its foot.",
-      builders(
-        "Or connect your backlog, under the ticket field, for when you have no issue at hand.",
-      ),
       builders(
         "The Terms, sponsors' card included, are ticked once before connecting GitHub.",
       ),
     ],
     improved: [
-      "Shorter pull requests, with GPT Astra's review inside the description.",
       "A queued ticket starts within seconds instead of waiting for the next minute.",
       "Runs can change files under .github/workflows.",
       sponsors(
         "“Funds ≈N PRs” follows what pull requests actually cost over the last 90 days.",
       ),
-      "Smoother controls: the source picker, the Today / All time switch, rolling totals, and an amount field you can hold to repeat.",
     ],
     fixed: [
       "A stopped run names its real cause: GitHub refusing the change, an AI provider, or Yarrow itself.",
@@ -495,15 +387,12 @@ export const changelog: ChangelogEntry[] = [
     title: "Jira, and a dashboard for your tickets",
     new: [
       builders(
-        "Paste a Jira ticket: link its project to a repository and it joins the queue.",
+        "Link a Jira project to a repository and its tickets join Yarrow.",
       ),
       builders(
         "Jira tickets move across your board when Yarrow starts, opens the pull request and merges, to the statuses you choose.",
       ),
-      "Live run activity: what Claude Opus and GPT Astra are doing, as they do it.",
-      builders(
-        "To review: every draft pull request across your projects in one list.",
-      ),
+      "Live run activity: what the agents are doing, as they do it.",
       "Logo uploads for sponsors and projects.",
     ],
     improved: [
@@ -521,12 +410,11 @@ export const changelog: ChangelogEntry[] = [
     date: "2026-10-07",
     title: "Builders and sponsors, live",
     new: [
-      builders("Paste an issue link on the landing to get a pull request."),
       builders(
-        "Connect GitHub with no form to fill: your repositories become projects when you install the app.",
+        "Connect GitHub with no form to fill: your repositories become projects.",
       ),
       sponsors("Pay without GitHub, then sign in from a link in your email."),
-      "A dashboard with Builder and Sponsor tabs, updated live.",
+      "A dashboard for builders and sponsors, updated live.",
       sponsors(
         "A thank-you email, confetti, and an invoice for every payment.",
       ),
@@ -541,7 +429,6 @@ export const changelog: ChangelogEntry[] = [
     title: "Yarrow",
     new: [
       "Sponsors fund the compute; frontier AI turns your tickets into pull requests.",
-      "Claude Opus writes every pull request, and GPT Astra reviews it.",
     ],
   },
 ];

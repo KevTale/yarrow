@@ -10334,33 +10334,11 @@ html:has(.pp-stage:modal) {
 .cl-short {
   display: none;
 }
-.cl-body h2,
-.cl-before summary h2 {
+.cl-body h2 {
   font-size: 30px;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: -0.01em;
-}
-.cl-before summary {
-  cursor: pointer;
-  list-style: none;
-}
-.cl-before summary::-webkit-details-marker {
-  display: none;
-}
-.cl-before summary h2 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--muted);
-}
-.cl-before summary:hover h2,
-.cl-before[open] summary h2 {
-  color: var(--text);
-}
-.cl-before[open] summary svg {
-  transform: rotate(180deg);
 }
 .cl-section {
   margin-top: 28px;
@@ -10419,8 +10397,7 @@ html:has(.pp-stage:modal) {
   .cl-short {
     display: inline;
   }
-  .cl-body h2,
-  .cl-before summary h2 {
+  .cl-body h2 {
     font-size: 24px;
   }
   .cl-section li {
