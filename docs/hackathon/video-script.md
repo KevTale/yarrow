@@ -111,11 +111,13 @@ Create ticket. Sur dev, la review du même ticket avait relevé qu'une tâche aj
 
 ## 9. Close (2:33–2:55, face cam)
 
-> So, agents are going to write most of the code. That's a given. But your team still decides what gets built, and what gets shipped.
+> With Yarrow, we truly aim to give teams their confidence back. Agents can write the code, but you should still know exactly what you ship.
 >
-> That's the part Yarrow makes fast. You write a clear ticket, you get a working demo back, and you merge knowing exactly what you're shipping. Dozens of tickets a day, and you understand every single one.
+> So every ticket comes back with a demo, and someone to talk to about it.
 >
-> That's Yarrow. Go try it on yarrow.run.
+> Agents write the code. Your team makes the call.
+>
+> That's Yarrow. Try it on yarrow.run.
 
 Mot final à l'écran : **yarrow.run**.
 
