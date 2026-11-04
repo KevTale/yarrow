@@ -1,6 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { VOICE_PUSH } from "../../src/core/stage";
 import { ensureAccount } from "../../src/db/accounts";
+import { ticketsForChat } from "../../src/db/chat";
+import { pullRequests, workUnits } from "../../src/db/schema";
 import { projectsForUser } from "../../src/db/github-tasks";
 import {
   draftTurnsToday,
@@ -176,6 +178,31 @@ describe("the agent that writes a ticket", () => {
     await expect(listTickets(sources)).resolves.toBe(
       "github 3 · Filter tasks by status · to review · pull request #4 open\ngithub 12 · Dark mode · open on GitHub, not given to Yarrow",
     );
+  });
+
+  it("leaves out a ticket closed before Yarrow shipped anything", async () => {
+    const unit = (externalId: string, status: "queued" | "closed") => ({
+      projectId,
+      source: "github" as const,
+      externalId,
+      title: `Ticket ${externalId}`,
+      url: `https://github.com/marie/halyard/issues/${externalId}`,
+      status,
+    });
+    const [, , tried] = await db
+      .insert(workUnits)
+      .values([unit("1", "closed"), unit("2", "queued"), unit("3", "closed")])
+      .returning({ id: workUnits.id });
+    await db.insert(pullRequests).values({
+      workUnitId: tried!.id,
+      url: "https://github.com/marie/halyard/pull/4",
+      number: 4,
+      branch: "yarrow/3",
+      state: "closed",
+      closedAt: new Date(),
+    });
+    const keys = (await ticketsForChat(db, projectId)).map((row) => row.key);
+    expect(keys.sort()).toEqual(["2", "3"]);
   });
 
   it("goes on from the thread, whether written or said", async () => {

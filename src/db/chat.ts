@@ -9,6 +9,8 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
+  or,
   sql,
 } from "drizzle-orm";
 import {
@@ -591,7 +593,13 @@ export async function ticketsForChat(
     })
     .from(workUnits)
     .leftJoin(pullRequests, eq(pullRequests.workUnitId, workUnits.id))
-    .where(eq(workUnits.projectId, projectId))
+    .where(
+      and(
+        eq(workUnits.projectId, projectId),
+        // As on the dashboard: closed before Yarrow shipped anything, gone.
+        or(ne(workUnits.status, "closed"), isNotNull(pullRequests.id)),
+      ),
+    )
     .orderBy(sql`${workUnits.createdAt} desc`)
     .limit(200);
   return rows.map((row) => ({
