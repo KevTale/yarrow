@@ -237,14 +237,18 @@ export class Stage extends DurableObject<StageEnv> {
       clone: saved.warm
         ? undefined
         : { repository: spec.repository, branch: spec.branch },
-      before: spec.before
-        ? {
-            dir: BEFORE,
-            base: spec.base,
-            steps: saved.warm ? spec.before.restart : spec.before.steps,
-            url: spec.before.url,
-          }
-        : undefined,
+      // A snapshot taken with the app as it was down: no two minutes of
+      // waiting for it again.
+      before:
+        spec.before &&
+        !(saved.warm && this.#kv.get<boolean>("snapshotBefore") === false)
+          ? {
+              dir: BEFORE,
+              base: spec.base,
+              steps: saved.warm ? spec.before.restart : spec.before.steps,
+              url: spec.before.url,
+            }
+          : undefined,
     });
     await this.#files.writeFile(`${TASK}/stage-boot.sh`, script);
     await this.#background(`bash ${TASK}/stage-boot.sh`);
@@ -666,6 +670,14 @@ export class Stage extends DurableObject<StageEnv> {
         name: `stage-${this.ctx.id.toString().slice(0, 12)}`,
       });
       this.#kv.put("snapshot", snapshot);
+      this.#kv.put(
+        "snapshotBefore",
+        Boolean(
+          this.#kv
+            .get<Saved>("saved")
+            ?.events.some((event) => event.label === "before up"),
+        ),
+      );
       this.#mark(`snapshot kept (${Math.round(snapshot.size / 1e6)} MB)`);
     } catch (error) {
       this.#mark(`snapshot failed: ${(error as Error).message}`);

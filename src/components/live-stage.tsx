@@ -281,12 +281,14 @@ export function useLiveStage({
     play: (opened?: (ok: boolean) => void, from?: number) => Promise<void>;
     interrupt: (words?: boolean) => void;
     follow: () => void;
+    reachStopped: () => void;
   }>({
     onResume,
     onVoice,
     play: async () => {},
     interrupt: () => {},
     follow: () => {},
+    reachStopped: () => {},
   });
   /** The film and the member: on, stopped by a voice, stopped for their words. */
   const heardOver = useRef<"no" | "voice" | "words">("no");
@@ -777,6 +779,14 @@ export function useLiveStage({
     heardOver.current = words ? "words" : "voice";
     if (!words) return;
     audible();
+    reachStopped();
+  };
+
+  /**
+   * The stage where the film stopped, then shown: on their first words, or
+   * as it comes up when they spoke while it booted.
+   */
+  const reachStopped = () => {
     const at = stoppedAt.current;
     // In the member's hands, the stage stays as they have it.
     if (control !== "off") setReached(true);
@@ -1438,7 +1448,14 @@ export function useLiveStage({
   const live = Boolean(status?.live);
   useEffect(() => {
     ending.current = { stop, endTalk, hangUpVoice, warm };
-    latest.current = { onResume, onVoice, play, interrupt, follow };
+    latest.current = {
+      onResume,
+      onVoice,
+      play,
+      interrupt,
+      follow,
+      reachStopped,
+    };
   });
   useEffect(() => {
     const was = up.current;
@@ -1446,6 +1463,9 @@ export function useLiveStage({
     if (up.current) {
       // Up: the call's pass asked for now, so the click starts it at once.
       ending.current.warm();
+      // Up during a call they already spoke on: the screen joins it.
+      if (!was && calling.current && heardOver.current === "words")
+        latest.current.reachStopped();
       return;
     }
     // A call by voice alone goes on while the stage comes up, or never does.

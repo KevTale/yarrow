@@ -390,6 +390,9 @@ export function stageScript(input: {
       "(",
       `  [ -d ${dir} ] || git -C ${repo} worktree add --detach ${dir} "$(git -C ${repo} merge-base HEAD ${base} || echo ${base})" || { mark "before failed: worktree"; exit 1; }`,
       `  cd ${dir}`,
+      // The worktree has none of the ignored files: the agent linked them
+      // on its machine without saying so.
+      `  [ -e node_modules ] || [ ! -d ${repo}/node_modules ] || ln -s ${repo}/node_modules node_modules`,
       ...before.steps.flatMap((step, i) => [
         `  mark "before step ${i + 1}"`,
         `  ${step}`,

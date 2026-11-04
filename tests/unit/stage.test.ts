@@ -1,5 +1,5 @@
 import { execFile, execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -213,13 +213,16 @@ describe("the stage", () => {
     git("checkout", "-qb", "yarrow/change");
     writeFileSync(path.join(repo, "app.txt"), "as it is\n");
     git("commit", "-qam", "change");
+    // Installed, ignored: the app as it was gets the same dependencies.
+    mkdirSync(path.join(repo, "node_modules"));
     const server = createServer((_, response) => response.end("ok"));
     await new Promise<void>((resolve) =>
       server.listen(0, "127.0.0.1", resolve),
     );
     const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+    let boots = 0;
     const boot = async (steps: string[]) => {
-      const log = path.join(dir, `marks-${steps.length}.log`);
+      const log = path.join(dir, `marks-${++boots}.log`);
       writeFileSync(
         path.join(dir, "boot.sh"),
         stageScript({
@@ -235,12 +238,15 @@ describe("the stage", () => {
       return stageLog(readFileSync(log, "utf8")).map((mark) => mark.label);
     };
     try {
-      expect(await boot(["cp app.txt ../seen"])).toEqual([
+      expect(
+        await boot(["cp app.txt ../seen", "test -e node_modules"]),
+      ).toEqual([
         "step 1",
         "waiting for the app",
         "app up",
         "before",
         "before step 1",
+        "before step 2",
         "before up",
         "served",
       ]);
