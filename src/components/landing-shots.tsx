@@ -15,6 +15,7 @@ import { askSample, SampleBox } from "@/components/landing-agent";
 import { SampleRoom } from "@/components/landing-room";
 import { Markdown } from "@/components/markdown";
 import { ActivityList, type Crew } from "@/components/run-activity";
+import { clockTime } from "@/components/ui";
 import { storyLines, type ActivityLine } from "@/core/activity";
 import { asksBack, type DraftLine } from "@/core/new-ticket";
 import { firstSentence } from "@/core/pull-notes";
@@ -426,14 +427,14 @@ const SAMPLE: Drafted = {
   sample: true,
 };
 
-const today = () =>
-  new Date().toLocaleString("en-US", {
+const today = () => {
+  const now = new Date();
+  const day = now.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
   });
+  return `${day}, ${clockTime(now)}`;
+};
 
 function StepHead({ step }: { step: Step }) {
   const { title, says } = TELLS[step];

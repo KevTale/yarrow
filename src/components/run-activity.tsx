@@ -29,6 +29,7 @@ import { modelDisplayName, modelShortName } from "@/core/pipeline";
 import type { RunActivity } from "@/db/queries";
 import { getRunActivityFn } from "@/functions/public.functions";
 import { Spinner } from "@/components/navigation-feedback";
+import { clockTime } from "@/components/ui";
 import { Rich } from "./markdown";
 
 /** The run's two models as the feed names them: "Claude Opus", "GPT Astra". */
@@ -225,12 +226,7 @@ function Describe({
   }
 }
 
-function time(at: string) {
-  return new Date(at).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const time = (at: string) => clockTime(new Date(at));
 
 export function ActivityList({
   lines,

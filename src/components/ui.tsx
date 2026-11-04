@@ -148,9 +148,29 @@ export function timeAgo(value: Date | string | null): string {
 }
 
 /**
- * "Oct 9, 14:03": a row's date with its time, in 24 hours. In the reader's
- * own time zone once in the browser; UTC while the server draws the page,
- * so the first paint and the hydration agree.
+ * "2:03 PM" or "14:03", the hours as the reader's browser writes them, the
+ * page staying in English. Without a reader, on the server: 24 hours.
+ */
+export function clockTime(
+  date: Date,
+  timeZone?: string,
+  reader = true,
+): string {
+  const twelve =
+    reader &&
+    new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions()
+      .hour12 === true;
+  return date.toLocaleTimeString(twelve ? "en-US" : "en-GB", {
+    hour: twelve ? "numeric" : "2-digit",
+    minute: "2-digit",
+    timeZone,
+  });
+}
+
+/**
+ * "Oct 9, 14:03": a row's date with its time. In the reader's own time zone
+ * and hours once in the browser; UTC and 24 hours while the server draws the
+ * page, so the first paint and the hydration agree.
  */
 export function useDateTime(value: Date | string | null): string {
   const local = useSyncExternalStore(
@@ -169,12 +189,7 @@ export function useDateTime(value: Date | string | null): string {
       : {}),
     timeZone,
   });
-  const time = date.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone,
-  });
-  return `${day}, ${time}`;
+  return `${day}, ${clockTime(date, timeZone, local)}`;
 }
 const noSubscription = () => () => {};
 
@@ -185,7 +200,7 @@ export function longDate(value: Date | string | null): string {
     new Date(value).toLocaleString("en-US", {
       dateStyle: "long",
       timeStyle: "short",
-      hour12: false,
+      hourCycle: "h23",
       timeZone: "UTC",
     }) + " UTC"
   );
