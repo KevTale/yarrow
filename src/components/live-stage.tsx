@@ -70,6 +70,8 @@ const SLIPS_MAX = 2;
 const SHOW_LOOK_MS = 700;
 /** How long it looks, a question's answer never coming. */
 const ANSWER_MS = 90_000;
+/** As long as the brain drops a turn after a mute (CANCEL_MS on the stage). */
+const UNSENT_MS = 5000;
 /** Asked again this often while the member has control; past a few, it ends. */
 const CONTROL_MS = 15_000;
 /** X's numbers for the keys of Ctrl+V. */
@@ -197,6 +199,8 @@ export function useLiveStage({
   const [led, setLed] = useState<number | null>(null);
   /** What the microphone hears of the member, as they say it. */
   const [hearing, setHearing] = useState("");
+  /** Until when their words heard on the call are dropped: muted mid-speech. */
+  const unsent = useRef(0);
   /** The agent's words as they come, until the call has them whole. */
   const [writing, setWriting] = useState("");
   /** They said it, no word of the agent's yet. */
@@ -1134,6 +1138,7 @@ export function useLiveStage({
           onAudioAlignment: hearVoice,
           onMessage: ({ source, message }) => {
             const who = source === "user" ? "member" : "agent";
+            if (who === "member" && Date.now() < unsent.current) return;
             if (who === "member") {
               setHearing("");
               setVoicing(false);
@@ -1188,6 +1193,10 @@ export function useLiveStage({
   /** Their microphone on the call, and their words as they say them. */
   const plugMic = async () => {
     setMic("starting");
+    if (unsent.current) {
+      unsent.current = 0;
+      void cue({ action: "cancel", on: false });
+    }
     try {
       wire.current ??= micLine();
       await wire.current.plug();
@@ -1211,8 +1220,15 @@ export function useLiveStage({
     }
   };
 
-  /** Their microphone off: the call stays a while, for what they write. */
+  /**
+   * Their microphone off: the call stays a while, for what they write. Off
+   * while they were still speaking, what they said is not sent.
+   */
   const muteMic = () => {
+    if (calling.current && (hearing || voicing || heardSoFar.current)) {
+      unsent.current = Date.now() + UNSENT_MS;
+      void cue({ action: "cancel", on: true });
+    }
     wire.current?.unplug();
     micOn.current = false;
     setMic("off");

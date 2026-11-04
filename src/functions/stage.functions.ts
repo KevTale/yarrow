@@ -97,6 +97,7 @@ export const stageCueFn = createServerFn({ method: "POST" })
         z.object({ action: z.literal("stir") }),
         z.object({ action: z.literal("control"), on: z.boolean() }),
         z.object({ action: z.literal("state") }),
+        z.object({ action: z.literal("cancel"), on: z.boolean() }),
       ]),
     }),
   )

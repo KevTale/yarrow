@@ -168,7 +168,10 @@ export type StageCue =
   // The member's words are on their way to the agent.
   | { action: "stir" }
   | { action: "control"; on: boolean }
-  | { action: "state" };
+  | { action: "state" }
+  // Muted while still speaking: what they said is not sent (`on` false:
+  // the microphone back, they may speak again).
+  | { action: "cancel"; on: boolean };
 
 /** A window the agent can bring in front. */
 export type StageWindow = "after" | "before" | "terminal" | "code";

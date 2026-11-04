@@ -15,6 +15,7 @@ import {
   memberWords,
   stageNote,
   talkGrantOf,
+  spokenLanguage,
   talkFiller,
   talkMessages,
   talkRequestSchema,
@@ -855,6 +856,14 @@ describe("what ElevenLabs sends the brain", () => {
     expect(talkFiller("fr", 3)).toBe("Une seconde. ");
     expect(talkFiller("en-GB", 0)).toBe("One moment. ");
     expect(talkFiller("ja", 2)).toBe("Just a second. ");
+  });
+
+  it("fills in the language just spoken, not the browser's", () => {
+    expect(spokenLanguage("Can you try to add a new task?", "fr")).toBe("en");
+    expect(spokenLanguage("Show me the video, please.", "fr")).toBe("en");
+    expect(spokenLanguage("Montre-moi la tâche ajoutée.", "en")).toBe("fr");
+    expect(spokenLanguage("c'est bon", "en")).toBe("fr");
+    expect(spokenLanguage("OK", "fr")).toBe("fr");
   });
 
   it("ends the words said before a tool so the voice says them at once", () => {

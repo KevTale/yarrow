@@ -116,6 +116,7 @@ import {
   DEFAULT_TALK_MODEL,
   memberSpoke,
   memberWords,
+  spokenLanguage,
   stageNote,
   TALK_SILENCE_MS,
   talkBenchSchema,
@@ -1389,6 +1390,10 @@ export class Brain extends WorkerEntrypoint<BrainEnv> {
     if (!env.STAGE)
       return { ok: false, problems: ["No stage on this environment."] };
     const stage = env.STAGE.getByName(input.workUnitId);
+    if (input.cue.action === "cancel") {
+      await stage.cancelTurn(input.cue.on);
+      return { ok: true, problems: [] };
+    }
     if (input.cue.action !== "resume" || !input.cue.restore)
       return stage.present(input.cue);
     const found = await stage.present({ action: "changes" });
@@ -1653,10 +1658,15 @@ async function talkRoute(
     said = Date.now();
     return write(completion.words(id, text));
   };
-  // While the agent works on the stage in silence, a few words keep the call.
+  // While the agent works on the stage in silence, a few words keep the
+  // call, in the language just spoken.
+  const language = spokenLanguage(
+    memberWords(talkMessages(parsed.data.messages)),
+    grant.language,
+  );
   const silence = setInterval(() => {
     if (Date.now() - said >= TALK_SILENCE_MS)
-      void say(talkFiller(grant.language, fillers++));
+      void say(talkFiller(language, fillers++));
   }, 500);
   const turn = (async () => {
     try {
@@ -1699,6 +1709,11 @@ async function talkRoute(
       // A noise heard as a turn, no word in it: not the member's turn.
       const messages = talkMessages(parsed.data.messages);
       if (messages.at(-1)?.role !== "user") {
+        await write(completion.skip(id) + completion.done);
+        return;
+      }
+      // Muted before they were done: not a turn.
+      if (await stage.cancelled()) {
         await write(completion.skip(id) + completion.done);
         return;
       }
@@ -2015,7 +2030,7 @@ function ticketTalk(
   // While it reads the code in silence, a few words keep the call.
   const silence = setInterval(() => {
     if (Date.now() - last >= TALK_SILENCE_MS)
-      say(talkFiller(grant.language, fillers++));
+      say(talkFiller(spokenLanguage(said, grant.language), fillers++));
   }, 500);
   ctx.waitUntil(
     (async () => {

@@ -70,6 +70,8 @@ const IDLE_MS = 15 * 60_000;
 const TICK_MS = 1_000;
 /** A boot still going after this long will not end: a step that never returns. */
 const BOOT_MS = 15 * 60_000;
+/** How long after a mute their words are still not a turn. */
+const CANCEL_MS = 5000;
 /** The dashboard's link signs a visit in within this long, once. */
 const CODE_MS = 2 * 60_000;
 
@@ -317,6 +319,24 @@ export class Stage extends DurableObject<StageEnv> {
 
   lastTurn(): number {
     return this.#kv.get<number>("turn") ?? 0;
+  }
+
+  /**
+   * The member muted while still speaking: the turn under way is replaced,
+   * and the one ElevenLabs makes of their words in the next seconds is not
+   * answered. `on` false: the microphone is back, they speak again.
+   */
+  cancelTurn(on: boolean): void {
+    if (!on) {
+      this.#kv.delete("cancelUntil");
+      return;
+    }
+    this.nextTurn();
+    this.#kv.put("cancelUntil", Date.now() + CANCEL_MS);
+  }
+
+  cancelled(): boolean {
+    return Date.now() < (this.#kv.get<number>("cancelUntil") ?? 0);
   }
 
   /** The page's cue to the presenter, or the agent's move; answered once done. */

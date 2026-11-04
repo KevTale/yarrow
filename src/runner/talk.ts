@@ -358,6 +358,24 @@ export function talkFiller(language: string, nth: number): string {
   return `${fillers[nth % fillers.length]} `;
 }
 
+const FRENCH =
+  /[éèêàùçœ]|\b(je|j'|tu|est|c'est|les|des|une|pas|que|qui|quoi|mais|pour|avec|dans|sur|oui|moi|montre|comment|pourquoi)\b/gi;
+const ENGLISH =
+  /\b(the|is|are|you|your|what|how|why|can|it|this|that|and|with|show|please|does|me|my|i)\b/gi;
+
+/**
+ * The language of what the member just said, French or English when the
+ * words tell, else the browser's: a French browser spoken to in English
+ * hears its fillers in English.
+ */
+export function spokenLanguage(words: string, fallback: string): string {
+  const french = words.match(FRENCH)?.length ?? 0;
+  const english = words.match(ENGLISH)?.length ?? 0;
+  if (french > english) return "fr";
+  if (english > french) return "en";
+  return fallback;
+}
+
 export interface TalkAnswer {
   /** What the agent said, kept in the conversation's thread. */
   words: string;
