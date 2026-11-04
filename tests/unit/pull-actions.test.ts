@@ -80,7 +80,13 @@ function github(answers: Record<string, unknown> = {}) {
 }
 
 describe("the builder's decisions on a pull request", () => {
-  it("counts the pull requests waiting for the builder, theirs only", async () => {
+  it("counts the pull requests waiting for the builder, theirs only, on the projects they kept", async () => {
+    // Not imported, or removed: off the dashboard, off the count.
+    expect(await reviewCount(db, marie.userId)).toBe(0);
+    await raw
+      .update(schema.projects)
+      .set({ importedAt: new Date() })
+      .where(eq(schema.projects.id, projectId));
     expect(await reviewCount(db, marie.userId)).toBe(1);
     expect(await reviewCount(db, crypto.randomUUID())).toBe(0);
   });

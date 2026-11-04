@@ -502,6 +502,8 @@ export async function reviewCount(
     .where(
       and(
         eq(workUnits.status, "delivered"),
+        // As the dashboard: a removed project's pull requests wait no more.
+        isNotNull(projects.importedAt),
         notExists(
           db
             .select({ id: correctionRequests.id })
