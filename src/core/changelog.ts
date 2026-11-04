@@ -1,8 +1,8 @@
 /**
  * The public changelog, newest first, one entry per day.
  * What stands today, on the day it landed in that form: what left the product
- * leaves the page, what was rebuilt sits on the day of its rebuild, the rest
- * never moves. Only what a builder or a sponsor sees; real dates only.
+ * leaves the page, what was rebuilt sits on the day of its rebuild.
+ * Only what a builder or a sponsor sees; real dates only.
  */
 export type ChangeTag = "Builders" | "Sponsors";
 export type Change = string | { text: string; tag: ChangeTag };
@@ -10,7 +10,6 @@ export type Change = string | { text: string; tag: ChangeTag };
 export interface ChangelogEntry {
   /** ISO day, UTC. */
   date: string;
-  title: string;
   new?: Change[];
   improved?: Change[];
   fixed?: Change[];
@@ -22,10 +21,9 @@ const sponsors = (text: string): Change => ({ text, tag: "Sponsors" });
 export const changelog: ChangelogEntry[] = [
   {
     date: "2026-11-02",
-    title: "Meta's models at work",
     new: [
       builders(
-        "A demo shows code in a real VS Code on the repository: its diff, its selected lines and the real pointer.",
+        "A demo shows code in a real VS Code on the repository: the file itself, its selected lines and the real pointer.",
       ),
       builders(
         "On a call the agent opens files in that editor as it speaks, on every pull request, even when Yarrow never ran the app.",
@@ -47,6 +45,7 @@ export const changelog: ChangelogEntry[] = [
       builders(
         "A ticket's description reads in the new ticket dialog as its row will show it; a click in it brings the Markdown back to write.",
       ),
+      builders("A ticket's row says who wrote it."),
       "Every agent answers in English by default or in the language you use, and what a run delivers follows the ticket's language the same way.",
       "Times follow the hours of your browser: 3:21 PM in the United States, 15:21 in France.",
     ],
@@ -59,7 +58,6 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-11-01",
-    title: "Write a ticket with the agent",
     new: [
       builders(
         "New ticket is written with the agent, in writing or on a call: it reads the repository and every ticket of the project, says what already exists, asks what neither answers and fills in the title and description as you talk. The ticket opens in GitHub or in a linked Jira project.",
@@ -86,9 +84,6 @@ export const changelog: ChangelogEntry[] = [
         "A ticket In progress has its two columns from the moment it is queued: the ticket on the left, the agents' work on the right.",
       ),
       builders(
-        "A ticket not yet paid for says who wrote it on its row, in the Paid by column.",
-      ),
-      builders(
         "The line a ticket opened from Yarrow ends with is read in Jira too.",
       ),
       "One header on every page, with hairlines and a darker night across the site.",
@@ -97,7 +92,6 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-31",
-    title: "One room for a ticket",
     new: [
       builders(
         "Every ticket has its demo, whatever the change: the agent presents the context, what changed and the proof, on the app, in the terminal or on the document, and the controls name the part it is in.",
@@ -133,7 +127,6 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-30",
-    title: "A row that holds still",
     new: [
       builders(
         "A bar at the foot of an opened ticket: the files changed on the left, what opens elsewhere on the right.",
@@ -163,13 +156,15 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-29",
-    title: "The app at its own address",
     new: [
       builders(
         "An open pull request's app at its own address: the preview, signed in, for the project's members, opening on the page that shows the change.",
       ),
     ],
     improved: [
+      builders(
+        "A demo always shows something someone who reads no code can judge.",
+      ),
       builders(
         "A ticket moves to the group its state says, opened or not, and the group it lands in unfolds.",
       ),
@@ -186,7 +181,6 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-28",
-    title: "The app itself, on a call",
     new: [
       builders(
         "A pull request's app runs live in the dashboard, in a machine of Yarrow's own.",
@@ -206,7 +200,6 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-27",
-    title: "Levers",
     improved: [
       builders(
         "Start, Retry and Merge are levers pulled to the right, the confirmation in the gesture.",
@@ -221,14 +214,11 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-26",
-    title: "The conversation in one place",
     improved: [
       builders(
-        "A pull request's conversation has one place: a right column that stays in view as the page scrolls, its box at the foot.",
+        "Ask the agent about the change, the code or the project's tickets in one place: a right column that stays in view as the page scrolls, its box at the foot.",
       ),
-      builders(
-        "Who paid shows in full on hovering a row's Paid by, with each model's time and cost and the total.",
-      ),
+      builders("The video of a change you can see opens on the app as it was."),
       builders(
         "The project menu shows beside each project how many pull requests wait for review, in place of the cross-project To review list.",
       ),
@@ -239,196 +229,37 @@ export const changelog: ChangelogEntry[] = [
   },
   {
     date: "2026-10-25",
-    title: "A change under way",
     improved: [
       builders(
-        "A pull request being changed waits in In progress, out of To review's count, and comes back to To review with its commit.",
-      ),
-      builders(
-        "Summaries, the agent's answers and ticket descriptions read their Markdown: italics, struck text, emphasis inside emphasis.",
+        "A pull request with a change asked waits in In progress, out of To review's count, Merge hidden, and comes back to To review with its commit.",
       ),
     ],
   },
   {
-    date: "2026-10-24",
-    title: "Ask the agent",
-    new: [
-      builders(
-        "A conversation on each pull request: ask the agent about the change, the code or the project's tickets. It reads the code to answer and proposes a change you make in one click.",
-      ),
-    ],
-    improved: [
-      builders(
-        "The changes asked on GitHub show in the conversation, where they fall.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-21",
-    title: "A video of the change",
-    new: [
-      builders(
-        "A pull request can come with a short video of the agent's screen, with its voice, in chapters.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-14",
-    title: "Tickets, one list",
-    new: [
-      builders(
-        "Open a ticket on the dashboard to read it as written in GitHub or Jira, then start it, cancel it or review its pull request in place.",
-      ),
-      builders(
-        "When the agents stop with questions, answer them on the ticket: the answer is written on it and it starts again.",
-      ),
-      builders(
-        'Close a ticket, or only its pull request, from the "…" of its row.',
-      ),
-    ],
-    improved: [
-      builders(
-        "Every ticket in one list, grouped by stage: To review, In progress, To do, Stopped, Done. Each shows the day it was written.",
-      ),
-      builders("Switch projects or add one from the project's name."),
-      builders(
-        "Done shows the last two weeks; older tickets are one click away.",
-      ),
-      builders("The agents read a Jira ticket's comments, as on GitHub."),
-    ],
-  },
-  {
-    date: "2026-10-13",
-    title: "Tickets in sync",
-    new: [
-      builders(
-        "A yarrow label set in Jira itself queues the ticket in seconds.",
-      ),
-    ],
-    improved: [
-      builders(
-        "Tickets opened, renamed or closed in GitHub or Jira show on the dashboard in seconds.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-12",
-    title: "One account",
-    new: ["This changelog."],
-    improved: [
-      "Signing in with GitHub after signing in by email adds GitHub to the same account, so your projects and your sponsoring stay together.",
-      builders(
-        "An organization member who asks its admins to install Yarrow sees that the request went out.",
-      ),
-      sponsors("The board shows what the smallest amount funds."),
-    ],
-  },
-  {
-    date: "2026-10-11",
-    title: "Manage pull requests without leaving Yarrow",
-    new: [
-      builders("Merge a pull request from Yarrow, or ask for a change."),
-      builders(
-        "Comment @yarrow-run on a pull request, followed by what to change, and it comes back with a correction.",
-      ),
-      builders(
-        "Paid by: every ticket shows the sponsors whose money went into it, largest share first.",
-      ),
-      sponsors(
-        "Your card takes your website's icon when you have not uploaded a logo.",
-      ),
-    ],
-  },
-  {
-    date: "2026-10-10",
-    title: "Live tickets, and why it's free",
-    new: [
-      "Live tickets: the latest work, moving only when the work does.",
-      "Why is it free? A pull request sketched in place, with the sponsors' card at its foot.",
-      builders(
-        "The Terms, sponsors' card included, are ticked once before connecting GitHub.",
-      ),
-    ],
-    improved: [
-      "A queued ticket starts within seconds instead of waiting for the next minute.",
-      "Runs can change files under .github/workflows.",
-      sponsors(
-        "“Funds ≈N PRs” follows what pull requests actually cost over the last 90 days.",
-      ),
-    ],
+    date: "2026-10-22",
     fixed: [
-      "A stopped run names its real cause: GitHub refusing the change, an AI provider, or Yarrow itself.",
-    ],
-  },
-  {
-    date: "2026-10-09",
-    title: "The sponsors' card in every pull request",
-    new: [
-      sponsors(
-        "Every pull request ends with its sponsors' card: logo, name, what you do and your website, with clicks counted.",
-      ),
-      sponsors(
-        "Claim a place on the board right in your own row, then pay through Stripe.",
-      ),
-      sponsors("One board, Today and All time, ranked by money paid."),
-      "Run pages tell what the agents did, for people: files read and edited, tests and their results, the review.",
-      "An Account page: change your email, get your invoices, delete your account.",
-      "Link previews and a share image.",
-    ],
-    improved: [
-      sponsors(
-        "Every sponsor row reads in three lines: name and amount, what they do, website with clicks and merged PRs.",
-      ),
-      "Ticket cards keep their titles whole on phones.",
-    ],
-  },
-  {
-    date: "2026-10-08",
-    title: "Jira, and a dashboard for your tickets",
-    new: [
       builders(
-        "Link a Jira project to a repository and its tickets join Yarrow.",
-      ),
-      builders(
-        "Jira tickets move across your board when Yarrow starts, opens the pull request and merges, to the statuses you choose.",
-      ),
-      "Live run activity: what the agents are doing, as they do it.",
-      "Logo uploads for sponsors and projects.",
-    ],
-    improved: [
-      "Statuses name the pull request: Queued, Writing, Reviewing, PR #12, merged or closed.",
-      builders("Ticket stages with counts, and a search across all of them."),
-      builders(
-        "A stopped ticket has its own stage, with the agents' questions.",
-      ),
-      builders(
-        "Project settings hold Connections and Visibility only, saved as you change them.",
+        "The ticket list no longer slides by itself on a refresh after a ticket was opened.",
       ),
     ],
   },
-  {
-    date: "2026-10-07",
-    title: "Builders and sponsors, live",
-    new: [
-      builders(
-        "Connect GitHub with no form to fill: your repositories become projects.",
-      ),
-      sponsors("Pay without GitHub, then sign in from a link in your email."),
-      "A dashboard for builders and sponsors, updated live.",
-      sponsors(
-        "A thank-you email, confetti, and an invoice for every payment.",
-      ),
-      "Legal notice, Terms and Privacy pages.",
-    ],
-    improved: [
-      "Loading states everywhere: a progress bar, skeletons and spinners.",
-    ],
-  },
-  {
-    date: "2026-10-06",
-    title: "Yarrow",
-    new: [
-      "Sponsors fund the compute; frontier AI turns your tickets into pull requests.",
-    ],
-  },
+];
+
+/** What stands from before these days, with no day of its own. */
+export const earlier: Change[] = [
+  builders(
+    "Connect GitHub with no form to fill: your repositories become projects.",
+  ),
+  builders(
+    "Link a Jira project to a repository: its tickets join Yarrow and move across your board as the work goes.",
+  ),
+  builders(
+    "Every ticket in one list, grouped by stage, with a search across all of them: open one, start it, cancel it or close it.",
+  ),
+  builders(
+    "Merge a pull request from Yarrow, or ask for a change, there or with @yarrow-run on GitHub.",
+  ),
+  sponsors(
+    "Sponsors fund the compute: claim a place on the board, pay through Stripe, and the pull requests you fund end with your card.",
+  ),
 ];

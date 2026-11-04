@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { changelog, type Change } from "@/core/changelog";
+import { changelog, earlier, type Change } from "@/core/changelog";
 
 export const Route = createFileRoute("/changelog")({
   head: () => ({
@@ -39,14 +39,13 @@ function Changelog() {
           className="cl-entry"
           aria-labelledby={`cl-${entry.date}`}
         >
-          <div className="cl-when">
+          <h2 id={`cl-${entry.date}`} className="cl-when">
             <time dateTime={entry.date}>
               <span className="cl-long">{day(entry.date, "long")}</span>
               <span className="cl-short">{day(entry.date, "short")}</span>
             </time>
-          </div>
+          </h2>
           <div className="cl-body">
-            <h2 id={`cl-${entry.date}`}>{entry.title}</h2>
             {sections.map(([key, label]) => {
               const items = entry[key];
               if (!items?.length) return null;
@@ -64,6 +63,20 @@ function Changelog() {
           </div>
         </article>
       ))}
+      <article className="cl-entry" aria-labelledby="cl-earlier">
+        <h2 id="cl-earlier" className="cl-when">
+          Earlier
+        </h2>
+        <div className="cl-body">
+          <section className="cl-section">
+            <ul>
+              {earlier.map((item) => (
+                <ChangeItem key={text(item)} item={item} />
+              ))}
+            </ul>
+          </section>
+        </div>
+      </article>
     </main>
   );
 }

@@ -10322,11 +10322,11 @@ html:has(.pp-stage:modal) {
   position: sticky;
   top: 92px;
   align-self: start;
-  padding-top: 8px;
-}
-.cl-when time {
+  padding-top: 2px;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.5;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -10334,13 +10334,7 @@ html:has(.pp-stage:modal) {
 .cl-short {
   display: none;
 }
-.cl-body h2 {
-  font-size: 30px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-.cl-section {
+.cl-section + .cl-section {
   margin-top: 28px;
 }
 .cl-section h3 {
@@ -10396,9 +10390,6 @@ html:has(.pp-stage:modal) {
   }
   .cl-short {
     display: inline;
-  }
-  .cl-body h2 {
-    font-size: 24px;
   }
   .cl-section li {
     font-size: 15px;
