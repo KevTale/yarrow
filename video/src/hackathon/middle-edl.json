@@ -20,26 +20,26 @@
   },
   {
    "kind": "act",
-   "in": 20.6,
-   "out": 42.6,
-   "speed": 7,
-   "cam": "full"
+   "in": 23.0,
+   "out": 23.8,
+   "speed": 1,
+   "cam": "landing"
+  },
+  {
+   "kind": "act",
+   "in": 42.0,
+   "out": 42.75,
+   "speed": 1,
+   "cam": "dash"
   },
   {
    "kind": "talk",
    "in": 42.75,
-   "out": 51.3,
-   "cam": "dash",
-   "muteApp": true,
-   "say": "Okay, so here you can see the Yarrow dashboard. I've imported a very simple to-do app from GitHub,"
-  },
-  {
-   "kind": "talk",
-   "in": 55.34,
    "out": 59.95,
    "cam": "dash",
    "muteApp": true,
-   "say": "it comes from GitHub issues, but you can use Jira, Linear or Trello."
+   "say": "Okay, so here you can see the Yarrow dashboard. I've imported a very simple to-do app from GitHub, and you can see that there is zero tickets. It comes from GitHub issues, but you can use Jira, Linear or Trello.",
+   "callout": "trackers"
   },
   {
    "kind": "talk",
@@ -104,8 +104,8 @@
   {
    "kind": "act",
    "in": 140.25,
-   "out": 150.25,
-   "speed": 3.5,
+   "out": 141.3,
+   "speed": 1,
    "cam": "full"
   },
   {
@@ -166,16 +166,17 @@
   {
    "kind": "talk",
    "in": 792.2,
-   "out": 796.84,
+   "out": 797.45,
    "cam": "demo",
-   "say": "So let me click Doing, and you'll notice only the two in-progress tasks"
+   "say": "So let me click Doing, and you'll notice only the two in-progress tasks are left.",
+   "muteMic": true
   },
   {
    "kind": "talk",
-   "in": 796.84,
-   "out": 799.25,
+   "in": 798.75,
+   "out": 799.3,
    "cam": "room",
-   "say": "Okay, wait a second. I have a question.",
+   "say": "I have a question.",
    "muteApp": true
   },
   {
@@ -258,13 +259,13 @@
    "in": 930.35,
    "out": 933.45,
    "speed": 2,
-   "cam": "room"
+   "cam": "full"
   },
   {
    "kind": "talk",
    "in": 933.78,
    "out": 938.45,
-   "cam": "room",
+   "cam": "full",
    "muteApp": true,
    "say": "It appears here. And for this ticket, I'm happy with it, so I will merge it."
   },
@@ -282,6 +283,13 @@
    "cam": "full",
    "muteApp": true,
    "say": "Okay, there you go."
+  },
+  {
+   "kind": "act",
+   "in": 944.1,
+   "out": 945.4,
+   "speed": 1,
+   "cam": "full"
   }
  ]
 }

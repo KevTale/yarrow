@@ -11,16 +11,16 @@ import cut from "./middle-cut.json";
 export const MIDDLE_FRAMES = cut.frames;
 
 type Cam = { x: number; y: number; s: number };
-/** Where the camera looks on the 1920×1080 screen. */
+/** Where the camera looks on the 1920×1080 screen: barely, the app is already zoomed in the take. */
 const CAMS: Record<string, Cam> = {
   full: { x: 960, y: 540, s: 1 },
-  landing: { x: 900, y: 470, s: 1.08 },
-  dash: { x: 940, y: 470, s: 1.15 },
-  modalChat: { x: 1390, y: 570, s: 1.4 },
-  modal: { x: 944, y: 572, s: 1.12 },
-  working: { x: 1000, y: 600, s: 1.15 },
-  room: { x: 935, y: 610, s: 1.15 },
-  demo: { x: 712, y: 613, s: 1.5 },
+  landing: { x: 960, y: 540, s: 1 },
+  dash: { x: 960, y: 540, s: 1 },
+  modalChat: { x: 1390, y: 570, s: 1.06 },
+  modal: { x: 960, y: 540, s: 1 },
+  working: { x: 1000, y: 600, s: 1.04 },
+  room: { x: 960, y: 540, s: 1 },
+  demo: { x: 712, y: 613, s: 1.08 },
 };
 
 /** Keeps the view inside the screen. */
@@ -51,6 +51,7 @@ export const Middle: React.FC = () => {
         <Video src={staticFile("rush/middle-screen.mp4")} muted />
       </AbsoluteFill>
       <TimeLapse />
+      <Trackers />
       <Bubble />
       <Audio src={staticFile("rush/middle-mix.wav")} />
     </AbsoluteFill>
@@ -117,6 +118,73 @@ const TimeLapse: React.FC = () => {
         <span style={{ fontFamily: font.mono, fontVariantNumeric: "tabular-nums", minWidth: 110, textAlign: "right" }}>
           {m}:{String(sec).padStart(2, "0")}
         </span>
+      </div>
+    </div>
+  );
+};
+
+/** A word heard in the middle, the first one at or after a time (in seconds). */
+const heard = (text: string, after = 0) => {
+  const words = cut.words as [string, number, string][];
+  const hit = words.find(([w, t]) => w.toLowerCase().replace(/[^a-z0-9-]/g, "") === text && t >= after);
+  if (!hit) throw new Error(`"${text}" is not heard in the middle`);
+  return Math.round(hit[1] * 30);
+};
+
+/** Where the tickets come from, as Kevin names them. */
+const Trackers: React.FC = () => {
+  const frame = useCurrentFrame();
+  const seg = cut.segments.find((s) => "callout" in s && s.callout === "trackers");
+  if (!seg) return null;
+  const from = seg.from / 30;
+  const pills: [string, string, number][] = [
+    ["GitHub Issues", "#edeef0", heard("is-issues", from)],
+    ["Jira", "#2684ff", heard("jira", from)],
+    ["Linear", "#8b93ff", heard("linear", from)],
+    ["Trello", "#3d9be9", heard("trello", from)],
+  ];
+  const start = pills[0]![2] - 12;
+  const end = seg.to + 6;
+  if (frame < start - 2 || frame > end + 12) return null;
+  const o = interpolate(frame, [start, start + 10, end, end + 12], [0, 1, 1, 0], clamp);
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, top: 640, display: "flex", justifyContent: "center", opacity: o }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 22,
+          padding: "26px 34px",
+          borderRadius: 26,
+          background: "rgba(17,18,21,.94)",
+          border: `1px solid ${c.line}`,
+          boxShadow: "0 24px 70px rgba(0,0,0,.5)",
+        }}
+      >
+        <span style={{ fontSize: 32, color: c.muted, marginRight: 6 }}>Tickets from</span>
+        {pills.map(([name, color, at]) => {
+          const k = interpolate(frame, [at - 4, at + 8], [0, 1], { ...clamp, easing: ease.enter });
+          return (
+            <span
+              key={name}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 22px",
+                borderRadius: 999,
+                border: `1px solid ${c.line}`,
+                background: c.elevated,
+                fontSize: 32,
+                opacity: k,
+                transform: `translateY(${(1 - k) * 14}px)`,
+              }}
+            >
+              <span style={{ width: 14, height: 14, borderRadius: 99, background: color }} />
+              {name}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

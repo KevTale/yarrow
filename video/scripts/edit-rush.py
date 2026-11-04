@@ -164,7 +164,17 @@ for kind, files in lists.items():
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
                     str(OUT / f"{name}-{kind}.mp4")], check=True)
 
-json.dump({"frames": total, "segments": segments,
+# The words heard, in output seconds.
+heard = []
+for p in pieces:
+    if not p["audio"]:
+        continue
+    for who, ws, muted in (("kevin", kevin, p["muteMic"]), ("agent", app, p["muteApp"])):
+        if not muted:
+            heard += [[w["text"], round(p["at"] / FPS + w["start"] - p["in"], 3), who] for w in ws if p["in"] <= w["start"] < p["out"]]
+heard.sort(key=lambda w: w[1])
+
+json.dump({"frames": total, "segments": segments, "words": heard,
            "pieces": [{k: p[k] for k in ("seg", "in", "out", "speed", "at", "frames")} for p in pieces]},
           open(CUT, "w"), indent=1)
 print(f"{len(pieces)} pieces, {total / FPS:.1f} s")
