@@ -33,6 +33,12 @@ export const defaultPipelineRoles: PipelineRoles = {
 /** Who reviews Muse Wonder's changes, in a Claude session of its own. */
 export const META_REVIEWER = "claude-opus-5-5:high";
 
+/** Who works on a run Meta implements. */
+export const metaRoles = (model: string, effort: string): PipelineRoles => ({
+  implementer: `${model}:${effort}`,
+  reviewer: META_REVIEWER,
+});
+
 /** Who reviews a run: never the lab that wrote it. */
 export const reviewerFor = (implementer?: "claude" | "meta") =>
   implementer === "meta" ? META_REVIEWER : defaultPipelineRoles.reviewer;

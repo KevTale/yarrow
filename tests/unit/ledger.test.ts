@@ -3,6 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from "vitest";
+import { defaultPipelineRoles } from "../../src/core/pipeline";
 import { PostgresLedger } from "../../src/db/ledger";
 import type { Database } from "../../src/db/client";
 import * as schema from "../../src/db/schema";
@@ -116,6 +117,37 @@ beforeEach(async () => {
 });
 
 describe("reserve and settle", () => {
+  it("names who will work from the reservation, secrets staying on Claude", async () => {
+    const meta = { implementer: "muse-wonder-1.0:high", reviewer: "claude" };
+    const onMeta = new PostgresLedger(
+      db as unknown as Database,
+      undefined,
+      meta,
+    );
+    const roles = async () => {
+      const request = run();
+      await onMeta.reserve(request);
+      const [row] = await db
+        .select()
+        .from(schema.agentRuns)
+        .where(eq(schema.agentRuns.id, request.runId));
+      await onMeta.settle(request.runId, abstention);
+      await db
+        .update(schema.workUnits)
+        .set({ status: "queued" })
+        .where(eq(schema.workUnits.id, workUnitId));
+      return { implementer: row!.implementer, reviewer: row!.reviewer };
+    };
+    expect(await roles()).toEqual(meta);
+    await db.insert(schema.projectSecrets).values({
+      projectId,
+      name: "STRIPE_KEY",
+      providerCredentialId: "cred_1",
+      allowedHost: "api.stripe.com",
+    });
+    expect(await roles()).toEqual(defaultPipelineRoles);
+  });
+
   it("deduplicates reserve and settlement, preserving the full trace", async () => {
     const request = run();
     expect(await ledger.reserve(request)).toBe(800);

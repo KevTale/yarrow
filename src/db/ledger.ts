@@ -18,6 +18,7 @@ import {
   correctionRequests,
   ledgerEntries,
   projects,
+  projectSecrets,
   pullRequests,
   results,
   runFundings,
@@ -68,6 +69,8 @@ export class PostgresLedger {
   constructor(
     private readonly db: Database,
     private readonly roles: PipelineRoles = defaultPipelineRoles,
+    /** Who a run takes on while Meta implements; null when it does not. */
+    private readonly meta: PipelineRoles | null = null,
   ) {}
 
   /** Starts a run and reserves its initial budget. Returns the cents reserved. */
@@ -128,13 +131,23 @@ export class PostgresLedger {
         )
           throw new Error("Correction request is not queued");
       }
+      // The run names who works on it from its first second: every page
+      // reads these names. A project with secrets stays on Claude.
+      const [secret] = this.meta
+        ? await tx
+            .select({ name: projectSecrets.name })
+            .from(projectSecrets)
+            .where(eq(projectSecrets.projectId, project.id))
+            .limit(1)
+        : [];
+      const roles = this.meta && !secret ? this.meta : this.roles;
       await tx.insert(agentRuns).values({
         id: run.runId,
         workUnitId: run.workUnitId,
         kind: run.kind,
         instruction: run.instruction ?? null,
-        implementer: this.roles.implementer,
-        reviewer: this.roles.reviewer,
+        implementer: roles.implementer,
+        reviewer: roles.reviewer,
       });
       const reserved = await reserveFrom(
         tx,

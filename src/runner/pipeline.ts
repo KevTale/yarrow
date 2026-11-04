@@ -2,7 +2,7 @@ import { pullRequestFooter } from "../core/attribution";
 import { PROD_APP_SLUG } from "../core/corrections";
 import {
   META_REVIEWER,
-  reviewerFor,
+  metaRoles,
   type PipelineRoles,
   type RunModelUsage,
 } from "../core/pipeline";
@@ -414,14 +414,11 @@ export class RunPipeline {
       this.deps.implementer === "meta" &&
       Boolean(this.deps.muse) &&
       context.secrets.length === 0;
-    // The run was reserved under the default roles: it names Meta's model
-    // and its reviewer now, before the container starts, so the table never
-    // shows Claude at work on a Meta run.
-    if (meta)
-      await this.deps.db
-        .update(agentRuns)
-        .set(this.rolesFor({ implementer: "meta" }))
-        .where(eq(agentRuns.id, runId));
+    // The reservation named who would work: a secret added since changes it.
+    await this.deps.db
+      .update(agentRuns)
+      .set(this.rolesFor({ implementer: meta ? "meta" : "claude" }))
+      .where(eq(agentRuns.id, runId));
     return {
       runId,
       kind: run.kind,
@@ -480,10 +477,10 @@ export class RunPipeline {
   /** Who implements this run, as the commit and the pull request say it. */
   private rolesFor(run: Pick<PreparedRun, "implementer">): PipelineRoles {
     if (run.implementer !== "meta") return this.deps.roles;
-    return {
-      implementer: `${this.deps.museModel ?? MUSE_MODEL}:${this.deps.museEffort ?? MUSE_EFFORT}`,
-      reviewer: reviewerFor("meta"),
-    };
+    return metaRoles(
+      this.deps.museModel ?? MUSE_MODEL,
+      this.deps.museEffort ?? MUSE_EFFORT,
+    );
   }
 
   private muse(): MuseClient {

@@ -20,6 +20,7 @@ import {
 } from "../src/core/failures";
 import {
   defaultPipelineRoles,
+  metaRoles,
   reviewerFor,
   defaultReviewerEffort,
   INITIAL_RESERVATION_CENTS,
@@ -280,6 +281,16 @@ function missingConfig(env: BrainEnv): string[] {
   ).filter((key) => !env[key]);
 }
 
+/** The ledger of runs: it names Meta's roles while Meta implements. */
+const ledgerOf = (env: BrainEnv, db: Database) =>
+  new PostgresLedger(
+    db,
+    defaultPipelineRoles,
+    env.IMPLEMENTER === "meta" && env.MUSE && env.META_API_KEY
+      ? metaRoles(env.META_MODEL ?? MUSE_MODEL, env.META_EFFORT ?? MUSE_EFFORT)
+      : null,
+  );
+
 function pipeline(env: BrainEnv, db: Database): RunPipeline {
   return new RunPipeline({
     db,
@@ -367,7 +378,7 @@ export class AgentWorkWorkflow extends WorkflowEntrypoint<
 
     // Reservation is normally done by the dispatcher; this keeps manual triggers safe.
     await step.do("reserve", () =>
-      withDb(env, (db) => new PostgresLedger(db).reserve(request)),
+      withDb(env, (db) => ledgerOf(env, db).reserve(request)),
     );
     // A line in the run's activity feed; `key` dedupes retried steps.
     const note = (
@@ -924,7 +935,7 @@ async function dispatch(env: BrainEnv): Promise<string[]> {
     return [`dispatch disabled, missing: ${missing.join(", ")}`];
   return withDb(env, async (db) => {
     const log: string[] = [];
-    const ledger = new PostgresLedger(db);
+    const ledger = ledgerOf(env, db);
     // A provider out of credit: nothing new starts until it is retried or
     // resumed; the queue keeps its order.
     const paused = await activePauses(db);

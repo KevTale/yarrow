@@ -791,7 +791,7 @@ function workingText(panel: Panel): string | null {
   };
   switch (panel.working) {
     case "writing":
-      return `${model("implementer") ?? "Claude"} is writing the change`;
+      return `${model("implementer") ?? "The agent"} is writing the change`;
     case "reviewing":
       return `${model("reviewer") ?? "The reviewer"} is reviewing the change`;
     case "delivering":
