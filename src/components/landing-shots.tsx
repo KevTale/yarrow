@@ -225,14 +225,14 @@ export function TicketGroup({
           aria-expanded={!folded}
           onClick={() => setFolded(!folded)}
         >
+          <StageMark stage={stage} />
+          {label}
+          <span className="tix-count">{count}</span>
           <ChevronDown
             size={14}
             className={folded ? "tix-gchev folded" : "tix-gchev"}
             aria-hidden="true"
           />
-          <StageMark stage={stage} />
-          {label}
-          <span className="tix-count">{count}</span>
         </button>
       </div>
       <GroupRows open={!folded} empty={Children.count(children) === 0}>

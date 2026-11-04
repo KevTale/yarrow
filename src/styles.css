@@ -3187,6 +3187,31 @@ tbody tr:hover {
   margin-left: auto;
   width: min(260px, 100%);
 }
+/* New ticket beside it, as Linear's New issue: a quiet pill, lit on hover. */
+.bd-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff0d;
+  color: var(--secondary);
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.bd-new:hover,
+.bd-new:focus-visible {
+  background: #ffffff1a;
+  color: var(--text);
+}
 .bd-note {
   font-size: 13px;
   color: var(--muted);
@@ -3462,7 +3487,9 @@ tbody tr:hover {
   text-align: left;
   cursor: pointer;
 }
+/* After the name and its count, as in a sidebar: the names keep to the left. */
 .tix-gchev {
+  margin-left: -4px;
   color: var(--muted);
   transition: transform 0.1s var(--ease-standard);
 }
@@ -3532,8 +3559,7 @@ tbody tr:hover {
   list-style: none;
   overflow: clip;
 }
-/* A ticket's chevron sits under its group's mark; the gutter before it is
-   left for actions on the row. */
+/* A ticket's chevron comes after a gutter left for actions on the row. */
 .tix-item,
 .tix-box {
   border-radius: 12px;
@@ -3554,7 +3580,7 @@ tbody tr:hover {
 .tix-row:hover {
   background: #ffffff06;
 }
-/* "…" in the gutter, under the group's chevron, shown with the pointer. */
+/* "…" in the gutter, shown with the pointer. */
 .tix-dots {
   position: absolute;
   left: 5px;
@@ -3709,51 +3735,47 @@ tbody tr:hover {
   border-color: #f2b54499;
   background: #f2b5442e;
 }
-/* Start, Retry and Merge are one lever, at the foot of the opened ticket: a
-   dark rounded track, the knob in the act's colour pulled to its right end,
-   a trail of that colour behind it, lit once letting go does it. */
+/* Start, Retry and Merge are one lever, at the foot of the opened ticket and
+   at its height (36px): a neutral rounded track, a grey knob pulled to its
+   right end, a faint trail behind it; the knob turns light once letting go
+   does it. */
 .tix-slide {
-  --tone: var(--amber);
-  --on-tone: #1d1505;
   position: relative;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  width: 184px;
-  height: 40px;
-  padding: 6px;
-  border: 1px solid #ffffff1f;
+  width: 176px;
+  height: 36px;
+  padding: 4px;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: #0a0b0d;
+  background: none;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
+  font:
+    500 13px var(--font-geist-sans),
+    sans-serif;
   white-space: nowrap;
   overflow: hidden;
   user-select: none;
   touch-action: pan-y;
   transition: border-color 0.15s;
 }
-.tix-slide.go-green {
-  --tone: var(--green);
-  --on-tone: #07140d;
-}
 .tix-slide:hover {
-  border-color: #ffffff33;
+  border-color: #ffffff2e;
 }
 .tix-slide-fill {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: 6px;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
   border-radius: 999px;
-  background: var(--tone);
-  opacity: 0.12;
+  background: #fff;
+  opacity: 0.05;
   pointer-events: none;
 }
 .tix-slide.armed .tix-slide-fill,
 .tix-slide.busy .tix-slide-fill {
-  opacity: 0.3;
+  opacity: 0.09;
 }
 .tix-slide-label {
   position: absolute;
@@ -3762,7 +3784,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding-left: 34px;
+  padding-left: 30px;
   pointer-events: none;
 }
 .tix-slide-hint {
@@ -3794,21 +3816,24 @@ tbody tr:hover {
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 0;
+  border: 1px solid #ffffff1f;
   border-radius: 999px;
-  background: var(--tone);
-  color: var(--on-tone);
+  background: #2b2d31;
+  color: var(--text);
   cursor: grab;
-  box-shadow: 0 1px 3px #00000059;
-  transition: box-shadow 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 .tix-slide-knob:active {
   cursor: grabbing;
 }
-.tix-slide.armed .tix-slide-knob {
-  box-shadow:
-    0 1px 3px #00000059,
-    0 0 12px 2px color-mix(in srgb, var(--tone) 55%, transparent);
+.tix-slide.armed .tix-slide-knob,
+.tix-slide.busy .tix-slide-knob {
+  border-color: transparent;
+  background: var(--text);
+  color: #111214;
 }
 .tix-slide-knob:focus-visible {
   outline: 2px solid var(--text);
@@ -8508,8 +8533,8 @@ body:has(.sb-dialog[open]) {
   margin-top: auto;
 }
 .pp-foot .sk {
-  height: 30px;
-  border-radius: 8px;
+  height: 36px;
+  border-radius: 999px;
 }
 .pp-foot-away {
   display: inline-flex;
@@ -8543,6 +8568,17 @@ body:has(.sb-dialog[open]) {
 }
 .pp-act svg:last-child {
   color: var(--muted);
+}
+/* The foot's buttons, the lever and the question box beside them: one
+   height, rounded. */
+.pp-foot .pp-act {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+}
+.pp-foot .pf-app .pv-icon {
+  width: 36px;
+  height: 36px;
 }
 .pp-act:hover {
   border-color: var(--border-strong);
@@ -9569,9 +9605,9 @@ html:has(.pp-stage:modal) {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  padding: 6px 6px 6px 18px;
+  padding: 3px 3px 3px 16px;
   border: 1px solid var(--line);
-  border-radius: 23px;
+  border-radius: 18px;
   background: #1d1f24;
   transition: border-color 0.15s;
 }
@@ -9582,7 +9618,7 @@ html:has(.pp-stage:modal) {
   flex: 1;
   min-width: 0;
   max-height: 200px;
-  padding: 7px 0;
+  padding: 4px 0;
   border: 0;
   outline: none;
   resize: none;
@@ -9635,8 +9671,8 @@ html:has(.pp-stage:modal) {
   display: grid;
   flex: none;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -9650,10 +9686,10 @@ html:has(.pp-stage:modal) {
   flex: none;
   align-items: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 13px 0 10px;
+  height: 28px;
+  padding: 0 11px 0 8px;
   border: 0;
-  border-radius: 17px;
+  border-radius: 14px;
   background: #ffffff14;
   color: var(--text);
   font:

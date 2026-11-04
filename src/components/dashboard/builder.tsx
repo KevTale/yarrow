@@ -668,14 +668,23 @@ export function BuilderView({
             </Link>
           )}
           {project?.linked && (
-            <SearchField
-              fieldClassName="bd-search"
-              label="Search tickets"
-              hideLabel
-              placeholder="Search tickets"
-              value={query}
-              onValueChange={setQuery}
-            />
+            <>
+              <SearchField
+                fieldClassName="bd-search"
+                label="Search tickets"
+                hideLabel
+                placeholder="Search tickets"
+                value={query}
+                onValueChange={setQuery}
+              />
+              <button
+                type="button"
+                className="bd-new"
+                onClick={() => setComposing({ start: false })}
+              >
+                <Plus size={15} aria-hidden="true" /> New ticket
+              </button>
+            </>
           )}
         </div>
         {loading ? (
@@ -859,14 +868,14 @@ function TicketGroup({
           aria-expanded={!folded}
           onClick={onFold}
         >
+          <StageMark stage={stage} />
+          {label}
+          <span className="tix-count">{count}</span>
           <ChevronDown
             size={14}
             className={`tix-gchev ${folded ? "folded" : ""}`}
             aria-hidden="true"
           />
-          <StageMark stage={stage} />
-          {label}
-          <span className="tix-count">{count}</span>
         </button>
         {onAdd && (
           <button
