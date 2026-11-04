@@ -1,0 +1,287 @@
+{
+ "name": "middle",
+ "rush": "2026-11-04 17-06-17.mp4",
+ "segments": [
+  {
+   "kind": "talk",
+   "in": 7.1,
+   "out": 16.2,
+   "cam": "landing",
+   "muteApp": true,
+   "say": "So Yarrow is a ticket harness helping you creating tickets, implementing them, and reviewing them, all in one place."
+  },
+  {
+   "kind": "talk",
+   "in": 19.85,
+   "out": 20.6,
+   "cam": "landing",
+   "muteApp": true,
+   "say": "Let me show you."
+  },
+  {
+   "kind": "act",
+   "in": 20.6,
+   "out": 42.6,
+   "speed": 7,
+   "cam": "full"
+  },
+  {
+   "kind": "talk",
+   "in": 42.75,
+   "out": 51.3,
+   "cam": "dash",
+   "muteApp": true,
+   "say": "Okay, so here you can see the Yarrow dashboard. I've imported a very simple to-do app from GitHub,"
+  },
+  {
+   "kind": "talk",
+   "in": 55.34,
+   "out": 59.95,
+   "cam": "dash",
+   "muteApp": true,
+   "say": "it comes from GitHub issues, but you can use Jira, Linear or Trello."
+  },
+  {
+   "kind": "talk",
+   "in": 63.85,
+   "out": 65.3,
+   "cam": "dash",
+   "muteApp": true,
+   "say": "so I will create a new one."
+  },
+  {
+   "kind": "act",
+   "in": 65.3,
+   "out": 69.9,
+   "speed": 3,
+   "cam": "full"
+  },
+  {
+   "kind": "talk",
+   "in": 75.62,
+   "out": 81.5,
+   "cam": "modalChat",
+   "muteApp": true,
+   "say": "Currently in the to-do app, you can see all the to-dos mixed up."
+  },
+  {
+   "kind": "talk",
+   "in": 87.82,
+   "out": 96.3,
+   "cam": "modalChat",
+   "muteApp": true,
+   "say": "So I need buttons above the list, like a All button, To Do button, Doing and Done."
+  },
+  {
+   "kind": "talk",
+   "in": 102.55,
+   "out": 104.85,
+   "cam": "modalChat",
+   "say": "Got it. Let me look at your app to draft that."
+  },
+  {
+   "kind": "talk",
+   "in": 110.7,
+   "out": 114.0,
+   "cam": "modal",
+   "say": "I've put a first version beside you with those four buttons above the list."
+  },
+  {
+   "kind": "act",
+   "in": 131.75,
+   "out": 138.8,
+   "speed": 3,
+   "cam": "full"
+  },
+  {
+   "kind": "talk",
+   "in": 138.85,
+   "out": 140.25,
+   "cam": "full",
+   "muteApp": true,
+   "say": "So let's start it."
+  },
+  {
+   "kind": "act",
+   "in": 140.25,
+   "out": 150.25,
+   "speed": 3.5,
+   "cam": "full"
+  },
+  {
+   "kind": "talk",
+   "in": 150.3,
+   "out": 156.7,
+   "cam": "working",
+   "muteApp": true,
+   "say": "There we go. So the ticket is starting in the cloud. As you can see, Muse Wonder is working on it."
+  },
+  {
+   "kind": "talk",
+   "in": 157.75,
+   "out": 159.6,
+   "cam": "working",
+   "muteApp": true,
+   "say": "so we will give it a few minutes,"
+  },
+  {
+   "kind": "act",
+   "in": 159.6,
+   "out": 634.2,
+   "speed": 148,
+   "cam": "working",
+   "label": "timelapse",
+   "since": 150.3,
+   "bubble": false
+  },
+  {
+   "kind": "act",
+   "in": 634.2,
+   "out": 637.0,
+   "speed": 1.5,
+   "cam": "room",
+   "bubble": false
+  },
+  {
+   "kind": "talk",
+   "in": 752.3,
+   "out": 759.55,
+   "cam": "room",
+   "say": "All right, so Muse Wonder has finished its job. It has produced a video, actually a live interactive video."
+  },
+  {
+   "kind": "talk",
+   "in": 759.62,
+   "out": 760.75,
+   "cam": "room",
+   "say": "Let's watch it."
+  },
+  {
+   "kind": "talk",
+   "in": 777.9,
+   "out": 785.15,
+   "cam": "demo",
+   "say": "And here it is with the change. Above the list, you've now got four buttons: All and To Do and Doing and Done."
+  },
+  {
+   "kind": "talk",
+   "in": 792.2,
+   "out": 796.84,
+   "cam": "demo",
+   "say": "So let me click Doing, and you'll notice only the two in-progress tasks"
+  },
+  {
+   "kind": "talk",
+   "in": 796.84,
+   "out": 799.25,
+   "cam": "room",
+   "say": "Okay, wait a second. I have a question.",
+   "muteApp": true
+  },
+  {
+   "kind": "talk",
+   "in": 803.2,
+   "out": 804.55,
+   "cam": "room",
+   "say": "Of course. Go ahead."
+  },
+  {
+   "kind": "talk",
+   "in": 833.55,
+   "out": 833.88,
+   "cam": "room",
+   "muteApp": true,
+   "say": "Can you"
+  },
+  {
+   "kind": "talk",
+   "in": 838.6,
+   "out": 840.8,
+   "cam": "room",
+   "say": "click on the Doing button and then add a new task?"
+  },
+  {
+   "kind": "talk",
+   "in": 850.8,
+   "out": 857.12,
+   "cam": "room",
+   "say": "Doing is on, so only the two in-progress tasks show. The new task saved but stays hidden,"
+  },
+  {
+   "kind": "talk",
+   "in": 858.0,
+   "out": 858.55,
+   "cam": "room",
+   "muteApp": true,
+   "say": "Okay, I see."
+  },
+  {
+   "kind": "talk",
+   "in": 882.4,
+   "out": 892.35,
+   "cam": "room",
+   "muteApp": true,
+   "say": "I think that would be interesting to add a new ticket, in order to set the status of a task while we are creating it. What do you think?"
+  },
+  {
+   "kind": "talk",
+   "in": 896.55,
+   "out": 900.55,
+   "cam": "room",
+   "say": "Yeah, that makes sense. It would let you pick the status right when you add a task."
+  },
+  {
+   "kind": "talk",
+   "in": 902.2,
+   "out": 902.95,
+   "cam": "room",
+   "muteApp": true,
+   "say": "Can you create it?"
+  },
+  {
+   "kind": "talk",
+   "in": 907.1,
+   "out": 910.5,
+   "cam": "room",
+   "say": "I'll put that ticket together for you. It's there as a card for you."
+  },
+  {
+   "kind": "talk",
+   "in": 928.55,
+   "out": 930.35,
+   "cam": "room",
+   "muteApp": true,
+   "say": "let's create this new ticket."
+  },
+  {
+   "kind": "act",
+   "in": 930.35,
+   "out": 933.45,
+   "speed": 2,
+   "cam": "room"
+  },
+  {
+   "kind": "talk",
+   "in": 933.78,
+   "out": 938.45,
+   "cam": "room",
+   "muteApp": true,
+   "say": "It appears here. And for this ticket, I'm happy with it, so I will merge it."
+  },
+  {
+   "kind": "act",
+   "in": 938.45,
+   "out": 942.7,
+   "speed": 1.5,
+   "cam": "full"
+  },
+  {
+   "kind": "talk",
+   "in": 942.7,
+   "out": 944.1,
+   "cam": "full",
+   "muteApp": true,
+   "say": "Okay, there you go."
+  }
+ ]
+}

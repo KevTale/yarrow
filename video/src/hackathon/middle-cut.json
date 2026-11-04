@@ -1,0 +1,972 @@
+{
+ "frames": 3662,
+ "segments": [
+  {
+   "kind": "talk",
+   "cam": "landing",
+   "muteApp": true,
+   "say": "So Yarrow is a ticket harness helping you creating tickets, implementing them, and reviewing them, all in one place.",
+   "from": 0,
+   "to": 251,
+   "src": [
+    7.1,
+    16.2
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "landing",
+   "muteApp": true,
+   "say": "Let me show you.",
+   "from": 251,
+   "to": 273,
+   "src": [
+    19.85,
+    20.6
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 7,
+   "cam": "full",
+   "from": 273,
+   "to": 367,
+   "src": [
+    20.6,
+    42.6
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "dash",
+   "muteApp": true,
+   "say": "Okay, so here you can see the Yarrow dashboard. I've imported a very simple to-do app from GitHub,",
+   "from": 367,
+   "to": 604,
+   "src": [
+    42.75,
+    51.3
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "dash",
+   "muteApp": true,
+   "say": "it comes from GitHub issues, but you can use Jira, Linear or Trello.",
+   "from": 604,
+   "to": 742,
+   "src": [
+    55.34,
+    59.95
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "dash",
+   "muteApp": true,
+   "say": "so I will create a new one.",
+   "from": 742,
+   "to": 785,
+   "src": [
+    63.85,
+    65.3
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 3,
+   "cam": "full",
+   "from": 785,
+   "to": 831,
+   "src": [
+    65.3,
+    69.9
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "modalChat",
+   "muteApp": true,
+   "say": "Currently in the to-do app, you can see all the to-dos mixed up.",
+   "from": 831,
+   "to": 976,
+   "src": [
+    75.62,
+    81.5
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "modalChat",
+   "muteApp": true,
+   "say": "So I need buttons above the list, like a All button, To Do button, Doing and Done.",
+   "from": 976,
+   "to": 1132,
+   "src": [
+    87.82,
+    96.3
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "modalChat",
+   "say": "Got it. Let me look at your app to draft that.",
+   "from": 1132,
+   "to": 1202,
+   "src": [
+    102.55,
+    104.85
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "modal",
+   "say": "I've put a first version beside you with those four buttons above the list.",
+   "from": 1202,
+   "to": 1301,
+   "src": [
+    110.7,
+    114.0
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 3,
+   "cam": "full",
+   "from": 1301,
+   "to": 1372,
+   "src": [
+    131.75,
+    138.8
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "full",
+   "muteApp": true,
+   "say": "So let's start it.",
+   "from": 1372,
+   "to": 1414,
+   "src": [
+    138.85,
+    140.25
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 3.5,
+   "cam": "full",
+   "from": 1414,
+   "to": 1500,
+   "src": [
+    140.25,
+    150.25
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "working",
+   "muteApp": true,
+   "say": "There we go. So the ticket is starting in the cloud. As you can see, Muse Wonder is working on it.",
+   "from": 1500,
+   "to": 1675,
+   "src": [
+    150.3,
+    156.7
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "working",
+   "muteApp": true,
+   "say": "so we will give it a few minutes,",
+   "from": 1675,
+   "to": 1731,
+   "src": [
+    157.75,
+    159.6
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 148,
+   "cam": "working",
+   "label": "timelapse",
+   "since": 150.3,
+   "bubble": false,
+   "from": 1731,
+   "to": 1827,
+   "src": [
+    159.6,
+    634.2
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 1.5,
+   "cam": "room",
+   "bubble": false,
+   "from": 1827,
+   "to": 1883,
+   "src": [
+    634.2,
+    637.0
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "All right, so Muse Wonder has finished its job. It has produced a video, actually a live interactive video.",
+   "from": 1883,
+   "to": 2088,
+   "src": [
+    752.3,
+    759.55
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "Let's watch it.",
+   "from": 2088,
+   "to": 2110,
+   "src": [
+    759.62,
+    760.75
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "demo",
+   "say": "And here it is with the change. Above the list, you've now got four buttons: All and To Do and Doing and Done.",
+   "from": 2110,
+   "to": 2312,
+   "src": [
+    777.9,
+    785.15
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "demo",
+   "say": "So let me click Doing, and you'll notice only the two in-progress tasks",
+   "from": 2312,
+   "to": 2444,
+   "src": [
+    792.2,
+    796.84
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "Okay, wait a second. I have a question.",
+   "muteApp": true,
+   "from": 2444,
+   "to": 2495,
+   "src": [
+    796.84,
+    799.25
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "Of course. Go ahead.",
+   "from": 2495,
+   "to": 2535,
+   "src": [
+    803.2,
+    804.55
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "Can you",
+   "from": 2535,
+   "to": 2545,
+   "src": [
+    833.55,
+    833.88
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "click on the Doing button and then add a new task?",
+   "from": 2545,
+   "to": 2611,
+   "src": [
+    838.6,
+    840.8
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "Doing is on, so only the two in-progress tasks show. The new task saved but stays hidden,",
+   "from": 2611,
+   "to": 2795,
+   "src": [
+    850.8,
+    857.12
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "Okay, I see.",
+   "from": 2795,
+   "to": 2811,
+   "src": [
+    858.0,
+    858.55
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "I think that would be interesting to add a new ticket, in order to set the status of a task while we are creating it. What do you think?",
+   "from": 2811,
+   "to": 3061,
+   "src": [
+    882.4,
+    892.35
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "Yeah, that makes sense. It would let you pick the status right when you add a task.",
+   "from": 3061,
+   "to": 3181,
+   "src": [
+    896.55,
+    900.55
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "Can you create it?",
+   "from": 3181,
+   "to": 3203,
+   "src": [
+    902.2,
+    902.95
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "say": "I'll put that ticket together for you. It's there as a card for you.",
+   "from": 3203,
+   "to": 3299,
+   "src": [
+    907.1,
+    910.5
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "let's create this new ticket.",
+   "from": 3299,
+   "to": 3353,
+   "src": [
+    928.55,
+    930.35
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 2,
+   "cam": "room",
+   "from": 3353,
+   "to": 3400,
+   "src": [
+    930.35,
+    933.45
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "room",
+   "muteApp": true,
+   "say": "It appears here. And for this ticket, I'm happy with it, so I will merge it.",
+   "from": 3400,
+   "to": 3535,
+   "src": [
+    933.78,
+    938.45
+   ]
+  },
+  {
+   "kind": "act",
+   "speed": 1.5,
+   "cam": "full",
+   "from": 3535,
+   "to": 3620,
+   "src": [
+    938.45,
+    942.7
+   ]
+  },
+  {
+   "kind": "talk",
+   "cam": "full",
+   "muteApp": true,
+   "say": "Okay, there you go.",
+   "from": 3620,
+   "to": 3662,
+   "src": [
+    942.7,
+    944.1
+   ]
+  }
+ ],
+ "pieces": [
+  {
+   "seg": 0,
+   "in": 7.1,
+   "out": 9.833333333333334,
+   "speed": 1,
+   "at": 0,
+   "frames": 82
+  },
+  {
+   "seg": 0,
+   "in": 10.133333333333333,
+   "out": 12.1,
+   "speed": 1,
+   "at": 82,
+   "frames": 59
+  },
+  {
+   "seg": 0,
+   "in": 12.333333333333334,
+   "out": 14.933333333333334,
+   "speed": 1,
+   "at": 141,
+   "frames": 78
+  },
+  {
+   "seg": 0,
+   "in": 15.133333333333333,
+   "out": 16.2,
+   "speed": 1,
+   "at": 219,
+   "frames": 32
+  },
+  {
+   "seg": 1,
+   "in": 19.866666666666667,
+   "out": 20.6,
+   "speed": 1,
+   "at": 251,
+   "frames": 22
+  },
+  {
+   "seg": 2,
+   "in": 20.6,
+   "out": 42.6,
+   "speed": 7,
+   "at": 273,
+   "frames": 94
+  },
+  {
+   "seg": 3,
+   "in": 42.733333333333334,
+   "out": 44.766666666666666,
+   "speed": 1,
+   "at": 367,
+   "frames": 61
+  },
+  {
+   "seg": 3,
+   "in": 44.96666666666667,
+   "out": 46.43333333333333,
+   "speed": 1,
+   "at": 428,
+   "frames": 44
+  },
+  {
+   "seg": 3,
+   "in": 46.666666666666664,
+   "out": 47.833333333333336,
+   "speed": 1,
+   "at": 472,
+   "frames": 35
+  },
+  {
+   "seg": 3,
+   "in": 48.06666666666667,
+   "out": 51.3,
+   "speed": 1,
+   "at": 507,
+   "frames": 97
+  },
+  {
+   "seg": 4,
+   "in": 55.333333333333336,
+   "out": 59.93333333333333,
+   "speed": 1,
+   "at": 604,
+   "frames": 138
+  },
+  {
+   "seg": 5,
+   "in": 63.86666666666667,
+   "out": 65.3,
+   "speed": 1,
+   "at": 742,
+   "frames": 43
+  },
+  {
+   "seg": 6,
+   "in": 65.3,
+   "out": 69.9,
+   "speed": 3,
+   "at": 785,
+   "frames": 46
+  },
+  {
+   "seg": 7,
+   "in": 75.63333333333334,
+   "out": 76.46666666666667,
+   "speed": 1,
+   "at": 831,
+   "frames": 25
+  },
+  {
+   "seg": 7,
+   "in": 76.8,
+   "out": 78.1,
+   "speed": 1,
+   "at": 856,
+   "frames": 39
+  },
+  {
+   "seg": 7,
+   "in": 78.66666666666667,
+   "out": 80.66666666666667,
+   "speed": 1,
+   "at": 895,
+   "frames": 60
+  },
+  {
+   "seg": 7,
+   "in": 80.8,
+   "out": 81.5,
+   "speed": 1,
+   "at": 955,
+   "frames": 21
+  },
+  {
+   "seg": 8,
+   "in": 87.83333333333333,
+   "out": 88.96666666666667,
+   "speed": 1,
+   "at": 976,
+   "frames": 34
+  },
+  {
+   "seg": 8,
+   "in": 89.6,
+   "out": 90.56666666666666,
+   "speed": 1,
+   "at": 1010,
+   "frames": 29
+  },
+  {
+   "seg": 8,
+   "in": 90.83333333333333,
+   "out": 92.13333333333334,
+   "speed": 1,
+   "at": 1039,
+   "frames": 39
+  },
+  {
+   "seg": 8,
+   "in": 92.76666666666667,
+   "out": 93.6,
+   "speed": 1,
+   "at": 1078,
+   "frames": 25
+  },
+  {
+   "seg": 8,
+   "in": 95.33333333333333,
+   "out": 96.3,
+   "speed": 1,
+   "at": 1103,
+   "frames": 29
+  },
+  {
+   "seg": 9,
+   "in": 102.53333333333333,
+   "out": 104.86666666666666,
+   "speed": 1,
+   "at": 1132,
+   "frames": 70
+  },
+  {
+   "seg": 10,
+   "in": 110.7,
+   "out": 114.0,
+   "speed": 1,
+   "at": 1202,
+   "frames": 99
+  },
+  {
+   "seg": 11,
+   "in": 131.73333333333332,
+   "out": 138.8,
+   "speed": 3,
+   "at": 1301,
+   "frames": 71
+  },
+  {
+   "seg": 12,
+   "in": 138.86666666666667,
+   "out": 140.26666666666668,
+   "speed": 1,
+   "at": 1372,
+   "frames": 42
+  },
+  {
+   "seg": 13,
+   "in": 140.26666666666668,
+   "out": 150.26666666666668,
+   "speed": 3.5,
+   "at": 1414,
+   "frames": 86
+  },
+  {
+   "seg": 14,
+   "in": 150.3,
+   "out": 150.86666666666667,
+   "speed": 1,
+   "at": 1500,
+   "frames": 17
+  },
+  {
+   "seg": 14,
+   "in": 151.16666666666666,
+   "out": 153.56666666666666,
+   "speed": 1,
+   "at": 1517,
+   "frames": 72
+  },
+  {
+   "seg": 14,
+   "in": 153.7,
+   "out": 155.53333333333333,
+   "speed": 1,
+   "at": 1589,
+   "frames": 55
+  },
+  {
+   "seg": 14,
+   "in": 155.66666666666666,
+   "out": 156.7,
+   "speed": 1,
+   "at": 1644,
+   "frames": 31
+  },
+  {
+   "seg": 15,
+   "in": 157.73333333333332,
+   "out": 159.6,
+   "speed": 1,
+   "at": 1675,
+   "frames": 56
+  },
+  {
+   "seg": 16,
+   "in": 159.6,
+   "out": 634.2,
+   "speed": 148,
+   "at": 1731,
+   "frames": 96
+  },
+  {
+   "seg": 17,
+   "in": 634.2,
+   "out": 637.0,
+   "speed": 1.5,
+   "at": 1827,
+   "frames": 56
+  },
+  {
+   "seg": 18,
+   "in": 752.3,
+   "out": 755.2,
+   "speed": 1,
+   "at": 1883,
+   "frames": 87
+  },
+  {
+   "seg": 18,
+   "in": 755.3666666666667,
+   "out": 757.2,
+   "speed": 1,
+   "at": 1970,
+   "frames": 55
+  },
+  {
+   "seg": 18,
+   "in": 757.4333333333333,
+   "out": 759.5333333333333,
+   "speed": 1,
+   "at": 2025,
+   "frames": 63
+  },
+  {
+   "seg": 19,
+   "in": 759.6333333333333,
+   "out": 759.9666666666667,
+   "speed": 1,
+   "at": 2088,
+   "frames": 10
+  },
+  {
+   "seg": 19,
+   "in": 760.3333333333334,
+   "out": 760.7333333333333,
+   "speed": 1,
+   "at": 2098,
+   "frames": 12
+  },
+  {
+   "seg": 20,
+   "in": 777.9,
+   "out": 779.5666666666667,
+   "speed": 1,
+   "at": 2110,
+   "frames": 50
+  },
+  {
+   "seg": 20,
+   "in": 779.9,
+   "out": 782.3,
+   "speed": 1,
+   "at": 2160,
+   "frames": 72
+  },
+  {
+   "seg": 20,
+   "in": 782.4666666666667,
+   "out": 785.1333333333333,
+   "speed": 1,
+   "at": 2232,
+   "frames": 80
+  },
+  {
+   "seg": 21,
+   "in": 792.2,
+   "out": 793.8333333333334,
+   "speed": 1,
+   "at": 2312,
+   "frames": 49
+  },
+  {
+   "seg": 21,
+   "in": 794.0666666666667,
+   "out": 796.8333333333334,
+   "speed": 1,
+   "at": 2361,
+   "frames": 83
+  },
+  {
+   "seg": 22,
+   "in": 796.8333333333334,
+   "out": 797.3666666666667,
+   "speed": 1,
+   "at": 2444,
+   "frames": 16
+  },
+  {
+   "seg": 22,
+   "in": 798.1,
+   "out": 799.2666666666667,
+   "speed": 1,
+   "at": 2460,
+   "frames": 35
+  },
+  {
+   "seg": 23,
+   "in": 803.2,
+   "out": 804.5333333333333,
+   "speed": 1,
+   "at": 2495,
+   "frames": 40
+  },
+  {
+   "seg": 24,
+   "in": 833.5333333333333,
+   "out": 833.8666666666667,
+   "speed": 1,
+   "at": 2535,
+   "frames": 10
+  },
+  {
+   "seg": 25,
+   "in": 838.6,
+   "out": 840.8,
+   "speed": 1,
+   "at": 2545,
+   "frames": 66
+  },
+  {
+   "seg": 26,
+   "in": 850.8,
+   "out": 854.7666666666667,
+   "speed": 1,
+   "at": 2611,
+   "frames": 119
+  },
+  {
+   "seg": 26,
+   "in": 854.9666666666667,
+   "out": 857.1333333333333,
+   "speed": 1,
+   "at": 2730,
+   "frames": 65
+  },
+  {
+   "seg": 27,
+   "in": 858.0,
+   "out": 858.5333333333333,
+   "speed": 1,
+   "at": 2795,
+   "frames": 16
+  },
+  {
+   "seg": 28,
+   "in": 882.4,
+   "out": 884.3333333333334,
+   "speed": 1,
+   "at": 2811,
+   "frames": 58
+  },
+  {
+   "seg": 28,
+   "in": 884.6666666666666,
+   "out": 886.3,
+   "speed": 1,
+   "at": 2869,
+   "frames": 49
+  },
+  {
+   "seg": 28,
+   "in": 887.0333333333333,
+   "out": 888.0,
+   "speed": 1,
+   "at": 2918,
+   "frames": 29
+  },
+  {
+   "seg": 28,
+   "in": 888.3666666666667,
+   "out": 890.2,
+   "speed": 1,
+   "at": 2947,
+   "frames": 55
+  },
+  {
+   "seg": 28,
+   "in": 890.3666666666667,
+   "out": 892.3333333333334,
+   "speed": 1,
+   "at": 3002,
+   "frames": 59
+  },
+  {
+   "seg": 29,
+   "in": 896.5333333333333,
+   "out": 900.5333333333333,
+   "speed": 1,
+   "at": 3061,
+   "frames": 120
+  },
+  {
+   "seg": 30,
+   "in": 902.2,
+   "out": 902.9333333333333,
+   "speed": 1,
+   "at": 3181,
+   "frames": 22
+  },
+  {
+   "seg": 31,
+   "in": 907.1,
+   "out": 908.7666666666667,
+   "speed": 1,
+   "at": 3203,
+   "frames": 50
+  },
+  {
+   "seg": 31,
+   "in": 908.9666666666667,
+   "out": 910.5,
+   "speed": 1,
+   "at": 3253,
+   "frames": 46
+  },
+  {
+   "seg": 32,
+   "in": 928.5333333333333,
+   "out": 930.3333333333334,
+   "speed": 1,
+   "at": 3299,
+   "frames": 54
+  },
+  {
+   "seg": 33,
+   "in": 930.3333333333334,
+   "out": 933.4666666666667,
+   "speed": 2,
+   "at": 3353,
+   "frames": 47
+  },
+  {
+   "seg": 34,
+   "in": 933.7666666666667,
+   "out": 934.9,
+   "speed": 1,
+   "at": 3400,
+   "frames": 34
+  },
+  {
+   "seg": 34,
+   "in": 935.1,
+   "out": 938.4666666666667,
+   "speed": 1,
+   "at": 3434,
+   "frames": 101
+  },
+  {
+   "seg": 35,
+   "in": 938.4666666666667,
+   "out": 942.7,
+   "speed": 1.5,
+   "at": 3535,
+   "frames": 85
+  },
+  {
+   "seg": 36,
+   "in": 942.7,
+   "out": 944.1,
+   "speed": 1,
+   "at": 3620,
+   "frames": 42
+  }
+ ]
+}

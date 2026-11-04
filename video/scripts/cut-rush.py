@@ -1,6 +1,6 @@
 """Cut a face-cam rush: drop the silences, tighten the pauses, speed it up, and map the words.
 
-    python -I scripts/cut-rush.py <rush.mp4> <stt.json> public/rush [speed]
+    python -I scripts/cut-rush.py <rush.mp4> <stt.json> public/rush [speed] [name]
 
 The rush is OBS's 3840x1080 side by side (webcam on the right), mic on audio track 1.
 stt.json is ElevenLabs speech-to-text of that track (model scribe_v2, word timestamps).
@@ -15,6 +15,7 @@ RUSH = sys.argv[1]
 STT = Path(sys.argv[2])
 OUT = Path(sys.argv[3])
 SPEED = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0  # 1.1 was felt on the face cam
+NAME = sys.argv[5] if len(sys.argv) > 5 else "intro"
 FPS = 30
 KEEP_AFTER, KEEP_BEFORE = 0.16, 0.14  # around each tightened pause, before speed
 MAX_GAP = 0.42                        # pauses longer than this are tightened
@@ -64,7 +65,7 @@ while i < len(spoken):
 OUT.mkdir(parents=True, exist_ok=True)
 json.dump({"duration": total, "speed": SPEED, "cuts": cuts, "keeps": keeps,
            "words": [[t, round(s, 3), round(e, 3)] for t, s, e in mapped]},
-          open(OUT / "intro.json", "w"), indent=1)
+          open(OUT / f"{NAME}.json", "w"), indent=1)
 
 n = len(keeps)
 v = "".join(f"[0:v]crop=1920:1080:1920:0,trim={s}:{e},setpts=PTS-STARTPTS[v{k}];" for k, (s, e) in enumerate(keeps))
@@ -78,18 +79,18 @@ a += "".join(f"[a{k}]" for k in range(n)) + (
 
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", RUSH, "-filter_complex", v + ";" + a,
                 "-map", "[v]", "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-g", "15",
-                "-pix_fmt", "yuv420p", "-an", str(OUT / "intro-cam.mp4"),
-                "-map", "[a]", "-ar", "48000", "-ac", "1", str(OUT / "intro-raw.wav")], check=True)
+                "-pix_fmt", "yuv420p", "-an", str(OUT / f"{NAME}-cam.mp4"),
+                "-map", "[a]", "-ar", "48000", "-ac", "1", str(OUT / f"{NAME}-raw.wav")], check=True)
 
 # Loudness: two passes to -16 LUFS.
-probe = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(OUT / "intro-raw.wav"), "-af",
+probe = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(OUT / f"{NAME}-raw.wav"), "-af",
                         "loudnorm=I=-16:TP=-1.5:LRA=9:print_format=json", "-f", "null", "-"],
                        capture_output=True, text=True).stderr
 m = json.loads(probe[probe.rindex("{"):probe.rindex("}") + 1])
-subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(OUT / "intro-raw.wav"), "-af",
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(OUT / f"{NAME}-raw.wav"), "-af",
                 f"loudnorm=I=-16:TP=-1.5:LRA=9:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
                 f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true",
-                "-ar", "48000", "-ac", "2", str(OUT / "intro-voice.wav")], check=True)
-(OUT / "intro-raw.wav").unlink()
+                "-ar", "48000", "-ac", "2", str(OUT / f"{NAME}-voice.wav")], check=True)
+(OUT / f"{NAME}-raw.wav").unlink()
 print(f"{len(keeps)} pieces, {total:.2f} s (from {words[-1]['end'] - words[1]['start']:.2f} s of speech)")
 print("cuts at", [round(c, 2) for c in cuts])

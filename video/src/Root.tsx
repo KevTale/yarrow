@@ -1,6 +1,9 @@
 import { Composition, Folder } from "remotion";
 import { Hackathon } from "./hackathon/Hackathon";
+import { Film, FILM_FRAMES } from "./hackathon/Film";
 import { Intro as HackathonIntro, INTRO_FRAMES } from "./hackathon/Intro";
+import { Middle, MIDDLE_FRAMES } from "./hackathon/Middle";
+import { Outro, OUTRO_FRAMES } from "./hackathon/Outro";
 import { TOTAL as HACKATHON_TOTAL } from "./hackathon/timeline";
 import { Launch } from "./Launch";
 import { Dashboard } from "./scenes/Dashboard";
@@ -27,6 +30,24 @@ export const RemotionRoot: React.FC = () => (
       component={Hackathon}
       {...size}
       durationInFrames={HACKATHON_TOTAL}
+    />
+    <Composition
+      id="HackathonFilm"
+      component={Film}
+      {...size}
+      durationInFrames={FILM_FRAMES}
+    />
+    <Composition
+      id="HackathonMiddle"
+      component={Middle}
+      {...size}
+      durationInFrames={MIDDLE_FRAMES}
+    />
+    <Composition
+      id="HackathonOutro"
+      component={Outro}
+      {...size}
+      durationInFrames={OUTRO_FRAMES}
     />
     <Composition
       id="HackathonIntro"

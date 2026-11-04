@@ -112,7 +112,7 @@ const Name: React.FC = () => {
 
 /* ---------- Panels beside Kevin ---------- */
 
-const Panel: React.FC<{ length: number; children: React.ReactNode }> = ({ length, children }) => {
+export const Panel: React.FC<{ length: number; children: React.ReactNode }> = ({ length, children }) => {
   const frame = useCurrentFrame();
   const k = interpolate(frame, [0, 14], [0, 1], { ...clamp, easing: ease.enter });
   const out = interpolate(frame, [length - 10, length], [1, 0], { ...clamp, easing: ease.inOut });
