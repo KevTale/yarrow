@@ -50,7 +50,7 @@ const ACTIONS = [
 // The gestures of a chapter in the editor (tab "code").
 const CODE_ACTIONS = ["changes", "open", "diff", "wait"];
 /** Lines one gesture selects: they fit on the screen. */
-const CODE_LINES = 30;
+const CODE_LINES = 10;
 /** A terminal's command is read as it is typed. */
 const COMMAND_MAX = 120;
 const COLORS = {

@@ -84,7 +84,7 @@ export const STAGE_TOOLS: Anthropic.Beta.BetaTool[] = [
               to: {
                 type: "number",
                 description:
-                  "For open and diff: last line, at most 30 lines after from.",
+                  "For open and diff: last line, only what you speak of, at most 10 lines.",
               },
             },
             required: ["do"],
