@@ -6,12 +6,12 @@ Narration in English, spoken, about 150 words a minute. Notes in French. Timings
 | --- | --- | --- |
 | 1. The problem | 0:00–0:28 | Face cam, words and numbers on screen |
 | 2. Transition | 0:28–0:33 | Face cam |
-| 3. Setup | 0:33–0:53 | Screen, webcam bottom right |
-| 4. Start | 0:53–1:08 | Screen |
+| 3. Setup | 0:33–0:45 | Screen, webcam bottom right |
+| 4. The ticket, then Start | 0:45–1:08 | Screen |
 | 5. The drop | 1:08–1:18 | Screen, the demo takes the whole frame |
 | 6. The demo, then the conversation | 1:18–2:00 | Screen |
 | 7. To the viewer: Muse Spark | 2:00–2:13 | Screen, webcam back |
-| 8. Preview, then merge | 2:13–2:33 | Screen |
+| 8. Merge | 2:13–2:33 | Screen |
 | 9. Close | 2:33–2:55 | Face cam |
 
 ## 1. The problem (0:00–0:28, face cam)
@@ -37,21 +37,27 @@ L'intro ne pose qu'un problème, la review : les tickets arrivent dans la démo 
 
 > We take your tickets all the way, from the idea to the merge. Let me show you.
 
-## 3. Setup (0:33–0:53, écran + webcam)
+## 3. Setup (0:33–0:45, écran + webcam)
 
 > OK, so first, I connect GitHub, and I pick the repository where my code lives.
 >
-> And here we go, this is my Yarrow dashboard. Every GitHub issue is right here, already synced. Nothing to set up.
+> And here's my Yarrow dashboard. Empty for now, so let's write a ticket.
 
-À l'écran : déjà connecté (pas de sign-in à l'image), la landing une seconde → Get started → l'install de l'App GitHub en ×4 ou coupée (c'est l'écran de GitHub, pas le nôtre) → « Import your repository » avec la seule ligne `my-todo-app` → Import → dashboard, les 3 issues en To do.
+À l'écran : déjà connecté (pas de sign-in à l'image), la landing une seconde → Get started → l'install de l'App GitHub en ×4 ou coupée (c'est l'écran de GitHub, pas le nôtre) → « Import your repository » avec la seule ligne `my-todo-app` → Import → « Where do your tickets live? », Continue → le dashboard vide. On ne montre pas l'app avant : la démo de Muse Wonder montre l'« avant ».
 
-## 4. Start (0:53–1:08)
+## 4. The ticket, then Start (0:45–1:08)
 
-> As you can see, we've got three issues to do on this project. Let's take this one: filter the task list by status.
+New ticket, puis Kevin parle à l'agent :
+
+> **Kevin, à l'agent :** Add filters above the task list: All, To do, Doing and Done, with a count on each.
+
+L'agent écrit le ticket, Create ticket, il arrive en To do. Puis :
+
+> It writes the ticket for me, and it lands in To do.
 >
 > I slide Start… and Muse Wonder, Meta's model, picks it up right away in the cloud. It reads the code, writes the change, runs the app, and records a demo.
 
-À l'écran : on tire le levier Start, le fil affiche « Muse Wonder is reading the code ». Coupe.
+À l'écran : on tire le levier Start, quelques secondes sur le fil « Muse Wonder is reading the code » (pour montrer que c'est réel). Coupe.
 
 ## 5. The drop (1:08–1:18)
 
@@ -69,19 +75,23 @@ C'est ici que l'attention doit monter.
 
 ## 6. The demo, then the conversation (1:18–2:00)
 
-La démo parle seule ~12 s (le contexte, puis sa première manipulation sur l'app). Puis :
+La démo parle seule 15 à 30 s au plus (le contexte, puis sa première manipulation sur l'app). Kevin prend la parole (le micro), ce qui l'interrompt :
 
-> **Kevin :** Wait, quick question. What happens to a task whose status isn't one of those three?
+> **Kevin :** Wait, quick question. What happens if I add a task while I'm on the Done filter?
 >
-> *(L'agent répond à la voix et agit en même temps : il ouvre le code ou montre la liste dans l'app. ~15 s)*
+> *(L'agent répond à la voix et le montre dans l'app. ~15 s)*
 >
-> **Kevin :** Got it. And could overdue tasks come first in each filter?
+> **Kevin :** Can you click Doing and add a task there?
 >
-> *(L'agent propose une carte Ticket sous sa réponse.)*
+> *(Il le fait à l'écran.)*
 >
-> **Kevin :** Perfect. Create ticket.
+> **Kevin :** Could you create a ticket to fix that?
 
-La première question est celle du bench vocal (« what the code does with an unknown status »), donc on sait qu'elle tient. 3–4 prises, on garde la meilleure.
+Si la réponse à la première question ne révèle pas de problème, la troisième devient : « Overdue tasks should show in red. Can you create a ticket for that? » (les données d'exemple ont des tâches en retard). L'agent propose une carte Ticket sous sa réponse :
+
+> **Kevin :** Perfect.
+
+Create ticket. Sur dev, la review du même ticket avait relevé qu'une tâche ajoutée sous Done reste cachée : d'où la première question. Couper le micro seulement une phrase finie (le couper en parlant annule l'envoi). 3–4 prises, on garde la meilleure.
 
 ## 7. To the viewer: Muse Spark (2:00–2:13, la webcam revient)
 
@@ -91,13 +101,13 @@ La première question est celle du bench vocal (« what the code does with an un
 
 À l'écran, sur la dernière phrase : **Code review, as a conversation.**
 
-## 8. Preview, then merge (2:13–2:33)
+## 8. Merge (2:13–2:33)
 
-> And if I want to try it myself, Open the app. Every pull request gets its own preview URL, automatically. No config, no deploy, it's just there.
->
 > OK. I've seen it working, and I know exactly what changed. I slide to merge… it lands on GitHub, and the issue closes.
+>
+> And my next ticket is already waiting in To do.
 
-À l'écran : Open the app, la preview s'ouvre à son adresse yarrow.page (l'URL bien visible), deux clics dans l'app. Retour, le levier Merge, la ligne passe à Done. Si possible un plan d'une seconde sur l'issue GitHub passée en Closed (la PR porte « Closes #1 »).
+À l'écran : le levier Merge, la ligne passe à Done ; un seul plan du tableau montre le premier ticket en Done et le nouveau en To do. Si possible un plan d'une seconde sur l'issue GitHub passée en Closed. La preview (« Open the app ») est retirée du film.
 
 ## 9. Close (2:33–2:55, face cam)
 
@@ -111,11 +121,13 @@ Mot final à l'écran : **yarrow.run**.
 
 ## Before recording
 
-- Le dépôt privé [KevTale/my-todo-app](https://github.com/KevTale/my-todo-app) : une liste de tâches React + Vite, ses 3 issues (#1 Filter the task list by status, #2 Mark overdue tasks in red, #3 Edit a task's title inline). Sur prod, avant de filmer : Remove project sur chaque projet importé, et la sélection de l'App `yarrow-run` réduite à `my-todo-app` sur GitHub, pour que l'import n'affiche qu'une ligne.
-- Le ticket filtre essayé une fois sur dev (jamais sur prod : sa PR reviendrait à l'import).
+- Le dépôt privé [KevTale/my-todo-app](https://github.com/KevTale/my-todo-app) : une liste de tâches React + Vite, **sans issue** (2026-11-04, Kevin les a supprimées : le ticket est créé en direct). Sur prod, la sélection de l'App `yarrow-run` réduite à `my-todo-app`, pour que l'import n'affiche qu'une ligne.
 - L'implémenteur sur Meta : `pnpm implementer meta`.
-- Sur prod, on filme le vrai Start sur #1 ; le run dure ~7 min, on coupe pendant.
+- Sur prod, on filme le vrai Start ; le run dure ~7 min, on coupe pendant.
+- **Le premier démarrage de l'app de l'appel est froid (~2 min mesurées sur dev), les suivants ~15 s.** Le faire pendant le cut, avant de filmer la review, sans laisser de message dans le chat du ticket (demander à Claude), ou garder la première prise de la review comme répétition.
+- Une répétition complète hors caméra si le temps le permet.
 - Un vrai diff long d'une PR quelconque pour le flash de la partie 5.
+- Le prompteur : https://claude.ai/artifact/CDfbrjdbQjyGAASstfU3Hp (les répliques et les indications, une partie par écran).
 
 Sources :
 - [GitHub Octoverse 2026](https://github.blog/news-insights/octoverse/octoverse-commits-pushes-reach-new-highs-in-2026-as-developers-build-with-agents/) : merged pull requests 402M → 538M → 1.3B (years ending September 30, 2024, 2025 and 2026).
