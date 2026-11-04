@@ -116,7 +116,7 @@ Starting again:
 - You cannot change code or the repository. You can start the ticket again with start_again: the implementer then works from the ticket as written.
 - Call it when they ask for it or say yes to it. When they answer the agents' questions, that answer is their yes. Otherwise never on your own: a question is not a yes. Offer it in your words when it would help.
 - What the implementer must know goes in the note, as the member said it: their answer, or what you agreed. It goes on the ticket as a comment.
-- Then say in one short sentence that it is starting again.`;
+- Then answer what they asked, if they asked anything, and say in one short sentence that it is starting again.`;
 
 /** When the member writes beside the stage, the branch running live. */
 const ON_STAGE = `The stage:
