@@ -309,7 +309,7 @@ export function stageAddress(url: string): { url: string; path: string } {
 }
 
 /** Where the Stage reaches the app, from outside the machine. */
-export const RELAY_PORT = 7071;
+export const RELAY_PORT = 7072;
 
 /**
  * A script that opens the app to the outside of the machine, whatever it
