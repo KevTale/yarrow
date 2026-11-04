@@ -3,12 +3,13 @@
 #   powershell -ExecutionPolicy Bypass -File scripts/set-secrets.ps1 -Target dev
 #   ... -Target dev -Jira    only the Jira app's two values
 #   ... -Target dev -Linear    only the Linear app's three values
+#   ... -Target dev -Trello    only the Trello key and its secret
 #   ... -Target dev -Providers    only the Anthropic, OpenAI and Resend keys
 #
 # Each value is typed once, hidden, and sent to every Worker that needs it
 # through `wrangler secret bulk` on stdin: nothing is written to disk.
 # Empty answers are skipped. Run `pnpm exec wrangler login` first.
-param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira, [switch]$Linear, [switch]$Providers)
+param([ValidateSet("dev", "production")][string]$Target = "dev", [switch]$Jira, [switch]$Linear, [switch]$Trello, [switch]$Providers)
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
@@ -38,6 +39,11 @@ function Add-Linear {
   Add LINEAR_CLIENT_SECRET (Read-Secret "Linear app Client secret") -Web -Brain
   Add LINEAR_WEBHOOK_SECRET (Read-Secret "Linear app webhook signing secret") -Web
 }
+# Trello's Power-Up key (trello.com/power-ups/admin > API key): both Workers use it.
+function Add-Trello {
+  Add TRELLO_API_KEY (Read-Host "Trello API key") -Web -Brain
+  Add TRELLO_API_SECRET (Read-Secret "Trello secret") -Web -Brain
+}
 # The AI providers' platform keys, and Resend (sponsor emails, the brain's alerts).
 function Add-Providers {
   $anthropic = Read-Secret "Anthropic API key"
@@ -52,7 +58,7 @@ function Add-Providers {
   Add OPENAI_API_KEY (Read-Secret "OpenAI API key") -Brain
   Add RESEND_API_KEY (Read-Secret "Resend API key (re_..., Sending access)") -Web -Brain
 }
-if ($Jira) { Add-Jira } elseif ($Linear) { Add-Linear } elseif ($Providers) { Add-Providers } else {
+if ($Jira) { Add-Jira } elseif ($Linear) { Add-Linear } elseif ($Trello) { Add-Trello } elseif ($Providers) { Add-Providers } else {
   Add DATABASE_URL (Read-Secret "Supabase DATABASE_URL (Connect > Transaction pooler, port 6543)") -Web -Brain
   Add-Providers
   $stripeKey = if ($Target -eq "production") { "sk_live_..." } else { "sk_test_..." }
@@ -70,6 +76,7 @@ if ($Jira) { Add-Jira } elseif ($Linear) { Add-Linear } elseif ($Providers) { Ad
   }
   Add-Jira
   Add-Linear
+  Add-Trello
 }
 
 if ($webSecrets.Count) { $webSecrets | ConvertTo-Json -Compress | pnpm exec wrangler secret bulk --env $Target }

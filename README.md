@@ -201,7 +201,7 @@ pnpm exec wrangler secret put NAME --config workers/wrangler.jsonc --env dev # b
 7. **Trackers** (optional).
    - Jira: create an OAuth 2.0 integration on [developer.atlassian.com](https://developer.atlassian.com/console/myapps/) with the `read:jira-work` and `write:jira-work` scopes, the callback `<APP_URL>/integrations/jira/callback`, and sharing turned on.
    - Linear: create a public application on [linear.app](https://linear.app/settings/api/applications/new) with the callback `<APP_URL>/integrations/linear/callback` and a webhook on `<APP_URL>/api/webhooks/linear` for Issues.
-   - Trello: create a key on [trello.com](https://trello.com/power-ups/admin). Trello returns to `<APP_URL>/integrations/trello-callback`.
+   - Trello: create a Power-Up and its API key on [trello.com](https://trello.com/power-ups/admin), with `<APP_URL>` in the key's allowed origins. Trello returns to `<APP_URL>/integrations/trello-callback`.
 8. **Storage.** Create the R2 buckets named in the two Wrangler files. Both Workers bind them as `EVIDENCE`.
 9. **Secrets.** Set them on both Workers, then push to the environment's branch.
 
