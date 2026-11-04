@@ -178,6 +178,28 @@ export const mergingRow = (row: TicketRow, at: string): TicketRow => ({
   updatedAt: at,
 });
 
+/** Started, taken back or retried from the dashboard. */
+export type TicketAsk = "queue" | "unqueue" | "retry";
+
+/** The server shows what was asked, nothing of it still on its way. */
+export function askSettled(row: TicketRow, ask: TicketAsk): boolean {
+  if (ask === "unqueue") return row.status === "none" && !row.pending;
+  if (ask === "retry") return row.status !== "abstained";
+  return row.status !== "none" && row.status !== "abstained" && !row.pending;
+}
+
+/**
+ * Asked, the row shows it until the server agrees: a GitHub label goes
+ * through the brain, then GitHub's webhook, and a poll between the two
+ * would send the row back where it was.
+ */
+export function askedRow(row: TicketRow, ask: TicketAsk): TicketRow {
+  if (askSettled(row, ask)) return row;
+  return ask === "unqueue"
+    ? { ...row, status: "none", pending: true, models: [] }
+    : { ...row, status: "queued", pending: ask === "queue", models: [] };
+}
+
 export const merging = (row: TicketRow) =>
   row.status === "merged" && row.pending;
 

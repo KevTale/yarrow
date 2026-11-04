@@ -2,6 +2,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  askedRow,
   formatSeconds,
   formatTokens,
   merging,
@@ -545,6 +546,27 @@ describe("the dashboard's groups", () => {
     ];
     expect(journey.map(([change]) => ticketStage(row(change)))).toEqual(
       journey.map(([, stage]) => stage),
+    );
+  });
+
+  it("keeps a started ticket in progress until the server shows it", () => {
+    // Slid, then the label's task done before GitHub's webhook, then queued.
+    const served: [Partial<TicketRow>, string][] = [
+      [{}, "progress"],
+      [{ status: "queued", pending: true }, "progress"],
+      [{}, "progress"],
+      [{ status: "queued" }, "progress"],
+    ];
+    expect(
+      served.map(([change]) => ticketStage(askedRow(row(change), "queue"))),
+    ).toEqual(served.map(([, stage]) => stage));
+    expect(askedRow(row({ status: "queued" }), "queue").pending).toBe(false);
+    // Taken back: in To do while the server still says queued.
+    expect(ticketStage(askedRow(row({ status: "queued" }), "unqueue"))).toBe(
+      "todo",
+    );
+    expect(ticketStage(askedRow(row({ status: "abstained" }), "retry"))).toBe(
+      "progress",
     );
   });
 

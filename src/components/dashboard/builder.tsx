@@ -19,6 +19,8 @@ import {
 import { SearchField } from "@/components/arc/search-field/search-field";
 import { TextShimmer } from "@/components/arc/text-shimmer/text-shimmer";
 import {
+  askedRow,
+  askSettled,
   merging as isMerging,
   mergeTickets,
   mergingRow,
@@ -26,6 +28,7 @@ import {
   ticketStage,
   toReview,
   workText,
+  type TicketAsk,
   type TicketRow,
   type TicketStage as Stage,
 } from "@/core/tickets";
@@ -125,6 +128,8 @@ const readAt = new Map<string, number>();
 const issuesRead = new Map<string, number>();
 /** GitHub's open issues are read again after a minute. */
 const ISSUES_TTL = 60_000;
+/** How long a row shows what was asked before the server alone counts. */
+const ASK_HELD_MS = 60_000;
 
 /**
  * Tickets: one project's tickets in groups, from To review to Done, each
@@ -182,6 +187,11 @@ export function BuilderView({
   // Rows slid to merge ("projectId:key") since when, and GitHub's refusals.
   const [merges, setMerges] = useState<Record<string, string>>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
+  // Rows started, taken back or retried ("projectId:key"), until the server
+  // shows it: GitHub's label and its webhook take seconds.
+  const [asks, setAsks] = useState<
+    Record<string, { ask: TicketAsk; at: number }>
+  >({});
   const [error, setError] = useState("");
   // The new ticket dialog, and whether it came from In progress; drafted
   // from a pull request's notes, in that pull request's project.
@@ -253,6 +263,21 @@ export function BuilderView({
     if (!id) return;
     readAt.set(id, Date.now());
     if (withIssues) issuesRead.set(id, Date.now());
+    // Once the server shows what was asked, or a while after, it alone counts.
+    const now = Date.now();
+    setAsks((all) => {
+      const kept = Object.entries(all).filter(([mark, { ask, at }]) => {
+        if (now - at > ASK_HELD_MS) return false;
+        if (!mark.startsWith(`${id}:`)) return true;
+        const key = mark.slice(id.length + 1);
+        const row = next.tickets.find((item) => item.key === key);
+        // Never given to Yarrow: in To do, nothing on its way.
+        return !(row ? askSettled(row, ask) : ask === "unqueue");
+      });
+      return kept.length === Object.keys(all).length
+        ? all
+        : Object.fromEntries(kept);
+    });
     setStore((current) => ({
       ...current,
       [id]: withIssues
@@ -319,10 +344,13 @@ export function BuilderView({
     () =>
       (live ? mergeTickets(live.tickets, live.issues) : []).map((row) => {
         const since = merges[`${currentId}:${row.key}`];
-        return since ? mergingRow(row, since) : row;
+        if (since) return mergingRow(row, since);
+        const asked = asks[`${currentId}:${row.key}`];
+        return asked ? askedRow(row, asked.ask) : row;
       }),
-    [live, merges, currentId],
+    [live, merges, asks, currentId],
   );
+
   const busy =
     rows.some(moving) || meta.review.some(moving) || waiting !== null;
   const topics = [currentId ? `project:${currentId}` : null];
@@ -394,43 +422,13 @@ export function BuilderView({
       .map((key) => `${id}:${key}`)
       .find((item) => opened.includes(item));
     if (acted) following.current = acted;
-    const marked = new Set(keys);
-    // Show the change at once; the next poll brings the real state.
-    setStore((all) => {
-      const current = all[id]!;
-      return {
-        ...all,
-        [id]: {
-          ...current,
-          tickets: [
-            ...current.tickets.map((row) =>
-              marked.has(row.key)
-                ? {
-                    ...row,
-                    status:
-                      kind === "unqueue"
-                        ? ("none" as const)
-                        : ("queued" as const),
-                    pending: kind !== "retry",
-                    models: [],
-                  }
-                : row,
-            ),
-            ...rows
-              .filter(
-                (row) =>
-                  marked.has(row.key) &&
-                  !current.tickets.some((known) => known.key === row.key),
-              )
-              .map((row) => ({
-                ...row,
-                status: "queued" as const,
-                pending: true,
-              })),
-          ],
-        },
-      };
-    });
+    const marks = keys.map((key) => `${id}:${key}`);
+    const at = Date.now();
+    // Shown at once, and held until the server shows it too.
+    setAsks((all) => ({
+      ...all,
+      ...Object.fromEntries(marks.map((mark) => [mark, { ask: kind, at }])),
+    }));
     if (kind !== "unqueue") unfold("progress");
     else unfold("todo");
     for (const key of keys) setFresh(key);
@@ -442,6 +440,11 @@ export function BuilderView({
           data: { projectId: id, keys },
         });
     } catch {
+      setAsks((all) =>
+        Object.fromEntries(
+          Object.entries(all).filter(([mark]) => !marks.includes(mark)),
+        ),
+      );
       setError("That did not go through. Try again in a moment.");
     }
   };
