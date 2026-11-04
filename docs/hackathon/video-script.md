@@ -113,9 +113,9 @@ Create ticket. Sur dev, la review du même ticket avait relevé qu'une tâche aj
 
 > With Yarrow, we truly aim to give teams their confidence back. Agents can write the code, but you should still know exactly what you ship.
 >
-> So every ticket comes back with a demo, and someone to talk to about it.
+> AI solved the writing. The missing piece is everything around it: a clear ticket going in, and a review you can trust coming out.
 >
-> Agents write the code. Your team makes the call.
+> That's the piece Yarrow brings.
 >
 > That's Yarrow. Try it on yarrow.run.
 
