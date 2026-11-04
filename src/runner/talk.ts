@@ -226,7 +226,7 @@ export const talkBenchSchema = z.object({
   screen: z.boolean(),
   reset: z.string().max(200).optional(),
   /** The stage brought up, with no page to start it: where it stands comes back. */
-  open: z.boolean().optional(),
+  open: z.enum(["warm", "fresh"]).optional(),
 });
 export type TalkBench = z.infer<typeof talkBenchSchema>;
 

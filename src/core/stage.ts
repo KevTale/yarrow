@@ -254,6 +254,13 @@ export function restartSteps(
   return locks ? [STALE_LOCKS, ...kept] : kept;
 }
 
+/**
+ * A repository Yarrow never ran: its dependencies, for its tests to run on
+ * the stage. What fails leaves the repository to read.
+ */
+export const INSTALL_STEP =
+  "if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; elif [ -f package.json ]; then npm install; fi; if [ -f requirements.txt ]; then pip3 install --break-system-packages -r requirements.txt; fi; true";
+
 /** PostgreSQL's pid and socket locks, X's: from processes that are gone. */
 export const STALE_LOCKS =
   "find /tmp /var/run/postgresql /var/lib/postgresql -maxdepth 5 \\( -name postmaster.pid -o -name '.s.PGSQL.*' -o -name '.X*-lock' \\) -delete 2>/dev/null; true";

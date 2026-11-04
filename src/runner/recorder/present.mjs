@@ -1473,6 +1473,8 @@ const DESKTOP_EXTRAS = [
 const EDITOR_SERVER = "/opt/openvscode-server/bin/openvscode-server";
 const EDITOR_RELEASE = "openvscode-server-v1.109.5";
 const EDITOR_PORT = 7071;
+// What the stage keeps of what a film's command printed.
+const RAN_MAX = 6000;
 // A changed file's row in its list of what changed.
 const CHANGED_ROW = ".scm-view .monaco-list-row:has(.file-icon)";
 // A screen to read: large text, nothing that asks or floats over the code.
@@ -2369,8 +2371,17 @@ class Desktop {
       .catch(() => {});
     await sleep(800);
     this.editor = { context, page };
+    this.editor.warm = this.warmEditor().catch(() => {});
     if (front) this.raise(this.ids[front]);
     log("editor up in " + ((Date.now() - born) / 1000).toFixed(1) + " s");
+  }
+
+  /** The first file it opens takes it 9 s: that one now, behind the others. */
+  async warmEditor() {
+    const { page } = this.editor;
+    await page.keyboard.press("Control+Shift+g");
+    await page.locator(CHANGED_ROW).first().click({ timeout: 4000 });
+    await page.waitForSelector(".view-lines .view-line", { timeout: 20000 });
   }
 
   /** The whole screen, filmed until the end; chapters are cut from it later. */
@@ -2709,6 +2720,7 @@ class Desktop {
   /** A chapter in the editor: its gestures over its words. */
   async recordCode(chapter, index, state) {
     if (!this.editor) throw new Error("the editor is not open");
+    await this.editor.warm;
     const target = estimateMs(chapter.say);
     const problems = [];
     const marks = [];
@@ -3429,6 +3441,8 @@ class Desktop {
         output: this.terminalSince(from),
         status: done?.status ?? null,
       };
+    // On the stage its script under /tmp and its build are gone: it shows this.
+    chapter.ran = this.terminalSince(from).trim().slice(-RAN_MAX);
     await sleep(Math.max(target - clock(), 1800));
     film.pause();
     if (!before && !state.run) state.run = this.still();
@@ -3438,6 +3452,24 @@ class Desktop {
       problems,
       chapter: { url: chapter.command, urls: [], page: null, before, marks },
     };
+  }
+
+  /** A command as the film ran it, on the stage: what it printed, not run again. */
+  async replayTerminal(chapter) {
+    await this.show("terminal");
+    if (this.activeId() !== this.ids.terminal) this.raise(this.ids.terminal);
+    const file = path.join(this.dir, "ran.txt");
+    fs.writeFileSync(
+      file,
+      path.basename(this.cwd) +
+        " $ " +
+        chapter.ran.replace(/\n\S+ \$\s*$/, "") +
+        "\n",
+    );
+    this.x("xdotool", ["type", "--delay", "0", "clear; cat " + quote(file)]);
+    this.key("Return");
+    this.typed = true;
+    await sleep(300);
   }
 
   /** Ends the film and cuts each chapter out of it. */
@@ -3943,8 +3975,11 @@ class Presenter {
       if (chapter.tab === "terminal") {
         // Its command once, as the film ran it, only when it shows now.
         if (i === index && !going) {
-          const ran = await desktop.recordTerminal(chapter, null, 0);
-          problems.push(...ran.problems);
+          if (chapter.ran) await desktop.replayTerminal(chapter);
+          else {
+            const ran = await desktop.recordTerminal(chapter, null, 0);
+            problems.push(...ran.problems);
+          }
         }
         continue;
       }
@@ -4152,6 +4187,7 @@ class Presenter {
         problems: ["the editor is not open"],
         screen: await this.look(),
       };
+    await desktop.editor.warm;
     const problems = [];
     const marks = [];
     const started = Date.now();
@@ -4160,6 +4196,8 @@ class Presenter {
     desktop.brisk = true;
     for (const action of actions)
       try {
+        // It shows by selecting lines: a page's gesture has no aim here.
+        if (ONLY_SHOWS.has(action.do) && action.do !== "wait") continue;
         if (!CODE_ACTIONS.includes(action.do))
           throw new Error("in the editor: open, changes or wait");
         await desktop.act(desktop.editor.page, null, action, marks, clock);
@@ -4314,6 +4352,7 @@ class Presenter {
   async code(chapter, index, voiceMs, round) {
     const { desktop } = this;
     if (!desktop.editor) throw new Error("the editor is not open");
+    await desktop.editor.warm;
     const problems = [];
     const started = this.now();
     await desktop.show("code");
@@ -4719,6 +4758,7 @@ const liveOf = (chapter) => {
     cwd: chapter.cwd ?? null,
     before: chapter.before === true,
     document: doc && { file: doc.file, html: doc.html },
+    ran: chapter.ran ?? null,
   };
 };
 

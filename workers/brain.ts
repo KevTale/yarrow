@@ -163,6 +163,7 @@ import {
   SLIP,
   stageAddress,
   stagePlan,
+  INSTALL_STEP,
   stageSignIn,
   type StageCue,
   type StageCueResult,
@@ -1594,7 +1595,9 @@ async function talkRoute(
   if (bench?.open) {
     const spec = await stageSpec(env, grant.workUnitId);
     return Response.json(
-      typeof spec === "string" ? { error: spec } : await stage.open(spec),
+      typeof spec === "string"
+        ? { error: spec }
+        : await stage.open(spec, bench.open === "fresh"),
     );
   }
   // On dev, the page may ask for another brain, to try each by voice.
@@ -1710,9 +1713,12 @@ async function talkRoute(
           : null,
         say: (text) => void say(text),
       });
-      // No voice to time them on the bench: what is left of its gestures now.
-      if (bench)
+      // No voice to time them on the bench: what is left of its gestures
+      // now, the last of them still on its way.
+      if (bench) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
         await stage.present({ action: "beat", n: null }).catch(() => null);
+      }
       // In the conversation's thread before the turn ends: the page reads
       // it back as soon as the voice is done. The bench's turns stay out.
       const body = [answer.words, answer.written].filter(Boolean).join("\n\n");
@@ -2057,7 +2063,7 @@ async function stageSpec(
     repository: context.repository,
     branch: context.branch,
     token,
-    steps: recipe?.steps ?? [],
+    steps: recipe?.steps ?? [INSTALL_STEP],
     restart: restartSteps(recipe?.steps ?? []),
     ...(recipe ? stageAddress(recipe.url) : { url: null, path: "/" }),
     signIn: stageSignIn(recipe?.signIn ?? null),

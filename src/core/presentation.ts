@@ -92,6 +92,8 @@ export const liveChapterSchema = z.object({
     .object({ file: z.string().max(500), html: z.string().max(400_000) })
     .nullable()
     .default(null),
+  /** What its command printed on the film: none before 2026-11-02. */
+  ran: z.string().max(8000).nullable().default(null),
 });
 export type LiveChapter = z.infer<typeof liveChapterSchema>;
 

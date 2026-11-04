@@ -4,7 +4,7 @@
  * (src/runner/talk-models.ts), timed and checked.
  *
  *   pnpm bench:talk [variant…] [--runs 3] [--questions plain,code] [--call <work unit>]
- *   pnpm bench:talk open [--call <work unit>]
+ *   pnpm bench:talk open [--call <work unit>] [--fresh 1]
  *   pnpm bench:talk list
  *
  * The stage must be up (open brings it up). Each turn reaches the brain as
@@ -246,7 +246,11 @@ if (named[0] === "open") {
       body: JSON.stringify({
         messages: [{ role: "user", content: "open" }],
         elevenlabs_extra_body: { yarrow: grant },
-        yarrow_bench: { ...VARIANTS.spark!, open: true },
+        yarrow_bench: {
+          ...VARIANTS.spark!,
+          // Asked fresh once: it would start over at each look.
+          open: options.has("--fresh") && tries === 0 ? "fresh" : "warm",
+        },
       }),
     });
     const status = (await response.json()) as {
