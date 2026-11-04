@@ -12,6 +12,7 @@ import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
 import { Spinner } from "@/components/navigation-feedback";
 import {
   BoardMoves,
+  Imported,
   TrackerConnection,
   type ProjectSetup,
 } from "@/components/project-connections";
@@ -229,7 +230,7 @@ function Tickets({ setup }: { setup: ProjectSetup }) {
   const { project, trackersAvailable } = setup;
   return (
     <>
-      <h1>Import your tickets</h1>
+      <h1>Where do your tickets live?</h1>
       <div className="st-cards">
         <div className="st-card">
           <span className="st-icon" aria-hidden="true">
@@ -239,7 +240,7 @@ function Tickets({ setup }: { setup: ProjectSetup }) {
             <strong>GitHub Issues</strong>
             <span className="mono muted">{project.repository}</span>
           </span>
-          <span className="st-state on">Connected</span>
+          <Imported />
         </div>
         {trackersAvailable.jira && (
           <TrackerConnection data={setup} tracker="jira" setup />
@@ -297,7 +298,7 @@ function Board({ setup }: { setup: ProjectSetup }) {
 function Finish({ projectId }: { projectId: string }) {
   return (
     <Link className="go" to="/dashboard" search={{ project: projectId }}>
-      Open your tickets
+      Continue
       <i>
         <ArrowRight size={14} strokeWidth={2.2} />
       </i>

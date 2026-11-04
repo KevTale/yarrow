@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronRight, Github, Play, X } from "lucide-react";
+import { Github, Play, X } from "lucide-react";
 import { createContext, useLayoutEffect, useRef, useState } from "react";
 import { MorphSelect } from "@/components/arc/morph-select/morph-select";
 import { TrackerIcon } from "@/components/brand-icons";
@@ -87,7 +87,6 @@ export function ticketDestination(projectId: string, boards: Board[]): string {
  */
 export function NewTicket({
   projectId,
-  projectName,
   boards,
   start,
   drafts,
@@ -95,7 +94,6 @@ export function NewTicket({
   onClose,
 }: {
   projectId: string;
-  projectName: string;
   boards: Board[];
   /** Opened from In progress: starting is what the builder came for. */
   start: boolean;
@@ -249,8 +247,16 @@ export function NewTicket({
           void submit(start);
         }}
       >
-        <div className="nt-head">
-          {tracked.length > 0 ? (
+        <button
+          type="button"
+          className="tix-icon-btn nt-close"
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <X size={16} />
+        </button>
+        {tracked.length > 0 && (
+          <div className="nt-head">
             <MorphSelect
               label="Create in"
               hideLabel
@@ -271,22 +277,8 @@ export function NewTicket({
                 })),
               ]}
             />
-          ) : (
-            <span className="nt-where">
-              <Github size={14} /> GitHub
-            </span>
-          )}
-          <ChevronRight size={13} className="nt-sep" aria-hidden="true" />
-          <span className="nt-crumb">{projectName}</span>
-          <button
-            type="button"
-            className="tix-icon-btn nt-close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
-        </div>
+          </div>
+        )}
         <input
           ref={titleField}
           className="nt-title"
@@ -314,11 +306,6 @@ export function NewTicket({
         <TicketTalk
           projectId={projectId}
           form={draft}
-          go={{
-            label: start ? "Start the ticket" : "Create the ticket",
-            busy: pending !== null,
-            onGo: () => void submit(start),
-          }}
           focused={!written}
           onBegun={() => setTalked(true)}
           onWrite={edit}

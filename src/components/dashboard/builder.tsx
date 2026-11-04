@@ -772,7 +772,6 @@ export function BuilderView({
         {composing && composeIn && (
           <NewTicket
             projectId={composeIn.id}
-            projectName={composeIn.name}
             boards={composeIn.boards}
             start={composing.start}
             drafts={composing.drafts}

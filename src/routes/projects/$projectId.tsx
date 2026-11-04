@@ -119,9 +119,7 @@ function Connections({ data }: { data: ProjectSetup }) {
             <strong>GitHub</strong>
             <span className="mono muted">{project.repository}</span>
           </span>
-          <span className={`st-state ${linked ? "on" : "off"}`}>
-            {linked ? "Connected" : "Not connected"}
-          </span>
+          {linked && <span className="st-state on">Connected</span>}
           <a
             className={`bd-btn ${linked ? "bd-btn-line" : "bd-btn-amber"}`}
             href={data.githubInstallUrl}

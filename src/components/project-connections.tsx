@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Ban,
+  Check,
   ExternalLink,
   GitMerge,
   GitPullRequest,
@@ -54,10 +55,20 @@ const trackerCopy = {
   },
 };
 
+/** The setup's word for tickets that come in: its rows have no other state. */
+export function Imported() {
+  return (
+    <span className="st-imported">
+      <Check size={14} aria-hidden="true" />
+      Imported
+    </span>
+  );
+}
+
 /**
- * Jira, Linear or Trello: Connect opens the tracker's consent; once
- * connected, the Jira projects, Linear teams or Trello boards whose tickets
- * this repository takes are chosen here and saved at once.
+ * Jira, Linear or Trello: Connect, Import in the setup, opens the tracker's
+ * consent; once connected, the Jira projects, Linear teams or Trello boards
+ * whose tickets this repository takes are chosen here and saved at once.
  */
 export function TrackerConnection({
   data,
@@ -152,31 +163,42 @@ export function TrackerConnection({
               Access removed in {copy.owner} · {connection!.name}
             </span>
           ) : (
-            <span className="muted">{copy.boards}</span>
+            !setup && <span className="muted">{copy.boards}</span>
           )}
         </span>
-        <span
-          className={`st-state ${connected ? "on" : revoked ? "warn" : "off"}`}
-        >
-          {connected ? "Connected" : revoked ? "Disconnected" : "Not connected"}
-        </span>
+        {revoked ? (
+          <span className="st-state warn">Disconnected</span>
+        ) : setup ? (
+          boards.length > 0 && <Imported />
+        ) : (
+          connected && <span className="st-state on">Connected</span>
+        )}
         {connected && connection!.webhookRefused ? (
           // An older consent, without webhooks: a new one adds them.
           <a className="bd-btn bd-btn-amber" href={connect}>
             Reconnect
           </a>
         ) : connected ? (
-          <a
-            className="bd-btn bd-btn-line"
-            href={copy.manage}
-            target="_blank"
-            rel="noopener"
-          >
-            Manage <ExternalLink size={13} />
+          !setup && (
+            <a
+              className="bd-btn bd-btn-line"
+              href={copy.manage}
+              target="_blank"
+              rel="noopener"
+            >
+              Manage <ExternalLink size={13} />
+            </a>
+          )
+        ) : revoked ? (
+          <a className="bd-btn bd-btn-amber" href={connect}>
+            Reconnect
           </a>
         ) : (
-          <a className="bd-btn bd-btn-amber" href={connect}>
-            {revoked ? "Reconnect" : "Connect"}
+          <a
+            className={`bd-btn ${setup ? "bd-btn-line" : "bd-btn-amber"}`}
+            href={connect}
+          >
+            {setup ? "Import" : "Connect"}
           </a>
         )}
       </div>
