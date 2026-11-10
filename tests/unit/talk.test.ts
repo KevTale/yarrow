@@ -952,6 +952,7 @@ describe("the ElevenLabs agent", () => {
       },
     });
     expect(config.conversation_config.turn.silence_end_call_timeout).toBe(-1);
+    expect(config.conversation_config.asr.provider).toBe("scribe_v3_live");
   });
 
   it("starts a call with a token the brain asks for", async () => {

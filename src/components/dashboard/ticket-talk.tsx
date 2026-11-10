@@ -246,7 +246,7 @@ export function TicketTalk({
   ) {
     const words = eleven.Scribe.connect({
       token,
-      modelId: "scribe_v2_realtime",
+      modelId: "scribe_v3_live",
       commitStrategy: eleven.CommitStrategy.VAD,
       vadSilenceThresholdSecs: 0.5,
       languageCode: language,

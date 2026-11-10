@@ -85,6 +85,8 @@ export function talkAgentConfig(input: {
           cascade_timeout_seconds: 15,
         },
       },
+      // Scribe v3 Live: tells a pause mid-sentence from the end of a turn.
+      asr: { provider: "scribe_v3_live" },
       tts: {
         model_id: "eleven_v4_turbo",
         voice_id: input.voiceId || DEFAULT_ELEVENLABS_VOICE,
