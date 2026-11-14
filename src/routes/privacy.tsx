@@ -55,8 +55,8 @@ function Privacy() {
       <p>
         Cloudflare (hosting, containers and demo storage), Supabase (database
         and sign-in, servers in Ireland), GitHub (repositories and sign-in),
-        Atlassian (Jira and Trello), Linear, Resend (emails), Meta, Anthropic
-        and OpenAI (the AI models, through their commercial APIs) and ElevenLabs
+        Atlassian (Jira and Trello), Linear, Resend (emails), Anthropic and
+        OpenAI (the AI models, through their commercial APIs) and ElevenLabs
         (voice). Some are based outside the EU; transfers rely on the EU-US Data
         Privacy Framework or the European Commission’s standard contractual
         clauses. We do not sell your data.

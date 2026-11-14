@@ -1097,7 +1097,7 @@ export function useLiveStage({
               ...(greeting ? { firstMessage: greeting } : {}),
             },
           },
-          // ?brain=spark&screen=1: another brain, heeded on dev only.
+          // ?brain=haiku&screen=1: another brain, heeded on dev only.
           customLlmExtraBody: { yarrow: given.grant, brain: brainAsked() },
           clientTools: {
             resume_presentation: (parameters: { chapter?: unknown }) => {

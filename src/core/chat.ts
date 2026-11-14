@@ -88,13 +88,6 @@ const RATES: Record<
     cacheRead: 0.01,
     cacheWrite: 0.125,
   },
-  "muse-wonder-1.0": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 4 },
-  "muse-spark-1.3": {
-    input: 1.25,
-    output: 4.25,
-    cacheRead: 0.15,
-    cacheWrite: 1.25,
-  },
 };
 
 /** What an answer cost Yarrow, in cents (fractions kept: most cost under one). */

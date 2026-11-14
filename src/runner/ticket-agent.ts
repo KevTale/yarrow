@@ -127,7 +127,6 @@ export interface TicketAnswer {
 /** The agent's answer to the member's turn, its words given to `say`. */
 export async function ticketTurn(input: {
   client: Anthropic;
-  meta?: string;
   model?: TalkModelName;
   project: ChatContext["project"];
   /** The project's tickets, one a line. */
@@ -180,7 +179,7 @@ export async function ticketTurn(input: {
     let wrote = false;
     const response = await talkStep({
       model,
-      clients: { anthropic: client, meta: input.meta },
+      client,
       system,
       tools: TOOLS,
       messages,
@@ -198,7 +197,7 @@ export async function ticketTurn(input: {
       },
     });
     steps.push({
-      what: TALK_MODELS[model].provider === "meta" ? "muse" : "claude",
+      what: "claude",
       ms: Date.now() - asked,
     });
     usage = addUsage(usage, response.usage);

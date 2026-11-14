@@ -759,60 +759,6 @@ describe("what the agent knows the page shows", () => {
 });
 
 describe("the agent that answers", () => {
-  it("answers through Muse when it is given, with the same tools", async () => {
-    const { client, requests } = claude(() => ({}));
-    const steps = [
-      {
-        delta: {
-          tool_calls: [
-            {
-              index: 0,
-              id: "c1",
-              function: {
-                name: "read_file",
-                arguments: '{"path":"src/app.js"}',
-              },
-            },
-          ],
-        },
-        finish_reason: "tool_calls",
-      },
-      { delta: { content: "Two constants." }, finish_reason: "stop" },
-    ];
-    const asked: Record<string, unknown>[] = [];
-    const meta = (async (_url: string, init: RequestInit) => {
-      asked.push(JSON.parse(String(init.body)) as Record<string, unknown>);
-      const chunk = {
-        choices: [steps.shift()],
-        usage: { prompt_tokens: 100, completion_tokens: 20 },
-      };
-      return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
-    }) as typeof fetch;
-    const from = sources();
-    const answer = await answerQuestion({
-      client,
-      muse: { model: "spark", key: "test", fetch: meta },
-      context,
-      sources: from,
-      presentation: null,
-    });
-    expect(answer.body).toBe("Two constants.");
-    expect(from.reads).toEqual(["src/app.js@yarrow/3"]);
-    expect(requests).toHaveLength(0);
-    expect(asked).toHaveLength(2);
-    expect(asked[0]).toMatchObject({
-      model: "muse-spark-1.3",
-      reasoning_effort: "low",
-      max_completion_tokens: 16000,
-      tool_choice: "auto",
-    });
-    expect(answer.usage).toMatchObject({
-      model: "muse-spark-1.3",
-      input: 200,
-      output: 40,
-    });
-  });
-
   it("reads the code at the branch, proposes the change, then answers", async () => {
     const { client, requests } = claude((body) => {
       const turns = (body.messages as unknown[]).length;

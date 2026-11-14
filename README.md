@@ -28,13 +28,15 @@ Yarrow helps you shape an idea into a clear ticket. Once agents have built it, i
 
 ## What it does
 
-1. **Write the ticket with an agent.** Muse Spark, in writing or on a call. It reads the repository and the project's tickets, says what already exists and asks what it cannot find out alone. Tickets can also come from GitHub Issues or Jira.
-2. **Agents build it.** Muse Wonder implements and Claude Opus reviews its code: never the lab that wrote it. The outcome is a draft pull request, or a stated reason for stopping.
+1. **Write the ticket with an agent.** In writing or on a call. It reads the repository and the project's tickets, says what already exists and asks what it cannot find out alone. Tickets can also come from GitHub Issues or Jira.
+2. **Agents build it.** Claude Opus implements and GPT Astra reviews its code: never the lab that wrote it. The outcome is a draft pull request, or a stated reason for stopping.
 3. **Watch the demo.** Every pull request comes with a narrated demo recorded on a real desktop: the app running, the code in a real VS Code, the commands in a terminal. It goes from the context to the change to the proof.
-4. **Ask anything.** Speak or type and the demo stops. Muse Spark answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
+4. **Ask anything.** Speak or type and the demo stops. The agent answers aloud on a live desktop running the branch, where it can click through the app, open files and run the tests in front of you.
 5. **Merge, or ask for a change.** From Yarrow, or by commenting `@yarrow-run` on the pull request.
 
 ## Meta hackathon
+
+Yarrow was submitted to the Meta hackathon (October 26 to November 4, 2026) with Muse Wonder implementing and Muse Spark talking. The tag `meta-hackathon` is the code as submitted. Since November 14, 2026 Claude does both.
 
 Built before the Hackathon:
 
@@ -59,32 +61,31 @@ Built during the Hackathon:
 ```mermaid
 flowchart LR
   TR["GitHub Issues<br/>Jira"] -->|tickets| WEB
-  NEW["New ticket<br/>written with Muse Spark"] --> WEB
+  NEW["New ticket<br/>written with an agent"] --> WEB
   WEB["Web Worker<br/>dashboard, webhooks"] --> DB[("Postgres")]
   CRON["Brain<br/>cron, every minute"] -->|picks the next tickets| DB
   CRON --> RUN["Durable Workflow<br/>one per run"]
-  RUN -->|implements| IMPL["Muse Wonder<br/>Yarrow's container"]
-  RUN -->|reviews the code| REV["Claude Opus<br/>Managed Agents"]
+  RUN -->|implements| IMPL["Claude Opus<br/>Managed Agents"]
+  RUN -->|reviews the code| REV["GPT Astra<br/>OpenAI Agents API"]
   RUN -->|stores the demo| R2[("R2")]
   RUN -->|draft pull request| GH["GitHub App"]
   WEB -->|live call| STAGE["Stage<br/>the branch on a live desktop"]
-  STAGE <--> TALK["Muse Spark<br/>ElevenLabs voice"]
+  STAGE <--> TALK["Claude<br/>ElevenLabs voice"]
   NEW <--> TALK
 ```
 
 The brain runs every minute. Tickets start first in, first out within an account and round-robin between accounts, and each run is one durable Workflow. Tracker tickets are synced every five minutes.
 
-Two of Meta's models do the work you see: Muse Wonder writes the code, Muse Spark talks with you. Claude Opus only reviews Muse Wonder's code before the pull request opens, so a run is never reviewed by the lab that wrote it.
+Claude writes the code and talks with you. GPT Astra reviews the code before the pull request opens, so a run is never reviewed by the lab that wrote it.
 
-| Work                                                     | Model                                     | Where it runs                                     |
-| -------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------- |
-| Writing a ticket: New ticket, in writing or on a call    | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
-| Implementation                                           | Muse Wonder                               | Yarrow's own container, with no API key inside it |
-| Code review, before the pull request opens               | Claude Opus                               | Claude Managed Agents                             |
-| Reviewing a ticket: questions on the demo, chat and call | Muse Spark                                | Meta's API, with ElevenLabs for the voice         |
-| Projects with secrets                                    | Claude Opus implements, GPT Astra reviews | Claude Managed Agents and the OpenAI Agents API   |
+| Work                                                     | Model         | Where it runs                               |
+| -------------------------------------------------------- | ------------- | ------------------------------------------- |
+| Writing a ticket: New ticket, in writing or on a call    | Claude Sonnet | Claude's API, with ElevenLabs for the voice |
+| Implementation                                           | Claude Opus   | Claude Managed Agents                       |
+| Code review, before the pull request opens               | GPT Astra     | The OpenAI Agents API                       |
+| Reviewing a ticket: questions on the demo, chat and call | Claude        | Claude's API, with ElevenLabs for the voice |
 
-Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`, `TALK_MODEL`, `OPENAI_REVIEW_MODEL` in `workers/wrangler.jsonc`).
+Models are server-side configuration (`TALK_MODEL`, `OPENAI_REVIEW_MODEL` in `workers/wrangler.jsonc`).
 
 ## Project structure
 
@@ -97,7 +98,7 @@ Models are server-side configuration (`IMPLEMENTER`, `META_MODEL`, `META_EFFORT`
 | `src/server/`         | Auth, the GitHub App, Jira, Linear and Trello                                          |
 | `src/runner/`         | Agent clients, prompts, the recorder behind the demos, the voice                       |
 | `workers/brain.ts`    | Cron dispatcher and the per-run Workflow                                               |
-| `workers/muse.ts`     | The container Muse Wonder works in (`workers/muse/Dockerfile`)                         |
+| `workers/muse.ts`     | The container Muse Wonder worked in (`workers/muse/Dockerfile`); no new run uses it    |
 | `workers/stage.ts`    | The live desktop behind a call, on the same image                                      |
 | `workers/admin.ts`    | Internal admin behind Cloudflare Access. It holds no secret and goes through the brain |
 | `bench/`              | Live test bench: six small apps and the tickets Yarrow must solve on them              |
@@ -133,7 +134,7 @@ cp .env.example .env
 3. Apply the migrations with `pnpm db:migrate`, which reads `DATABASE_URL` from your shell or from `.env`.
 4. Run `pnpm dev` for the web app and `pnpm brain:dev` for the brain.
 
-Muse Wonder and the live stage run in Cloudflare Containers, on a deployed environment only. A brain running locally implements with Claude.
+The live stage runs in Cloudflare Containers, on a deployed environment only.
 
 ## Configuration
 
@@ -145,10 +146,9 @@ Secrets of the web Worker go in `.dev.vars`, those of the brain in `workers/.dev
 | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                   | web, brain | The GitHub App                                       |
 | `GITHUB_APP_WEBHOOK_SECRET`                                 | web        | Verifying GitHub webhooks                            |
 | `TOKEN_ENCRYPTION_KEY`                                      | web, brain | Encrypting tracker tokens, 32 random bytes in base64 |
-| `META_API_KEY`                                              | brain      | Muse Wonder and Muse Spark                           |
-| `ANTHROPIC_API_KEY`                                         | web, brain | Reviews, projects with secrets, their vaults         |
+| `ANTHROPIC_API_KEY`                                         | web, brain | Implementation, the agent's answers, the vaults      |
 | `ANTHROPIC_AGENT_ID`, `ANTHROPIC_ENVIRONMENT_ID`            | brain      | Printed by `pnpm bootstrap:anthropic`                |
-| `OPENAI_API_KEY`                                            | brain      | Reviews on projects with secrets                     |
+| `OPENAI_API_KEY`                                            | brain      | Code reviews                                         |
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `VOICE_SECRET` | brain      | Live calls, set up by `pnpm voice:agent`             |
 | `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET`                      | web, brain | Jira OAuth                                           |
 | `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`                  | web, brain | Linear OAuth                                         |
@@ -216,7 +216,7 @@ pnpm exec wrangler secret put NAME --config workers/wrangler.jsonc --env dev # b
    - Events: Installation, Installation repositories, Issues, Issue comment, Pull request, Repository.
    - Webhook: `<APP_URL>/api/webhooks/github`.
    - Callback URL: `https://<supabase-ref>.supabase.co/auth/v1/callback`. Setup URL: `<APP_URL>/connect/done`, with "Redirect on update" on.
-4. **Providers.** Use platform API keys from Meta, Anthropic and OpenAI, never a consumer subscription. `pnpm bootstrap:anthropic` creates the Claude agent and its environment. Turn on automatic top-up with a monthly limit on each console: when an account runs dry, tickets wait in the queue and the brain sends an alert through Resend.
+4. **Providers.** Use platform API keys from Anthropic and OpenAI, never a consumer subscription. `pnpm bootstrap:anthropic` creates the Claude agent and its environment. Turn on automatic top-up with a monthly limit on each console: when an account runs dry, tickets wait in the queue and the brain sends an alert through Resend.
 5. **Voice.** With `ELEVENLABS_API_KEY` set, `pnpm voice:agent` creates or updates the ElevenLabs agent and sets its secrets on the brain. It also needs `CLOUDFLARE_API_TOKEN`.
 6. **Trackers** (optional).
    - Jira: create an OAuth 2.0 integration on [developer.atlassian.com](https://developer.atlassian.com/console/myapps/) with the `read:jira-work` and `write:jira-work` scopes, the callback `<APP_URL>/integrations/jira/callback`, and sharing turned on.

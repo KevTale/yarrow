@@ -49,7 +49,7 @@ interface WrittenTicket extends SampleTicket {
   asks: string;
 }
 
-const crew: Crew = { implementer: "Muse Wonder", reviewer: "Claude Opus" };
+const crew: Crew = { implementer: "Claude Opus", reviewer: "GPT Astra" };
 
 /** Where a ticket of the first list stands. */
 type ListStage = Extract<TicketStage, "todo" | "review" | "progress" | "done">;

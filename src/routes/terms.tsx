@@ -20,11 +20,11 @@ function Terms() {
         Yarrow takes a ticket from the idea to the pull request. You write the
         ticket with an agent, in writing or on a voice call, or bring it from
         GitHub Issues, Jira, Linear or Trello. Once you start it, AI models from
-        Meta, Anthropic and OpenAI, used through their commercial APIs,
-        implement and review the change in an isolated container. The outcome is
-        a draft pull request with a narrated demo, or the reason they stopped.
-        You can then ask the agent about the change, by text or voice, while it
-        shows you the app running that branch on a live desktop.
+        Anthropic and OpenAI, used through their commercial APIs, implement and
+        review the change in an isolated container. The outcome is a draft pull
+        request with a narrated demo, or the reason they stopped. You can then
+        ask the agent about the change, by text or voice, while it shows you the
+        app running that branch on a live desktop.
       </p>
 
       <h2>2. Accounts</h2>

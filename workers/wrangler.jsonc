@@ -65,12 +65,11 @@
         "ADMIN_URL": "https://admin-dev.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
-        // Who implements new runs: "meta" (Muse Code + Muse Wonder in the
-        // MUSE containers below, META_API_KEY secret) or "claude", the
-        // default. Claude also takes over without the key.
-        "IMPLEMENTER": "meta",
-        "META_MODEL": "muse-wonder-1.0",
-        "META_EFFORT": "high",
+        // Claude implements every new run since 2026-11-14 (Managed Agents).
+        // The MUSE containers below only finish the runs Muse Wonder
+        // started; they become the home of the member's own Claude Code
+        // (docs/mvp/BUILD.md).
+        "IMPLEMENTER": "claude",
         // Who talks: the chat, the live call and the new ticket's agent
         // (src/runner/talk-models.ts). The bench's turns may choose
         // (pnpm bench:talk).
@@ -138,10 +137,8 @@
         "ADMIN_URL": "https://admin.yarrow.run",
         // Out-of-credit alerts, sent through Resend when RESEND_API_KEY is set.
         "ALERT_EMAIL": "kevin.taleb.dehkordi@gmail.com",
-        // As on dev; without the META_API_KEY secret, Claude does it all.
-        "IMPLEMENTER": "meta",
-        "META_MODEL": "muse-wonder-1.0",
-        "META_EFFORT": "high",
+        // As on dev: Claude implements every new run.
+        "IMPLEMENTER": "claude",
         "TALK_MODEL": "sonnet",
         // Pull requests' previews: <work unit id>.yarrow.page (src/core/preview.ts).
         "PREVIEW_SUFFIX": ".yarrow.page",

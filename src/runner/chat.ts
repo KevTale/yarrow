@@ -23,12 +23,7 @@ import {
   stageNote,
   type StageHands,
 } from "./stage-tools";
-import {
-  TALK_MODELS,
-  talkStep,
-  type TalkModelName,
-  type TalkStep,
-} from "./talk-models";
+import type { TalkStep } from "./talk-models";
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type Tool = Anthropic.Beta.BetaTool;
@@ -627,8 +622,6 @@ export interface ChatToolResult {
  */
 export async function answerQuestion(input: {
   client: Anthropic;
-  /** Muse answers when it is given, else Claude. */
-  muse?: { model: TalkModelName; key: string; fetch?: typeof fetch } | null;
   context: ChatContext;
   sources: ChatSources;
   presentation: Presentation | null;
@@ -640,7 +633,7 @@ export async function answerQuestion(input: {
     show?: () => Promise<void>;
   } | null;
 }): Promise<ChatAnswer> {
-  const { client, muse, context, sources, stage } = input;
+  const { client, context, sources, stage } = input;
   const diff =
     sources.reader && context.pullRequest
       ? await sources.reader
@@ -681,18 +674,6 @@ export async function answerQuestion(input: {
   const ask = async (
     last: boolean,
   ): Promise<TalkStep & { refused?: boolean }> => {
-    if (muse)
-      return talkStep({
-        model: muse.model,
-        clients: { anthropic: client, meta: muse.key, fetch: muse.fetch },
-        system,
-        tools,
-        messages,
-        last,
-        maxTokens: 16000,
-        effort: CHAT_EFFORT,
-        onText: () => undefined,
-      });
     const response = await client.beta.messages.create({
       model: CHAT_MODEL,
       max_tokens: 16000,
@@ -718,7 +699,7 @@ export async function answerQuestion(input: {
     };
   };
   let usage: ChatUsage = {
-    model: muse ? TALK_MODELS[muse.model].id : CHAT_MODEL,
+    model: CHAT_MODEL,
     input: 0,
     output: 0,
     cacheRead: 0,

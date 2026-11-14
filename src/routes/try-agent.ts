@@ -51,9 +51,7 @@ export const Route = createFileRoute("/try-agent")({
             try {
               await talkStep({
                 model: "haiku",
-                clients: {
-                  anthropic: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
-                },
+                client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
                 maxTokens: turn.data.kind === "ticket" ? 500 : 300,
                 system: [{ type: "text", text: tryInstructions(turn.data) }],
                 tools: [],

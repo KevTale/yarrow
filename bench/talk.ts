@@ -34,8 +34,6 @@ const VARIANTS: Record<string, Omit<TalkBench, "reset">> = {
   "opus-fast": { model: "opus-fast", screen: true },
   sonnet: { model: "sonnet", screen: true },
   haiku: { model: "haiku", screen: true },
-  wonder: { model: "wonder", screen: true },
-  spark: { model: "spark", screen: true },
 };
 
 interface Turn {
@@ -247,7 +245,7 @@ if (named[0] === "open") {
         messages: [{ role: "user", content: "open" }],
         elevenlabs_extra_body: { yarrow: grant },
         yarrow_bench: {
-          ...VARIANTS.spark!,
+          ...VARIANTS.sonnet!,
           // Asked fresh once: it would start over at each look.
           open: options.has("--fresh") && tries === 0 ? "fresh" : "warm",
         },
@@ -321,10 +319,7 @@ for (const variant of variants) {
   const mine = results.filter((result) => result.variant === variant);
   const turns = mine.flatMap((result) => (result.turn ? [result.turn] : []));
   const rounds = turns.map(
-    (turn) =>
-      turn.steps.filter(
-        (step) => step.what === "claude" || step.what === "muse",
-      ).length,
+    (turn) => turn.steps.filter((step) => step.what === "claude").length,
   );
   const cents =
     turns.reduce((sum, turn) => sum + turn.cents, 0) /

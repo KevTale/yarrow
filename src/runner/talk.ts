@@ -244,7 +244,7 @@ export function talkGrantOf(request: TalkRequest): string | null {
 
 /**
  * Dev only (TALK_BENCH): who answers this call, as the stage's page asks
- * (?brain=spark&screen=1), to try each by voice.
+ * (?brain=haiku&screen=1), to try each by voice.
  */
 export function talkBrainOf(request: TalkRequest): {
   model?: TalkModelName;
@@ -401,8 +401,6 @@ export interface TalkAnswer {
  */
 export async function talkTurn(input: {
   client: Anthropic;
-  /** Meta's key, when Muse answers. */
-  meta?: string;
   model?: TalkModelName;
   context: TalkContext;
   messages: Anthropic.Beta.BetaMessageParam[];
@@ -497,7 +495,7 @@ export async function talkTurn(input: {
     wrote = false;
     const response = await talkStep({
       model,
-      clients: { anthropic: client, meta: input.meta },
+      client,
       system,
       tools: talkTools(stage !== null, context.video),
       messages,
@@ -513,7 +511,7 @@ export async function talkTurn(input: {
       },
     });
     steps.push({
-      what: TALK_MODELS[model].provider === "meta" ? "muse" : "claude",
+      what: "claude",
       ms: Date.now() - asked,
     });
     usage = addUsage(usage, response.usage);

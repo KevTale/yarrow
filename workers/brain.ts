@@ -129,11 +129,7 @@ import {
   type TalkContext,
   type TalkRequest,
 } from "../src/runner/talk";
-import {
-  isTalkModel,
-  TALK_MODELS,
-  type TalkModelName,
-} from "../src/runner/talk-models";
+import { isTalkModel, type TalkModelName } from "../src/runner/talk-models";
 import {
   conversationToken,
   transcriptionToken,
@@ -322,14 +318,9 @@ function pipeline(env: BrainEnv, db: Database): RunPipeline {
   });
 }
 
-/** Who talks for Yarrow: chat, call, new ticket. Muse only with Meta's key. */
+/** Who talks for Yarrow: the live call and the new ticket's agent. */
 function talkModelOf(env: BrainEnv): TalkModelName {
-  const model = isTalkModel(env.TALK_MODEL)
-    ? env.TALK_MODEL
-    : DEFAULT_TALK_MODEL;
-  return TALK_MODELS[model].provider === "meta" && !env.META_API_KEY
-    ? DEFAULT_TALK_MODEL
-    : model;
+  return isTalkModel(env.TALK_MODEL) ? env.TALK_MODEL : DEFAULT_TALK_MODEL;
 }
 
 type SessionState = "working" | "done" | "failed";
@@ -922,13 +913,8 @@ async function answerChat(
             .catch(() => null)
         : null,
     ]);
-    const model = talkModelOf(env);
     return answerQuestion({
       client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
-      muse:
-        TALK_MODELS[model].provider === "meta"
-          ? { model, key: env.META_API_KEY! }
-          : null,
       context,
       presentation,
       sources: {
@@ -1740,7 +1726,6 @@ async function talkRoute(
       const projectId = context.project.id;
       const answer = await talkTurn({
         client: new Anthropic({ apiKey }),
-        meta: env.META_API_KEY,
         model,
         context,
         messages,
@@ -1910,7 +1895,6 @@ async function ticketAgentTurn(
   };
   const answer = await ticketTurn({
     client: new Anthropic({ apiKey }),
-    meta: env.META_API_KEY,
     model: talkModelOf(env),
     project,
     tickets: await listTickets(sources),

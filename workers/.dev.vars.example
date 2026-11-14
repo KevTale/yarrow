@@ -5,8 +5,6 @@
 DATABASE_URL=
 
 # Platform API keys, never subscriptions.
-# Muse Wonder implements, Muse Spark talks.
-META_API_KEY=
 ANTHROPIC_API_KEY=
 # Printed by `pnpm bootstrap:anthropic`.
 ANTHROPIC_AGENT_ID=
